@@ -17,6 +17,7 @@ import {
   IconTrash,
   IconUser,
   IconUsers,
+  IconUsersMinus,
   IconWallet,
   IconX,
 } from "@tabler/icons-react";
@@ -24,13 +25,13 @@ import * as htmlToImage from "html-to-image";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type Item = { name: string; qty: number; price: number };
+type Person = { id: string; name: string };
+type Item = { name: string; qty: number; price: number; excludes: string[] };
 
 type BillData = {
   title: string;
   tag: string;
   date: string;
-  participants: number;
   splitType: string;
   payer: string;
   accountNumber: string;
@@ -38,24 +39,42 @@ type BillData = {
   qrImage: string | null;
   brands: string[];
   footer: string;
+  people: Person[];
   items: Item[];
 };
 
-const BANK_OPTIONS = ["MOMO", "Vietinbank", "VietQR", "napas247", "Vietcombank", "Techcombank"];
+const BANK_OPTIONS = ["MOMO"];
 
-const EMPTY: BillData = {
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+const DEFAULT_PEOPLE: Person[] = [
+  { id: uid(), name: "G.Đại" },
+  { id: uid(), name: "H.Đại" },
+  { id: uid(), name: "Luân" },
+  { id: uid(), name: "Hậu" },
+  { id: uid(), name: "Khanh" },
+  { id: uid(), name: "Ánh" },
+  { id: uid(), name: "Duy" },
+  { id: uid(), name: "Tâm" },
+];
+
+const DEFAULT_DATA: BillData = {
   title: "HÓA ĐƠN THANH TOÁN",
-  tag: "CHI PHÍ",
+  tag: "CHI PHÍ CẦU LÔNG",
   date: new Date().toISOString().slice(0, 10),
-  participants: 1,
   splitType: "Chia đều",
-  payer: "",
-  accountNumber: "",
+  payer: "NGUYỄN HOÀNG GIA ĐẠI",
+  accountNumber: "0123456166",
   qrText: "",
-  qrImage: null,
-  brands: ["MOMO"],
-  footer: "",
-  items: [{ name: "", qty: 1, price: 0 }],
+  qrImage: "/bill-default-qr.png",
+  brands: ["MOMO", "Vietinbank"],
+  footer: "Cảm ơn mọi người đã cùng nhau vui vẻ và fair-play!",
+  people: DEFAULT_PEOPLE,
+  items: [
+    { name: "Sân", qty: 2, price: 130000, excludes: [] },
+    { name: "Cầu", qty: 4, price: 27000, excludes: [] },
+    { name: "Nước", qty: 2, price: 25000, excludes: [] },
+  ],
 };
 
 const fmt = new Intl.NumberFormat("vi-VN");
@@ -63,20 +82,35 @@ const fmt = new Intl.NumberFormat("vi-VN");
 export default function BillTool() {
   const toast = useToast();
   const previewRef = useRef<HTMLDivElement>(null);
-
-  const [data, setData] = useState<BillData>(EMPTY);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [showQrPanel, setShowQrPanel] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState(true);
   const qrFileRef = useRef<HTMLInputElement>(null);
 
-  const total = useMemo(
-    () => data.items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0),
-    [data.items],
-  );
-  const perPerson = data.participants > 0 ? Math.round(total / data.participants) : 0;
+  const [data, setData] = useState<BillData>(DEFAULT_DATA);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [showQrPanel, setShowQrPanel] = useState(false);
+  const [openExclude, setOpenExclude] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(true);
+
+  const total = useMemo(() => data.items.reduce((s, it) => s + it.qty * it.price, 0), [data.items]);
   const words = useMemo(() => vndInWords(total), [total]);
+
+  // Per-person breakdown honoring exclusions
+  const perPersonMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of data.people) map[p.id] = 0;
+    if (data.people.length === 0) return map;
+    for (const it of data.items) {
+      const cost = it.qty * it.price;
+      const eligible = data.people.filter((p) => !it.excludes.includes(p.id));
+      if (eligible.length === 0) continue;
+      const share = cost / eligible.length;
+      for (const p of eligible) map[p.id] += share;
+    }
+    return map;
+  }, [data.items, data.people]);
+
+  const hasExclusions = data.items.some((it) => it.excludes.length > 0);
+  const equalPerPerson = data.people.length > 0 ? Math.round(total / data.people.length) : 0;
 
   useEffect(() => {
     if (data.qrImage) {
@@ -103,6 +137,66 @@ export default function BillTool() {
     };
   }, [data.qrText, data.qrImage]);
 
+  const update = <K extends keyof BillData>(key: K, value: BillData[K]) => setData((d) => ({ ...d, [key]: value }));
+
+  const updateItem = (i: number, patch: Partial<Item>) =>
+    setData((d) => ({
+      ...d,
+      items: d.items.map((x, idx) => (idx === i ? { ...x, ...patch } : x)),
+    }));
+  const addItem = () =>
+    setData((d) => ({
+      ...d,
+      items: [...d.items, { name: "", qty: 1, price: 0, excludes: [] }],
+    }));
+  const removeItem = (i: number) => setData((d) => ({ ...d, items: d.items.filter((_, idx) => idx !== i) }));
+
+  const toggleItemExclude = (itemIdx: number, personId: string) =>
+    setData((d) => ({
+      ...d,
+      items: d.items.map((it, i) => {
+        if (i !== itemIdx) return it;
+        const has = it.excludes.includes(personId);
+        return {
+          ...it,
+          excludes: has ? it.excludes.filter((x) => x !== personId) : [...it.excludes, personId],
+        };
+      }),
+    }));
+
+  // Number input helper: never clears to empty; ignores invalid input
+  const numHandler =
+    (setter: (n: number) => void, min = 0) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      if (raw === "") return; // keep previous value
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return;
+      setter(Math.max(min, n));
+    };
+
+  const addPerson = () =>
+    setData((d) => ({
+      ...d,
+      people: [...d.people, { id: uid(), name: `Người ${d.people.length + 1}` }],
+    }));
+  const updatePerson = (id: string, name: string) =>
+    setData((d) => ({
+      ...d,
+      people: d.people.map((p) => (p.id === id ? { ...p, name } : p)),
+    }));
+  const removePerson = (id: string) => {
+    if (data.people.length <= 1) {
+      toast("Cần ít nhất 1 người");
+      return;
+    }
+    setData((d) => ({
+      ...d,
+      people: d.people.filter((p) => p.id !== id),
+      items: d.items.map((it) => ({ ...it, excludes: it.excludes.filter((x) => x !== id) })),
+    }));
+  };
+
   const handleQrUpload = (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -120,15 +214,8 @@ export default function BillTool() {
       brands: d.brands.includes(b) ? d.brands.filter((x) => x !== b) : [...d.brands, b],
     }));
 
-  const update = <K extends keyof BillData>(key: K, value: BillData[K]) => setData((d) => ({ ...d, [key]: value }));
-  const updateItem = (i: number, patch: Partial<Item>) =>
-    setData((d) => ({ ...d, items: d.items.map((x, idx) => (idx === i ? { ...x, ...patch } : x)) }));
-  const addItem = () => setData((d) => ({ ...d, items: [...d.items, { name: "", qty: 1, price: 0 }] }));
-  const removeItem = (i: number) => setData((d) => ({ ...d, items: d.items.filter((_, idx) => idx !== i) }));
-
   const withoutEditing = async <T,>(fn: () => Promise<T>): Promise<T> => {
     setEditing(false);
-    // let React flush
     await new Promise((r) => requestAnimationFrame(() => r(null)));
     try {
       return await fn();
@@ -183,6 +270,7 @@ export default function BillTool() {
 
   const ec = editing ? "bill-ec" : "bill-ec bill-ec-static";
   const dateDisplay = formatDate(data.date);
+  const nameOf = (id: string) => data.people.find((p) => p.id === id)?.name ?? "?";
 
   return (
     <div className="bill-standalone">
@@ -192,7 +280,6 @@ export default function BillTool() {
             <div className="bill-mark">
               <IconReceipt2 size={34} stroke={1.6} />
             </div>
-
             <h1>
               <input
                 className={`${ec} bill-ec-title`}
@@ -201,7 +288,6 @@ export default function BillTool() {
                 placeholder="HÓA ĐƠN THANH TOÁN"
               />
             </h1>
-
             <div className="bill-tag">
               <input
                 className={`${ec} bill-ec-tag`}
@@ -210,7 +296,6 @@ export default function BillTool() {
                 placeholder="CHI PHÍ..."
               />
             </div>
-
             <div className="bill-divider">
               <span />
               <IconStarFilled size={10} />
@@ -234,13 +319,7 @@ export default function BillTool() {
               </MetaRow>
 
               <MetaRow icon={<IconUsers size={16} stroke={1.7} />} label="Số người tham gia">
-                <input
-                  type="number"
-                  min={1}
-                  className={`${ec} bill-ec-num`}
-                  value={data.participants}
-                  onChange={(e) => update("participants", Math.max(1, Number(e.target.value) || 1))}
-                />
+                <span className="bill-meta-value">{data.people.length}</span>
               </MetaRow>
 
               <MetaRow icon={<IconClipboardList size={16} stroke={1.7} />} label="Hình thức">
@@ -286,7 +365,7 @@ export default function BillTool() {
                   <span>Chưa có QR</span>
                 </div>
               )}
-              <div className="bill-qr-amount">{fmt.format(perPerson)}đ</div>
+              <div className="bill-qr-amount">{fmt.format(equalPerPerson)}đ</div>
 
               {editing && (
                 <div className="bill-qr-edit">
@@ -354,6 +433,29 @@ export default function BillTool() {
             </div>
           </div>
 
+          {/* People panel — only visible while editing */}
+          {editing && (
+            <div className="bill-people">
+              <div className="bill-people-head">
+                <IconUsers size={14} stroke={1.8} />
+                <span>Người tham gia</span>
+                <button type="button" className="bill-people-add" onClick={addPerson}>
+                  <IconPlus size={12} stroke={2} /> Thêm
+                </button>
+              </div>
+              <div className="bill-people-chips">
+                {data.people.map((p) => (
+                  <span className="bill-person-chip" key={p.id}>
+                    <input value={p.name} onChange={(e) => updatePerson(p.id, e.target.value)} placeholder="Tên" />
+                    <button type="button" onClick={() => removePerson(p.id)} aria-label="Xoá" title="Xoá">
+                      <IconX size={11} stroke={2.2} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <table className="bill-table">
             <thead>
               <tr>
@@ -376,31 +478,63 @@ export default function BillTool() {
                       onChange={(e) => updateItem(i, { name: e.target.value })}
                       placeholder="Nhập tên..."
                     />
+                    {it.excludes.length > 0 && (
+                      <div className="bill-item-excludes">Không tính: {it.excludes.map(nameOf).join(", ")}</div>
+                    )}
                   </td>
                   <td>
                     <input
-                      type="number"
-                      min={0}
+                      type="text"
+                      inputMode="numeric"
                       className={`${ec} bill-ec-num bill-ec-right`}
                       value={it.qty}
-                      onChange={(e) => updateItem(i, { qty: Number(e.target.value) || 0 })}
+                      onChange={numHandler((n) => updateItem(i, { qty: n }), 0)}
                     />
                   </td>
                   <td>
                     <input
-                      type="number"
-                      min={0}
+                      type="text"
+                      inputMode="numeric"
                       className={`${ec} bill-ec-num bill-ec-right`}
                       value={it.price}
-                      onChange={(e) => updateItem(i, { price: Number(e.target.value) || 0 })}
+                      onChange={numHandler((n) => updateItem(i, { price: n }), 0)}
                     />
                   </td>
                   <td className="bill-td-total">{fmt.format(it.qty * it.price)}</td>
                   {editing && (
                     <td className="bill-td-act">
-                      <button className="bill-row-del" onClick={() => removeItem(i)} title="Xoá" type="button">
-                        <IconTrash size={13} stroke={1.9} />
-                      </button>
+                      <div className="bill-td-act-wrap">
+                        <button
+                          className={`bill-row-ex${it.excludes.length ? " on" : ""}`}
+                          onClick={() => setOpenExclude((cur) => (cur === i ? null : i))}
+                          title="Loại người khỏi item này"
+                          type="button"
+                        >
+                          <IconUsersMinus size={13} stroke={1.9} />
+                        </button>
+                        <button className="bill-row-del" onClick={() => removeItem(i)} title="Xoá" type="button">
+                          <IconTrash size={13} stroke={1.9} />
+                        </button>
+
+                        {openExclude === i && (
+                          <div className="bill-exclude-pop" onClick={(e) => e.stopPropagation()}>
+                            <div className="bill-exclude-head">Không tính cho:</div>
+                            {data.people.length === 0 && <div className="bill-exclude-empty">Chưa có ai</div>}
+                            {data.people.map((p) => {
+                              const on = it.excludes.includes(p.id);
+                              return (
+                                <label key={p.id} className={`bill-exclude-row${on ? " on" : ""}`}>
+                                  <input type="checkbox" checked={on} onChange={() => toggleItemExclude(i, p.id)} />
+                                  <span>{p.name}</span>
+                                </label>
+                              );
+                            })}
+                            <button type="button" className="bill-exclude-close" onClick={() => setOpenExclude(null)}>
+                              Xong
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -434,13 +568,30 @@ export default function BillTool() {
             </div>
             <div className="bill-summary-row">
               <span>Số người tham gia:</span>
-              <b>{data.participants} người</b>
+              <b>{data.people.length} người</b>
             </div>
             <div className="bill-summary-divider" />
-            <div className="bill-summary-row bill-summary-big">
-              <span>CHI PHÍ MỖI NGƯỜI:</span>
-              <b>{fmt.format(perPerson)}đ</b>
-            </div>
+            {!hasExclusions ? (
+              <div className="bill-summary-row bill-summary-big">
+                <span>CHI PHÍ MỖI NGƯỜI:</span>
+                <b>{fmt.format(equalPerPerson)}đ</b>
+              </div>
+            ) : (
+              <>
+                <div className="bill-summary-row bill-summary-big">
+                  <span>CHIA THEO NGƯỜI:</span>
+                  <b>(có ngoại lệ)</b>
+                </div>
+                <div className="bill-breakdown">
+                  {data.people.map((p) => (
+                    <div className="bill-breakdown-row" key={p.id}>
+                      <span>{p.name}</span>
+                      <b>{fmt.format(Math.round(perPersonMap[p.id] || 0))}đ</b>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="bill-footer">
@@ -463,7 +614,8 @@ export default function BillTool() {
       </div>
 
       <div className="bill-hint">
-        <IconPencil size={13} stroke={1.9} /> Click vào bất kỳ ô nào để chỉnh sửa
+        <IconPencil size={13} stroke={1.9} /> Click vào bất kỳ ô nào để chỉnh sửa · dùng nút{" "}
+        <IconUsersMinus size={12} stroke={1.9} /> ở mỗi item để loại người không tham gia
       </div>
 
       <div className="bill-cta-row">
