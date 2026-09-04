@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>JSON Formatter & Validator | FormatBox</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{--font:'Space Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;--accent:#6366f1;--radius:10px}
+    [data-theme="dark"]{--bg:#0c1017;--bg2:#151b27;--bg3:#1c2333;--text:#c9d1d9;--dim:#6b7b90;--bright:#f0f4f8;--border:rgba(255,255,255,.06);--err:#ef4444;--ok:#22c55e;--warn:#f59e0b}
+    [data-theme="light"]{--bg:#f5f7fa;--bg2:#fff;--bg3:#eef1f6;--text:#3a4555;--dim:#7a8599;--bright:#111827;--border:rgba(0,0,0,.08);--err:#dc2626;--ok:#16a34a;--warn:#d97706}
+    body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;transition:background .3s,color .3s;min-height:100vh}a{color:inherit;text-decoration:none}
+    .nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-bottom:1px solid var(--border);backdrop-filter:blur(12px)}
+    .logo{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none}.logo svg{width:28px;height:28px;transition:transform .5s}.logo svg rect{fill:none;stroke:var(--accent);stroke-width:2;rx:4}.logo svg line{stroke:var(--accent);stroke-width:1.5;opacity:.4}[data-theme="light"] .logo svg{transform:rotate(180deg)}.logo b{font-size:1.15rem;font-weight:700;color:var(--bright)}.logo b span{color:var(--accent)}
+    .nav-r{display:flex;align-items:center;gap:16px;font-size:.82rem;color:var(--dim)}.nav-r a:hover{color:var(--accent)}
+    .theme-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--dim);font-size:.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1}
+    .theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+    .page{padding:80px 24px 60px;max-width:900px;margin:0 auto}
+    h1{font-size:1.6rem;font-weight:700;color:var(--bright);margin-bottom:6px}h1 span{color:var(--accent)}
+    .sub{color:var(--dim);font-size:.9rem;margin-bottom:28px}
+
+    .status{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;font-size:.78rem;font-weight:600;font-family:var(--mono);margin-bottom:16px;transition:all .2s}
+    .status.ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:var(--ok)}
+    .status.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:var(--err)}
+    .status.idle{background:var(--bg3);border:1px solid var(--border);color:var(--dim)}
+
+    label{display:block;font-size:.8rem;font-weight:600;color:var(--dim);margin-bottom:6px;margin-top:16px}
+    textarea{width:100%;height:240px;padding:16px;font-family:var(--mono);font-size:.84rem;line-height:1.6;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);resize:vertical;outline:none;transition:border-color .15s;tab-size:2}
+    textarea:focus{border-color:var(--accent)}textarea::placeholder{color:var(--dim)}
+
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+    .btn{padding:10px 22px;border-radius:100px;font-family:var(--font);font-size:.85rem;font-weight:600;border:none;cursor:pointer;transition:transform .1s}.btn:hover{transform:translateY(-1px)}
+    .btn-p{background:var(--accent);color:#fff}.btn-s{background:var(--bg3);color:var(--text);border:1px solid var(--border)}.btn-s:hover{border-color:var(--accent);color:var(--accent)}
+
+    .indent-row{display:flex;gap:6px;align-items:center;margin-top:12px}
+    .indent-btn{padding:5px 14px;border-radius:100px;font-family:var(--mono);font-size:.78rem;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;transition:all .15s}
+    .indent-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+    .info{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:.78rem;font-family:var(--mono);color:var(--dim)}.info-i{padding:4px 10px;background:var(--bg3);border-radius:6px}
+
+    .err-detail{margin-top:12px;padding:12px 16px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:var(--radius);font-family:var(--mono);font-size:.82rem;color:var(--err);display:none;line-height:1.5}
+    .err-detail.show{display:block}
+
+    /* TREE VIEW */
+    .tree-wrap{margin-top:20px;display:none}
+    .tree-wrap.show{display:block}
+    .tree-toggle{font-size:.84rem;font-weight:600;color:var(--accent);cursor:pointer;margin-bottom:10px;display:inline-flex;align-items:center;gap:4px}
+    .tree{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-family:var(--mono);font-size:.8rem;max-height:400px;overflow:auto;line-height:1.7}
+    .tree-key{color:var(--accent)}.tree-str{color:var(--ok)}.tree-num{color:var(--warn)}.tree-bool{color:#e879f9}.tree-null{color:var(--dim)}
+    .tree details{margin-left:16px}.tree summary{cursor:pointer;color:var(--dim)}
+
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);padding:10px 20px;border-radius:100px;font-size:.84rem;font-weight:500;background:var(--ok);color:#fff;opacity:0;transition:all .3s;pointer-events:none;z-index:200}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    .ft{border-top:1px solid var(--border);padding:32px 24px;text-align:center;font-size:.78rem;color:var(--dim);margin-top:60px}
+    @media(max-width:640px){.nav-r a{display:none}.page{padding:70px 16px 40px}textarea{height:180px}}
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <a href="index.html" class="logo"><svg viewBox="0 0 28 28"><rect x="2" y="2" width="24" height="24"/><line x1="2" y1="14" x2="26" y2="14"/><line x1="14" y1="2" x2="14" y2="26"/></svg><b>Format<span>Box</span></b></a>
+  <div class="nav-r"><a href="base64.html">Base64</a><a href="image-converter.html">Image</a><button class="theme-btn" id="themeToggle" title="Đổi giao diện sáng/tối" aria-label="Đổi giao diện">🌙</button></div>
+</nav>
+
+<div class="page">
+  <h1>📋 JSON <span>Formatter & Validator</span></h1>
+  <p class="sub">Format, validate, minify JSON. Highlight lỗi, tree view, tính kích thước.</p>
+
+  <div class="status idle" id="status">Paste JSON để bắt đầu</div>
+
+  <label>Input JSON</label>
+  <textarea id="input" placeholder='{"name": "FormatBox", "type": "tool", "features": ["format", "validate", "minify"]}'></textarea>
+
+  <div class="indent-row">
+    <span style="font-size:.8rem;color:var(--dim)">Indent:</span>
+    <button class="indent-btn active" data-indent="2">2 spaces</button>
+    <button class="indent-btn" data-indent="4">4 spaces</button>
+    <button class="indent-btn" data-indent="tab">Tab</button>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-p" id="formatBtn">Format</button>
+    <button class="btn btn-s" id="minifyBtn">Minify</button>
+    <button class="btn btn-s" id="validateBtn">Validate</button>
+    <button class="btn btn-s" id="copyBtn">📋 Copy</button>
+    <button class="btn btn-s" id="clearBtn">Xóa</button>
+  </div>
+
+  <div class="err-detail" id="errDetail"></div>
+  <div class="info" id="info"></div>
+
+  <div class="tree-wrap" id="treeWrap">
+    <div class="tree-toggle" id="treeToggle">▶ Tree view</div>
+    <div class="tree" id="tree" style="display:none"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<footer class="ft">&copy; 2026 FormatBox</footer>
+
+<script>
+const input=document.getElementById('input'),statusEl=document.getElementById('status'),errEl=document.getElementById('errDetail'),infoEl=document.getElementById('info'),treeWrap=document.getElementById('treeWrap'),treeEl=document.getElementById('tree');
+let indentVal=2;
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+
+function setStatus(type,msg){statusEl.className='status '+type;statusEl.textContent=msg}
+
+function getIndent(){return indentVal==='tab'?'\t':' '.repeat(Number(indentVal))}
+
+function countKeys(obj){
+  if(typeof obj!=='object'||obj===null)return 0;
+  let c=Array.isArray(obj)?0:Object.keys(obj).length;
+  for(const v of Object.values(obj))c+=countKeys(v);
+  return c;
+}
+function maxDepth(obj,d=0){
+  if(typeof obj!=='object'||obj===null)return d;
+  return Math.max(...Object.values(obj).map(v=>maxDepth(v,d+1)),d);
+}
+
+function showInfo(json){
+  const parsed=JSON.parse(json);
+  const size=new Blob([json]).size;
+  const keys=countKeys(parsed);
+  const depth=maxDepth(parsed);
+  const type=Array.isArray(parsed)?'Array':'Object';
+  infoEl.innerHTML=`<span class="info-i">${type}</span><span class="info-i">${keys} keys</span><span class="info-i">depth ${depth}</span><span class="info-i">${size>1024?(size/1024).toFixed(1)+' KB':size+' B'}</span>`;
+}
+
+function buildTree(data,key){
+  if(data===null)return`<span class="tree-null">null</span>`;
+  if(typeof data==='boolean')return`<span class="tree-bool">${data}</span>`;
+  if(typeof data==='number')return`<span class="tree-num">${data}</span>`;
+  if(typeof data==='string')return`<span class="tree-str">"${data.length>80?data.slice(0,77)+'...':data}"</span>`;
+  if(Array.isArray(data)){
+    if(data.length===0)return'<span class="tree-null">[]</span>';
+    let html='<details open><summary>['+data.length+' items]</summary>';
+    data.forEach((v,i)=>{html+=`<div><span class="tree-key">${i}:</span> ${buildTree(v)}</div>`});
+    return html+'</details>';
+  }
+  const keys=Object.keys(data);
+  if(keys.length===0)return'<span class="tree-null">{}</span>';
+  let html='<details open><summary>{'+keys.length+' keys}</summary>';
+  keys.forEach(k=>{html+=`<div><span class="tree-key">"${k}":</span> ${buildTree(data[k])}</div>`});
+  return html+'</details>';
+}
+
+// VALIDATE
+input.addEventListener('input',()=>{
+  const val=input.value.trim();
+  if(!val){setStatus('idle','Paste JSON để bắt đầu');errEl.classList.remove('show');infoEl.innerHTML='';treeWrap.classList.remove('show');return}
+  try{JSON.parse(val);setStatus('ok','✓ JSON hợp lệ');errEl.classList.remove('show')}
+  catch(e){setStatus('err','✗ JSON không hợp lệ');errEl.textContent=e.message;errEl.classList.add('show')}
+});
+
+document.getElementById('formatBtn').addEventListener('click',()=>{
+  const val=input.value.trim();if(!val)return;
+  try{
+    const parsed=JSON.parse(val);
+    input.value=JSON.stringify(parsed,null,getIndent());
+    setStatus('ok','✓ Đã format');errEl.classList.remove('show');
+    showInfo(input.value);
+    treeEl.innerHTML=buildTree(parsed);treeWrap.classList.add('show');
+  }catch(e){setStatus('err','✗ JSON không hợp lệ');errEl.textContent=e.message;errEl.classList.add('show')}
+});
+
+document.getElementById('minifyBtn').addEventListener('click',()=>{
+  const val=input.value.trim();if(!val)return;
+  try{
+    const parsed=JSON.parse(val);
+    const minified=JSON.stringify(parsed);
+    const saved=((1-minified.length/val.length)*100).toFixed(0);
+    input.value=minified;
+    setStatus('ok',`✓ Đã minify (giảm ${saved}%)`);errEl.classList.remove('show');
+    showInfo(input.value);treeWrap.classList.remove('show');
+  }catch(e){setStatus('err','✗ JSON không hợp lệ');errEl.textContent=e.message;errEl.classList.add('show')}
+});
+
+document.getElementById('validateBtn').addEventListener('click',()=>{
+  const val=input.value.trim();if(!val){toast('Chưa có dữ liệu');return}
+  try{JSON.parse(val);setStatus('ok','✓ JSON hợp lệ');errEl.classList.remove('show');showInfo(val);toast('JSON hợp lệ')}
+  catch(e){setStatus('err','✗ JSON không hợp lệ');errEl.textContent=e.message;errEl.classList.add('show')}
+});
+
+document.getElementById('copyBtn').addEventListener('click',()=>{if(input.value)navigator.clipboard.writeText(input.value).then(()=>toast('Đã copy'))});
+document.getElementById('clearBtn').addEventListener('click',()=>{input.value='';setStatus('idle','Paste JSON để bắt đầu');errEl.classList.remove('show');infoEl.innerHTML='';treeWrap.classList.remove('show')});
+
+document.querySelectorAll('.indent-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelector('.indent-btn.active').classList.remove('active');
+    btn.classList.add('active');indentVal=btn.dataset.indent;
+  });
+});
+
+document.getElementById('treeToggle').addEventListener('click',()=>{
+  const t=treeEl,toggle=document.getElementById('treeToggle');
+  if(t.style.display==='none'){t.style.display='block';toggle.textContent='▼ Tree view'}
+  else{t.style.display='none';toggle.textContent='▶ Tree view'}
+});
+
+const themeBtn=document.getElementById('themeToggle'),html=document.documentElement,saved=localStorage.getItem('fb-theme');
+if(saved)html.dataset.theme=saved;
+function updateThemeIcon(){themeBtn.textContent=html.dataset.theme==='dark'?'☀️':'🌙'}
+updateThemeIcon();
+themeBtn.addEventListener('click',()=>{const n=html.dataset.theme==='dark'?'light':'dark';html.dataset.theme=n;localStorage.setItem('fb-theme',n);updateThemeIcon()});
+</script>
+</body>
+</html>

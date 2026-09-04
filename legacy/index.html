@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>FormatBox — Chuyển đổi dữ liệu ngay trên trình duyệt</title>
+    <meta name="description" content="FormatBox — Base64, JSON, hình ảnh và nhiều hơn. Miễn phí, không upload, xử lý 100% client-side." />
+    <meta property="og:title" content="FormatBox — Chuyển đổi dữ liệu ngay trên trình duyệt" />
+    <meta property="og:description" content="Base64, JSON, hình ảnh. Không upload, không đăng ký." />
+    <meta name="theme-color" content="#0a0e15" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        :root {
+            --font: 'Space Grotesk', system-ui, sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+            --accent: #6366f1;
+            --accent2: #a78bfa;
+            --r: 14px;
+            --r-sm: 8px
+        }
+
+        [data-theme="dark"] {
+            --bg: #0a0e15;
+            --bg2: #10151f;
+            --bg3: #161c28;
+            --bg4: #1c2331;
+            --text: #b8c2cf;
+            --dim: #5f6b7c;
+            --bright: #f2f5f9;
+            --border: rgba(255, 255, 255, .055);
+            --border-h: rgba(99, 102, 241, .35);
+            --glow: rgba(99, 102, 241, .1);
+            --grid: rgba(255, 255, 255, .025);
+            --ok: #34d399;
+            --warn: #fbbf24
+        }
+
+        [data-theme="light"] {
+            --bg: #f7f8fb;
+            --bg2: #fff;
+            --bg3: #f0f2f6;
+            --bg4: #e8ebf1;
+            --text: #3b4657;
+            --dim: #7d8797;
+            --bright: #0f1420;
+            --border: rgba(15, 20, 32, .07);
+            --border-h: rgba(99, 102, 241, .4);
+            --glow: rgba(99, 102, 241, .07);
+            --grid: rgba(15, 20, 32, .035);
+            --ok: #059669;
+            --warn: #d97706
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            transition: background .3s, color .3s;
+            overflow-x: hidden
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none
+        }
+
+        ::selection {
+            background: var(--accent);
+            color: #fff
+        }
+
+        /* NAV */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: color-mix(in srgb, var(--bg) 80%, transparent);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .nav-r {
+            display: flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .nav-r a {
+            padding: 7px 14px;
+            border-radius: var(--r-sm);
+            font-size: .84rem;
+            font-weight: 500;
+            color: var(--dim);
+            transition: color .15s, background .15s
+        }
+
+        .nav-r a:hover {
+            color: var(--bright);
+            background: var(--bg3)
+        }
+
+        .nav-cta {
+            background: var(--accent) !important;
+            color: #fff !important;
+            margin-left: 6px
+        }
+
+        .nav-cta:hover {
+            background: var(--accent2) !important
+        }
+
+        .theme-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg3);
+            color: var(--dim);
+            font-size: .95rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .15s;
+            line-height: 1;
+            margin-left: 4px
+        }
+
+        .theme-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent)
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            cursor: pointer;
+            user-select: none
+        }
+
+        .logo svg {
+            width: 26px;
+            height: 26px;
+            transition: transform .5s cubic-bezier(.4, 0, .2, 1)
+        }
+
+        .logo svg rect {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 2;
+            rx: 5
+        }
+
+        .logo svg line {
+            stroke: var(--accent);
+            stroke-width: 1.5;
+            opacity: .45
+        }
+
+        [data-theme="light"] .logo svg {
+            transform: rotate(180deg)
+        }
+
+        .logo b {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: -.03em;
+            color: var(--bright)
+        }
+
+        .logo b span {
+            color: var(--accent)
+        }
+
+        /* HERO */
+        .hero {
+            position: relative;
+            padding: 140px 24px 100px;
+            text-align: center;
+            overflow: hidden
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 75%);
+            pointer-events: none
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 700px;
+            height: 500px;
+            background: radial-gradient(ellipse, var(--glow), transparent 65%);
+            pointer-events: none
+        }
+
+        .hero>* {
+            position: relative;
+            z-index: 1
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px 6px 8px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: .76rem;
+            font-weight: 500;
+            color: var(--dim);
+            margin-bottom: 32px;
+            font-family: var(--mono)
+        }
+
+        .tag i {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--ok);
+            font-style: normal;
+            font-size: .6rem;
+            color: #000;
+            line-height: 18px;
+            text-align: center;
+            font-weight: 700
+        }
+
+        .hero h1 {
+            font-size: clamp(2.4rem, 6.5vw, 4.2rem);
+            font-weight: 700;
+            line-height: 1.05;
+            letter-spacing: -.04em;
+            color: var(--bright);
+            max-width: 760px;
+            margin: 0 auto 20px
+        }
+
+        .hero h1 .g {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent
+        }
+
+        .hero-sub {
+            font-size: 1.08rem;
+            color: var(--dim);
+            max-width: 520px;
+            margin: 0 auto 40px;
+            line-height: 1.7
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 64px
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 13px 26px;
+            border-radius: var(--r-sm);
+            font-family: var(--font);
+            font-size: .92rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: transform .15s, box-shadow .15s, background .15s
+        }
+
+        .btn:hover {
+            transform: translateY(-2px)
+        }
+
+        .btn-p {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 8px 24px -8px var(--accent)
+        }
+
+        .btn-p:hover {
+            background: var(--accent2);
+            box-shadow: 0 12px 32px -8px var(--accent2)
+        }
+
+        .btn-g {
+            background: var(--bg2);
+            color: var(--bright);
+            border: 1px solid var(--border)
+        }
+
+        .btn-g:hover {
+            border-color: var(--border-h)
+        }
+
+        /* LIVE DEMO */
+        .demo {
+            max-width: 820px;
+            margin: 0 auto;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            overflow: hidden;
+            box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .5);
+            text-align: left
+        }
+
+        .demo-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg3)
+        }
+
+        .demo-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--bg4)
+        }
+
+        .demo-dot:nth-child(1) {
+            background: #ff5f57
+        }
+
+        .demo-dot:nth-child(2) {
+            background: #febc2e
+        }
+
+        .demo-dot:nth-child(3) {
+            background: #28c840
+        }
+
+        .demo-title {
+            margin-left: auto;
+            font-family: var(--mono);
+            font-size: .72rem;
+            color: var(--dim)
+        }
+
+        .demo-body {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: stretch
+        }
+
+        .demo-col {
+            padding: 20px
+        }
+
+        .demo-col label {
+            display: block;
+            font-size: .68rem;
+            font-family: var(--mono);
+            font-weight: 600;
+            color: var(--dim);
+            margin-bottom: 8px;
+            letter-spacing: .04em
+        }
+
+        .demo-col textarea {
+            width: 100%;
+            height: 110px;
+            padding: 12px;
+            font-family: var(--mono);
+            font-size: .78rem;
+            line-height: 1.55;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            resize: none;
+            outline: none;
+            transition: border-color .15s
+        }
+
+        .demo-col textarea:focus {
+            border-color: var(--accent)
+        }
+
+        .demo-col textarea::placeholder {
+            color: var(--dim)
+        }
+
+        .demo-mid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 4px
+        }
+
+        .demo-arrow {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform .2s, background .15s;
+            border: none
+        }
+
+        .demo-arrow:hover {
+            transform: scale(1.1);
+            background: var(--accent2)
+        }
+
+        .demo-mode {
+            font-family: var(--mono);
+            font-size: .62rem;
+            color: var(--dim);
+            cursor: pointer;
+            user-select: none;
+            transition: color .15s
+        }
+
+        .demo-mode:hover {
+            color: var(--accent)
+        }
+
+        /* SECTIONS */
+        section {
+            padding: 100px 24px
+        }
+
+        .mx {
+            max-width: 1040px;
+            margin: 0 auto
+        }
+
+        .sh-wrap {
+            margin-bottom: 52px
+        }
+
+        .stag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .72rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 14px;
+            font-family: var(--mono);
+            letter-spacing: .06em
+        }
+
+        .stag::before {
+            content: '';
+            width: 20px;
+            height: 2px;
+            background: var(--accent);
+            border-radius: 2px
+        }
+
+        .sh {
+            font-size: clamp(1.7rem, 4vw, 2.4rem);
+            font-weight: 700;
+            color: var(--bright);
+            line-height: 1.15;
+            letter-spacing: -.03em;
+            margin-bottom: 12px
+        }
+
+        .sd {
+            color: var(--dim);
+            max-width: 520px;
+            line-height: 1.7;
+            font-size: 1rem
+        }
+
+        /* BENTO */
+        .bento {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-auto-rows: minmax(200px, auto);
+            gap: 14px
+        }
+
+        .bc {
+            position: relative;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: border-color .2s, transform .2s, box-shadow .2s
+        }
+
+        .bc:hover {
+            border-color: var(--border-h);
+            transform: translateY(-3px);
+            box-shadow: 0 20px 40px -20px rgba(99, 102, 241, .3)
+        }
+
+        .bc::before {
+            content: '';
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--glow), transparent 70%);
+            opacity: 0;
+            transition: opacity .3s
+        }
+
+        .bc:hover::before {
+            opacity: 1
+        }
+
+        .bc>* {
+            position: relative
+        }
+
+        .bc-w2 {
+            grid-column: span 2
+        }
+
+        .bc-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: auto
+        }
+
+        .bc h3 {
+            font-size: 1.08rem;
+            font-weight: 600;
+            color: var(--bright);
+            margin: 20px 0 6px;
+            letter-spacing: -.01em
+        }
+
+        .bc p {
+            font-size: .86rem;
+            color: var(--dim);
+            line-height: 1.6
+        }
+
+        .bc-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 16px
+        }
+
+        .bc-tag {
+            font-size: .68rem;
+            font-family: var(--mono);
+            padding: 3px 9px;
+            border-radius: 5px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--dim)
+        }
+
+        .bc-go {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .85rem;
+            color: var(--dim);
+            transition: all .2s
+        }
+
+        .bc:hover .bc-go {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            transform: rotate(-45deg)
+        }
+
+        .bc-code {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            font-family: var(--mono);
+            font-size: .7rem;
+            line-height: 1.6;
+            color: var(--dim);
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis
+        }
+
+        .bc-code em {
+            font-style: normal;
+            color: var(--accent)
+        }
+
+        .bc-code .k {
+            color: var(--accent2)
+        }
+
+        .bc-code .s {
+            color: var(--ok)
+        }
+
+        .bc-code .n {
+            color: var(--warn)
+        }
+
+        /* COMING */
+        .coming {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px
+        }
+
+        .cp {
+            padding: 9px 16px;
+            background: var(--bg2);
+            border: 1px dashed var(--border);
+            border-radius: 100px;
+            font-size: .82rem;
+            color: var(--dim);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: border-color .2s, color .2s
+        }
+
+        .cp:hover {
+            border-color: var(--border-h);
+            color: var(--text)
+        }
+
+        /* WHY */
+        .why {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px
+        }
+
+        .wc {
+            padding: 28px 24px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--r)
+        }
+
+        .wc-n {
+            font-family: var(--mono);
+            font-size: .7rem;
+            color: var(--accent);
+            margin-bottom: 14px;
+            font-weight: 600
+        }
+
+        .wc h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--bright);
+            margin-bottom: 8px
+        }
+
+        .wc p {
+            font-size: .85rem;
+            color: var(--dim);
+            line-height: 1.6
+        }
+
+        /* CTA */
+        .cta {
+            position: relative;
+            padding: 64px 32px;
+            text-align: center;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden
+        }
+
+        .cta::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 60% 80% at 50% 120%, var(--glow), transparent);
+            pointer-events: none
+        }
+
+        .cta>* {
+            position: relative
+        }
+
+        .cta h2 {
+            font-size: clamp(1.5rem, 3.5vw, 2rem);
+            font-weight: 700;
+            color: var(--bright);
+            letter-spacing: -.03em;
+            margin-bottom: 10px
+        }
+
+        .cta p {
+            color: var(--dim);
+            margin-bottom: 28px;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto
+        }
+
+        /* FOOTER */
+        .ft {
+            border-top: 1px solid var(--border);
+            padding: 56px 24px 32px;
+            background: var(--bg2)
+        }
+
+        .ft-grid {
+            max-width: 1040px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1.6fr 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 48px
+        }
+
+        .ft-brand p {
+            font-size: .86rem;
+            color: var(--dim);
+            line-height: 1.6;
+            margin-top: 12px;
+            max-width: 300px
+        }
+
+        .ft-col h4 {
+            font-size: .74rem;
+            font-weight: 600;
+            font-family: var(--mono);
+            color: var(--dim);
+            letter-spacing: .06em;
+            margin-bottom: 16px
+        }
+
+        .ft-col a,
+        .ft-col span {
+            display: block;
+            font-size: .88rem;
+            color: var(--text);
+            margin-bottom: 10px;
+            transition: color .15s
+        }
+
+        .ft-col a:hover {
+            color: var(--accent)
+        }
+
+        .ft-author {
+            display: flex;
+            align-items: center;
+            gap: 12px
+        }
+
+        .ft-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #fff;
+            font-size: 1rem;
+            flex-shrink: 0
+        }
+
+        .ft-author-info b {
+            display: block;
+            font-size: .92rem;
+            color: var(--bright);
+            font-weight: 600
+        }
+
+        .ft-author-info a {
+            display: inline;
+            font-size: .8rem;
+            color: var(--dim);
+            margin: 0;
+            font-family: var(--mono)
+        }
+
+        .ft-author-info a:hover {
+            color: var(--accent)
+        }
+
+        .ft-bottom {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: .78rem;
+            color: var(--dim)
+        }
+
+        .ft-bottom .mono {
+            font-family: var(--mono)
+        }
+
+        @media(max-width:900px) {
+            .bento {
+                grid-template-columns: repeat(2, 1fr)
+            }
+
+            .ft-grid {
+                grid-template-columns: 1fr 1fr
+            }
+
+            .ft-brand {
+                grid-column: span 2
+            }
+        }
+
+        @media(max-width:640px) {
+            .nav-r a:not(.nav-cta) {
+                display: none
+            }
+
+            section {
+                padding: 72px 20px
+            }
+
+            .hero {
+                padding: 110px 20px 70px
+            }
+
+            .bento {
+                grid-template-columns: 1fr
+            }
+
+            .demo-body {
+                grid-template-columns: 1fr
+            }
+
+            .demo-mid {
+                flex-direction: row;
+                padding: 0 20px 16px
+            }
+
+            .ft-grid {
+                grid-template-columns: 1fr
+            }
+
+            .ft-brand {
+                grid-column: span 1
+            }
+
+            .ft-bottom {
+                flex-direction: column;
+                text-align: center
+            }
+        }
+
+        @media(prefers-reduced-motion:reduce) {
+            * {
+                transition: none !important;
+                animation: none !important
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="nav">
+        <div class="logo" id="logoHome" title="Về đầu trang">
+            <svg viewBox="0 0 26 26">
+                <rect x="2" y="2" width="22" height="22" />
+                <line x1="2" y1="13" x2="24" y2="13" />
+                <line x1="13" y1="2" x2="13" y2="24" />
+            </svg>
+            <b>Format<span>Box</span></b>
+        </div>
+        <div class="nav-r">
+            <a href="#tools">Công cụ</a>
+            <a href="#why">Tại sao</a>
+            <a href="#coming">Sắp có</a>
+            <button class="theme-btn" id="themeToggle" title="Đổi giao diện sáng/tối" aria-label="Đổi giao diện">🌙</button>
+
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="tag"><i>✓</i> 100% client-side · không upload · miễn phí</div>
+        <h1>Chuyển đổi dữ liệu<br><span class="g">ngay trên trình duyệt.</span></h1>
+        <p class="hero-sub">Base64, JSON, hình ảnh — paste vào, nhận kết quả tức thì. Dữ liệu không bao giờ rời khỏi máy bạn.</p>
+        <div class="hero-cta">
+            <a href="#tools" class="btn btn-p">Xem công cụ</a>
+            <a href="#why" class="btn btn-g">Tại sao FormatBox?</a>
+        </div>
+
+        <div class="demo">
+            <div class="demo-bar">
+                <span class="demo-dot"></span><span class="demo-dot"></span><span class="demo-dot"></span>
+                <span class="demo-title">thử ngay — base64</span>
+            </div>
+            <div class="demo-body">
+                <div class="demo-col">
+                    <label id="dLabelIn">TEXT</label>
+                    <textarea id="dIn" placeholder="Gõ gì đó vào đây...">Hello FormatBox 👋</textarea>
+                </div>
+                <div class="demo-mid">
+                    <button class="demo-arrow" id="dGo" title="Chuyển đổi">→</button>
+                    <span class="demo-mode" id="dMode">encode</span>
+                </div>
+                <div class="demo-col">
+                    <label id="dLabelOut">BASE64</label>
+                    <textarea id="dOut" readonly placeholder="Kết quả..."></textarea>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section id="tools">
+        <div class="mx">
+            <div class="sh-wrap">
+                <div class="stag">TOOLS</div>
+                <h2 class="sh">Ba công cụ, một chỗ.</h2>
+                <p class="sd">Không cần cài đặt, không cần đăng ký. Mở tab, làm việc, đóng tab.</p>
+            </div>
+            <div class="bento">
+                <a href="base64.html" class="bc">
+                    <span class="bc-go">↗</span>
+                    <div class="bc-icon">🔐</div>
+                    <h3>Base64 Encode / Decode</h3>
+                    <p>Mã hóa và giải mã text hoặc file bất kỳ. Hỗ trợ UTF-8 đầy đủ, kéo thả file, đổi chiều một chạm.</p>
+                    <div class="bc-code"><em>btoa</em>("xin chào") <span class="k">→</span> <span class="s">"eGluIGNow6Bv"</span></div>
+                    <div class="bc-tags"><span class="bc-tag">text</span><span class="bc-tag">file</span><span class="bc-tag">utf-8</span>
+                    </div>
+                </a>
+                <a href="json-formatter.html" class="bc">
+                    <span class="bc-go">↗</span>
+                    <div class="bc-icon">📋</div>
+                    <h3>JSON Formatter & Validator</h3>
+                    <p>Format, minify, validate. Báo lỗi đúng vị trí, tree view thu gọn được, đếm keys và độ sâu.</p>
+                    <div class="bc-code">{<span class="k">"name"</span>: <span class="s">"FormatBox"</span>, <span class="k">"free"</span>:
+                        <span class="n">true</span>}
+                    </div>
+                    <div class="bc-tags"><span class="bc-tag">format</span><span class="bc-tag">minify</span><span
+                            class="bc-tag">tree</span></div>
+                </a>
+                <a href="image-converter.html" class="bc">
+                    <span class="bc-go">↗</span>
+                    <div class="bc-icon">🖼️</div>
+                    <h3>Image Converter</h3>
+                    <p>PNG, JPG, WebP qua lại. Chỉnh chất lượng, xem trước, biết ngay giảm được bao nhiêu %.</p>
+                    <div class="bc-tags"><span class="bc-tag">png</span><span class="bc-tag">jpg</span><span class="bc-tag">webp</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section id="why" style="padding-top:0">
+        <div class="mx">
+            <div class="sh-wrap">
+                <div class="stag">WHY</div>
+                <h2 class="sh">Tool online khác upload dữ liệu của bạn.<br>FormatBox thì không.</h2>
+            </div>
+            <div class="why">
+                <div class="wc">
+                    <div class="wc-n">01</div>
+                    <h3>Chạy hoàn toàn trên trình duyệt</h3>
+                    <p>Không có server nào nhận dữ liệu của bạn. Tắt mạng vẫn dùng được sau khi trang đã load.</p>
+                </div>
+                <div class="wc">
+                    <div class="wc-n">02</div>
+                    <h3>Tức thì, không giới hạn</h3>
+                    <p>Không hàng đợi, không quota, không bắt nâng cấp. File 50MB hay 5KB đều như nhau.</p>
+                </div>
+                <div class="wc">
+                    <div class="wc-n">03</div>
+                    <h3>Không quảng cáo, không tracking</h3>
+                    <p>Không popup, không banner, không cookie theo dõi. Tool là tool.</p>
+                </div>
+                <div class="wc">
+                    <div class="wc-n">04</div>
+                    <h3>Mọi thiết bị</h3>
+                    <p>Desktop, mobile, tablet. Bookmark lại, dùng khi cần.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="coming" style="padding-top:0">
+        <div class="mx">
+            <div class="sh-wrap">
+                <div class="stag">ROADMAP</div>
+                <h2 class="sh">Sắp có thêm</h2>
+            </div>
+            <div class="coming">
+                <span class="cp">🔗 URL Encode / Decode</span>
+                <span class="cp">🏷️ HTML Entities</span>
+                <span class="cp">🎨 Color Converter</span>
+                <span class="cp">#️⃣ Hash (MD5 / SHA)</span>
+                <span class="cp">🪙 JWT Decoder</span>
+                <span class="cp">⏱️ Unix Timestamp</span>
+                <span class="cp">📐 CSS Units</span>
+                <span class="cp">🔤 Text Case</span>
+                <span class="cp">📊 CSV ↔ JSON</span>
+                <span class="cp">🧮 Number Base</span>
+            </div>
+        </div>
+    </section>
+
+    <section style="padding-top:0">
+        <div class="mx">
+            <div class="cta">
+                <h2>Bắt đầu ngay, không cần đăng ký.</h2>
+                <p>Chọn một tool ở trên hoặc bắt đầu với Base64.</p>
+                <a href="base64.html" class="btn btn-p">Mở Base64 tool</a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="ft">
+        <div class="ft-grid">
+            <div class="ft-brand">
+                <div class="logo" style="cursor:default">
+                    <svg viewBox="0 0 26 26">
+                        <rect x="2" y="2" width="22" height="22" />
+                        <line x1="2" y1="13" x2="24" y2="13" />
+                        <line x1="13" y1="2" x2="13" y2="24" />
+                    </svg>
+                    <b>Format<span>Box</span></b>
+                </div>
+                <p>Bộ công cụ chuyển đổi dữ liệu chạy hoàn toàn trên trình duyệt. Không upload, không đăng ký, không quảng cáo.</p>
+            </div>
+            <div class="ft-col">
+                <h4>TOOLS</h4>
+                <a href="base64.html">Base64</a>
+                <a href="json-formatter.html">JSON Formatter</a>
+                <a href="image-converter.html">Image Converter</a>
+            </div>
+            <div class="ft-col">
+                <h4>AUTHOR</h4>
+                <div class="ft-author">
+                    <div class="ft-avatar">L</div>
+                    <div class="ft-author-info">
+                        <b>Luân</b>
+                        <a href="mailto:nguyenluan.work@gmail.com">nguyenluan.work@gmail.com</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="ft-bottom">
+            <span>&copy; 2026 FormatBox. Made in Ho Chi Minh City.</span>
+            <span class="mono">v1.0 · static · no backend</span>
+        </div>
+    </footer>
+
+    <script>
+        (function () {
+            const h = document.documentElement, themeBtn = document.getElementById('themeToggle'), logo = document.getElementById('logoHome'), s = localStorage.getItem('fb-theme');
+            if (s) h.dataset.theme = s;
+            function updateThemeIcon() { themeBtn.textContent = h.dataset.theme === 'dark' ? '☀️' : '🌙' }
+            updateThemeIcon();
+            themeBtn.addEventListener('click', () => { const n = h.dataset.theme === 'dark' ? 'light' : 'dark'; h.dataset.theme = n; localStorage.setItem('fb-theme', n); updateThemeIcon() });
+            logo.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+            // live demo
+            let mode = 'encode';
+            const dIn = document.getElementById('dIn'), dOut = document.getElementById('dOut'), dMode = document.getElementById('dMode'), lIn = document.getElementById('dLabelIn'), lOut = document.getElementById('dLabelOut');
+            function run() {
+                const v = dIn.value;
+                if (!v.trim()) { dOut.value = ''; return }
+                try { dOut.value = mode === 'encode' ? btoa(unescape(encodeURIComponent(v))) : decodeURIComponent(escape(atob(v.trim()))) }
+                catch { dOut.value = '⚠ input không hợp lệ' }
+            }
+            dIn.addEventListener('input', run);
+            document.getElementById('dGo').addEventListener('click', run);
+            dMode.addEventListener('click', () => {
+                mode = mode === 'encode' ? 'decode' : 'encode';
+                dMode.textContent = mode;
+                lIn.textContent = mode === 'encode' ? 'TEXT' : 'BASE64';
+                lOut.textContent = mode === 'encode' ? 'BASE64' : 'TEXT';
+                const tmp = dIn.value; dIn.value = dOut.value.startsWith('⚠') ? '' : dOut.value; dOut.value = ''; run();
+            });
+            run();
+        })();
+    </script>
+</body>
+
+</html>
