@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
 import ScrollTop from "@/components/ScrollTop";
+import TitleUpdater from "@/components/TitleUpdater";
 import { LanguageProvider } from "@/lib/i18n";
 import { themeInitScript } from "@/lib/theme";
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <LanguageProvider>
+          <TitleUpdater />
           <ToastProvider>{children}</ToastProvider>
           <ScrollTop />
         </LanguageProvider>

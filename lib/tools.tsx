@@ -1,14 +1,15 @@
 import {
-  IconLock,
   IconBraces,
   IconChartDots3,
   IconConfetti,
   IconDevices,
   IconKey,
   IconLetterCase,
+  IconLock,
   IconMarkdown,
   IconPhoto,
   IconReceipt,
+  IconTerminal2,
   type Icon,
 } from "@tabler/icons-react";
 import type { Lang } from "./i18n";
@@ -69,7 +70,7 @@ export const TOOLS: Tool[] = [
   {
     href: "/image",
     Icon: IconPhoto,
-    title: "Image",
+    title: "Image Converter",
     sub: { vi: "Convert & Compress", en: "Convert & Compress" },
     desc: {
       vi: "PNG, JPG, WebP qua lại. Chỉnh chất lượng, xem trước tức thì.",
@@ -149,6 +150,18 @@ export const TOOLS: Tool[] = [
     },
     tags: ["random", "picker", "wheel"],
     category: "media",
+  },
+  {
+    href: "/curl",
+    Icon: IconTerminal2,
+    title: "cURL Runner",
+    sub: { vi: "Paste & Send", en: "Paste & Send" },
+    desc: {
+      vi: "Dán cURL, xem parse request và response giống Postman.",
+      en: "Paste a cURL command, inspect request and response Postman-style.",
+    },
+    tags: ["curl", "http", "api"],
+    category: "web",
   },
 ];
 

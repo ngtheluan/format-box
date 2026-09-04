@@ -306,6 +306,38 @@ const dict = {
   wh_winner_close: { vi: "Đóng", en: "Close" },
   wh_spin_again: { vi: "Quay lại", en: "Spin again" },
 
+  // CURL RUNNER
+  cu_title: { vi: "Runner", en: "Runner" },
+  cu_sub: {
+    vi: "Dán câu lệnh cURL, xem parse và response giống Postman. Chạy trực tiếp trên trình duyệt.",
+    en: "Paste a cURL command, inspect parsed request and response Postman-style. Runs in your browser.",
+  },
+  cu_input_label: { vi: "cURL command", en: "cURL command" },
+  cu_placeholder: {
+    vi: "curl -X GET 'https://api.github.com/users/vercel' -H 'Accept: application/json'",
+    en: "curl -X GET 'https://api.github.com/users/vercel' -H 'Accept: application/json'",
+  },
+  cu_send: { vi: "Gửi", en: "Send" },
+  cu_sending: { vi: "Đang gửi...", en: "Sending..." },
+  cu_parse_err: { vi: "Không parse được cURL", en: "Cannot parse cURL" },
+  cu_request: { vi: "Request", en: "Request" },
+  cu_response: { vi: "Response", en: "Response" },
+  cu_tab_body: { vi: "Body", en: "Body" },
+  cu_tab_headers: { vi: "Headers", en: "Headers" },
+  cu_tab_raw: { vi: "Raw", en: "Raw" },
+  cu_status: { vi: "Trạng thái", en: "Status" },
+  cu_time: { vi: "Thời gian", en: "Time" },
+  cu_size: { vi: "Kích thước", en: "Size" },
+  cu_cors_warn: {
+    vi: "Trình duyệt sẽ chặn nếu API không bật CORS. Nếu lỗi 'Failed to fetch' → dùng server hoặc API có CORS.",
+    en: "Browser will block if the API doesn't allow CORS. If you see 'Failed to fetch', try a CORS-enabled API.",
+  },
+  cu_no_body: { vi: "(response rỗng)", en: "(empty response)" },
+  cu_empty: {
+    vi: "Dán câu lệnh cURL bên trái và bấm Gửi để xem response.",
+    en: "Paste a cURL command on the left and hit Send to inspect the response.",
+  },
+
   // BILL
   bill_title: { vi: "Splitter", en: "Splitter" },
   bill_sub: {
