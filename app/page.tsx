@@ -1,9 +1,6 @@
 import Link from "next/link";
 import {
   IconCheck,
-  IconLock,
-  IconBraces,
-  IconPhoto,
   IconLink,
   IconHash,
   IconPalette,
@@ -19,37 +16,11 @@ import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import LiveDemo from "@/components/LiveDemo";
 import HeroCanvas from "@/components/HeroCanvas";
-
-const tools = [
-  {
-    href: "/base64",
-    Icon: IconLock,
-    title: "Base64",
-    sub: "Encode & Decode",
-    desc: "Text, file, UTF-8 đầy đủ. Kéo thả, đổi chiều một chạm.",
-    tags: ["text", "file", "utf-8"],
-  },
-  {
-    href: "/json",
-    Icon: IconBraces,
-    title: "JSON",
-    sub: "Format & Validate",
-    desc: "Format, minify, validate. Tree view, đếm keys, tính kích thước.",
-    tags: ["format", "minify", "tree"],
-  },
-  {
-    href: "/image",
-    Icon: IconPhoto,
-    title: "Image",
-    sub: "Convert & Compress",
-    desc: "PNG, JPG, WebP qua lại. Chỉnh chất lượng, xem trước tức thì.",
-    tags: ["png", "jpg", "webp"],
-  },
-];
+import { TOOLS as tools } from "@/lib/tools";
 
 const stats = [
   { k: "0", v: "byte upload" },
-  { k: "3", v: "công cụ" },
+  { k: "4", v: "công cụ" },
   { k: "100%", v: "client-side" },
   { k: "∞", v: "lần dùng" },
 ];
@@ -77,13 +48,7 @@ const coming = [
 export default function Home() {
   return (
     <>
-      <Nav
-        links={[
-          { href: "#tools", label: "Công cụ" },
-          { href: "#why", label: "Tại sao" },
-          { href: "#coming", label: "Sắp có" },
-        ]}
-      />
+      <Nav />
 
       <header className="hero-modern">
         <div className="hero-canvas-wrap">
@@ -132,11 +97,11 @@ export default function Home() {
         <div className="mx">
           <div className="sh-wrap">
             <div className="stag">TOOLS</div>
-            <h2 className="sh">Ba công cụ, một chỗ.</h2>
+            <h2 className="sh">Bốn công cụ, một chỗ.</h2>
             <p className="sd">Không cần cài đặt, không cần đăng ký. Mở tab, làm việc, đóng tab.</p>
           </div>
           <div className="tools-grid">
-            {tools.map((t, i) => (
+            {tools.slice(0, 8).map((t, i) => (
               <Link
                 key={t.href}
                 href={t.href}

@@ -1,13 +1,7 @@
 "use client";
-import { useMemo, useState } from "react";
-import {
-  IconCheck,
-  IconX,
-  IconCopy,
-  IconChevronRight,
-  IconChevronDown,
-} from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
+import { IconCheck, IconChevronDown, IconChevronRight, IconCopy, IconX } from "@tabler/icons-react";
+import { useMemo, useState } from "react";
 
 type Indent = "2" | "4" | "tab";
 type Status = { type: "ok" | "err" | "idle"; msg: string };
@@ -52,8 +46,7 @@ function TreeNode({ data }: { data: unknown }) {
       <summary>{`{${keys.length} keys}`}</summary>
       {keys.map((k) => (
         <div key={k}>
-          <span className="tree-key">&quot;{k}&quot;:</span>{" "}
-          <TreeNode data={(data as Record<string, unknown>)[k]} />
+          <span className="tree-key">&quot;{k}&quot;:</span> <TreeNode data={(data as Record<string, unknown>)[k]} />
         </div>
       ))}
     </details>
@@ -175,61 +168,78 @@ export default function JsonTool() {
         {status.msg}
       </div>
 
-      <label>Input JSON</label>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder='{"name": "FormatBox", "type": "tool", "features": ["format", "validate", "minify"]}'
-        style={{ height: 240 }}
-      />
+      <div className="json-grid">
+        <div className="json-col">
+          <label>Input JSON</label>
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder='{"name": "FormatBox", "type": "tool", "features": ["format", "validate", "minify"]}'
+            className="json-input"
+          />
 
-      <div className="indent-row">
-        <span style={{ fontSize: ".8rem", color: "var(--dim)" }}>Indent:</span>
-        {(["2", "4", "tab"] as Indent[]).map((i) => (
-          <button
-            key={i}
-            className={`indent-btn${indent === i ? " active" : ""}`}
-            onClick={() => setIndent(i)}
-          >
-            {i === "tab" ? "Tab" : `${i} spaces`}
-          </button>
-        ))}
-      </div>
-
-      <div className="actions">
-        <button className="btn btn-p" onClick={doFormat}>Format</button>
-        <button className="btn btn-s" onClick={doMinify}>Minify</button>
-        <button className="btn btn-s" onClick={doValidate}>Validate</button>
-        <button className="btn btn-s" onClick={doCopy}>
-          <IconCopy size={15} stroke={1.8} /> Copy
-        </button>
-        <button className="btn btn-s" onClick={doClear}>Xóa</button>
-      </div>
-
-      {errDetail && <div className="err-detail">{errDetail}</div>}
-
-      {info && (
-        <div className="info">
-          <span className="info-i">{info.type}</span>
-          <span className="info-i">{info.keys} keys</span>
-          <span className="info-i">depth {info.depth}</span>
-          <span className="info-i">{info.size}</span>
-        </div>
-      )}
-
-      {tree !== undefined && (
-        <div className="tree-wrap">
-          <div className="tree-toggle" onClick={() => setShowTree((v) => !v)}>
-            {showTree ? <IconChevronDown size={14} stroke={2} /> : <IconChevronRight size={14} stroke={2} />}
-            Tree view
+          <div className="indent-row">
+            <span style={{ fontSize: ".8rem", color: "var(--dim)" }}>Indent:</span>
+            {(["2", "4", "tab"] as Indent[]).map((i) => (
+              <button key={i} className={`indent-btn${indent === i ? " active" : ""}`} onClick={() => setIndent(i)}>
+                {i === "tab" ? "Tab" : `${i} spaces`}
+              </button>
+            ))}
           </div>
-          {showTree && (
-            <div className="tree">
-              <TreeNode data={tree} />
-            </div>
-          )}
+
+          <div className="actions">
+            <button className="btn btn-p" onClick={doFormat}>
+              Format
+            </button>
+            <button className="btn btn-s" onClick={doMinify}>
+              Minify
+            </button>
+            <button className="btn btn-s" onClick={doValidate}>
+              Validate
+            </button>
+            <button className="btn btn-s" onClick={doCopy}>
+              <IconCopy size={15} stroke={1.8} /> Copy
+            </button>
+            <button className="btn btn-s" onClick={doClear}>
+              Xóa
+            </button>
+          </div>
+
+          {errDetail && <div className="err-detail">{errDetail}</div>}
         </div>
-      )}
+
+        <div className="json-col">
+          <label>Kết quả</label>
+          <div className="json-output">
+            {info && (
+              <div className="info" style={{ marginTop: 0, marginBottom: 12 }}>
+                <span className="info-i">{info.type}</span>
+                <span className="info-i">{info.keys} keys</span>
+                <span className="info-i">depth {info.depth}</span>
+                <span className="info-i">{info.size}</span>
+              </div>
+            )}
+
+            {tree !== undefined ? (
+              <div className="tree-wrap" style={{ marginTop: 0 }}>
+                <div className="tree-toggle" onClick={() => setShowTree((v) => !v)}>
+                  {showTree ? <IconChevronDown size={14} stroke={2} /> : <IconChevronRight size={14} stroke={2} />}
+                  Tree view
+                </div>
+                {showTree && (
+                  <div className="tree">
+                    <TreeNode data={tree} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="json-empty">
+                Bấm <b>Format</b> để xem tree view và thông tin cấu trúc.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </>
   );
 }

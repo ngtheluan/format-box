@@ -1,6 +1,6 @@
-import type { Metadata } from "next";
-import { IconPhoto } from "@tabler/icons-react";
 import Nav from "@/components/Nav";
+import { IconPhoto } from "@tabler/icons-react";
+import type { Metadata } from "next";
 import ImageTool from "./ImageTool";
 
 export const metadata: Metadata = {
@@ -11,14 +11,11 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <>
-      <Nav
-        links={[
-          { href: "/base64", label: "Base64" },
-          { href: "/json", label: "JSON" },
-        ]}
-      />
-      <div className="page" style={{ maxWidth: 800 }}>
-        <h1 className="page-title"><IconPhoto size={22} stroke={1.8} /> Image <span>Converter</span></h1>
+      <Nav />
+      <div className="page" style={{ maxWidth: 1000 }}>
+        <h1 className="page-title">
+          <IconPhoto size={22} stroke={1.8} /> Image <span>Converter</span>
+        </h1>
         <p className="sub">Chuyển đổi giữa PNG, JPG, WebP. Kéo thả ảnh, chỉnh chất lượng, tải về.</p>
         <ImageTool />
       </div>

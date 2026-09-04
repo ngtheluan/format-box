@@ -24,6 +24,7 @@ export default function Footer() {
           <h4>TOOLS</h4>
           <Link href="/base64">Base64</Link>
           <Link href="/json">JSON Formatter</Link>
+          <Link href="/graph">JSON Graph</Link>
           <Link href="/image">Image Converter</Link>
         </div>
         <div className="ft-col">
