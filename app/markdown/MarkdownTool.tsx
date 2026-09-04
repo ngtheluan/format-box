@@ -1,17 +1,10 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
-import {
-  IconCopy,
-  IconDownload,
-  IconEye,
-  IconFileImport,
-  IconPencil,
-  IconTrash,
-} from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
+import { IconCopy, IconDownload, IconEye, IconFileImport, IconPencil, IconTrash } from "@tabler/icons-react";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const SAMPLE = `# Markdown Reader
 
@@ -20,7 +13,7 @@ Welcome to the FormatBox markdown reader. Everything runs client-side — nothin
 ## Features
 
 - **Bold**, *italic*, ~~strike~~, \`code\`
-- [Links](https://formatbox.dev) and images
+- [Links](https://format-box.vercel.app) and images
 - Lists, tables, quotes, task lists
 
 ### Code block
@@ -80,10 +73,7 @@ export default function MarkdownTool() {
 
   const loadFile = (file: File | undefined) => {
     if (!file) return;
-    if (
-      !/\.(md|markdown|mdx|txt)$/i.test(file.name) &&
-      !file.type.startsWith("text/")
-    ) {
+    if (!/\.(md|markdown|mdx|txt)$/i.test(file.name) && !file.type.startsWith("text/")) {
       toast(t("toast_only_markdown"));
       return;
     }
@@ -126,7 +116,7 @@ ${html}
 </body>
 </html>`,
       ],
-      { type: "text/html" }
+      { type: "text/html" },
     );
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -209,24 +199,24 @@ ${html}
       </div>
 
       <div className="info md-stats">
-        <span className="info-i">{stats.chars} {t("lbl_chars")}</span>
-        <span className="info-i">{stats.words} {t("lbl_words")}</span>
-        <span className="info-i">{stats.lines} {t("lbl_lines")}</span>
-        <span className="info-i">~{stats.reading} {t("md_reading")}</span>
+        <span className="info-i">
+          {stats.chars} {t("lbl_chars")}
+        </span>
+        <span className="info-i">
+          {stats.words} {t("lbl_words")}
+        </span>
+        <span className="info-i">
+          {stats.lines} {t("lbl_lines")}
+        </span>
+        <span className="info-i">
+          ~{stats.reading} {t("md_reading")}
+        </span>
       </div>
     </div>
   );
 }
 
-function ModeBtn({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+function ModeBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button className={`md-mode-btn${active ? " active" : ""}`} onClick={onClick} type="button">
       {children}

@@ -12,6 +12,9 @@ const dict = {
   nav_all_tools: { vi: "Tất cả tool", en: "All tools" },
   nav_results: { vi: "kết quả", en: "results" },
   nav_no_result: { vi: "Không tìm thấy công cụ nào cho", en: "No tools found for" },
+  cat_text: { vi: "Text & Data", en: "Text & Data" },
+  cat_media: { vi: "Media & Files", en: "Media & Files" },
+  cat_web: { vi: "Web Dev", en: "Web Dev" },
 
   // HERO
   hero_tag: { vi: "100% client-side · không upload", en: "100% client-side · no upload" },
@@ -242,6 +245,33 @@ const dict = {
   tc_input_placeholder: { vi: "Paste text vào đây...", en: "Paste text here..." },
   tc_reset_lower: { vi: "Về gốc lower", en: "Reset to lowercase" },
   tc_click_copy: { vi: "Click để copy", en: "Click to copy" },
+
+  // RESPONSIVE TESTER
+  rt_title: { vi: "Tester", en: "Tester" },
+  rt_sub: {
+    vi: "Xem trang web ở nhiều kích thước thiết bị. Xoay ngang, chỉnh zoom, so sánh nhanh.",
+    en: "View any website across many device sizes. Rotate, zoom, compare quickly.",
+  },
+  rt_url_label: { vi: "URL trang web", en: "Website URL" },
+  rt_url_ph: { vi: "https://example.com", en: "https://example.com" },
+  rt_go: { vi: "Xem", en: "Go" },
+  rt_reload: { vi: "Tải lại", en: "Reload" },
+  rt_rotate: { vi: "Xoay", en: "Rotate" },
+  rt_open_new: { vi: "Mở tab mới", en: "Open in tab" },
+  rt_zoom: { vi: "Zoom", en: "Zoom" },
+  rt_fit: { vi: "Vừa khung", en: "Fit" },
+  rt_category_mobile: { vi: "Điện thoại", en: "Mobile" },
+  rt_category_tablet: { vi: "Máy tính bảng", en: "Tablet" },
+  rt_category_desktop: { vi: "Máy tính", en: "Desktop" },
+  rt_empty: {
+    vi: "Dán URL vào ô bên trái để bắt đầu.",
+    en: "Paste a URL on the left to start.",
+  },
+  rt_iframe_warn: {
+    vi: "Một số site chặn nhúng iframe (X-Frame-Options / CSP). Nếu trang trắng, mở tab mới thay thế.",
+    en: "Some sites block iframe embedding (X-Frame-Options / CSP). If it stays blank, open in a new tab.",
+  },
+  rt_invalid_url: { vi: "URL không hợp lệ", en: "Invalid URL" },
 
   // BILL
   bill_title: { vi: "Splitter", en: "Splitter" },

@@ -33,7 +33,7 @@ export default function Home() {
   const { t, lang } = useI18n();
   const stats = [
     { k: "0", v: t("stat_ads") },
-    { k: "8", v: t("stat_tools") },
+    { k: "9", v: t("stat_tools") },
     { k: "100%", v: t("stat_client") },
     { k: "∞", v: t("stat_uses") },
   ];

@@ -2,6 +2,7 @@ import {
   IconLock,
   IconBraces,
   IconChartDots3,
+  IconDevices,
   IconKey,
   IconLetterCase,
   IconMarkdown,
@@ -13,6 +14,8 @@ import type { Lang } from "./i18n";
 
 type Bilingual = { vi: string; en: string };
 
+export type ToolCategory = "text" | "media" | "web";
+
 export type Tool = {
   href: string;
   Icon: Icon;
@@ -20,7 +23,10 @@ export type Tool = {
   sub: Bilingual;
   desc: Bilingual;
   tags: string[];
+  category: ToolCategory;
 };
+
+export const CATEGORY_ORDER: ToolCategory[] = ["text", "media", "web"];
 
 export const TOOLS: Tool[] = [
   {
@@ -33,6 +39,7 @@ export const TOOLS: Tool[] = [
       en: "Text, files, full UTF-8. Drag-drop and swap in one click.",
     },
     tags: ["text", "file", "utf-8"],
+    category: "text",
   },
   {
     href: "/json",
@@ -44,6 +51,7 @@ export const TOOLS: Tool[] = [
       en: "Format, minify, validate. Tree view, key count, size info.",
     },
     tags: ["format", "minify", "tree"],
+    category: "text",
   },
   {
     href: "/graph",
@@ -55,6 +63,7 @@ export const TOOLS: Tool[] = [
       en: "Turn JSON into an interactive graph. Pan, zoom, explore.",
     },
     tags: ["graph", "pan", "zoom"],
+    category: "text",
   },
   {
     href: "/image",
@@ -66,6 +75,7 @@ export const TOOLS: Tool[] = [
       en: "PNG, JPG, WebP. Tune quality, live preview.",
     },
     tags: ["png", "jpg", "webp"],
+    category: "media",
   },
   {
     href: "/bill",
@@ -77,6 +87,7 @@ export const TOOLS: Tool[] = [
       en: "Split expenses in a group — items, people, export as PNG.",
     },
     tags: ["bill", "split", "png"],
+    category: "media",
   },
   {
     href: "/jwt",
@@ -88,6 +99,7 @@ export const TOOLS: Tool[] = [
       en: "Decode header + payload, inspect claims and expiry.",
     },
     tags: ["jwt", "token", "decode"],
+    category: "text",
   },
   {
     href: "/markdown",
@@ -99,6 +111,7 @@ export const TOOLS: Tool[] = [
       en: "Read Markdown files, live preview, copy HTML.",
     },
     tags: ["markdown", "md", "preview"],
+    category: "text",
   },
   {
     href: "/text-case",
@@ -110,6 +123,19 @@ export const TOOLS: Tool[] = [
       en: "Switch between camel, snake, kebab, Title, UPPER and more.",
     },
     tags: ["case", "camel", "snake", "kebab"],
+    category: "text",
+  },
+  {
+    href: "/responsive",
+    Icon: IconDevices,
+    title: "Responsive Tester",
+    sub: { vi: "Preview & Compare", en: "Preview & Compare" },
+    desc: {
+      vi: "Xem website ở nhiều kích thước iPhone, iPad, laptop, desktop.",
+      en: "View any website across iPhone, iPad, laptop, desktop sizes.",
+    },
+    tags: ["responsive", "device", "preview"],
+    category: "web",
   },
 ];
 

@@ -3,8 +3,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { IconApps, IconChevronDown, IconSearch, IconX } from "@tabler/icons-react";
-import { TOOLS, toolSearchable, type Tool } from "@/lib/tools";
+import { CATEGORY_ORDER, TOOLS, toolSearchable, type Tool, type ToolCategory } from "@/lib/tools";
 import { useI18n } from "@/lib/i18n";
+
+const catKey = (c: ToolCategory) =>
+  c === "text" ? "cat_text" : c === "media" ? "cat_media" : "cat_web";
 
 function score(tool: Tool, q: string): number {
   if (!q) return 1;
@@ -65,6 +68,28 @@ export default function ToolsMenu() {
   }, [q]);
 
   useEffect(() => setActive(0), [q]);
+
+  const renderItem = (tool: Tool, i: number) => {
+    const activeRow = pathname === tool.href;
+    const highlight = i === active;
+    return (
+      <Link
+        key={tool.href}
+        href={tool.href}
+        className={`tools-menu-item${activeRow ? " active" : ""}${highlight ? " highlight" : ""}`}
+        role="menuitem"
+        onMouseEnter={() => setActive(i)}
+      >
+        <div className="tools-menu-icon">
+          <tool.Icon size={18} stroke={1.7} />
+        </div>
+        <div className="tools-menu-text">
+          <b>{tool.title}</b>
+          <span>{tool.sub[lang]}</span>
+        </div>
+      </Link>
+    );
+  };
 
   const onInputKey = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -133,29 +158,28 @@ export default function ToolsMenu() {
           <div className="tools-menu-empty">
             {t("nav_no_result")} &quot;{q}&quot;
           </div>
-        ) : (
+        ) : q ? (
           <div className="tools-menu-grid">
-            {results.map((tool, i) => {
-              const activeRow = pathname === tool.href;
-              const highlight = i === active;
+            {results.map((tool, i) => renderItem(tool, i))}
+          </div>
+        ) : (
+          <div className="tools-menu-groups">
+            {CATEGORY_ORDER.map((cat) => {
+              const items = results.filter((tt) => tt.category === cat);
+              if (items.length === 0) return null;
               return (
-                <Link
-                  key={tool.href}
-                  href={tool.href}
-                  className={`tools-menu-item${activeRow ? " active" : ""}${
-                    highlight ? " highlight" : ""
-                  }`}
-                  role="menuitem"
-                  onMouseEnter={() => setActive(i)}
-                >
-                  <div className="tools-menu-icon">
-                    <tool.Icon size={18} stroke={1.7} />
+                <div key={cat} className={`tools-menu-group tools-menu-group-${cat}`}>
+                  <div className="tools-menu-group-head">
+                    <span>{t(catKey(cat))}</span>
+                    <span className="tools-menu-group-count">{items.length}</span>
                   </div>
-                  <div className="tools-menu-text">
-                    <b>{tool.title}</b>
-                    <span>{tool.sub[lang]}</span>
+                  <div className="tools-menu-grid">
+                    {items.map((tool) => {
+                      const i = results.indexOf(tool);
+                      return renderItem(tool, i);
+                    })}
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
