@@ -20,7 +20,7 @@ import { TOOLS as tools } from "@/lib/tools";
 
 const stats = [
   { k: "0", v: "byte upload" },
-  { k: "4", v: "công cụ" },
+  { k: "5", v: "công cụ" },
   { k: "100%", v: "client-side" },
   { k: "∞", v: "lần dùng" },
 ];
@@ -97,7 +97,7 @@ export default function Home() {
         <div className="mx">
           <div className="sh-wrap">
             <div className="stag">TOOLS</div>
-            <h2 className="sh">Bốn công cụ, một chỗ.</h2>
+            <h2 className="sh">Năm công cụ, một chỗ.</h2>
             <p className="sd">Không cần cài đặt, không cần đăng ký. Mở tab, làm việc, đóng tab.</p>
           </div>
           <div className="tools-grid">

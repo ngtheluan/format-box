@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
 import { IconMoon, IconSun } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
 
   useEffect(() => {
-    const saved = (localStorage.getItem("fb-theme") as "dark" | "light" | null) ?? "dark";
+    const saved = (localStorage.getItem("fb-theme") as "dark" | "light" | null) ?? "light";
     setTheme(saved);
     document.documentElement.dataset.theme = saved;
   }, []);
@@ -19,12 +19,7 @@ export default function ThemeToggle() {
   };
 
   return (
-    <button
-      className="theme-btn"
-      onClick={toggle}
-      title="Đổi giao diện sáng/tối"
-      aria-label="Đổi giao diện"
-    >
+    <button className="theme-btn" onClick={toggle} title="Đổi giao diện sáng/tối" aria-label="Đổi giao diện">
       {theme === "dark" ? <IconSun size={18} stroke={1.8} /> : <IconMoon size={18} stroke={1.8} />}
     </button>
   );

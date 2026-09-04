@@ -3,6 +3,7 @@ import {
   IconBraces,
   IconChartDots3,
   IconPhoto,
+  IconReceipt,
   type Icon,
 } from "@tabler/icons-react";
 
@@ -47,5 +48,13 @@ export const TOOLS: Tool[] = [
     sub: "Convert & Compress",
     desc: "PNG, JPG, WebP qua lại. Chỉnh chất lượng, xem trước tức thì.",
     tags: ["png", "jpg", "webp"],
+  },
+  {
+    href: "/bill",
+    Icon: IconReceipt,
+    title: "Bill Splitter",
+    sub: "Share & Export",
+    desc: "Chia tiền theo nhóm — nhập item, người tham gia, xuất bill PNG.",
+    tags: ["bill", "split", "png"],
   },
 ];

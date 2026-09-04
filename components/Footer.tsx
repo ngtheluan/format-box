@@ -26,6 +26,7 @@ export default function Footer() {
           <Link href="/json">JSON Formatter</Link>
           <Link href="/graph">JSON Graph</Link>
           <Link href="/image">Image Converter</Link>
+          <Link href="/bill">Bill Splitter</Link>
         </div>
         <div className="ft-col">
           <h4>AUTHOR</h4>
