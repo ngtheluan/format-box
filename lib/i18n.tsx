@@ -273,6 +273,39 @@ const dict = {
   },
   rt_invalid_url: { vi: "URL không hợp lệ", en: "Invalid URL" },
 
+  // WHEEL
+  wh_title: { vi: "Wheel", en: "Wheel" },
+  wh_sub: {
+    vi: "Vòng quay may mắn. Nhập danh sách mỗi dòng một mục, bấm quay để chọn ngẫu nhiên.",
+    en: "Lucky wheel. Enter one item per line and spin to pick at random.",
+  },
+  wh_items_label: { vi: "Danh sách (mỗi dòng một mục)", en: "Items (one per line)" },
+  wh_items_placeholder: { vi: "Táo\nCam\nChuối\nDưa hấu", en: "Apple\nOrange\nBanana\nWatermelon" },
+  wh_spin: { vi: "Quay!", en: "Spin!" },
+  wh_spinning: { vi: "Đang quay...", en: "Spinning..." },
+  wh_winner: { vi: "🎉 Kết quả:", en: "🎉 Winner:" },
+  wh_remove_winner: { vi: "Loại người thắng", en: "Remove winner" },
+  wh_shuffle: { vi: "Xáo trộn", en: "Shuffle" },
+  wh_reset: { vi: "Reset", en: "Reset" },
+  wh_history: { vi: "Lịch sử", en: "History" },
+  wh_history_empty: { vi: "Chưa có lượt quay nào.", en: "No spins yet." },
+  wh_clear_history: { vi: "Xoá lịch sử", en: "Clear history" },
+  wh_count: { vi: "mục", en: "items" },
+  wh_need_items: { vi: "Cần ít nhất 2 mục để quay", en: "Need at least 2 items to spin" },
+  wh_empty_wheel: {
+    vi: "Nhập ít nhất 2 mục bên trái để bắt đầu.",
+    en: "Enter at least 2 items on the left to start.",
+  },
+  wh_preset_label: { vi: "Chủ đề", en: "Preset" },
+  wh_preset_custom: { vi: "Tuỳ chỉnh", en: "Custom" },
+  wh_preset_food: { vi: "Món ăn", en: "Food" },
+  wh_preset_drink: { vi: "Nước uống", en: "Drinks" },
+  wh_preset_person: { vi: "May mắn / Thua cuộc", en: "Lucky / Loser" },
+  wh_saved_hint: { vi: "Danh sách tự lưu vào trình duyệt.", en: "List saved to your browser." },
+  wh_winner_title: { vi: "Chúc mừng!", en: "Congratulations!" },
+  wh_winner_close: { vi: "Đóng", en: "Close" },
+  wh_spin_again: { vi: "Quay lại", en: "Spin again" },
+
   // BILL
   bill_title: { vi: "Splitter", en: "Splitter" },
   bill_sub: {

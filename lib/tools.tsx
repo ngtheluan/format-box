@@ -2,6 +2,7 @@ import {
   IconLock,
   IconBraces,
   IconChartDots3,
+  IconConfetti,
   IconDevices,
   IconKey,
   IconLetterCase,
@@ -136,6 +137,18 @@ export const TOOLS: Tool[] = [
     },
     tags: ["responsive", "device", "preview"],
     category: "web",
+  },
+  {
+    href: "/wheel",
+    Icon: IconConfetti,
+    title: "Lucky Wheel",
+    sub: { vi: "Spin & Pick", en: "Spin & Pick" },
+    desc: {
+      vi: "Vòng quay may mắn — nhập danh sách, quay, chọn ngẫu nhiên.",
+      en: "Lucky wheel — enter a list, spin, pick randomly.",
+    },
+    tags: ["random", "picker", "wheel"],
+    category: "media",
   },
 ];
 
