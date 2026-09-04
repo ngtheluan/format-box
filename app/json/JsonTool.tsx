@@ -1,5 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
+import {
+  IconCheck,
+  IconX,
+  IconCopy,
+  IconChevronRight,
+  IconChevronDown,
+} from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
 
 type Indent = "2" | "4" | "tab";
@@ -90,10 +97,10 @@ export default function JsonTool() {
     }
     try {
       JSON.parse(v);
-      setStatus({ type: "ok", msg: "✓ JSON hợp lệ" });
+      setStatus({ type: "ok", msg: "JSON hợp lệ" });
       setErrDetail(null);
     } catch (e) {
-      setStatus({ type: "err", msg: "✗ JSON không hợp lệ" });
+      setStatus({ type: "err", msg: "JSON không hợp lệ" });
       setErrDetail((e as Error).message);
     }
   };
@@ -105,11 +112,11 @@ export default function JsonTool() {
       const parsed = JSON.parse(v);
       const out = JSON.stringify(parsed, null, indentStr);
       setValue(out);
-      setStatus({ type: "ok", msg: "✓ Đã format" });
+      setStatus({ type: "ok", msg: "Đã format" });
       setErrDetail(null);
       setTree(parsed);
     } catch (e) {
-      setStatus({ type: "err", msg: "✗ JSON không hợp lệ" });
+      setStatus({ type: "err", msg: "JSON không hợp lệ" });
       setErrDetail((e as Error).message);
     }
   };
@@ -122,11 +129,11 @@ export default function JsonTool() {
       const min = JSON.stringify(parsed);
       const saved = ((1 - min.length / v.length) * 100).toFixed(0);
       setValue(min);
-      setStatus({ type: "ok", msg: `✓ Đã minify (giảm ${saved}%)` });
+      setStatus({ type: "ok", msg: `Đã minify (giảm ${saved}%)` });
       setErrDetail(null);
       setTree(undefined);
     } catch (e) {
-      setStatus({ type: "err", msg: "✗ JSON không hợp lệ" });
+      setStatus({ type: "err", msg: "JSON không hợp lệ" });
       setErrDetail((e as Error).message);
     }
   };
@@ -139,11 +146,11 @@ export default function JsonTool() {
     }
     try {
       JSON.parse(v);
-      setStatus({ type: "ok", msg: "✓ JSON hợp lệ" });
+      setStatus({ type: "ok", msg: "JSON hợp lệ" });
       setErrDetail(null);
       toast("JSON hợp lệ");
     } catch (e) {
-      setStatus({ type: "err", msg: "✗ JSON không hợp lệ" });
+      setStatus({ type: "err", msg: "JSON không hợp lệ" });
       setErrDetail((e as Error).message);
     }
   };
@@ -162,7 +169,11 @@ export default function JsonTool() {
 
   return (
     <>
-      <div className={`status ${status.type}`}>{status.msg}</div>
+      <div className={`status ${status.type}`}>
+        {status.type === "ok" && <IconCheck size={14} stroke={2.4} />}
+        {status.type === "err" && <IconX size={14} stroke={2.4} />}
+        {status.msg}
+      </div>
 
       <label>Input JSON</label>
       <textarea
@@ -189,7 +200,9 @@ export default function JsonTool() {
         <button className="btn btn-p" onClick={doFormat}>Format</button>
         <button className="btn btn-s" onClick={doMinify}>Minify</button>
         <button className="btn btn-s" onClick={doValidate}>Validate</button>
-        <button className="btn btn-s" onClick={doCopy}>📋 Copy</button>
+        <button className="btn btn-s" onClick={doCopy}>
+          <IconCopy size={15} stroke={1.8} /> Copy
+        </button>
         <button className="btn btn-s" onClick={doClear}>Xóa</button>
       </div>
 
@@ -207,7 +220,8 @@ export default function JsonTool() {
       {tree !== undefined && (
         <div className="tree-wrap">
           <div className="tree-toggle" onClick={() => setShowTree((v) => !v)}>
-            {showTree ? "▼" : "▶"} Tree view
+            {showTree ? <IconChevronDown size={14} stroke={2} /> : <IconChevronRight size={14} stroke={2} />}
+            Tree view
           </div>
           {showTree && (
             <div className="tree">

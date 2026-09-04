@@ -1,57 +1,77 @@
 import Link from "next/link";
+import {
+  IconCheck,
+  IconLock,
+  IconBraces,
+  IconPhoto,
+  IconLink,
+  IconHash,
+  IconPalette,
+  IconFingerprint,
+  IconKey,
+  IconClock,
+  IconRuler,
+  IconLetterCase,
+  IconTable,
+  IconCalculator,
+} from "@tabler/icons-react";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import LiveDemo from "@/components/LiveDemo";
+import HeroCanvas from "@/components/HeroCanvas";
 
 const tools = [
   {
     href: "/base64",
-    icon: "🔐",
-    title: "Base64 Encode / Decode",
-    desc: "Mã hóa và giải mã text hoặc file bất kỳ. Hỗ trợ UTF-8 đầy đủ, kéo thả file, đổi chiều một chạm.",
+    Icon: IconLock,
+    title: "Base64",
+    sub: "Encode & Decode",
+    desc: "Text, file, UTF-8 đầy đủ. Kéo thả, đổi chiều một chạm.",
     tags: ["text", "file", "utf-8"],
-    code: (
-      <>
-        <em>btoa</em>(&quot;xin chào&quot;) <span className="k">→</span>{" "}
-        <span className="s">&quot;eGluIGNow6Bv&quot;</span>
-      </>
-    ),
   },
   {
     href: "/json",
-    icon: "📋",
-    title: "JSON Formatter & Validator",
-    desc: "Format, minify, validate. Báo lỗi đúng vị trí, tree view thu gọn được, đếm keys và độ sâu.",
+    Icon: IconBraces,
+    title: "JSON",
+    sub: "Format & Validate",
+    desc: "Format, minify, validate. Tree view, đếm keys, tính kích thước.",
     tags: ["format", "minify", "tree"],
-    code: (
-      <>
-        {"{"}
-        <span className="k">&quot;name&quot;</span>: <span className="s">&quot;FormatBox&quot;</span>,{" "}
-        <span className="k">&quot;free&quot;</span>: <span className="n">true</span>
-        {"}"}
-      </>
-    ),
   },
   {
     href: "/image",
-    icon: "🖼️",
-    title: "Image Converter",
-    desc: "PNG, JPG, WebP qua lại. Chỉnh chất lượng, xem trước, biết ngay giảm được bao nhiêu %.",
+    Icon: IconPhoto,
+    title: "Image",
+    sub: "Convert & Compress",
+    desc: "PNG, JPG, WebP qua lại. Chỉnh chất lượng, xem trước tức thì.",
     tags: ["png", "jpg", "webp"],
   },
 ];
 
+const stats = [
+  { k: "0", v: "byte upload" },
+  { k: "3", v: "công cụ" },
+  { k: "100%", v: "client-side" },
+  { k: "∞", v: "lần dùng" },
+];
+
 const why = [
-  { n: "01", h: "Chạy hoàn toàn trên trình duyệt", p: "Không có server nào nhận dữ liệu của bạn. Tắt mạng vẫn dùng được sau khi trang đã load." },
-  { n: "02", h: "Tức thì, không giới hạn", p: "Không hàng đợi, không quota, không bắt nâng cấp. File 50MB hay 5KB đều như nhau." },
-  { n: "03", h: "Không quảng cáo, không tracking", p: "Không popup, không banner, không cookie theo dõi. Tool là tool." },
-  { n: "04", h: "Mọi thiết bị", p: "Desktop, mobile, tablet. Bookmark lại, dùng khi cần." },
+  { n: "01", h: "Chạy trên trình duyệt", p: "Không server nào nhận dữ liệu. Tắt mạng vẫn dùng được." },
+  { n: "02", h: "Tức thì, không giới hạn", p: "Không hàng đợi, không quota. File 50MB hay 5KB đều như nhau." },
+  { n: "03", h: "Không tracking", p: "Không popup, không banner, không cookie theo dõi." },
+  { n: "04", h: "Mọi thiết bị", p: "Desktop, mobile, tablet. Bookmark, dùng khi cần." },
 ];
 
 const coming = [
-  "🔗 URL Encode / Decode", "🏷️ HTML Entities", "🎨 Color Converter",
-  "#️⃣ Hash (MD5 / SHA)", "🪙 JWT Decoder", "⏱️ Unix Timestamp",
-  "📐 CSS Units", "🔤 Text Case", "📊 CSV ↔ JSON", "🧮 Number Base",
+  { Icon: IconLink, label: "URL Encode" },
+  { Icon: IconHash, label: "HTML Entities" },
+  { Icon: IconPalette, label: "Color Converter" },
+  { Icon: IconFingerprint, label: "Hash (MD5 / SHA)" },
+  { Icon: IconKey, label: "JWT Decoder" },
+  { Icon: IconClock, label: "Unix Timestamp" },
+  { Icon: IconRuler, label: "CSS Units" },
+  { Icon: IconLetterCase, label: "Text Case" },
+  { Icon: IconTable, label: "CSV ↔ JSON" },
+  { Icon: IconCalculator, label: "Number Base" },
 ];
 
 export default function Home() {
@@ -65,21 +85,47 @@ export default function Home() {
         ]}
       />
 
-      <header className="hero">
-        <div className="tag"><i>✓</i> 100% client-side · không upload · miễn phí</div>
-        <h1>
-          Chuyển đổi dữ liệu<br />
-          <span className="g">ngay trên trình duyệt.</span>
-        </h1>
-        <p className="hero-sub">
-          Base64, JSON, hình ảnh — paste vào, nhận kết quả tức thì. Dữ liệu không bao giờ rời khỏi
-          máy bạn.
-        </p>
-        <div className="hero-cta">
-          <a href="#tools" className="btn btn-p">Xem công cụ</a>
-          <a href="#why" className="btn btn-g">Tại sao FormatBox?</a>
+      <header className="hero-modern">
+        <div className="hero-canvas-wrap">
+          <HeroCanvas />
         </div>
-        <LiveDemo />
+
+        <div className="hero-inner">
+          <div className="hero-copy">
+            <div className="tag">
+              <span className="i-check">
+                <IconCheck size={12} stroke={3} />
+              </span>
+              100% client-side · không upload
+            </div>
+            <h1>
+              Chuyển đổi dữ liệu
+              <br />
+              <span className="g">ngay trên trình duyệt.</span>
+            </h1>
+            <p className="hero-sub">
+              Base64, JSON, hình ảnh — paste vào, nhận kết quả tức thì.
+              Dữ liệu không bao giờ rời khỏi máy bạn.
+            </p>
+            <div className="hero-cta">
+              <a href="#tools" className="btn btn-p">Xem công cụ</a>
+              <a href="#why" className="btn btn-g">Tại sao FormatBox?</a>
+            </div>
+
+            <div className="stat-strip">
+              {stats.map((s) => (
+                <div key={s.v} className="stat">
+                  <b>{s.k}</b>
+                  <span>{s.v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="hero-demo-wrap">
+          <LiveDemo />
+        </div>
       </header>
 
       <section id="tools">
@@ -89,14 +135,23 @@ export default function Home() {
             <h2 className="sh">Ba công cụ, một chỗ.</h2>
             <p className="sd">Không cần cài đặt, không cần đăng ký. Mở tab, làm việc, đóng tab.</p>
           </div>
-          <div className="bento">
-            {tools.map((t) => (
-              <Link key={t.href} href={t.href} className="bc">
-                <span className="bc-go">↗</span>
-                <div className="bc-icon">{t.icon}</div>
+          <div className="tools-grid">
+            {tools.map((t, i) => (
+              <Link
+                key={t.href}
+                href={t.href}
+                className="tool-card-m"
+                style={{ animationDelay: `${i * 80}ms` }}
+              >
+                <div className="tool-head">
+                  <div className="tool-icon">
+                    <t.Icon size={22} stroke={1.6} />
+                  </div>
+                  <span className="tool-arrow">→</span>
+                </div>
                 <h3>{t.title}</h3>
+                <div className="tool-sub">{t.sub}</div>
                 <p>{t.desc}</p>
-                {t.code && <div className="bc-code">{t.code}</div>}
                 <div className="bc-tags">
                   {t.tags.map((tag) => (
                     <span key={tag} className="bc-tag">{tag}</span>
@@ -112,10 +167,7 @@ export default function Home() {
         <div className="mx">
           <div className="sh-wrap">
             <div className="stag">WHY</div>
-            <h2 className="sh">
-              Tool online khác upload dữ liệu của bạn.<br />
-              FormatBox thì không.
-            </h2>
+            <h2 className="sh">Tool khác upload dữ liệu.<br />FormatBox thì không.</h2>
           </div>
           <div className="why">
             {why.map((w) => (
@@ -136,7 +188,12 @@ export default function Home() {
             <h2 className="sh">Sắp có thêm</h2>
           </div>
           <div className="coming">
-            {coming.map((c) => <span key={c} className="cp">{c}</span>)}
+            {coming.map((c) => (
+              <span key={c.label} className="cp">
+                <c.Icon size={15} stroke={1.7} />
+                {c.label}
+              </span>
+            ))}
           </div>
         </div>
       </section>

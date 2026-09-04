@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { IconBraces } from "@tabler/icons-react";
 import Nav from "@/components/Nav";
 import JsonTool from "./JsonTool";
 
@@ -17,7 +18,7 @@ export default function Page() {
         ]}
       />
       <div className="page" style={{ maxWidth: 900 }}>
-        <h1>📋 JSON <span>Formatter & Validator</span></h1>
+        <h1 className="page-title"><IconBraces size={22} stroke={1.8} /> JSON <span>Formatter & Validator</span></h1>
         <p className="sub">Format, validate, minify JSON. Highlight lỗi, tree view, tính kích thước.</p>
         <JsonTool />
       </div>

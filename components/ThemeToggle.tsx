@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { IconMoon, IconSun } from "@tabler/icons-react";
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -24,7 +25,7 @@ export default function ThemeToggle() {
       title="Đổi giao diện sáng/tối"
       aria-label="Đổi giao diện"
     >
-      {theme === "dark" ? "☀️" : "🌙"}
+      {theme === "dark" ? <IconSun size={18} stroke={1.8} /> : <IconMoon size={18} stroke={1.8} />}
     </button>
   );
 }

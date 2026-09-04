@@ -1,5 +1,12 @@
 "use client";
 import { useRef, useState } from "react";
+import {
+  IconArrowsUpDown,
+  IconTrash,
+  IconPaperclip,
+  IconCopy,
+  IconDownload,
+} from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
 
 type Mode = "encode" | "decode";
@@ -107,8 +114,12 @@ export default function Base64Tool() {
           </button>
         </div>
         <div className="toolbar-actions">
-          <button className="icon-btn" onClick={swap} title="Đổi chiều">⇅</button>
-          <button className="icon-btn" onClick={clear} title="Xóa">🗑</button>
+          <button className="icon-btn" onClick={swap} title="Đổi chiều">
+            <IconArrowsUpDown size={18} stroke={1.8} />
+          </button>
+          <button className="icon-btn" onClick={clear} title="Xóa">
+            <IconTrash size={18} stroke={1.8} />
+          </button>
         </div>
       </div>
 
@@ -131,7 +142,9 @@ export default function Base64Tool() {
               handleFile(e.dataTransfer.files[0]);
             }}
           >
-            <span>📎 Kéo thả file vào đây hoặc <u>chọn file</u></span>
+            <span className="drop-inline">
+              <IconPaperclip size={16} stroke={1.7} /> Kéo thả file vào đây hoặc <u>chọn file</u>
+            </span>
             <input
               ref={fileRef}
               type="file"
@@ -148,8 +161,12 @@ export default function Base64Tool() {
             placeholder="Kết quả sẽ hiện ở đây..."
           />
           <div className="actions">
-            <button className="btn btn-s" onClick={copy}>📋 Copy</button>
-            <button className="btn btn-s" onClick={download}>💾 Tải file</button>
+            <button className="btn btn-s" onClick={copy}>
+              <IconCopy size={15} stroke={1.8} /> Copy
+            </button>
+            <button className="btn btn-s" onClick={download}>
+              <IconDownload size={15} stroke={1.8} /> Tải file
+            </button>
           </div>
         </div>
       </div>

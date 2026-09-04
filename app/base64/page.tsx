@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { IconLock } from "@tabler/icons-react";
 import Nav from "@/components/Nav";
 import Base64Tool from "./Base64Tool";
 
@@ -17,7 +18,7 @@ export default function Page() {
         ]}
       />
       <div className="page">
-        <h1>🔐 Base64 <span>Encode / Decode</span></h1>
+        <h1 className="page-title"><IconLock size={22} stroke={1.8} /> Base64 <span>Encode / Decode</span></h1>
         <p className="sub">Mã hóa hoặc giải mã Base64. Hỗ trợ text UTF-8 và file. Xử lý ngay trên trình duyệt.</p>
         <Base64Tool />
       </div>

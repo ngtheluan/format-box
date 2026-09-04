@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import { IconPaperclip, IconDownload } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
 
 type Fmt = "image/png" | "image/jpeg" | "image/webp";
@@ -80,7 +81,7 @@ export default function ImageTool() {
             loadFile(e.dataTransfer.files[0]);
           }}
         >
-          <div className="drop-icon">📎</div>
+          <div className="drop-icon"><IconPaperclip size={36} stroke={1.5} /></div>
           <span>Kéo thả ảnh vào đây hoặc <u>chọn file</u></span>
           <br />
           <small style={{ color: "var(--dim)", marginTop: 8, display: "block" }}>
@@ -158,7 +159,7 @@ export default function ImageTool() {
       {converted && (
         <div className="actions">
           <a className="btn btn-p" href={converted.dataUrl} download={`converted.${converted.ext}`}>
-            💾 Tải ảnh
+            <IconDownload size={16} stroke={1.8} /> Tải ảnh
           </a>
         </div>
       )}
