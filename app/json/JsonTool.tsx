@@ -1,5 +1,6 @@
 "use client";
 import { useToast } from "@/components/Toast";
+import { useI18n } from "@/lib/i18n";
 import { IconCheck, IconChevronDown, IconChevronRight, IconCopy, IconX } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 
@@ -55,9 +56,10 @@ function TreeNode({ data }: { data: unknown }) {
 
 export default function JsonTool() {
   const toast = useToast();
+  const { t } = useI18n();
   const [value, setValue] = useState("");
   const [indent, setIndent] = useState<Indent>("2");
-  const [status, setStatus] = useState<Status>({ type: "idle", msg: "Paste JSON để bắt đầu" });
+  const [status, setStatus] = useState<Status>({ type: "idle", msg: t("json_idle") });
   const [errDetail, setErrDetail] = useState<string | null>(null);
   const [tree, setTree] = useState<unknown | undefined>(undefined);
   const [showTree, setShowTree] = useState(true);
@@ -83,17 +85,17 @@ export default function JsonTool() {
   const onChange = (v: string) => {
     setValue(v);
     if (!v.trim()) {
-      setStatus({ type: "idle", msg: "Paste JSON để bắt đầu" });
+      setStatus({ type: "idle", msg: t("json_idle") });
       setErrDetail(null);
       setTree(undefined);
       return;
     }
     try {
       JSON.parse(v);
-      setStatus({ type: "ok", msg: "JSON hợp lệ" });
+      setStatus({ type: "ok", msg: t("json_valid") });
       setErrDetail(null);
     } catch (e) {
-      setStatus({ type: "err", msg: "JSON không hợp lệ" });
+      setStatus({ type: "err", msg: t("json_invalid") });
       setErrDetail((e as Error).message);
     }
   };
@@ -105,11 +107,11 @@ export default function JsonTool() {
       const parsed = JSON.parse(v);
       const out = JSON.stringify(parsed, null, indentStr);
       setValue(out);
-      setStatus({ type: "ok", msg: "Đã format" });
+      setStatus({ type: "ok", msg: t("json_formatted") });
       setErrDetail(null);
       setTree(parsed);
     } catch (e) {
-      setStatus({ type: "err", msg: "JSON không hợp lệ" });
+      setStatus({ type: "err", msg: t("json_invalid") });
       setErrDetail((e as Error).message);
     }
   };
@@ -122,11 +124,11 @@ export default function JsonTool() {
       const min = JSON.stringify(parsed);
       const saved = ((1 - min.length / v.length) * 100).toFixed(0);
       setValue(min);
-      setStatus({ type: "ok", msg: `Đã minify (giảm ${saved}%)` });
+      setStatus({ type: "ok", msg: `${t("json_minified_prefix")} ${saved}%)` });
       setErrDetail(null);
       setTree(undefined);
     } catch (e) {
-      setStatus({ type: "err", msg: "JSON không hợp lệ" });
+      setStatus({ type: "err", msg: t("json_invalid") });
       setErrDetail((e as Error).message);
     }
   };
@@ -134,23 +136,23 @@ export default function JsonTool() {
   const doValidate = () => {
     const v = value.trim();
     if (!v) {
-      toast("Chưa có dữ liệu");
+      toast(t("toast_no_data"));
       return;
     }
     try {
       JSON.parse(v);
-      setStatus({ type: "ok", msg: "JSON hợp lệ" });
+      setStatus({ type: "ok", msg: t("json_valid") });
       setErrDetail(null);
-      toast("JSON hợp lệ");
+      toast(t("toast_valid_json"));
     } catch (e) {
-      setStatus({ type: "err", msg: "JSON không hợp lệ" });
+      setStatus({ type: "err", msg: t("json_invalid") });
       setErrDetail((e as Error).message);
     }
   };
 
   const doCopy = () => {
     if (!value) return;
-    navigator.clipboard.writeText(value).then(() => toast("Đã copy"));
+    navigator.clipboard.writeText(value).then(() => toast(t("toast_copied")));
   };
 
   const doClear = () => {
@@ -170,7 +172,7 @@ export default function JsonTool() {
 
       <div className="json-grid">
         <div className="json-col">
-          <label>Input JSON</label>
+          <label>{t("json_label")}</label>
           <textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
@@ -179,29 +181,29 @@ export default function JsonTool() {
           />
 
           <div className="indent-row">
-            <span style={{ fontSize: ".8rem", color: "var(--dim)" }}>Indent:</span>
+            <span style={{ fontSize: ".8rem", color: "var(--dim)" }}>{t("json_indent")}</span>
             {(["2", "4", "tab"] as Indent[]).map((i) => (
               <button key={i} className={`indent-btn${indent === i ? " active" : ""}`} onClick={() => setIndent(i)}>
-                {i === "tab" ? "Tab" : `${i} spaces`}
+                {i === "tab" ? t("json_tab") : `${i} ${t("json_spaces")}`}
               </button>
             ))}
           </div>
 
           <div className="actions">
             <button className="btn btn-p" onClick={doFormat}>
-              Format
+              {t("act_format")}
             </button>
             <button className="btn btn-s" onClick={doMinify}>
-              Minify
+              {t("act_minify")}
             </button>
             <button className="btn btn-s" onClick={doValidate}>
-              Validate
+              {t("act_validate")}
             </button>
             <button className="btn btn-s" onClick={doCopy}>
-              <IconCopy size={15} stroke={1.8} /> Copy
+              <IconCopy size={15} stroke={1.8} /> {t("act_copy")}
             </button>
             <button className="btn btn-s" onClick={doClear}>
-              Xóa
+              {t("act_clear")}
             </button>
           </div>
 
@@ -209,13 +211,13 @@ export default function JsonTool() {
         </div>
 
         <div className="json-col">
-          <label>Kết quả</label>
+          <label>{t("lbl_result")}</label>
           <div className="json-output">
             {info && (
               <div className="info" style={{ marginTop: 0, marginBottom: 12 }}>
-                <span className="info-i">{info.type}</span>
-                <span className="info-i">{info.keys} keys</span>
-                <span className="info-i">depth {info.depth}</span>
+                <span className="info-i">{info.type === "Array" ? t("json_type_array") : t("json_type_object")}</span>
+                <span className="info-i">{info.keys} {t("json_keys")}</span>
+                <span className="info-i">{t("json_depth")} {info.depth}</span>
                 <span className="info-i">{info.size}</span>
               </div>
             )}
@@ -224,7 +226,7 @@ export default function JsonTool() {
               <div className="tree-wrap" style={{ marginTop: 0 }}>
                 <div className="tree-toggle" onClick={() => setShowTree((v) => !v)}>
                   {showTree ? <IconChevronDown size={14} stroke={2} /> : <IconChevronRight size={14} stroke={2} />}
-                  Tree view
+                  {t("json_tree_view")}
                 </div>
                 {showTree && (
                   <div className="tree">
@@ -233,9 +235,7 @@ export default function JsonTool() {
                 )}
               </div>
             ) : (
-              <div className="json-empty">
-                Bấm <b>Format</b> để xem tree view và thông tin cấu trúc.
-              </div>
+              <div className="json-empty">{t("json_empty")}</div>
             )}
           </div>
         </div>

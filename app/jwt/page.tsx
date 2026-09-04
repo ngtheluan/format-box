@@ -1,22 +1,19 @@
-import type { Metadata } from "next";
+"use client";
 import { IconKey } from "@tabler/icons-react";
 import Nav from "@/components/Nav";
 import JwtTool from "./JwtTool";
-
-export const metadata: Metadata = {
-  title: "JWT Decoder | FormatBox",
-  description: "Giải mã JWT — xem header, payload, claims và trạng thái hết hạn.",
-};
+import { useI18n } from "@/lib/i18n";
 
 export default function Page() {
+  const { t } = useI18n();
   return (
     <>
       <Nav />
       <div className="page" style={{ maxWidth: 1100 }}>
         <h1 className="page-title">
-          <IconKey size={22} stroke={1.8} /> JWT <span>Decoder</span>
+          <IconKey size={22} stroke={1.8} /> JWT <span>{t("jwt_title")}</span>
         </h1>
-        <p className="sub">Paste token → giải mã header + payload + claims. Không verify signature.</p>
+        <p className="sub">{t("jwt_sub")}</p>
         <JwtTool />
       </div>
       <footer className="ft-slim">&copy; 2026 FormatBox</footer>

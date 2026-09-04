@@ -3,24 +3,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { IconApps, IconChevronDown, IconSearch, IconX } from "@tabler/icons-react";
-import { TOOLS, type Tool } from "@/lib/tools";
+import { TOOLS, toolSearchable, type Tool } from "@/lib/tools";
+import { useI18n } from "@/lib/i18n";
 
 function score(tool: Tool, q: string): number {
   if (!q) return 1;
   const needle = q.toLowerCase();
-  const hay = [tool.title, tool.sub, tool.desc, tool.href, ...tool.tags]
-    .join(" ")
-    .toLowerCase();
+  const hay = toolSearchable(tool);
   if (!hay.includes(needle)) return 0;
   let s = 1;
   if (tool.title.toLowerCase().startsWith(needle)) s += 8;
   else if (tool.title.toLowerCase().includes(needle)) s += 5;
-  if (tool.tags.some((t) => t.toLowerCase() === needle)) s += 4;
-  if (tool.sub.toLowerCase().includes(needle)) s += 2;
+  if (tool.tags.some((x) => x.toLowerCase() === needle)) s += 4;
+  if (tool.sub.en.toLowerCase().includes(needle) || tool.sub.vi.toLowerCase().includes(needle)) s += 2;
   return s;
 }
 
 export default function ToolsMenu() {
+  const { t, lang } = useI18n();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
@@ -92,7 +92,7 @@ export default function ToolsMenu() {
         onClick={() => setOpen((v) => !v)}
       >
         <IconApps size={16} stroke={1.8} />
-        <span>Công cụ</span>
+        <span>{t("nav_tools")}</span>
         <IconChevronDown size={14} stroke={2} className="chev" />
       </button>
 
@@ -102,7 +102,7 @@ export default function ToolsMenu() {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Tìm nhanh công cụ..."
+            placeholder={t("nav_search_placeholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onInputKey}
@@ -125,23 +125,23 @@ export default function ToolsMenu() {
         </div>
 
         <div className="tools-menu-head">
-          <span>{q ? `${results.length} kết quả` : "All tools"}</span>
+          <span>{q ? `${results.length} ${t("nav_results")}` : t("nav_all_tools")}</span>
           <span className="tools-menu-count">{results.length}</span>
         </div>
 
         {results.length === 0 ? (
           <div className="tools-menu-empty">
-            Không tìm thấy công cụ nào cho &quot;{q}&quot;
+            {t("nav_no_result")} &quot;{q}&quot;
           </div>
         ) : (
           <div className="tools-menu-grid">
-            {results.map((t, i) => {
-              const activeRow = pathname === t.href;
+            {results.map((tool, i) => {
+              const activeRow = pathname === tool.href;
               const highlight = i === active;
               return (
                 <Link
-                  key={t.href}
-                  href={t.href}
+                  key={tool.href}
+                  href={tool.href}
                   className={`tools-menu-item${activeRow ? " active" : ""}${
                     highlight ? " highlight" : ""
                   }`}
@@ -149,11 +149,11 @@ export default function ToolsMenu() {
                   onMouseEnter={() => setActive(i)}
                 >
                   <div className="tools-menu-icon">
-                    <t.Icon size={18} stroke={1.7} />
+                    <tool.Icon size={18} stroke={1.7} />
                   </div>
                   <div className="tools-menu-text">
-                    <b>{t.title}</b>
-                    <span>{t.sub}</span>
+                    <b>{tool.title}</b>
+                    <span>{tool.sub[lang]}</span>
                   </div>
                 </Link>
               );

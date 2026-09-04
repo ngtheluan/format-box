@@ -1,5 +1,6 @@
 "use client";
 import { useToast } from "@/components/Toast";
+import { useI18n } from "@/lib/i18n";
 import { decodeJwt, formatTimeClaim, isTimeClaim, labelFor } from "@/lib/jwt";
 import { IconAlertTriangle, IconCheck, IconClock, IconCopy, IconTrash, IconX } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
@@ -21,6 +22,7 @@ type State =
 
 export default function JwtTool() {
   const toast = useToast();
+  const { t } = useI18n();
   const [token, setToken] = useState("");
 
   const state: State = useMemo(() => {
@@ -69,34 +71,34 @@ export default function JwtTool() {
           className="jwt-input"
           value={token}
           onChange={(e) => setToken(e.target.value)}
-          placeholder="Paste JWT (header.payload.signature)"
+          placeholder={t("jwt_placeholder")}
           spellCheck={false}
         />
         <div className="actions">
           <button className="btn btn-s" onClick={useSample}>
-            Mẫu
+            {t("act_sample")}
           </button>
           <button className="btn btn-s" onClick={clear}>
-            <IconTrash size={14} stroke={1.9} /> Xoá
+            <IconTrash size={14} stroke={1.9} /> {t("act_clear")}
           </button>
         </div>
 
         {state.type === "ok" && (
           <div className="jwt-status-row">
             <span className="jwt-status ok">
-              <IconCheck size={14} stroke={2.4} /> Cấu trúc hợp lệ
+              <IconCheck size={14} stroke={2.4} /> {t("jwt_valid_shape")}
             </span>
             {expiry?.expText && (
               <span className={`jwt-status ${expiry.expired ? "err" : "info"}`}>
                 <IconClock size={13} stroke={2} />
-                {expiry.expired ? "Hết hạn: " : "Hết hạn lúc: "}
+                {expiry.expired ? `${t("jwt_expired_at")} ` : `${t("jwt_expires_at")} `}
                 {expiry.expText}
               </span>
             )}
             {expiry?.notYet && expiry.nbfText && (
               <span className="jwt-status warn">
                 <IconAlertTriangle size={13} stroke={2} />
-                Chưa có hiệu lực (nbf: {expiry.nbfText})
+                {t("jwt_not_yet")} (nbf: {expiry.nbfText})
               </span>
             )}
           </div>
@@ -111,27 +113,36 @@ export default function JwtTool() {
       <div className="jwt-output-col">
         {state.type === "ok" ? (
           <>
-            <JwtBlock title="HEADER" variant="header" obj={state.header} onCopy={(v) => copy(v, "header")} />
+            <JwtBlock
+              title="HEADER"
+              variant="header"
+              obj={state.header}
+              onCopy={(v) => copy(v, "header")}
+              expiredLabel={t("jwt_expired_badge")}
+              copyLabel={t("act_copy")}
+            />
             <JwtBlock
               title="PAYLOAD"
               variant="payload"
               obj={state.payload}
               onCopy={(v) => copy(v, "payload")}
               expired={expiry?.expired}
+              expiredLabel={t("jwt_expired_badge")}
+              copyLabel={t("act_copy")}
             />
             <div className="jwt-block">
               <div className="jwt-block-head">
                 <span className="jwt-block-title">SIGNATURE</span>
                 <button className="btn btn-s btn-tiny" onClick={() => copy(state.signature, "signature")}>
-                  <IconCopy size={13} stroke={1.8} /> Copy
+                  <IconCopy size={13} stroke={1.8} /> {t("act_copy")}
                 </button>
               </div>
               <div className="jwt-signature">{state.signature}</div>
-              <p className="jwt-note">Signature không được verify (cần key). Đây là base64url raw.</p>
+              <p className="jwt-note">{t("jwt_sig_note")}</p>
             </div>
           </>
         ) : (
-          <div className="jwt-empty">Paste JWT vào ô bên trái để giải mã.</div>
+          <div className="jwt-empty">{t("jwt_empty")}</div>
         )}
       </div>
     </div>
@@ -144,12 +155,16 @@ function JwtBlock({
   obj,
   onCopy,
   expired,
+  expiredLabel,
+  copyLabel,
 }: {
   title: string;
   variant: "header" | "payload";
   obj: Record<string, unknown>;
   onCopy: (v: string) => void;
   expired?: boolean;
+  expiredLabel: string;
+  copyLabel: string;
 }) {
   const pretty = JSON.stringify(obj, null, 2);
   const claims = Object.entries(obj);
@@ -159,11 +174,11 @@ function JwtBlock({
         <span className="jwt-block-title">{title}</span>
         {expired && (
           <span className="jwt-badge jwt-badge-err">
-            <IconAlertTriangle size={12} stroke={2} /> HẾT HẠN
+            <IconAlertTriangle size={12} stroke={2} /> {expiredLabel}
           </span>
         )}
         <button className="btn btn-s btn-tiny" onClick={() => onCopy(pretty)}>
-          <IconCopy size={13} stroke={1.8} /> Copy
+          <IconCopy size={13} stroke={1.8} /> {copyLabel}
         </button>
       </div>
 

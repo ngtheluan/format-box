@@ -11,6 +11,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
+import { useI18n } from "@/lib/i18n";
 
 const SAMPLE = `# Markdown Reader
 
@@ -51,6 +52,7 @@ type ViewMode = "split" | "edit" | "preview";
 
 export default function MarkdownTool() {
   const toast = useToast();
+  const { t } = useI18n();
   const [text, setText] = useState<string>(SAMPLE);
   const [mode, setMode] = useState<ViewMode>("split");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -82,7 +84,7 @@ export default function MarkdownTool() {
       !/\.(md|markdown|mdx|txt)$/i.test(file.name) &&
       !file.type.startsWith("text/")
     ) {
-      toast("Chỉ hỗ trợ file text/markdown");
+      toast(t("toast_only_markdown"));
       return;
     }
     const reader = new FileReader();
@@ -92,7 +94,7 @@ export default function MarkdownTool() {
 
   const copyHtml = () => {
     if (!html) return;
-    navigator.clipboard.writeText(html).then(() => toast("Đã copy HTML"));
+    navigator.clipboard.writeText(html).then(() => toast(t("toast_html_copied")));
   };
 
   const downloadHtml = () => {
@@ -131,7 +133,7 @@ ${html}
     a.download = "markdown.html";
     a.click();
     URL.revokeObjectURL(a.href);
-    toast("Đã tải HTML");
+    toast(t("toast_html_downloaded"));
   };
 
   const clear = () => setText("");
@@ -142,18 +144,18 @@ ${html}
       <div className="md-toolbar">
         <div className="md-mode-tabs">
           <ModeBtn active={mode === "edit"} onClick={() => setMode("edit")}>
-            <IconPencil size={14} stroke={1.9} /> Edit
+            <IconPencil size={14} stroke={1.9} /> {t("md_mode_edit")}
           </ModeBtn>
           <ModeBtn active={mode === "split"} onClick={() => setMode("split")}>
-            Split
+            {t("md_mode_split")}
           </ModeBtn>
           <ModeBtn active={mode === "preview"} onClick={() => setMode("preview")}>
-            <IconEye size={14} stroke={1.9} /> Preview
+            <IconEye size={14} stroke={1.9} /> {t("md_mode_preview")}
           </ModeBtn>
         </div>
         <div className="md-toolbar-actions">
           <button className="btn btn-s" onClick={() => fileRef.current?.click()}>
-            <IconFileImport size={14} stroke={1.9} /> Mở file
+            <IconFileImport size={14} stroke={1.9} /> {t("act_open_file")}
           </button>
           <input
             ref={fileRef}
@@ -163,16 +165,16 @@ ${html}
             onChange={(e) => loadFile(e.target.files?.[0])}
           />
           <button className="btn btn-s" onClick={useSample}>
-            Mẫu
+            {t("act_sample")}
           </button>
           <button className="btn btn-s" onClick={copyHtml}>
-            <IconCopy size={14} stroke={1.9} /> Copy HTML
+            <IconCopy size={14} stroke={1.9} /> {t("md_copy_html")}
           </button>
           <button className="btn btn-s" onClick={downloadHtml}>
-            <IconDownload size={14} stroke={1.9} /> Tải HTML
+            <IconDownload size={14} stroke={1.9} /> {t("md_download_html")}
           </button>
           <button className="btn btn-s" onClick={clear}>
-            <IconTrash size={14} stroke={1.9} /> Xoá
+            <IconTrash size={14} stroke={1.9} /> {t("act_clear")}
           </button>
         </div>
       </div>
@@ -187,30 +189,30 @@ ${html}
       >
         {mode !== "preview" && (
           <div className="md-editor-col">
-            <label>Markdown</label>
+            <label>{t("md_editor")}</label>
             <textarea
               className="md-editor"
               value={text}
               onChange={(e) => setText(e.target.value)}
               spellCheck={false}
-              placeholder="Paste hoặc kéo thả file .md vào đây..."
+              placeholder={t("md_placeholder")}
             />
           </div>
         )}
 
         {mode !== "edit" && (
           <div className="md-preview-col">
-            <label>Preview</label>
+            <label>{t("md_preview")}</label>
             <div className="md-preview" dangerouslySetInnerHTML={{ __html: html }} />
           </div>
         )}
       </div>
 
       <div className="info md-stats">
-        <span className="info-i">{stats.chars} chars</span>
-        <span className="info-i">{stats.words} words</span>
-        <span className="info-i">{stats.lines} lines</span>
-        <span className="info-i">~{stats.reading} phút đọc</span>
+        <span className="info-i">{stats.chars} {t("lbl_chars")}</span>
+        <span className="info-i">{stats.words} {t("lbl_words")}</span>
+        <span className="info-i">{stats.lines} {t("lbl_lines")}</span>
+        <span className="info-i">~{stats.reading} {t("md_reading")}</span>
       </div>
     </div>
   );

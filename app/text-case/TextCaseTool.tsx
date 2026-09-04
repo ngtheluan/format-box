@@ -2,10 +2,12 @@
 import { useMemo, useState } from "react";
 import { IconCopy, IconTrash, IconArrowsExchange } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
+import { useI18n } from "@/lib/i18n";
 import { caseList, cases } from "@/lib/textCase";
 
 export default function TextCaseTool() {
   const toast = useToast();
+  const { t } = useI18n();
   const [text, setText] = useState("Hello Format Box — chuyển đổi CHỮ dễ dàng.");
 
   const results = useMemo(
@@ -17,9 +19,9 @@ export default function TextCaseTool() {
     [text]
   );
 
-  const copy = (value: string, name: string) => {
+  const copy = (value: string) => {
     if (!value) return;
-    navigator.clipboard.writeText(value).then(() => toast(`Đã copy ${name}`));
+    navigator.clipboard.writeText(value).then(() => toast(t("toast_copied")));
   };
 
   const stats = useMemo(() => {
@@ -32,26 +34,26 @@ export default function TextCaseTool() {
   return (
     <div className="tc-tool">
       <div className="tc-input-wrap">
-        <label>Nhập text</label>
+        <label>{t("tc_input_label")}</label>
         <textarea
           className="tc-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Paste text vào đây..."
+          placeholder={t("tc_input_placeholder")}
           spellCheck={false}
         />
         <div className="actions">
           <button className="btn btn-s" onClick={() => setText("")}>
-            <IconTrash size={14} stroke={1.9} /> Xoá
+            <IconTrash size={14} stroke={1.9} /> {t("act_clear")}
           </button>
           <button className="btn btn-s" onClick={() => setText(text.toLowerCase())}>
-            <IconArrowsExchange size={14} stroke={1.9} /> Về gốc lower
+            <IconArrowsExchange size={14} stroke={1.9} /> {t("tc_reset_lower")}
           </button>
         </div>
         <div className="info tc-stats">
-          <span className="info-i">{stats.chars} chars</span>
-          <span className="info-i">{stats.words} words</span>
-          <span className="info-i">{stats.lines} lines</span>
+          <span className="info-i">{stats.chars} {t("lbl_chars")}</span>
+          <span className="info-i">{stats.words} {t("lbl_words")}</span>
+          <span className="info-i">{stats.lines} {t("lbl_lines")}</span>
         </div>
       </div>
 
@@ -60,9 +62,9 @@ export default function TextCaseTool() {
           <button
             key={r.key}
             className="tc-card"
-            onClick={() => copy(r.value, r.title)}
+            onClick={() => copy(r.value)}
             type="button"
-            title="Click để copy"
+            title={t("tc_click_copy")}
           >
             <div className="tc-card-head">
               <div className="tc-card-name">

@@ -1,3 +1,4 @@
+import LangToggle from "./LangToggle";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import ToolsMenu from "./ToolsMenu";
@@ -8,6 +9,7 @@ export default function Nav() {
       <Logo />
       <div className="nav-r">
         <ToolsMenu />
+        <LangToggle />
         <ThemeToggle />
       </div>
     </nav>

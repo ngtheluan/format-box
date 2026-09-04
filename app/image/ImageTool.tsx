@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { IconPaperclip, IconDownload } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
+import { useI18n } from "@/lib/i18n";
 
 type Fmt = "image/png" | "image/jpeg" | "image/webp";
 
@@ -11,6 +12,7 @@ function fmtSize(b: number) {
 
 export default function ImageTool() {
   const toast = useToast();
+  const { t } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -22,7 +24,7 @@ export default function ImageTool() {
   const loadFile = (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast("Chỉ hỗ trợ file ảnh");
+      toast(t("toast_only_images"));
       return;
     }
     const reader = new FileReader();
@@ -82,7 +84,7 @@ export default function ImageTool() {
           }}
         >
           <div className="drop-icon"><IconPaperclip size={36} stroke={1.5} /></div>
-          <span>Kéo thả ảnh vào đây hoặc <u>chọn file</u></span>
+          <span>{t("img_drop")} <u>{t("act_choose_file")}</u></span>
           <br />
           <small style={{ color: "var(--dim)", marginTop: 8, display: "block" }}>
             PNG, JPG, WebP, GIF, BMP
@@ -98,7 +100,7 @@ export default function ImageTool() {
 
       {orig && (
         <div className="controls show">
-          <label>Chuyển sang</label>
+          <label>{t("img_convert_to")}</label>
           <div className="row">
             {(["image/png", "image/jpeg", "image/webp"] as Fmt[]).map((f) => (
               <button
@@ -112,9 +114,9 @@ export default function ImageTool() {
           </div>
 
           <label>
-            Chất lượng
+            {t("img_quality")}
             {target !== "image/png" && (
-              <span style={{ marginLeft: 8 }}>(chỉ JPG/WebP)</span>
+              <span style={{ marginLeft: 8 }}>{t("img_quality_only")}</span>
             )}
           </label>
           <div className="slider-wrap">
@@ -129,8 +131,8 @@ export default function ImageTool() {
           </div>
 
           <div className="actions">
-            <button className="btn btn-p" onClick={convert}>Chuyển đổi</button>
-            <button className="btn btn-s" onClick={reset}>Chọn ảnh khác</button>
+            <button className="btn btn-p" onClick={convert}>{t("act_convert")}</button>
+            <button className="btn btn-s" onClick={reset}>{t("act_reset_img")}</button>
           </div>
         </div>
       )}
@@ -142,7 +144,7 @@ export default function ImageTool() {
             <div className="preview-label">
               {orig
                 ? `${orig.file.name} · ${fmtSize(orig.file.size)} · ${orig.file.type.split("/")[1].toUpperCase()}`
-                : "Original"}
+                : t("img_original")}
             </div>
           </div>
           <div className="preview-box">
@@ -150,7 +152,7 @@ export default function ImageTool() {
             <div className="preview-label">
               {converted
                 ? `converted.${converted.ext} · ${fmtSize(converted.size)} · ${converted.ext.toUpperCase()}`
-                : "Converted"}
+                : t("img_converted")}
             </div>
           </div>
         </div>
@@ -159,7 +161,7 @@ export default function ImageTool() {
       {converted && (
         <div className="actions">
           <a className="btn btn-p" href={converted.dataUrl} download={`converted.${converted.ext}`}>
-            <IconDownload size={16} stroke={1.8} /> Tải ảnh
+            <IconDownload size={16} stroke={1.8} /> {t("img_save")}
           </a>
         </div>
       )}
@@ -170,8 +172,8 @@ export default function ImageTool() {
           <span className="info-i">{fmtSize(orig.file.size)} → {fmtSize(converted.size)}</span>
           <span className="info-i">
             {Number(reduction) > 0
-              ? `${reduction}% nhỏ hơn`
-              : `${Math.abs(Number(reduction))}% lớn hơn`}
+              ? `${reduction}% ${t("img_smaller")}`
+              : `${Math.abs(Number(reduction))}% ${t("img_bigger")}`}
           </span>
         </div>
       )}

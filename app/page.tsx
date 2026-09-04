@@ -1,7 +1,9 @@
+"use client";
 import Footer from "@/components/Footer";
 import HeroCanvas from "@/components/HeroCanvas";
 import LiveDemo from "@/components/LiveDemo";
 import Nav from "@/components/Nav";
+import { useI18n } from "@/lib/i18n";
 import { TOOLS as tools } from "@/lib/tools";
 import {
   IconCalculator,
@@ -16,20 +18,6 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 
-const stats = [
-  { k: "0", v: "byte upload" },
-  { k: "8", v: "công cụ" },
-  { k: "100%", v: "client-side" },
-  { k: "∞", v: "lần dùng" },
-];
-
-const why = [
-  { n: "01", h: "Chạy trên trình duyệt", p: "Không server nào nhận dữ liệu. Tắt mạng vẫn dùng được." },
-  { n: "02", h: "Tức thì, không giới hạn", p: "Không hàng đợi, không quota. File 50MB hay 5KB đều như nhau." },
-  { n: "03", h: "Không tracking", p: "Không popup, không banner, không cookie theo dõi." },
-  { n: "04", h: "Mọi thiết bị", p: "Desktop, mobile, tablet. Bookmark, dùng khi cần." },
-];
-
 const coming = [
   { Icon: IconLink, label: "URL Encode" },
   { Icon: IconHash, label: "HTML Entities" },
@@ -42,6 +30,20 @@ const coming = [
 ];
 
 export default function Home() {
+  const { t, lang } = useI18n();
+  const stats = [
+    { k: "0", v: t("stat_bytes") },
+    { k: "8", v: t("stat_tools") },
+    { k: "100%", v: t("stat_client") },
+    { k: "∞", v: t("stat_uses") },
+  ];
+  const why = [
+    { n: "01", h: t("why_01_h"), p: t("why_01_p") },
+    { n: "02", h: t("why_02_h"), p: t("why_02_p") },
+    { n: "03", h: t("why_03_h"), p: t("why_03_p") },
+    { n: "04", h: t("why_04_h"), p: t("why_04_p") },
+  ];
+
   return (
     <>
       <Nav />
@@ -57,24 +59,14 @@ export default function Home() {
               <span className="i-check">
                 <IconCheck size={12} stroke={3} />
               </span>
-              100% client-side · không upload
+              {t("hero_tag")}
             </div>
             <h1>
-              Chuyển đổi dữ liệu
+              {t("hero_h1_1")}
               <br />
-              <span className="g">ngay trên trình duyệt.</span>
+              <span className="g">{t("hero_h1_2")}</span>
             </h1>
-            <p className="hero-sub">
-              Base64, JSON, hình ảnh — paste vào, nhận kết quả tức thì. Dữ liệu không bao giờ rời khỏi máy bạn.
-            </p>
-            <div className="hero-cta">
-              <a href="#tools" className="btn btn-p">
-                Xem công cụ
-              </a>
-              <a href="#why" className="btn btn-g">
-                Tại sao FormatBox?
-              </a>
-            </div>
+            <p className="hero-sub">{t("hero_sub")}</p>
 
             <div className="stat-strip">
               {stats.map((s) => (
@@ -96,23 +88,23 @@ export default function Home() {
         <div className="mx">
           <div className="sh-wrap">
             <div className="stag">TOOLS</div>
-            <h2 className="sh">Công cụ nổi bật</h2>
-            <p className="sd">Không cần cài đặt, không cần đăng ký. Mở tab, làm việc, đóng tab.</p>
+            <h2 className="sh">{t("sec_tools_h")}</h2>
+            <p className="sd">{t("sec_tools_d")}</p>
           </div>
           <div className="tools-grid">
-            {tools.slice(0, 8).map((t, i) => (
-              <Link key={t.href} href={t.href} className="tool-card-m" style={{ animationDelay: `${i * 80}ms` }}>
+            {tools.slice(0, 8).map((tool, i) => (
+              <Link key={tool.href} href={tool.href} className="tool-card-m" style={{ animationDelay: `${i * 80}ms` }}>
                 <div className="tool-head">
                   <div className="tool-icon">
-                    <t.Icon size={22} stroke={1.6} />
+                    <tool.Icon size={22} stroke={1.6} />
                   </div>
                   <span className="tool-arrow">→</span>
                 </div>
-                <h3>{t.title}</h3>
-                <div className="tool-sub">{t.sub}</div>
-                <p>{t.desc}</p>
+                <h3>{tool.title}</h3>
+                <div className="tool-sub">{tool.sub[lang]}</div>
+                <p>{tool.desc[lang]}</p>
                 <div className="bc-tags">
-                  {t.tags.map((tag) => (
+                  {tool.tags.map((tag) => (
                     <span key={tag} className="bc-tag">
                       {tag}
                     </span>
@@ -129,9 +121,9 @@ export default function Home() {
           <div className="sh-wrap">
             <div className="stag">WHY</div>
             <h2 className="sh">
-              Tool khác upload dữ liệu.
+              {t("sec_why_h_1")}
               <br />
-              FormatBox thì không.
+              {t("sec_why_h_2")}
             </h2>
           </div>
           <div className="why">
@@ -150,7 +142,7 @@ export default function Home() {
         <div className="mx">
           <div className="sh-wrap">
             <div className="stag">ROADMAP</div>
-            <h2 className="sh">Sắp có thêm</h2>
+            <h2 className="sh">{t("sec_coming_h")}</h2>
           </div>
           <div className="coming">
             {coming.map((c) => (
@@ -166,10 +158,10 @@ export default function Home() {
       <section style={{ paddingTop: 0 }}>
         <div className="mx">
           <div className="cta">
-            <h2>Bắt đầu ngay, không cần đăng ký.</h2>
-            <p>Chọn một tool ở trên hoặc bắt đầu với Base64.</p>
+            <h2>{t("cta_h")}</h2>
+            <p>{t("cta_p")}</p>
             <Link href="/base64" className="btn btn-p">
-              Mở Base64 tool
+              {t("cta_btn")}
             </Link>
           </div>
         </div>

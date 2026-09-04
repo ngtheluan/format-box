@@ -8,12 +8,14 @@ import {
   IconDownload,
 } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
+import { useI18n } from "@/lib/i18n";
 
 type Mode = "encode" | "decode";
 type State = "idle" | "ok" | "err";
 
 export default function Base64Tool() {
   const toast = useToast();
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("encode");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
@@ -22,8 +24,8 @@ export default function Base64Tool() {
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const inputLabel = mode === "encode" ? "Nhập text cần encode" : "Nhập Base64 cần decode";
-  const inputPlaceholder = mode === "encode" ? "Paste text vào đây..." : "Paste Base64 vào đây...";
+  const inputLabel = mode === "encode" ? t("b64_label_enc") : t("b64_label_dec");
+  const inputPlaceholder = mode === "encode" ? t("b64_placeholder_text") : t("b64_placeholder_b64");
   const convertLabel = mode === "encode" ? "Encode →" : "Decode →";
 
   const setTab = (m: Mode) => {
@@ -33,7 +35,7 @@ export default function Base64Tool() {
 
   const convert = () => {
     if (!input.trim()) {
-      toast("Chưa có dữ liệu");
+      toast(t("toast_no_data"));
       return;
     }
     try {
@@ -51,7 +53,7 @@ export default function Base64Tool() {
       setOutput("");
       setState("err");
       setInfo([`Invalid ${mode === "decode" ? "Base64" : "input"}`]);
-      toast("Lỗi: dữ liệu không hợp lệ");
+      toast(t("toast_invalid_data"));
     }
   };
 
@@ -71,7 +73,7 @@ export default function Base64Tool() {
 
   const copy = () => {
     if (!output) return;
-    navigator.clipboard.writeText(output).then(() => toast("Đã copy"));
+    navigator.clipboard.writeText(output).then(() => toast(t("toast_copied")));
   };
 
   const download = () => {
@@ -114,10 +116,10 @@ export default function Base64Tool() {
           </button>
         </div>
         <div className="toolbar-actions">
-          <button className="icon-btn" onClick={swap} title="Đổi chiều">
+          <button className="icon-btn" onClick={swap} title={t("b64_swap")}>
             <IconArrowsUpDown size={18} stroke={1.8} />
           </button>
-          <button className="icon-btn" onClick={clear} title="Xóa">
+          <button className="icon-btn" onClick={clear} title={t("act_clear")}>
             <IconTrash size={18} stroke={1.8} />
           </button>
         </div>
@@ -143,7 +145,7 @@ export default function Base64Tool() {
             }}
           >
             <span className="drop-inline">
-              <IconPaperclip size={16} stroke={1.7} /> Kéo thả file vào đây hoặc <u>chọn file</u>
+              <IconPaperclip size={16} stroke={1.7} /> {t("b64_drop")} <u>{t("act_choose_file")}</u>
             </span>
             <input
               ref={fileRef}
@@ -153,19 +155,19 @@ export default function Base64Tool() {
           </div>
         </div>
         <div className="col">
-          <label>Kết quả</label>
+          <label>{t("lbl_result")}</label>
           <textarea
             className={`output-area${state === "ok" ? " state-ok" : state === "err" ? " state-err" : ""}`}
             readOnly
             value={output}
-            placeholder="Kết quả sẽ hiện ở đây..."
+            placeholder={t("b64_result_hint")}
           />
           <div className="actions">
             <button className="btn btn-s" onClick={copy}>
-              <IconCopy size={15} stroke={1.8} /> Copy
+              <IconCopy size={15} stroke={1.8} /> {t("act_copy")}
             </button>
             <button className="btn btn-s" onClick={download}>
-              <IconDownload size={15} stroke={1.8} /> Tải file
+              <IconDownload size={15} stroke={1.8} /> {t("act_download")}
             </button>
           </div>
         </div>

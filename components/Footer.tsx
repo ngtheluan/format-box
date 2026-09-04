@@ -1,50 +1,61 @@
+"use client";
 import Link from "next/link";
+import { IconArrowUpRight, IconMail } from "@tabler/icons-react";
+import { TOOLS } from "@/lib/tools";
+import { useI18n } from "@/lib/i18n";
 
 export default function Footer() {
+  const { t } = useI18n();
+
   return (
     <footer className="ft">
-      <div className="ft-grid">
-        <div className="ft-brand">
-          <div className="logo" style={{ cursor: "default" }}>
-            <svg viewBox="0 0 26 26">
-              <rect x="2" y="2" width="22" height="22" />
-              <line x1="2" y1="13" x2="24" y2="13" />
-              <line x1="13" y1="2" x2="13" y2="24" />
-            </svg>
-            <b>
-              Format<span>Box</span>
-            </b>
+      <div className="ft-inner">
+        <div className="ft-top">
+          <div className="ft-brand">
+            <div className="logo" style={{ cursor: "default" }}>
+              <svg viewBox="0 0 26 26">
+                <rect x="2" y="2" width="22" height="22" />
+                <line x1="2" y1="13" x2="24" y2="13" />
+                <line x1="13" y1="2" x2="13" y2="24" />
+              </svg>
+              <b>
+                Format<span>Box</span>
+              </b>
+            </div>
+            <p>{t("ft_desc")}</p>
           </div>
-          <p>
-            Bộ công cụ chuyển đổi dữ liệu chạy hoàn toàn trên trình duyệt. Không upload, không đăng
-            ký, không quảng cáo.
-          </p>
-        </div>
-        <div className="ft-col">
-          <h4>TOOLS</h4>
-          <Link href="/base64">Base64</Link>
-          <Link href="/json">JSON Formatter</Link>
-          <Link href="/graph">JSON Graph</Link>
-          <Link href="/image">Image Converter</Link>
-          <Link href="/bill">Bill Splitter</Link>
-          <Link href="/jwt">JWT Decoder</Link>
-          <Link href="/markdown">Markdown Reader</Link>
-          <Link href="/text-case">Text Case</Link>
-        </div>
-        <div className="ft-col">
-          <h4>AUTHOR</h4>
-          <div className="ft-author">
-            <div className="ft-avatar">L</div>
-            <div className="ft-author-info">
-              <b>Luân</b>
-              <a href="mailto:nguyenluan.work@gmail.com">nguyenluan.work@gmail.com</a>
+
+          <div className="ft-col ft-col-tools">
+            <h4>{t("ft_tools")}</h4>
+            <div className="ft-tools-grid">
+              {TOOLS.map((tool) => (
+                <Link key={tool.href} href={tool.href} className="ft-tool">
+                  <tool.Icon size={14} stroke={1.9} />
+                  <span>{tool.title}</span>
+                  <IconArrowUpRight size={12} stroke={1.9} className="ft-tool-arr" />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="ft-col ft-col-author">
+            <h4>{t("ft_author")}</h4>
+            <div className="ft-author">
+              <div className="ft-avatar">L</div>
+              <div className="ft-author-info">
+                <b>Luân</b>
+                <a href="mailto:nguyenluan.work@gmail.com">
+                  <IconMail size={12} stroke={1.9} /> nguyenluan.work@gmail.com
+                </a>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div className="ft-bottom">
-        <span>&copy; 2026 FormatBox. Made in Ho Chi Minh City.</span>
-        <span className="mono">v1.0 · Next.js · no backend</span>
+
+        <div className="ft-bottom">
+          <span>{t("ft_copy")}</span>
+          <span className="mono">{t("ft_stack")}</span>
+        </div>
       </div>
     </footer>
   );

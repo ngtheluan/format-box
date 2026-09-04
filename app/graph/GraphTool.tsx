@@ -1,5 +1,6 @@
 "use client";
 import { useToast } from "@/components/Toast";
+import { useI18n } from "@/lib/i18n";
 import { jsonToGraph, type NodeData } from "@/lib/jsonToGraph";
 import { IconCheck, IconDownload, IconFileImport, IconMaximize, IconRefresh, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -39,8 +40,9 @@ type Status = { type: "ok" | "err" | "idle"; msg: string };
 
 function GraphInner() {
   const toast = useToast();
+  const { t } = useI18n();
   const [text, setText] = useState<string>(SAMPLE);
-  const [status, setStatus] = useState<Status>({ type: "idle", msg: "Paste JSON để bắt đầu" });
+  const [status, setStatus] = useState<Status>({ type: "idle", msg: t("graph_paste") });
   const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [stat, setStat] = useState<{ nodes: number; edges: number } | null>(null);
@@ -51,7 +53,7 @@ function GraphInner() {
     (val: string) => {
       const v = val.trim();
       if (!v) {
-        setStatus({ type: "idle", msg: "Paste JSON để bắt đầu" });
+        setStatus({ type: "idle", msg: t("graph_paste") });
         setNodes([]);
         setEdges([]);
         setStat(null);
@@ -62,14 +64,14 @@ function GraphInner() {
         const { nodes: ns, edges: es } = jsonToGraph(parsed);
         setNodes(ns as Node<NodeData>[]);
         setEdges(es);
-        setStatus({ type: "ok", msg: "JSON hợp lệ" });
+        setStatus({ type: "ok", msg: t("json_valid") });
         setStat({ nodes: ns.length, edges: es.length });
         setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 40);
       } catch (e) {
         setStatus({ type: "err", msg: (e as Error).message });
       }
     },
-    [setNodes, setEdges, fitView],
+    [setNodes, setEdges, fitView, t],
   );
 
   useEffect(() => {
@@ -108,7 +110,7 @@ function GraphInner() {
     a.download = "graph.json";
     a.click();
     URL.revokeObjectURL(a.href);
-    toast("Đã tải graph.json");
+    toast(t("toast_graph_saved"));
     void svg;
   };
 
@@ -126,7 +128,7 @@ function GraphInner() {
           {status.msg}
         </div>
 
-        <label>Input JSON</label>
+        <label>{t("graph_input")}</label>
         <textarea
           className="graph-input"
           value={text}
@@ -137,13 +139,13 @@ function GraphInner() {
 
         <div className="actions">
           <button className="btn btn-p" onClick={() => applyText(text)}>
-            <IconRefresh size={15} stroke={1.8} /> Vẽ lại
+            <IconRefresh size={15} stroke={1.8} /> {t("act_redraw")}
           </button>
           <button className="btn btn-s" onClick={loadSample}>
-            <IconFileImport size={15} stroke={1.8} /> Mẫu
+            <IconFileImport size={15} stroke={1.8} /> {t("act_sample")}
           </button>
           <button className="btn btn-s" onClick={() => fileRef.current?.click()}>
-            <IconFileImport size={15} stroke={1.8} /> Từ file
+            <IconFileImport size={15} stroke={1.8} /> {t("act_from_file")}
           </button>
           <input
             ref={fileRef}
@@ -153,29 +155,29 @@ function GraphInner() {
             onChange={(e) => loadFile(e.target.files?.[0])}
           />
           <button className="btn btn-s" onClick={() => fitView({ padding: 0.2, duration: 400 })}>
-            <IconMaximize size={15} stroke={1.8} /> Fit view
+            <IconMaximize size={15} stroke={1.8} /> {t("act_fit_view")}
           </button>
           <button className="btn btn-s" onClick={exportSVG}>
-            <IconDownload size={15} stroke={1.8} /> Export
+            <IconDownload size={15} stroke={1.8} /> {t("act_export")}
           </button>
         </div>
 
         {stat && (
           <div className="info">
-            <span className="info-i">{stat.nodes} nodes</span>
-            <span className="info-i">{stat.edges} edges</span>
+            <span className="info-i">{stat.nodes} {t("graph_nodes")}</span>
+            <span className="info-i">{stat.edges} {t("graph_edges")}</span>
           </div>
         )}
 
         <div className="legend">
           <span className="legend-item">
-            <i className="dot dot-obj" /> object
+            <i className="dot dot-obj" /> {t("graph_lg_object")}
           </span>
           <span className="legend-item">
-            <i className="dot dot-arr" /> array
+            <i className="dot dot-arr" /> {t("graph_lg_array")}
           </span>
           <span className="legend-item">
-            <i className="dot dot-leaf" /> value
+            <i className="dot dot-leaf" /> {t("graph_lg_value")}
           </span>
         </div>
       </aside>

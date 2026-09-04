@@ -5,7 +5,7 @@ Data-conversion tools that run entirely in the browser — Base64, JSON, and ima
 ## Stack
 
 - **Next.js 14** (App Router) + **TypeScript** + **Tailwind CSS**
-- 100% client-side. No API routes, no backend.
+- 100% client-side. No API routes.
 
 ## Getting started
 
