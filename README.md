@@ -10,8 +10,8 @@ Data-conversion tools that run entirely in the browser — Base64, JSON, and ima
 ## Getting started
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open http://localhost:3000.
@@ -40,7 +40,7 @@ legacy/             # Original standalone HTML (pre-migration)
 
 ## Scripts
 
-- `npm run dev` — dev server
-- `npm run build` — production build
-- `npm start` — start production server
-- `npm run lint` — lint
+- `pnpm dev` — dev server
+- `pnpm build` — production build
+- `pnpm start` — start production server
+- `pnpm lint` — lint

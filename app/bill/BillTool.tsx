@@ -5,7 +5,6 @@ import {
   IconCalendar,
   IconClipboardList,
   IconCopy,
-  IconCreditCard,
   IconDownload,
   IconHeartFilled,
   IconLink,
@@ -34,7 +33,6 @@ type BillData = {
   date: string;
   splitType: string;
   payer: string;
-  accountNumber: string;
   qrText: string;
   qrImage: string | null;
   brands: string[];
@@ -64,7 +62,6 @@ const DEFAULT_DATA: BillData = {
   date: new Date().toISOString().slice(0, 10),
   splitType: "Chia đều",
   payer: "NGUYỄN HOÀNG GIA ĐẠI",
-  accountNumber: "0123456166",
   qrText: "",
   qrImage: "/bill-default-qr.png",
   brands: ["MOMO", "Vietinbank"],
@@ -111,6 +108,14 @@ export default function BillTool() {
 
   const hasExclusions = data.items.some((it) => it.excludes.length > 0);
   const equalPerPerson = data.people.length > 0 ? Math.round(total / data.people.length) : 0;
+  const perPersonRange = useMemo(() => {
+    const vals = Object.values(perPersonMap);
+    if (vals.length === 0) return { min: 0, max: 0 };
+    return {
+      min: Math.round(Math.min(...vals)),
+      max: Math.round(Math.max(...vals)),
+    };
+  }, [perPersonMap]);
 
   useEffect(() => {
     if (data.qrImage) {
@@ -339,18 +344,6 @@ export default function BillTool() {
                   placeholder="Nhập tên..."
                 />
               </MetaRow>
-
-              <MetaRow icon={<IconCreditCard size={16} stroke={1.7} />} label="STK">
-                <input
-                  className={ec}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={data.accountNumber}
-                  onChange={(e) => update("accountNumber", e.target.value.replace(/\D+/g, ""))}
-                  placeholder="Nhập STK..."
-                />
-              </MetaRow>
             </div>
 
             <div className="bill-qr">
@@ -365,7 +358,20 @@ export default function BillTool() {
                   <span>Chưa có QR</span>
                 </div>
               )}
-              <div className="bill-qr-amount">{fmt.format(equalPerPerson)}đ</div>
+              {hasExclusions ? (
+                perPersonRange.min === perPersonRange.max ? (
+                  <div className="bill-qr-amount">{fmt.format(perPersonRange.max)}đ</div>
+                ) : (
+                  <div className="bill-qr-amount bill-qr-amount-range">
+                    <small>Mỗi người</small>
+                    {fmt.format(perPersonRange.min)}
+                    <span> – </span>
+                    {fmt.format(perPersonRange.max)}đ
+                  </div>
+                )
+              ) : (
+                <div className="bill-qr-amount">{fmt.format(equalPerPerson)}đ</div>
+              )}
 
               {editing && (
                 <div className="bill-qr-edit">

@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
 import ScrollTop from "@/components/ScrollTop";
-import { CommandPaletteProvider } from "@/components/CommandPalette";
 import { themeInitScript } from "@/lib/theme";
 
 export const metadata: Metadata = {
@@ -32,10 +31,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <CommandPaletteProvider>
-          <ToastProvider>{children}</ToastProvider>
-          <ScrollTop />
-        </CommandPaletteProvider>
+        <ToastProvider>{children}</ToastProvider>
+        <ScrollTop />
       </body>
     </html>
   );

@@ -2,6 +2,7 @@ import {
   IconLock,
   IconBraces,
   IconChartDots3,
+  IconKey,
   IconPhoto,
   IconReceipt,
   type Icon,
@@ -56,5 +57,13 @@ export const TOOLS: Tool[] = [
     sub: "Share & Export",
     desc: "Chia tiền theo nhóm — nhập item, người tham gia, xuất bill PNG.",
     tags: ["bill", "split", "png"],
+  },
+  {
+    href: "/jwt",
+    Icon: IconKey,
+    title: "JWT Decoder",
+    sub: "Decode & Inspect",
+    desc: "Giải mã header + payload, xem claims và trạng thái hết hạn.",
+    tags: ["jwt", "token", "decode"],
   },
 ];
