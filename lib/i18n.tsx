@@ -23,7 +23,7 @@ const dict = {
   },
 
   // STATS
-  stat_bytes: { vi: "byte upload", en: "bytes uploaded" },
+  stat_ads: { vi: "quảng cáo", en: "ads" },
   stat_tools: { vi: "công cụ", en: "tools" },
   stat_client: { vi: "client-side", en: "client-side" },
   stat_uses: { vi: "lần dùng", en: "uses" },
