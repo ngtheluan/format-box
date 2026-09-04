@@ -8,7 +8,7 @@ type Dict = Record<string, { vi: string; en: string }>;
 const dict = {
   // NAV / MENU
   nav_tools: { vi: "Công cụ", en: "Tools" },
-  nav_search_placeholder: { vi: "Tìm nhanh công cụ...", en: "Search tools..." },
+  nav_search_placeholder: { vi: "Tìm công cụ", en: "Search tools" },
   nav_all_tools: { vi: "Tất cả tool", en: "All tools" },
   nav_results: { vi: "kết quả", en: "results" },
   nav_no_result: { vi: "Không tìm thấy công cụ nào cho", en: "No tools found for" },
@@ -377,7 +377,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       setLang,
       t: (key) => (dict as Dict)[key]?.[lang] ?? String(key),
     }),
-    [lang, setLang]
+    [lang, setLang],
   );
 
   return <I18nCtx.Provider value={value}>{children}</I18nCtx.Provider>;

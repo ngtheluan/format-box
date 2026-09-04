@@ -69,8 +69,9 @@ export default function ResponsiveTool() {
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(stage);
+    ro.observe(shell);
     return () => ro.disconnect();
-  }, [autoFit, w, h, device.category, landscape]);
+  }, [autoFit, w, h, device.category, landscape, loadedUrl]);
 
   const grouped = useMemo(() => {
     const g: Record<Device["category"], Device[]> = { mobile: [], tablet: [], desktop: [] };
