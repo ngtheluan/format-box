@@ -7,7 +7,6 @@ import {
   IconFingerprint,
   IconClock,
   IconRuler,
-  IconLetterCase,
   IconTable,
   IconCalculator,
 } from "@tabler/icons-react";
@@ -19,7 +18,7 @@ import { TOOLS as tools } from "@/lib/tools";
 
 const stats = [
   { k: "0", v: "byte upload" },
-  { k: "6", v: "công cụ" },
+  { k: "8", v: "công cụ" },
   { k: "100%", v: "client-side" },
   { k: "∞", v: "lần dùng" },
 ];
@@ -38,7 +37,6 @@ const coming = [
   { Icon: IconFingerprint, label: "Hash (MD5 / SHA)" },
   { Icon: IconClock, label: "Unix Timestamp" },
   { Icon: IconRuler, label: "CSS Units" },
-  { Icon: IconLetterCase, label: "Text Case" },
   { Icon: IconTable, label: "CSV ↔ JSON" },
   { Icon: IconCalculator, label: "Number Base" },
 ];
@@ -95,7 +93,7 @@ export default function Home() {
         <div className="mx">
           <div className="sh-wrap">
             <div className="stag">TOOLS</div>
-            <h2 className="sh">Sáu công cụ, một chỗ.</h2>
+            <h2 className="sh">Tám công cụ, một chỗ.</h2>
             <p className="sd">Không cần cài đặt, không cần đăng ký. Mở tab, làm việc, đóng tab.</p>
           </div>
           <div className="tools-grid">

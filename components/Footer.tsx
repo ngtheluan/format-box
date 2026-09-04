@@ -28,6 +28,8 @@ export default function Footer() {
           <Link href="/image">Image Converter</Link>
           <Link href="/bill">Bill Splitter</Link>
           <Link href="/jwt">JWT Decoder</Link>
+          <Link href="/markdown">Markdown Reader</Link>
+          <Link href="/text-case">Text Case</Link>
         </div>
         <div className="ft-col">
           <h4>AUTHOR</h4>
