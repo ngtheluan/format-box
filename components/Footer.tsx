@@ -1,8 +1,8 @@
 "use client";
-import Link from "next/link";
-import { IconArrowUpRight, IconMail } from "@tabler/icons-react";
-import { TOOLS } from "@/lib/tools";
 import { useI18n } from "@/lib/i18n";
+import { TOOLS } from "@/lib/tools";
+import { IconArrowUpRight, IconMail } from "@tabler/icons-react";
+import Link from "next/link";
 
 export default function Footer() {
   const { t } = useI18n();

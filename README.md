@@ -1,6 +1,6 @@
 # FormatBox
 
-Data-conversion tools that run entirely in the browser — Base64, JSON, and images. No upload, no signup.
+Data-conversion tools that run entirely in the browser — Base64, JSON, and images. No signup.
 
 ## Stack
 

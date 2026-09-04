@@ -17,7 +17,7 @@ const dict = {
   cat_web: { vi: "Web Dev", en: "Web Dev" },
 
   // HERO
-  hero_tag: { vi: "100% client-side · không upload", en: "100% client-side · no upload" },
+  hero_tag: { vi: "100% client-side", en: "100% client-side" },
   hero_h1_1: { vi: "Chuyển đổi dữ liệu", en: "Convert your data" },
   hero_h1_2: { vi: "ngay trên trình duyệt.", en: "right in your browser." },
   hero_sub: {
@@ -73,8 +73,8 @@ const dict = {
 
   // FOOTER
   ft_desc: {
-    vi: "Bộ công cụ chuyển đổi dữ liệu chạy hoàn toàn trên trình duyệt. Không upload, không đăng ký, không quảng cáo.",
-    en: "Client-side data-conversion utilities. No uploads, no signup, no ads.",
+    vi: "Bộ công cụ chuyển đổi dữ liệu chạy hoàn toàn trên trình duyệt. Không đăng ký, không quảng cáo.",
+    en: "Client-side data-conversion utilities. No signup, no ads.",
   },
   ft_tools: { vi: "CÔNG CỤ", en: "TOOLS" },
   ft_author: { vi: "TÁC GIẢ", en: "AUTHOR" },

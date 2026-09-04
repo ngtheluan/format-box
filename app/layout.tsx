@@ -1,18 +1,17 @@
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
-import { ToastProvider } from "@/components/Toast";
 import ScrollTop from "@/components/ScrollTop";
 import TitleUpdater from "@/components/TitleUpdater";
+import { ToastProvider } from "@/components/Toast";
 import { LanguageProvider } from "@/lib/i18n";
 import { themeInitScript } from "@/lib/theme";
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "FormatBox — Chuyển đổi dữ liệu ngay trên trình duyệt",
-  description:
-    "FormatBox — Base64, JSON, hình ảnh và nhiều hơn. Miễn phí, không upload, xử lý 100% client-side.",
+  description: "FormatBox — Base64, JSON, hình ảnh và nhiều hơn. Miễn phí, xử lý 100% client-side.",
   openGraph: {
     title: "FormatBox — Chuyển đổi dữ liệu ngay trên trình duyệt",
-    description: "Base64, JSON, hình ảnh. Không upload, không đăng ký.",
+    description: "Base64, JSON, hình ảnh. Không đăng ký.",
   },
 };
 
