@@ -1,6 +1,7 @@
 import {
   IconBraces,
   IconChartDots3,
+  IconClock,
   IconConfetti,
   IconDevices,
   IconKey,
@@ -149,6 +150,18 @@ export const TOOLS: Tool[] = [
       en: "Lucky wheel — enter a list, spin, pick randomly.",
     },
     tags: ["random", "picker", "wheel"],
+    category: "media",
+  },
+  {
+    href: "/countdown",
+    Icon: IconClock,
+    title: "Countdown",
+    sub: { vi: "Đếm ngược sự kiện", en: "Event countdown" },
+    desc: {
+      vi: "Đếm ngược tới ngày quan trọng — sinh nhật, năm mới, deadline. Lưu nhiều mốc.",
+      en: "Count down to important moments — birthdays, new year, deadlines. Save many events.",
+    },
+    tags: ["countdown", "timer", "event"],
     category: "media",
   },
   {

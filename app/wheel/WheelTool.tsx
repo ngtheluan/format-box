@@ -261,7 +261,7 @@ export default function WheelTool() {
           spellCheck={false}
           disabled={spinning}
         />
-        <p className="wheel-saved-hint">💾 {t("wh_saved_hint")}</p>
+        <p className="wheel-saved-hint">{t("wh_saved_hint")}</p>
 
         <div className="actions wheel-actions">
           <button className="btn btn-s" onClick={shuffle} disabled={spinning}>

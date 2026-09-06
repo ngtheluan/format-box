@@ -338,6 +338,39 @@ const dict = {
     en: "Paste a cURL command on the left and hit Send to inspect the response.",
   },
 
+  // COUNTDOWN
+  cd_title: { vi: "Timer", en: "Timer" },
+  cd_sub: {
+    vi: "Đếm ngược tới sự kiện quan trọng. Lưu nhiều mốc, chạy trực tiếp trên trình duyệt.",
+    en: "Count down to any event. Save multiple targets, runs right in your browser.",
+  },
+  cd_new: { vi: "Thêm mới", en: "New countdown" },
+  cd_title_ph: { vi: "Tên sự kiện (VD: Sinh nhật)", en: "Event title (e.g. Birthday)" },
+  cd_add: { vi: "Thêm", en: "Add" },
+  cd_presets: { vi: "Mẫu nhanh", en: "Quick presets" },
+  cd_preset_ny: { vi: "Năm mới", en: "New Year" },
+  cd_preset_xmas: { vi: "Giáng sinh", en: "Christmas" },
+  cd_preset_birthday: { vi: "Sinh nhật (30 ngày nữa)", en: "Birthday (in 30 days)" },
+  cd_list: { vi: "Danh sách", en: "Your list" },
+  cd_count: { vi: "mốc", en: "events" },
+  cd_list_empty: { vi: "Chưa có mốc nào.", en: "No countdowns yet." },
+  cd_saved_hint: { vi: "Danh sách tự lưu vào trình duyệt.", en: "Saved to your browser." },
+  cd_empty: {
+    vi: "Thêm một mốc bên trái để bắt đầu.",
+    en: "Add a countdown on the left to start.",
+  },
+  cd_target: { vi: "Mốc thời gian", en: "Target" },
+  cd_arrived: { vi: "🎉 Đã tới lúc!", en: "🎉 Time's up!" },
+  cd_done: { vi: "xong", en: "done" },
+  cd_short_d: { vi: "n", en: "d" },
+  cd_unit_d: { vi: "Ngày", en: "Days" },
+  cd_unit_h: { vi: "Giờ", en: "Hours" },
+  cd_unit_m: { vi: "Phút", en: "Minutes" },
+  cd_unit_s: { vi: "Giây", en: "Seconds" },
+  cd_need_title: { vi: "Cần nhập tên sự kiện", en: "Need an event title" },
+  cd_need_date: { vi: "Cần chọn thời gian", en: "Pick a target date/time" },
+  cd_need_future: { vi: "Thời gian phải ở tương lai", en: "Target must be in the future" },
+
   // BILL
   bill_title: { vi: "Splitter", en: "Splitter" },
   bill_sub: {
