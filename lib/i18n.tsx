@@ -12,9 +12,10 @@ const dict = {
   nav_all_tools: { vi: "Tất cả tool", en: "All tools" },
   nav_results: { vi: "kết quả", en: "results" },
   nav_no_result: { vi: "Không tìm thấy công cụ nào cho", en: "No tools found for" },
-  cat_text: { vi: "Text & Data", en: "Text & Data" },
-  cat_media: { vi: "Media & Files", en: "Media & Files" },
-  cat_web: { vi: "Web Dev", en: "Web Dev" },
+  cat_text: { vi: "Văn bản & Dữ liệu", en: "Text & Data" },
+  cat_media: { vi: "Hình ảnh & File", en: "Media & Files" },
+  cat_dev: { vi: "Công cụ Dev", en: "Dev Tools" },
+  cat_life: { vi: "Tiện ích", en: "Utilities" },
 
   // HERO
   hero_tag: { vi: "100% client-side", en: "100% client-side" },
@@ -370,6 +371,41 @@ const dict = {
   cd_need_title: { vi: "Cần nhập tên sự kiện", en: "Need an event title" },
   cd_need_date: { vi: "Cần chọn thời gian", en: "Pick a target date/time" },
   cd_need_future: { vi: "Thời gian phải ở tương lai", en: "Target must be in the future" },
+
+  // FUEL PRICE
+  fp_title: { vi: "Price", en: "Price" },
+  fp_sub: {
+    vi: "Giá xăng dầu Việt Nam kỳ điều hành gần nhất. Nguồn tự động từ VnExpress, cập nhật mỗi giờ.",
+    en: "Vietnam fuel prices — latest adjustment cycle. Auto-sourced from VnExpress, refreshed hourly.",
+  },
+  fp_refresh: { vi: "Làm mới", en: "Refresh" },
+  fp_source: { vi: "Nguồn", en: "Source" },
+  fp_published: { vi: "Bài đăng", en: "Published" },
+  fp_fetched: { vi: "Đồng bộ lúc", en: "Fetched" },
+  fp_mode_live: { vi: "Live", en: "Live" },
+  fp_mode_fallback: { vi: "Dự phòng", en: "Fallback" },
+  fp_stale_title: { vi: "Dữ liệu dự phòng", en: "Fallback data" },
+  fp_stale_msg: {
+    vi: "Không lấy được dữ liệu live — hiển thị số cuối cùng đã lưu.",
+    en: "Live fetch failed — showing last cached values.",
+  },
+  fp_err_title: { vi: "Lỗi tải dữ liệu", en: "Load error" },
+  fp_chart_history_title: { vi: "Lịch sử giá theo tháng", en: "Price history by month" },
+  fp_chart_history_aria: { vi: "Lịch sử giá xăng dầu theo tháng", en: "Fuel price history by month" },
+  fp_chart_empty_msg: {
+    vi: "Tất cả loại đã ẩn. Bấm reset để hiện lại tất cả.",
+    en: "All series hidden. Click reset to show all.",
+  },
+  fp_chart_reset: { vi: "Reset chart", en: "Reset chart" },
+  fp_chart_reset_short: { vi: "Reset", en: "Reset" },
+  fp_kind_e10: { vi: "E10 RON 95", en: "E10 RON 95" },
+  fp_kind_e5: { vi: "E5 RON 92", en: "E5 RON 92" },
+  fp_kind_diesel: { vi: "Diesel", en: "Diesel" },
+  fp_kind_kerosene: { vi: "Dầu hoả", en: "Kerosene" },
+  fp_kind_mazut: { vi: "Mazut", en: "Mazut" },
+  fp_latest: { vi: "Kỳ mới nhất", en: "Latest cycle" },
+  fp_click_hint: { vi: "Click 1 điểm trên chart để xem chi tiết", en: "Click a point on the chart for details" },
+  fp_source_link: { vi: "Bài gốc", en: "Article" },
 
   // BILL
   bill_title: { vi: "Splitter", en: "Splitter" },

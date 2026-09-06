@@ -4,6 +4,7 @@ import {
   IconClock,
   IconConfetti,
   IconDevices,
+  IconGasStation,
   IconKey,
   IconLetterCase,
   IconLock,
@@ -17,7 +18,7 @@ import type { Lang } from "./i18n";
 
 type Bilingual = { vi: string; en: string };
 
-export type ToolCategory = "text" | "media" | "web";
+export type ToolCategory = "text" | "media" | "dev" | "life";
 
 export type Tool = {
   href: string;
@@ -29,7 +30,7 @@ export type Tool = {
   category: ToolCategory;
 };
 
-export const CATEGORY_ORDER: ToolCategory[] = ["text", "media", "web"];
+export const CATEGORY_ORDER: ToolCategory[] = ["text", "media", "dev", "life"];
 
 export const TOOLS: Tool[] = [
   {
@@ -138,7 +139,7 @@ export const TOOLS: Tool[] = [
       en: "View any website across iPhone, iPad, laptop, desktop sizes.",
     },
     tags: ["responsive", "device", "preview"],
-    category: "web",
+    category: "dev",
   },
   {
     href: "/wheel",
@@ -150,7 +151,7 @@ export const TOOLS: Tool[] = [
       en: "Lucky wheel — enter a list, spin, pick randomly.",
     },
     tags: ["random", "picker", "wheel"],
-    category: "media",
+    category: "life",
   },
   {
     href: "/countdown",
@@ -162,7 +163,19 @@ export const TOOLS: Tool[] = [
       en: "Count down to important moments — birthdays, new year, deadlines. Save many events.",
     },
     tags: ["countdown", "timer", "event"],
-    category: "media",
+    category: "life",
+  },
+  {
+    href: "/fuel",
+    Icon: IconGasStation,
+    title: "Fuel Price",
+    sub: { vi: "Giá xăng dầu VN", en: "VN fuel prices" },
+    desc: {
+      vi: "Giá bán lẻ xăng dầu theo vùng (nguồn Petrolimex), cập nhật mỗi kỳ điều chỉnh.",
+      en: "Retail fuel prices by region (Petrolimex source), refreshed each cycle.",
+    },
+    tags: ["fuel", "petrolimex", "vn"],
+    category: "life",
   },
   {
     href: "/curl",
@@ -174,7 +187,7 @@ export const TOOLS: Tool[] = [
       en: "Paste a cURL command, inspect request and response Postman-style.",
     },
     tags: ["curl", "http", "api"],
-    category: "web",
+    category: "dev",
   },
 ];
 
