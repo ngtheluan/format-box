@@ -1,0 +1,28 @@
+{
+  "typescript.tsserver.maxTsServerMemory": 3072,
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+  "typescript.disableAutomaticTypeAcquisition": true,
+
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/pnpm-lock.yaml": true,
+    "**/package-lock.json": true,
+    "**/dist": true,
+    "**/.git": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/.git/objects/**": true,
+    "**/dist/**": true
+  },
+  "files.exclude": {
+    "**/.next": true,
+    "**/node_modules": false
+  },
+
+  "editor.minimap.enabled": false,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
+}

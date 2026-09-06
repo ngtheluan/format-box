@@ -12,6 +12,7 @@ import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
 import { parseCurl, type ParsedRequest } from "@/lib/parseCurl";
 import { highlightJson, isJsonContentType } from "@/lib/syntax";
+import { Button, Textarea } from "@/components/ui";
 
 type Response = {
   status: number;
@@ -169,20 +170,19 @@ export default function CurlTool() {
         <div className="curl-input-head">
           <label>{t("cu_input_label")}</label>
           <div className="curl-input-actions">
-            <button className="btn btn-s btn-tiny" onClick={useSample}>
-              {t("act_sample")}
-            </button>
-            <button className="btn btn-s btn-tiny" onClick={clear}>
-              <IconTrash size={13} stroke={1.9} /> {t("act_clear")}
-            </button>
+            <Button size="sm" variant="subtle" onClick={useSample}>{t("act_sample")}</Button>
+            <Button size="sm" variant="subtle" onClick={clear} leftIcon={<IconTrash size={13} stroke={1.9} />}>
+              {t("act_clear")}
+            </Button>
           </div>
         </div>
-        <textarea
+        <Textarea
           className="curl-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={t("cu_placeholder")}
           spellCheck={false}
+          monospace
         />
 
         {parseErr && (
@@ -218,14 +218,16 @@ export default function CurlTool() {
         )}
 
         <div className="curl-send-row">
-          <button
-            className="btn btn-p curl-send"
+          <Button
+            className="curl-send"
+            size="lg"
             onClick={send}
             disabled={busy || !parsed}
+            loading={busy}
+            leftIcon={!busy ? <IconSend2 size={16} stroke={1.9} /> : undefined}
           >
-            <IconSend2 size={16} stroke={1.9} />
             {busy ? t("cu_sending") : t("cu_send")}
-          </button>
+          </Button>
         </div>
         <p className="curl-warn">
           <IconAlertTriangle size={12} stroke={1.9} /> {t("cu_cors_warn")}
@@ -259,13 +261,15 @@ export default function CurlTool() {
               {response.contentType && (
                 <span className="curl-meta-item mono">{response.contentType}</span>
               )}
-              <button
-                className="btn btn-s btn-tiny"
+              <Button
+                size="sm"
+                variant="subtle"
                 onClick={() => copy(response.body, "Response")}
                 style={{ marginLeft: "auto" }}
+                leftIcon={<IconCopy size={13} stroke={1.9} />}
               >
-                <IconCopy size={13} stroke={1.9} /> {t("act_copy")}
-              </button>
+                {t("act_copy")}
+              </Button>
             </div>
 
             <div className="curl-tabs">

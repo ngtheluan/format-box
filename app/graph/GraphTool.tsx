@@ -16,6 +16,7 @@ import ReactFlow, {
   type Node,
 } from "reactflow";
 import "reactflow/dist/style.css";
+import { Button, Textarea } from "@/components/ui";
 import FbNode from "./FbNode";
 
 const nodeTypes = { fbNode: FbNode };
@@ -129,24 +130,25 @@ function GraphInner() {
         </div>
 
         <label>{t("graph_input")}</label>
-        <textarea
+        <Textarea
           className="graph-input"
           value={text}
           onChange={(e) => onChange(e.target.value)}
           placeholder='{"hello": "world"}'
           spellCheck={false}
+          monospace
         />
 
         <div className="actions">
-          <button className="btn btn-p" onClick={() => applyText(text)}>
-            <IconRefresh size={15} stroke={1.8} /> {t("act_redraw")}
-          </button>
-          <button className="btn btn-s" onClick={loadSample}>
-            <IconFileImport size={15} stroke={1.8} /> {t("act_sample")}
-          </button>
-          <button className="btn btn-s" onClick={() => fileRef.current?.click()}>
-            <IconFileImport size={15} stroke={1.8} /> {t("act_from_file")}
-          </button>
+          <Button onClick={() => applyText(text)} leftIcon={<IconRefresh size={15} stroke={1.8} />}>
+            {t("act_redraw")}
+          </Button>
+          <Button size="sm" variant="subtle" onClick={loadSample} leftIcon={<IconFileImport size={15} stroke={1.8} />}>
+            {t("act_sample")}
+          </Button>
+          <Button size="sm" variant="subtle" onClick={() => fileRef.current?.click()} leftIcon={<IconFileImport size={15} stroke={1.8} />}>
+            {t("act_from_file")}
+          </Button>
           <input
             ref={fileRef}
             type="file"
@@ -154,12 +156,12 @@ function GraphInner() {
             style={{ display: "none" }}
             onChange={(e) => loadFile(e.target.files?.[0])}
           />
-          <button className="btn btn-s" onClick={() => fitView({ padding: 0.2, duration: 400 })}>
-            <IconMaximize size={15} stroke={1.8} /> {t("act_fit_view")}
-          </button>
-          <button className="btn btn-s" onClick={exportSVG}>
-            <IconDownload size={15} stroke={1.8} /> {t("act_export")}
-          </button>
+          <Button size="sm" variant="subtle" onClick={() => fitView({ padding: 0.2, duration: 400 })} leftIcon={<IconMaximize size={15} stroke={1.8} />}>
+            {t("act_fit_view")}
+          </Button>
+          <Button size="sm" variant="subtle" onClick={exportSVG} leftIcon={<IconDownload size={15} stroke={1.8} />}>
+            {t("act_export")}
+          </Button>
         </div>
 
         {stat && (

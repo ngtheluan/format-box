@@ -12,6 +12,7 @@ import {
   IconWorld,
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Select } from "@/components/ui";
 
 function normalizeUrl(input: string): string | null {
   const raw = input.trim();
@@ -119,9 +120,7 @@ export default function ResponsiveTool() {
             onKeyDown={(e) => e.key === "Enter" && go()}
             spellCheck={false}
           />
-          <button className="btn btn-p btn-tiny" onClick={go}>
-            {t("rt_go")}
-          </button>
+          <Button size="sm" onClick={go}>{t("rt_go")}</Button>
         </div>
 
         {(["mobile", "tablet", "desktop"] as const).map((cat) => (
@@ -162,37 +161,56 @@ export default function ResponsiveTool() {
             </span>
           </div>
           <div className="rt-toolbar-right">
-            <button className="btn btn-s" onClick={() => setLandscape((v) => !v)} title={t("rt_rotate")}>
-              <IconRotate size={14} stroke={1.9} /> {t("rt_rotate")}
-            </button>
+            <Button
+              size="sm"
+              variant="subtle"
+              onClick={() => setLandscape((v) => !v)}
+              title={t("rt_rotate")}
+              leftIcon={<IconRotate size={14} stroke={1.9} />}
+            >
+              {t("rt_rotate")}
+            </Button>
             <div className="rt-zoom">
               <span>{t("rt_zoom")}</span>
-              <select
+              <Select
+                selectSize="sm"
                 value={autoFit ? "auto" : String(zoom)}
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (v === "auto") {
-                    setAutoFit(true);
-                  } else {
+                  if (v === "auto") setAutoFit(true);
+                  else {
                     setAutoFit(false);
                     setZoom(Number(v));
                   }
                 }}
-              >
-                <option value="auto">{t("rt_fit")}</option>
-                <option value="1">100%</option>
-                <option value="0.75">75%</option>
-                <option value="0.5">50%</option>
-                <option value="0.33">33%</option>
-                <option value="0.25">25%</option>
-              </select>
+                options={[
+                  { value: "auto", label: t("rt_fit") },
+                  { value: "1", label: "100%" },
+                  { value: "0.75", label: "75%" },
+                  { value: "0.5", label: "50%" },
+                  { value: "0.33", label: "33%" },
+                  { value: "0.25", label: "25%" },
+                ]}
+              />
             </div>
-            <button className="btn btn-s" onClick={reload} disabled={!loadedUrl}>
-              <IconReload size={14} stroke={1.9} /> {t("rt_reload")}
-            </button>
-            <button className="btn btn-s" onClick={openNew} disabled={!loadedUrl}>
-              <IconExternalLink size={14} stroke={1.9} /> {t("rt_open_new")}
-            </button>
+            <Button
+              size="sm"
+              variant="subtle"
+              onClick={reload}
+              disabled={!loadedUrl}
+              leftIcon={<IconReload size={14} stroke={1.9} />}
+            >
+              {t("rt_reload")}
+            </Button>
+            <Button
+              size="sm"
+              variant="subtle"
+              onClick={openNew}
+              disabled={!loadedUrl}
+              leftIcon={<IconExternalLink size={14} stroke={1.9} />}
+            >
+              {t("rt_open_new")}
+            </Button>
           </div>
         </div>
 

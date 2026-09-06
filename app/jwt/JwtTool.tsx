@@ -4,6 +4,7 @@ import { useI18n } from "@/lib/i18n";
 import { decodeJwt, formatTimeClaim, isTimeClaim, labelFor } from "@/lib/jwt";
 import { IconAlertTriangle, IconCheck, IconClock, IconCopy, IconTrash, IconX } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
+import { Button, Textarea } from "@/components/ui";
 
 const SAMPLE =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
@@ -67,7 +68,7 @@ export default function JwtTool() {
   return (
     <div className="jwt-layout">
       <div className="jwt-input-col">
-        <textarea
+        <Textarea
           className="jwt-input"
           value={token}
           onChange={(e) => setToken(e.target.value)}
@@ -75,12 +76,12 @@ export default function JwtTool() {
           spellCheck={false}
         />
         <div className="actions">
-          <button className="btn btn-s" onClick={useSample}>
+          <Button size="sm" variant="subtle" onClick={useSample}>
             {t("act_sample")}
-          </button>
-          <button className="btn btn-s" onClick={clear}>
-            <IconTrash size={14} stroke={1.9} /> {t("act_clear")}
-          </button>
+          </Button>
+          <Button size="sm" variant="subtle" onClick={clear} leftIcon={<IconTrash size={14} stroke={1.9} />}>
+            {t("act_clear")}
+          </Button>
         </div>
 
         {state.type === "ok" && (
@@ -133,9 +134,9 @@ export default function JwtTool() {
             <div className="jwt-block">
               <div className="jwt-block-head">
                 <span className="jwt-block-title">SIGNATURE</span>
-                <button className="btn btn-s btn-tiny" onClick={() => copy(state.signature, "signature")}>
-                  <IconCopy size={13} stroke={1.8} /> {t("act_copy")}
-                </button>
+                <Button size="sm" variant="subtle" onClick={() => copy(state.signature, "signature")} leftIcon={<IconCopy size={13} stroke={1.8} />}>
+                  {t("act_copy")}
+                </Button>
               </div>
               <div className="jwt-signature">{state.signature}</div>
               <p className="jwt-note">{t("jwt_sig_note")}</p>
@@ -177,9 +178,9 @@ function JwtBlock({
             <IconAlertTriangle size={12} stroke={2} /> {expiredLabel}
           </span>
         )}
-        <button className="btn btn-s btn-tiny" onClick={() => onCopy(pretty)}>
-          <IconCopy size={13} stroke={1.8} /> {copyLabel}
-        </button>
+        <Button size="sm" variant="subtle" onClick={() => onCopy(pretty)} leftIcon={<IconCopy size={13} stroke={1.8} />}>
+          {copyLabel}
+        </Button>
       </div>
 
       <pre className="jwt-json">{pretty}</pre>

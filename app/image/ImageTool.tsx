@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { IconPaperclip, IconDownload } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
+import { Button, Slider } from "@/components/ui";
 
 type Fmt = "image/png" | "image/jpeg" | "image/webp";
 
@@ -120,19 +121,19 @@ export default function ImageTool() {
             )}
           </label>
           <div className="slider-wrap">
-            <input
-              type="range"
+            <Slider
               min={10}
               max={100}
               value={quality}
               onChange={(e) => setQuality(Number(e.target.value))}
+              showValue
+              formatValue={(v) => `${v}%`}
             />
-            <span className="slider-val">{quality}%</span>
           </div>
 
           <div className="actions">
-            <button className="btn btn-p" onClick={convert}>{t("act_convert")}</button>
-            <button className="btn btn-s" onClick={reset}>{t("act_reset_img")}</button>
+            <Button onClick={convert}>{t("act_convert")}</Button>
+            <Button variant="subtle" size="sm" onClick={reset}>{t("act_reset_img")}</Button>
           </div>
         </div>
       )}
@@ -160,8 +161,13 @@ export default function ImageTool() {
 
       {converted && (
         <div className="actions">
-          <a className="btn btn-p" href={converted.dataUrl} download={`converted.${converted.ext}`}>
-            <IconDownload size={16} stroke={1.8} /> {t("img_save")}
+          <a
+            className="ui-btn ui-btn--primary ui-btn--md"
+            href={converted.dataUrl}
+            download={`converted.${converted.ext}`}
+          >
+            <span className="ui-btn-ic"><IconDownload size={16} stroke={1.8} /></span>
+            <span className="ui-btn-label">{t("img_save")}</span>
           </a>
         </div>
       )}

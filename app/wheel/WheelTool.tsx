@@ -14,6 +14,7 @@ import {
 } from "@tabler/icons-react";
 import confetti from "canvas-confetti";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Checkbox, Textarea } from "@/components/ui";
 
 type PresetId = "custom" | "food" | "drink" | "person";
 
@@ -253,7 +254,7 @@ export default function WheelTool() {
             {n} {t("wh_count")}
           </span>
         </div>
-        <textarea
+        <Textarea
           className="wheel-input"
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
@@ -264,17 +265,31 @@ export default function WheelTool() {
         <p className="wheel-saved-hint">{t("wh_saved_hint")}</p>
 
         <div className="actions wheel-actions">
-          <button className="btn btn-s" onClick={shuffle} disabled={spinning}>
-            <IconArrowsShuffle size={14} stroke={1.9} /> {t("wh_shuffle")}
-          </button>
-          <button className="btn btn-s" onClick={reset} disabled={spinning}>
-            <IconRefresh size={14} stroke={1.9} /> {t("wh_reset")}
-          </button>
+          <Button
+            size="sm"
+            variant="subtle"
+            onClick={shuffle}
+            disabled={spinning}
+            leftIcon={<IconArrowsShuffle size={14} stroke={1.9} />}
+          >
+            {t("wh_shuffle")}
+          </Button>
+          <Button
+            size="sm"
+            variant="subtle"
+            onClick={reset}
+            disabled={spinning}
+            leftIcon={<IconRefresh size={14} stroke={1.9} />}
+          >
+            {t("wh_reset")}
+          </Button>
         </div>
-        <label className="wheel-check">
-          <input type="checkbox" checked={removeWinner} onChange={(e) => setRemoveWinner(e.target.checked)} />
-          <span>{t("wh_remove_winner")}</span>
-        </label>
+        <Checkbox
+          label={t("wh_remove_winner")}
+          checked={removeWinner}
+          onChange={(e) => setRemoveWinner(e.target.checked)}
+          className="wheel-check"
+        />
 
         <div className="wheel-history">
           <div className="wheel-history-head">
@@ -345,10 +360,15 @@ export default function WheelTool() {
             </div>
 
             <div className="wheel-cta">
-              <button className="btn btn-p wheel-spin" onClick={spin} disabled={spinning}>
-                <IconPlayerPlayFilled size={16} />
+              <Button
+                className="wheel-spin"
+                size="lg"
+                onClick={spin}
+                disabled={spinning}
+                leftIcon={<IconPlayerPlayFilled size={16} />}
+              >
                 {spinning ? t("wh_spinning") : t("wh_spin")}
-              </button>
+              </Button>
             </div>
 
             {winner && !spinning && !modalOpen && (
@@ -373,12 +393,12 @@ export default function WheelTool() {
             <div className="wheel-modal-title">{t("wh_winner_title")}</div>
             <div className="wheel-modal-name">{winner}</div>
             <div className="wheel-modal-actions">
-              <button className="btn btn-s" onClick={closeModal}>
+              <Button variant="subtle" size="sm" onClick={closeModal}>
                 {t("wh_winner_close")}
-              </button>
-              <button className="btn btn-p" onClick={spinAgain}>
-                <IconPlayerPlayFilled size={14} /> {t("wh_spin_again")}
-              </button>
+              </Button>
+              <Button onClick={spinAgain} leftIcon={<IconPlayerPlayFilled size={14} />}>
+                {t("wh_spin_again")}
+              </Button>
             </div>
           </div>
         </div>

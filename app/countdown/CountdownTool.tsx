@@ -3,6 +3,7 @@ import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
 import { IconCake, IconChristmasTree, IconGift, IconPlus, IconSparkles, IconTrash } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Input, Textarea } from "@/components/ui";
 
 type Countdown = {
   id: string;
@@ -180,22 +181,20 @@ export default function CountdownTool() {
       <aside className="wheel-side">
         <div className="wheel-preset-head">{t("cd_new")}</div>
         <form className="cd-form" onSubmit={submitNew}>
-          <input
-            className="cd-text"
+          <Input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder={t("cd_title_ph")}
             maxLength={60}
           />
-          <input
-            className="cd-text"
+          <Input
             type="datetime-local"
             value={newTarget}
             onChange={(e) => setNewTarget(e.target.value)}
           />
-          <button type="submit" className="btn btn-p">
-            <IconPlus size={14} stroke={2} /> {t("cd_add")}
-          </button>
+          <Button type="submit" block leftIcon={<IconPlus size={14} stroke={2} />}>
+            {t("cd_add")}
+          </Button>
         </form>
 
         <div className="wheel-preset-head" style={{ marginTop: 14 }}>

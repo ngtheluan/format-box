@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
+import { Button, IconButton, Textarea } from "@/components/ui";
 
 type Mode = "encode" | "decode";
 type State = "idle" | "ok" | "err";
@@ -116,19 +117,19 @@ export default function Base64Tool() {
           </button>
         </div>
         <div className="toolbar-actions">
-          <button className="icon-btn" onClick={swap} title={t("b64_swap")}>
+          <IconButton aria-label={t("b64_swap")} title={t("b64_swap")} onClick={swap}>
             <IconArrowsUpDown size={18} stroke={1.8} />
-          </button>
-          <button className="icon-btn" onClick={clear} title={t("act_clear")}>
+          </IconButton>
+          <IconButton aria-label={t("act_clear")} title={t("act_clear")} onClick={clear}>
             <IconTrash size={18} stroke={1.8} />
-          </button>
+          </IconButton>
         </div>
       </div>
 
       <div className="cols">
         <div className="col">
           <label>{inputLabel}</label>
-          <textarea
+          <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={inputPlaceholder}
@@ -156,25 +157,25 @@ export default function Base64Tool() {
         </div>
         <div className="col">
           <label>{t("lbl_result")}</label>
-          <textarea
+          <Textarea
             className={`output-area${state === "ok" ? " state-ok" : state === "err" ? " state-err" : ""}`}
             readOnly
             value={output}
             placeholder={t("b64_result_hint")}
           />
           <div className="actions">
-            <button className="btn btn-s" onClick={copy}>
-              <IconCopy size={15} stroke={1.8} /> {t("act_copy")}
-            </button>
-            <button className="btn btn-s" onClick={download}>
-              <IconDownload size={15} stroke={1.8} /> {t("act_download")}
-            </button>
+            <Button size="sm" variant="subtle" onClick={copy} leftIcon={<IconCopy size={15} stroke={1.8} />}>
+              {t("act_copy")}
+            </Button>
+            <Button size="sm" variant="subtle" onClick={download} leftIcon={<IconDownload size={15} stroke={1.8} />}>
+              {t("act_download")}
+            </Button>
           </div>
         </div>
       </div>
 
       <div className="convert-row">
-        <button className="btn btn-p btn-lg" onClick={convert}>{convertLabel}</button>
+        <Button size="lg" onClick={convert}>{convertLabel}</Button>
       </div>
 
       <div className="info">

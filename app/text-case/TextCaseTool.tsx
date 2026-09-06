@@ -4,6 +4,7 @@ import { IconCopy, IconTrash, IconArrowsExchange } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
 import { caseList, cases } from "@/lib/textCase";
+import { Button, Textarea } from "@/components/ui";
 
 export default function TextCaseTool() {
   const toast = useToast();
@@ -35,7 +36,7 @@ export default function TextCaseTool() {
     <div className="tc-tool">
       <div className="tc-input-wrap">
         <label>{t("tc_input_label")}</label>
-        <textarea
+        <Textarea
           className="tc-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -43,12 +44,17 @@ export default function TextCaseTool() {
           spellCheck={false}
         />
         <div className="actions">
-          <button className="btn btn-s" onClick={() => setText("")}>
-            <IconTrash size={14} stroke={1.9} /> {t("act_clear")}
-          </button>
-          <button className="btn btn-s" onClick={() => setText(text.toLowerCase())}>
-            <IconArrowsExchange size={14} stroke={1.9} /> {t("tc_reset_lower")}
-          </button>
+          <Button size="sm" variant="subtle" onClick={() => setText("")} leftIcon={<IconTrash size={14} stroke={1.9} />}>
+            {t("act_clear")}
+          </Button>
+          <Button
+            size="sm"
+            variant="subtle"
+            onClick={() => setText(text.toLowerCase())}
+            leftIcon={<IconArrowsExchange size={14} stroke={1.9} />}
+          >
+            {t("tc_reset_lower")}
+          </Button>
         </div>
         <div className="info tc-stats">
           <span className="info-i">{stats.chars} {t("lbl_chars")}</span>

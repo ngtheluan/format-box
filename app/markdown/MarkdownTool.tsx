@@ -5,6 +5,7 @@ import { IconCopy, IconDownload, IconEye, IconFileImport, IconPencil, IconTrash 
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Textarea } from "@/components/ui";
 
 const SAMPLE = `# Markdown Reader
 
@@ -144,9 +145,9 @@ ${html}
           </ModeBtn>
         </div>
         <div className="md-toolbar-actions">
-          <button className="btn btn-s" onClick={() => fileRef.current?.click()}>
-            <IconFileImport size={14} stroke={1.9} /> {t("act_open_file")}
-          </button>
+          <Button size="sm" variant="subtle" onClick={() => fileRef.current?.click()} leftIcon={<IconFileImport size={14} stroke={1.9} />}>
+            {t("act_open_file")}
+          </Button>
           <input
             ref={fileRef}
             type="file"
@@ -154,18 +155,16 @@ ${html}
             style={{ display: "none" }}
             onChange={(e) => loadFile(e.target.files?.[0])}
           />
-          <button className="btn btn-s" onClick={useSample}>
-            {t("act_sample")}
-          </button>
-          <button className="btn btn-s" onClick={copyHtml}>
-            <IconCopy size={14} stroke={1.9} /> {t("md_copy_html")}
-          </button>
-          <button className="btn btn-s" onClick={downloadHtml}>
-            <IconDownload size={14} stroke={1.9} /> {t("md_download_html")}
-          </button>
-          <button className="btn btn-s" onClick={clear}>
-            <IconTrash size={14} stroke={1.9} /> {t("act_clear")}
-          </button>
+          <Button size="sm" variant="subtle" onClick={useSample}>{t("act_sample")}</Button>
+          <Button size="sm" variant="subtle" onClick={copyHtml} leftIcon={<IconCopy size={14} stroke={1.9} />}>
+            {t("md_copy_html")}
+          </Button>
+          <Button size="sm" variant="subtle" onClick={downloadHtml} leftIcon={<IconDownload size={14} stroke={1.9} />}>
+            {t("md_download_html")}
+          </Button>
+          <Button size="sm" variant="subtle" onClick={clear} leftIcon={<IconTrash size={14} stroke={1.9} />}>
+            {t("act_clear")}
+          </Button>
         </div>
       </div>
 
@@ -180,12 +179,13 @@ ${html}
         {mode !== "preview" && (
           <div className="md-editor-col">
             <label>{t("md_editor")}</label>
-            <textarea
+            <Textarea
               className="md-editor"
               value={text}
               onChange={(e) => setText(e.target.value)}
               spellCheck={false}
               placeholder={t("md_placeholder")}
+              monospace
             />
           </div>
         )}

@@ -23,6 +23,7 @@ import {
 import * as htmlToImage from "html-to-image";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui";
 
 type Person = { id: string; name: string };
 type Item = { name: string; qty: number; price: number; excludes: string[] };
@@ -625,13 +626,24 @@ export default function BillTool() {
       </div>
 
       <div className="bill-cta-row">
-        <button className="btn btn-s" onClick={copyImage} disabled={busy}>
-          <IconCopy size={15} stroke={1.8} /> Copy ảnh
-        </button>
-        <button className="btn btn-p bill-download" onClick={download} disabled={busy}>
-          <IconDownload size={16} stroke={1.8} />
+        <Button
+          size="sm"
+          variant="subtle"
+          onClick={copyImage}
+          disabled={busy}
+          leftIcon={<IconCopy size={15} stroke={1.8} />}
+        >
+          Copy ảnh
+        </Button>
+        <Button
+          className="bill-download"
+          onClick={download}
+          disabled={busy}
+          loading={busy}
+          leftIcon={!busy ? <IconDownload size={16} stroke={1.8} /> : undefined}
+        >
           {busy ? "Đang xuất..." : "Tải ảnh PNG"}
-        </button>
+        </Button>
       </div>
     </div>
   );

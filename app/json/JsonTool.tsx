@@ -3,6 +3,7 @@ import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
 import { IconCheck, IconChevronDown, IconChevronRight, IconCopy, IconX } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
+import { Button, Textarea } from "@/components/ui";
 
 type Indent = "2" | "4" | "tab";
 type Status = { type: "ok" | "err" | "idle"; msg: string };
@@ -173,11 +174,12 @@ export default function JsonTool() {
       <div className="json-grid">
         <div className="json-col">
           <label>{t("json_label")}</label>
-          <textarea
+          <Textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder='{"name": "FormatBox", "type": "tool", "features": ["format", "validate", "minify"]}'
             className="json-input"
+            monospace
           />
 
           <div className="indent-row">
@@ -190,21 +192,13 @@ export default function JsonTool() {
           </div>
 
           <div className="actions">
-            <button className="btn btn-p" onClick={doFormat}>
-              {t("act_format")}
-            </button>
-            <button className="btn btn-s" onClick={doMinify}>
-              {t("act_minify")}
-            </button>
-            <button className="btn btn-s" onClick={doValidate}>
-              {t("act_validate")}
-            </button>
-            <button className="btn btn-s" onClick={doCopy}>
-              <IconCopy size={15} stroke={1.8} /> {t("act_copy")}
-            </button>
-            <button className="btn btn-s" onClick={doClear}>
-              {t("act_clear")}
-            </button>
+            <Button onClick={doFormat}>{t("act_format")}</Button>
+            <Button size="sm" variant="subtle" onClick={doMinify}>{t("act_minify")}</Button>
+            <Button size="sm" variant="subtle" onClick={doValidate}>{t("act_validate")}</Button>
+            <Button size="sm" variant="subtle" onClick={doCopy} leftIcon={<IconCopy size={15} stroke={1.8} />}>
+              {t("act_copy")}
+            </Button>
+            <Button size="sm" variant="subtle" onClick={doClear}>{t("act_clear")}</Button>
           </div>
 
           {errDetail && <div className="err-detail">{errDetail}</div>}

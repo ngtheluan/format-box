@@ -17,6 +17,7 @@ import {
   IconTable,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import { Button } from "@/components/ui";
 
 const coming = [
   { Icon: IconLink, label: "URL Encode" },
@@ -160,9 +161,9 @@ export default function Home() {
           <div className="cta">
             <h2>{t("cta_h")}</h2>
             <p>{t("cta_p")}</p>
-            <Link href="/base64" className="btn btn-p">
+            <Button href="/base64" size="lg">
               {t("cta_btn")}
-            </Link>
+            </Button>
           </div>
         </div>
       </section>
