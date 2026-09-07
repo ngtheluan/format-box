@@ -9,11 +9,11 @@ export default function Page() {
   return (
     <>
       <Nav />
-      <div className="page" style={{ maxWidth: 1000 }}>
+      <div className="page" style={{ maxWidth: 1200 }}>
         <h1 className="page-title">
           <IconPhoto size={22} stroke={1.8} /> Image <span>{t("img_title")}</span>
         </h1>
-        <p className="sub">{t("img_sub")}</p>
+        <p className="sub">{t("img_sub2")}</p>
         <ImageTool />
       </div>
       <footer className="ft-slim">&copy; 2026 FormatBox</footer>
