@@ -144,30 +144,6 @@ export const TOOLS: Tool[] = [
     category: "cat_dev",
   },
   {
-    href: "/wheel",
-    Icon: IconConfetti,
-    title: "Lucky Wheel",
-    sub: { vi: "Spin & Pick", en: "Spin & Pick" },
-    desc: {
-      vi: "Vòng quay may mắn — nhập danh sách, quay, chọn ngẫu nhiên.",
-      en: "Lucky wheel — enter a list, spin, pick randomly.",
-    },
-    tags: ["random", "picker", "wheel"],
-    category: "cat_life",
-  },
-  {
-    href: "/countdown",
-    Icon: IconClock,
-    title: "Countdown",
-    sub: { vi: "Đếm ngược sự kiện", en: "Event countdown" },
-    desc: {
-      vi: "Đếm ngược tới ngày quan trọng — sinh nhật, năm mới, deadline. Lưu nhiều mốc.",
-      en: "Count down to important moments — birthdays, new year, deadlines. Save many events.",
-    },
-    tags: ["countdown", "timer", "event"],
-    category: "cat_life",
-  },
-  {
     href: "/fuel",
     Icon: IconGasStation,
     title: "Fuel Price",
@@ -201,6 +177,30 @@ export const TOOLS: Tool[] = [
       en: "Check Vietnamese lottery tickets against live results across 3 regions.",
     },
     tags: ["lottery", "xo-so", "vn", "ticket", "do-ve-so"],
+    category: "cat_life",
+  },
+  {
+    href: "/wheel",
+    Icon: IconConfetti,
+    title: "Lucky Wheel",
+    sub: { vi: "Spin & Pick", en: "Spin & Pick" },
+    desc: {
+      vi: "Vòng quay may mắn — nhập danh sách, quay, chọn ngẫu nhiên.",
+      en: "Lucky wheel — enter a list, spin, pick randomly.",
+    },
+    tags: ["random", "picker", "wheel"],
+    category: "cat_life",
+  },
+  {
+    href: "/countdown",
+    Icon: IconClock,
+    title: "Countdown",
+    sub: { vi: "Đếm ngược sự kiện", en: "Event countdown" },
+    desc: {
+      vi: "Đếm ngược tới ngày quan trọng — sinh nhật, năm mới, deadline. Lưu nhiều mốc.",
+      en: "Count down to important moments — birthdays, new year, deadlines. Save many events.",
+    },
+    tags: ["countdown", "timer", "event"],
     category: "cat_life",
   },
   {

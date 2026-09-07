@@ -3,8 +3,9 @@ import Footer from "@/components/Footer";
 import HeroCanvas from "@/components/HeroCanvas";
 import LiveDemo from "@/components/LiveDemo";
 import Nav from "@/components/Nav";
+import { Button } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
-import { TOOLS as tools } from "@/lib/tools";
+import { TOOLS, TOOLS as tools } from "@/lib/tools";
 import {
   IconCalculator,
   IconCheck,
@@ -17,7 +18,6 @@ import {
   IconTable,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { Button } from "@/components/ui";
 
 const coming = [
   { Icon: IconLink, label: "URL Encode" },
@@ -34,7 +34,7 @@ export default function Home() {
   const { t, lang } = useI18n();
   const stats = [
     { k: "0", v: t("stat_ads") },
-    { k: "11", v: t("stat_tools") },
+    { k: TOOLS.length, v: t("stat_tools") },
     { k: "100%", v: t("stat_client") },
     { k: "∞", v: t("stat_uses") },
   ];
