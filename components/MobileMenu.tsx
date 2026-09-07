@@ -7,8 +7,7 @@ import { IconMenu2, IconX } from "@tabler/icons-react";
 import { CATEGORY_ORDER, TOOLS, type ToolCategory } from "@/lib/tools";
 import { useI18n } from "@/lib/i18n";
 
-const catKey = (c: ToolCategory) =>
-  c === "text" ? "cat_text" : c === "media" ? "cat_media" : c === "dev" ? "cat_dev" : "cat_life";
+const catKey = (c: ToolCategory) => c;
 
 export default function MobileMenu() {
   const { t, lang } = useI18n();

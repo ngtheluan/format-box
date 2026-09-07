@@ -19,7 +19,7 @@ import type { Lang } from "./i18n";
 
 type Bilingual = { vi: string; en: string };
 
-export type ToolCategory = "text" | "media" | "dev" | "life";
+export type ToolCategory = "cat_text" | "cat_media" | "cat_dev" | "cat_life";
 
 export type Tool = {
   href: string;
@@ -31,7 +31,7 @@ export type Tool = {
   category: ToolCategory;
 };
 
-export const CATEGORY_ORDER: ToolCategory[] = ["text", "media", "dev", "life"];
+export const CATEGORY_ORDER: ToolCategory[] = ["cat_text", "cat_media", "cat_dev", "cat_life"];
 
 export const TOOLS: Tool[] = [
   {
@@ -44,7 +44,7 @@ export const TOOLS: Tool[] = [
       en: "Text, files, full UTF-8. Drag-drop and swap in one click.",
     },
     tags: ["text", "file", "utf-8"],
-    category: "text",
+    category: "cat_text",
   },
   {
     href: "/json",
@@ -56,7 +56,7 @@ export const TOOLS: Tool[] = [
       en: "Format, minify, validate. Tree view, key count, size info.",
     },
     tags: ["format", "minify", "tree"],
-    category: "text",
+    category: "cat_text",
   },
   {
     href: "/graph",
@@ -68,7 +68,7 @@ export const TOOLS: Tool[] = [
       en: "Turn JSON into an interactive graph. Pan, zoom, explore.",
     },
     tags: ["graph", "pan", "zoom"],
-    category: "text",
+    category: "cat_text",
   },
   {
     href: "/image",
@@ -80,7 +80,7 @@ export const TOOLS: Tool[] = [
       en: "PNG, JPG, WebP. Tune quality, live preview.",
     },
     tags: ["png", "jpg", "webp"],
-    category: "media",
+    category: "cat_media",
   },
   {
     href: "/bill",
@@ -92,7 +92,7 @@ export const TOOLS: Tool[] = [
       en: "Split expenses in a group — items, people, export as PNG.",
     },
     tags: ["bill", "split", "png"],
-    category: "media",
+    category: "cat_media",
   },
   {
     href: "/jwt",
@@ -104,7 +104,7 @@ export const TOOLS: Tool[] = [
       en: "Decode header + payload, inspect claims and expiry.",
     },
     tags: ["jwt", "token", "decode"],
-    category: "text",
+    category: "cat_text",
   },
   {
     href: "/markdown",
@@ -116,7 +116,7 @@ export const TOOLS: Tool[] = [
       en: "Read Markdown files, live preview, copy HTML.",
     },
     tags: ["markdown", "md", "preview"],
-    category: "text",
+    category: "cat_text",
   },
   {
     href: "/text-case",
@@ -128,7 +128,7 @@ export const TOOLS: Tool[] = [
       en: "Switch between camel, snake, kebab, Title, UPPER and more.",
     },
     tags: ["case", "camel", "snake", "kebab"],
-    category: "text",
+    category: "cat_text",
   },
   {
     href: "/responsive",
@@ -140,7 +140,7 @@ export const TOOLS: Tool[] = [
       en: "View any website across iPhone, iPad, laptop, desktop sizes.",
     },
     tags: ["responsive", "device", "preview"],
-    category: "dev",
+    category: "cat_dev",
   },
   {
     href: "/wheel",
@@ -152,7 +152,7 @@ export const TOOLS: Tool[] = [
       en: "Lucky wheel — enter a list, spin, pick randomly.",
     },
     tags: ["random", "picker", "wheel"],
-    category: "life",
+    category: "cat_life",
   },
   {
     href: "/countdown",
@@ -164,7 +164,7 @@ export const TOOLS: Tool[] = [
       en: "Count down to important moments — birthdays, new year, deadlines. Save many events.",
     },
     tags: ["countdown", "timer", "event"],
-    category: "life",
+    category: "cat_life",
   },
   {
     href: "/fuel",
@@ -176,7 +176,7 @@ export const TOOLS: Tool[] = [
       en: "Retail fuel prices by region (Petrolimex source), refreshed each cycle.",
     },
     tags: ["fuel", "petrolimex", "vn"],
-    category: "life",
+    category: "cat_life",
   },
   {
     href: "/gold",
@@ -188,7 +188,7 @@ export const TOOLS: Tool[] = [
       en: "SJC gold prices by branch, streamed from the official SJC feed.",
     },
     tags: ["gold", "sjc", "vn", "vang"],
-    category: "life",
+    category: "cat_life",
   },
   {
     href: "/curl",
@@ -200,7 +200,7 @@ export const TOOLS: Tool[] = [
       en: "Paste a cURL command, inspect request and response Postman-style.",
     },
     tags: ["curl", "http", "api"],
-    category: "dev",
+    category: "cat_dev",
   },
 ];
 
