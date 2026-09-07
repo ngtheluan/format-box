@@ -324,7 +324,7 @@ a {
 
 /* ===== SECTIONS ===== */
 section {
-  padding: 100px 24px;
+  padding: 24px;
 }
 .mx {
   max-width: 1040px;
@@ -8445,11 +8445,7 @@ label {
 .gp-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--gp-gold) 8%, var(--bg2)) 0%,
-    var(--bg2) 60%
-  );
+  background: linear-gradient(135deg, color-mix(in srgb, var(--gp-gold) 8%, var(--bg2)) 0%, var(--bg2) 60%);
   border-color: color-mix(in srgb, var(--gp-gold) 30%, var(--border));
 }
 .gp-hero-glow {

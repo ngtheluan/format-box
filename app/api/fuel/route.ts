@@ -4,6 +4,8 @@ import { extractPricesFromArticle, FALLBACK_SNAPSHOT, type FuelSnapshot } from "
 export const revalidate = 3600;
 
 const RSS_URL = "https://vnexpress.net/rss/kinh-doanh.rss";
+const SEARCH_URL =
+  "https://timkiem.vnexpress.net/?q=gi%C3%A1+x%C4%83ng&media_type=text&fromdate=0&todate=0&latest=on";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -31,19 +33,42 @@ function pickFuelArticle(rss: string): { link: string; title: string; pubDate?: 
     const pubDate = /<pubDate>([\s\S]*?)<\/pubDate>/i.exec(body)?.[1]?.trim();
     if (title && link) items.push({ title, link, pubDate });
   }
-  // First title mentioning 'giá xăng' or 'giá xăng dầu'
-  return items.find((it) => /giá\s+xăng/i.test(it.title)) ?? null;
+  // Only pick the VN price-adjustment cycle articles.
+  // These have URL slug "gia-xang-dau-moi-nhat-hom-nay-<day>-<month>-<id>".
+  // Filters out unrelated stories like "Iran sắp tăng giá xăng".
+  return (
+    items.find((it) => /gia-xang-dau-moi-nhat-hom-nay-\d+-\d+-\d+\.html/i.test(it.link)) ?? null
+  );
+}
+
+async function findLatestArticle(): Promise<{ link: string; title?: string; pubDate?: string }> {
+  // 1) Try RSS first (fast, fresh)
+  try {
+    const rssRes = await fetch(RSS_URL, {
+      headers: { "User-Agent": UA, Accept: "application/rss+xml,text/xml" },
+      next: { revalidate: 3600 },
+    });
+    if (rssRes.ok) {
+      const article = pickFuelArticle(await rssRes.text());
+      if (article) return article;
+    }
+  } catch {
+    /* fall through */
+  }
+  // 2) Fallback: scrape search page (works even between cycles)
+  const searchRes = await fetch(SEARCH_URL, {
+    headers: { "User-Agent": UA, Accept: "text/html" },
+    next: { revalidate: 3600 },
+  });
+  if (!searchRes.ok) throw new Error(`Search HTTP ${searchRes.status}`);
+  const html = await searchRes.text();
+  const m = /https:\/\/vnexpress\.net\/(gia-xang-dau-moi-nhat-hom-nay-[a-z0-9-]+)\.html/i.exec(html);
+  if (!m) throw new Error("Không tìm thấy bài giá xăng nào");
+  return { link: `https://vnexpress.net/${m[1]}.html` };
 }
 
 async function fetchLive(): Promise<FuelSnapshot> {
-  const rssRes = await fetch(RSS_URL, {
-    headers: { "User-Agent": UA, Accept: "application/rss+xml,text/xml" },
-    next: { revalidate: 3600 },
-  });
-  if (!rssRes.ok) throw new Error(`RSS HTTP ${rssRes.status}`);
-  const rss = await rssRes.text();
-  const article = pickFuelArticle(rss);
-  if (!article) throw new Error("Không tìm thấy bài giá xăng trong RSS");
+  const article = await findLatestArticle();
 
   const artRes = await fetch(article.link, {
     headers: { "User-Agent": UA, Accept: "text/html" },

@@ -42,17 +42,32 @@ function isoToDdmmyyyy(iso: string) {
 export default function LuckyTicketTool() {
   const { t } = useI18n();
   const [region, setRegion] = useState<Region>("mn");
-  const [date, setDate] = useState<string>(""); // yyyy-mm-dd; "" = latest
+  // yyyy-mm-dd. Empty = "let the API pick the latest available draw". After
+  // that first fetch we sync the picker to whatever date came back, so if
+  // today's draw isn't out yet the picker shows the previous draw day.
+  const [date, setDate] = useState<string>("");
+  const [autoSyncDate, setAutoSyncDate] = useState(true);
   const [snapshot, setSnapshot] = useState<LotterySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [ticket, setTicket] = useState("");
   const [mounted, setMounted] = useState(false);
-  // Initialise the date picker with today (client-only to keep SSR stable).
+  useEffect(() => setMounted(true), []);
+
+  // Sync picker to the actual result date whenever the user hasn't picked one
+  // manually. This is what backs "default to previous day when today is empty".
   useEffect(() => {
-    setMounted(true);
-    setDate(todayIso());
-  }, []);
+    if (!autoSyncDate) return;
+    const iso = toIsoDate(snapshot?.resultDate);
+    if (iso && iso !== date) setDate(iso);
+  }, [snapshot, autoSyncDate, date]);
+
+  const changeDate = (d: string) => {
+    // Clearing with ✕ re-enables auto-sync so the picker snaps to the freshest
+    // available draw for the current region.
+    setAutoSyncDate(d === "");
+    setDate(d);
+  };
 
   const load = async (r: Region, d: string, signal?: AbortSignal) => {
     setLoading(true);
@@ -90,7 +105,6 @@ export default function LuckyTicketTool() {
 
   const bestPrizeLabel = matches[0]?.label;
   const maxDateIso = mounted ? todayIso() : undefined;
-  const isPastDate = mounted && date !== "" && date !== todayIso();
 
   return (
     <div className="fp-tool lt-tool">
@@ -102,7 +116,13 @@ export default function LuckyTicketTool() {
                 key={r.key}
                 type="button"
                 className={`gp-branch${region === r.key ? " on" : ""}`}
-                onClick={() => setRegion(r.key)}
+                onClick={() => {
+                  setRegion(r.key);
+                  // A different region can have a different latest draw day —
+                  // re-enable auto-sync so the picker follows it.
+                  setAutoSyncDate(true);
+                  setDate("");
+                }}
               >
                 {r.label}
               </button>
@@ -111,13 +131,12 @@ export default function LuckyTicketTool() {
           <DatePickerInput
             inputSize="sm"
             value={date}
-            onValueChange={setDate}
+            onValueChange={changeDate}
             max={maxDateIso}
             aria-label="Chọn ngày"
             clearTitle="Về kỳ mới nhất"
             className="lt-date-input"
           />
-          {/* isCustomDate is now driven inside DatePickerInput's own clear button */}
           <div className="lt-controls-right">
             <Badge variant="dot" tone={isFallback ? "warning" : "success"}>
               {isFallback ? t("lt_mode_fallback") : t("lt_mode_live")}
@@ -161,15 +180,26 @@ export default function LuckyTicketTool() {
         data.resultDate &&
         !loading &&
         (() => {
+          const today = todayIso();
           const iso = toIsoDate(data.resultDate);
-          const askedIso = date || todayIso();
-          if (iso === askedIso) return null;
-          const ctx = isPastDate
-            ? `Ngày ${isoToDdmmyyyy(askedIso)} chưa có kết quả — hiển thị kỳ mở gần nhất ${data.resultDate}.`
-            : `Chưa có kết quả cho hôm nay (${isoToDdmmyyyy(askedIso)}) — hiển thị kỳ mở gần nhất ${data.resultDate}.`;
+          if (autoSyncDate) {
+            // Picker was auto-set to the latest available draw. Only surface a
+            // note when that latest is NOT today (i.e. today's draw isn't out
+            // yet); otherwise stay silent.
+            if (iso === today) return null;
+            return (
+              <Alert tone="info" title={`Kết quả kỳ mở gần nhất: ${data.resultDate}`}>
+                Chưa có kết quả cho hôm nay ({isoToDdmmyyyy(today)}).
+              </Alert>
+            );
+          }
+          // User picked a specific date; if the returned date differs, they
+          // asked for a day with no draw (e.g. Sunday in MB was fine, but a
+          // rare gap) — show what actually came back.
+          if (iso === date) return null;
           return (
             <Alert tone="info" title={`Kết quả ngày ${data.resultDate}`}>
-              {ctx}
+              Ngày {isoToDdmmyyyy(date)} chưa có kết quả — hiển thị kỳ mở gần nhất {data.resultDate}.
             </Alert>
           );
         })()}
