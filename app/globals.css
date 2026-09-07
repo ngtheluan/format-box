@@ -8374,3 +8374,95 @@ label {
     display: none;
   }
 }
+
+/* GOLD PRICE */
+.fp-tool .fp-grid:has(.gp-prices) {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.gp-branches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+.gp-branch {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--dim);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.gp-branch:hover {
+  color: var(--fg);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+.gp-branch.on {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+.gp-branch-tag {
+  font-size: 0.72rem;
+  color: var(--dim);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--fp-color) 10%, transparent);
+}
+.gp-prices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.gp-price {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fp-color) 6%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--fp-color) 15%, var(--border));
+}
+.gp-price-lbl {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  font-weight: 600;
+}
+.gp-price b {
+  font-family: var(--mono);
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--fp-color);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.gp-price em {
+  font-style: normal;
+  font-size: 0.7rem;
+  color: var(--dim);
+}
+.gp-spread {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--dim);
+}
+.gp-spread b {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .gp-prices {
+    grid-template-columns: 1fr;
+  }
+  .gp-price b {
+    font-size: 1rem;
+  }
+}

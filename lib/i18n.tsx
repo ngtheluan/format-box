@@ -407,6 +407,34 @@ const dict = {
   fp_click_hint: { vi: "Click 1 điểm trên chart để xem chi tiết", en: "Click a point on the chart for details" },
   fp_source_link: { vi: "Bài gốc", en: "Article" },
 
+  // GOLD PRICE
+  gp_title: { vi: "Price", en: "Price" },
+  gp_sub: {
+    vi: "Giá vàng SJC theo chi nhánh — cập nhật realtime từ feed chính thức của SJC.",
+    en: "Live SJC gold prices by branch — streamed from the official SJC feed.",
+  },
+  gp_refresh: { vi: "Làm mới", en: "Refresh" },
+  gp_source: { vi: "Nguồn", en: "Source" },
+  gp_published: { vi: "Cập nhật", en: "Updated" },
+  gp_fetched: { vi: "Đồng bộ lúc", en: "Fetched" },
+  gp_mode_live: { vi: "Live", en: "Live" },
+  gp_mode_fallback: { vi: "Dự phòng", en: "Fallback" },
+  gp_stale_title: { vi: "Dữ liệu dự phòng", en: "Fallback data" },
+  gp_stale_msg: {
+    vi: "Không lấy được dữ liệu live — hiển thị số cuối cùng đã lưu.",
+    en: "Live fetch failed — showing last cached values.",
+  },
+  gp_err_title: { vi: "Lỗi tải dữ liệu", en: "Load error" },
+  gp_buy: { vi: "Mua vào", en: "Buy" },
+  gp_sell: { vi: "Bán ra", en: "Sell" },
+  gp_spread: { vi: "Chênh lệch", en: "Spread" },
+  gp_branch_all: { vi: "Tất cả chi nhánh", en: "All branches" },
+  gp_empty_title: { vi: "Không có dữ liệu", en: "No data" },
+  gp_empty_msg: {
+    vi: "Không có mục nào khớp với bộ lọc hiện tại.",
+    en: "No item matches the current filter.",
+  },
+
   // BILL
   bill_title: { vi: "Splitter", en: "Splitter" },
   bill_sub: {

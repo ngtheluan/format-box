@@ -2,6 +2,7 @@ import {
   IconBraces,
   IconChartDots3,
   IconClock,
+  IconCoin,
   IconConfetti,
   IconDevices,
   IconGasStation,
@@ -175,6 +176,18 @@ export const TOOLS: Tool[] = [
       en: "Retail fuel prices by region (Petrolimex source), refreshed each cycle.",
     },
     tags: ["fuel", "petrolimex", "vn"],
+    category: "life",
+  },
+  {
+    href: "/gold",
+    Icon: IconCoin,
+    title: "Gold Price",
+    sub: { vi: "Giá vàng SJC realtime", en: "Live SJC gold prices" },
+    desc: {
+      vi: "Giá vàng SJC theo chi nhánh, cập nhật realtime từ feed chính thức của SJC.",
+      en: "SJC gold prices by branch, streamed from the official SJC feed.",
+    },
+    tags: ["gold", "sjc", "vn", "vang"],
     category: "life",
   },
   {
