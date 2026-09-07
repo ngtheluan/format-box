@@ -9,6 +9,8 @@ export type { ButtonGroupProps } from "./ButtonGroup";
 // Form controls
 export { default as Input } from "./Input";
 export type { InputProps, InputSize } from "./Input";
+export { default as DatePickerInput } from "./DatePickerInput";
+export type { DatePickerInputProps } from "./DatePickerInput";
 export { default as Textarea } from "./Textarea";
 export type { TextareaProps } from "./Textarea";
 export { default as Select } from "./Select";

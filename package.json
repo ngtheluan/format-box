@@ -4,10 +4,12 @@
   "private": true,
   "packageManager": "pnpm@9.1.0",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "NODE_OPTIONS='--max-old-space-size=2048' next dev",
+    "dev:turbo": "NODE_OPTIONS='--max-old-space-size=2048' next dev --turbo",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "clean": "rm -rf .next tsconfig.tsbuildinfo node_modules/.cache"
   },
   "dependencies": {
     "@tabler/icons-react": "^3.46.0",

@@ -1,7 +1,18 @@
 {
-  "typescript.tsserver.maxTsServerMemory": 3072,
+  "typescript.tsserver.maxTsServerMemory": 2048,
   "typescript.tsserver.experimental.enableProjectDiagnostics": false,
   "typescript.disableAutomaticTypeAcquisition": true,
+  "typescript.tsserver.watchOptions": {
+    "watchFile": "useFsEvents",
+    "watchDirectory": "useFsEvents",
+    "fallbackPolling": "dynamicPriority"
+  },
+  "typescript.tsserver.useSyntaxServer": "auto",
+  "typescript.surveys.enabled": false,
+  "npm.autoDetect": "off",
+  "task.autoDetect": "off",
+  "git.autoRepositoryDetection": false,
+  "git.autorefresh": false,
 
   "search.exclude": {
     "**/node_modules": true,
@@ -9,20 +20,29 @@
     "**/pnpm-lock.yaml": true,
     "**/package-lock.json": true,
     "**/dist": true,
-    "**/.git": true
+    "**/.git": true,
+    "**/tsconfig.tsbuildinfo": true,
+    "**/public": true
   },
   "files.watcherExclude": {
     "**/node_modules/**": true,
     "**/.next/**": true,
-    "**/.git/objects/**": true,
-    "**/dist/**": true
+    "**/.git/**": true,
+    "**/dist/**": true,
+    "**/public/**": true,
+    "**/tsconfig.tsbuildinfo": true
   },
   "files.exclude": {
     "**/.next": true,
+    "**/tsconfig.tsbuildinfo": true,
     "**/node_modules": false
   },
 
   "editor.minimap.enabled": false,
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.largeFileOptimizations": true,
+  "editor.maxTokenizationLineLength": 5000,
+
+  "eslint.run": "onSave"
 }

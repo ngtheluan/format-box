@@ -13,6 +13,7 @@ import {
   IconPhoto,
   IconReceipt,
   IconTerminal2,
+  IconTicket,
   type Icon,
 } from "@tabler/icons-react";
 import type { Lang } from "./i18n";
@@ -182,12 +183,24 @@ export const TOOLS: Tool[] = [
     href: "/gold",
     Icon: IconCoin,
     title: "Gold Price",
-    sub: { vi: "Giá vàng SJC realtime", en: "Live SJC gold prices" },
+    sub: { vi: "Giá vàng VN realtime", en: "Live VN gold prices" },
     desc: {
-      vi: "Giá vàng SJC theo chi nhánh, cập nhật realtime từ feed chính thức của SJC.",
-      en: "SJC gold prices by branch, streamed from the official SJC feed.",
+      vi: "Giá vàng SJC, PNJ, 24K, 18K… đầy đủ. Nguồn PNJ live, cập nhật vài phút một lần.",
+      en: "SJC, PNJ 24K, 18K and more. Live PNJ feed, refreshed every few minutes.",
     },
-    tags: ["gold", "sjc", "vn", "vang"],
+    tags: ["gold", "sjc", "pnj", "vn", "vang"],
+    category: "cat_life",
+  },
+  {
+    href: "/lucky-ticket",
+    Icon: IconTicket,
+    title: "Lucky Ticket",
+    sub: { vi: "Dò vé số Việt Nam", en: "VN lottery checker" },
+    desc: {
+      vi: "Dò vé số 3 miền theo kết quả realtime. Nhập số, xem ngay trúng giải nào.",
+      en: "Check Vietnamese lottery tickets against live results across 3 regions.",
+    },
+    tags: ["lottery", "xo-so", "vn", "ticket", "do-ve-so"],
     category: "cat_life",
   },
   {

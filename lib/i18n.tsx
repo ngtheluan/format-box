@@ -410,8 +410,8 @@ const dict = {
   // GOLD PRICE
   gp_title: { vi: "Price", en: "Price" },
   gp_sub: {
-    vi: "Giá vàng SJC theo chi nhánh — cập nhật realtime từ feed chính thức của SJC.",
-    en: "Live SJC gold prices by branch — streamed from the official SJC feed.",
+    vi: "Giá vàng Việt Nam realtime — SJC, PNJ, 24K, 18K… lấy trực tiếp từ feed PNJ live.",
+    en: "Live Vietnam gold prices — SJC, PNJ, 24K, 18K, and more, straight from PNJ's live feed.",
   },
   gp_refresh: { vi: "Làm mới", en: "Refresh" },
   gp_source: { vi: "Nguồn", en: "Source" },
@@ -429,10 +429,41 @@ const dict = {
   gp_sell: { vi: "Bán ra", en: "Sell" },
   gp_spread: { vi: "Chênh lệch", en: "Spread" },
   gp_branch_all: { vi: "Tất cả chi nhánh", en: "All branches" },
+  gp_branch: { vi: "Chi nhánh", en: "Branch" },
   gp_empty_title: { vi: "Không có dữ liệu", en: "No data" },
   gp_empty_msg: {
     vi: "Không có mục nào khớp với bộ lọc hiện tại.",
     en: "No item matches the current filter.",
+  },
+
+  // LUCKY TICKET (dò vé số)
+  lt_title: { vi: "Dò vé số", en: "Lottery Checker" },
+  lt_sub: {
+    vi: "Dò vé số 3 miền — kết quả realtime từ minhngoc.net.vn. Nhập số, xem ngay trúng giải nào.",
+    en: "Check Vietnamese lottery tickets across 3 regions with live results from minhngoc.net.vn.",
+  },
+  lt_refresh: { vi: "Làm mới", en: "Refresh" },
+  lt_source: { vi: "Nguồn", en: "Source" },
+  lt_published: { vi: "Cập nhật", en: "Updated" },
+  lt_fetched: { vi: "Đồng bộ lúc", en: "Fetched" },
+  lt_mode_live: { vi: "Live", en: "Live" },
+  lt_mode_fallback: { vi: "Dự phòng", en: "Fallback" },
+  lt_stale_title: { vi: "Dữ liệu dự phòng", en: "Fallback data" },
+  lt_stale_msg: {
+    vi: "Không lấy được kết quả live — hiển thị dữ liệu mẫu.",
+    en: "Live fetch failed — showing sample data.",
+  },
+  lt_err_title: { vi: "Lỗi tải dữ liệu", en: "Load error" },
+  lt_empty_title: { vi: "Không có kết quả", en: "No results" },
+  lt_empty_msg: {
+    vi: "Chưa có kết quả cho miền này.",
+    en: "No results for this region yet.",
+  },
+  lt_check_title: { vi: "Dò số vé", en: "Check your ticket" },
+  lt_check_ph: { vi: "Nhập số vé (2–6 chữ số cuối)", en: "Enter your ticket (last 2–6 digits)" },
+  lt_check_hint: {
+    vi: "Gõ số vé của bạn để tự động highlight và xem có trúng giải nào.",
+    en: "Type your ticket number to auto-highlight matching prizes.",
   },
 
   // BILL

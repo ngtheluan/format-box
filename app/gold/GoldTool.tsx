@@ -2,11 +2,61 @@
 import { Alert, Badge, Button, Card, Skeleton } from "@/components/ui";
 import { FALLBACK_SNAPSHOT, type GoldItem, type GoldSnapshot } from "@/lib/gold";
 import { useI18n } from "@/lib/i18n";
-import { IconCoin, IconExternalLink, IconRefresh } from "@tabler/icons-react";
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconClockHour4,
+  IconExternalLink,
+  IconInfoCircle,
+  IconMapPin,
+  IconRefresh,
+  IconSparkles,
+} from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
+
+type Group = "premium" | "high" | "mid" | "low" | "raw";
+
+const GROUP_ORDER: Group[] = ["premium", "high", "mid", "low", "raw"];
+
+const GROUP_META: Record<Group, { vi: string; en: string; icon: string }> = {
+  premium: { vi: "Vàng miếng & Nhẫn trơn 999.9", en: "Bar & Plain rings 999.9", icon: "★" },
+  high: { vi: "Nữ trang cao tuổi (22K – 24K)", en: "High-karat jewelry (22K – 24K)", icon: "◆" },
+  mid: { vi: "Nữ trang tuổi trung (14K – 18K)", en: "Mid-karat jewelry (14K – 18K)", icon: "◇" },
+  low: { vi: "Nữ trang tuổi thấp (8K – 10K)", en: "Low-karat jewelry (8K – 10K)", icon: "○" },
+  raw: { vi: "Vàng nguyên liệu", en: "Raw material", icon: "▢" },
+};
+
+function groupOf(it: GoldItem): Group {
+  const code = it.code.toUpperCase();
+  if (code.startsWith("RAW")) return "raw";
+  const k = (it.karat ?? "").toUpperCase();
+  if (["SJC", "N24K", "KB", "TL", "PNJ"].includes(code)) return "premium";
+  if (["24K", "22K"].includes(k) || /999|9920|99$/.test(code)) return "high";
+  if (["18K", "16K", "16.3K", "15K", "15.6K", "14K", "14.6K"].includes(k)) return "mid";
+  if (["10K", "9K", "8K"].includes(k)) return "low";
+  return "high";
+}
+
+function karatAccent(k: string): string {
+  const K = k.toUpperCase();
+  if (K === "SJC") return "#f59e0b";
+  if (K === "24K") return "#eab308";
+  if (K === "22K") return "#ca8a04";
+  if (K === "18K") return "#a16207";
+  if (K.startsWith("16") || K.startsWith("15") || K.startsWith("14")) return "#854d0e";
+  if (K === "10K" || K === "9K" || K === "8K") return "#78716c";
+  if (K === "NL") return "#64748b";
+  return "#f59e0b";
+}
 
 function fmtVND(n: number) {
   return n.toLocaleString("vi-VN");
+}
+
+function fmtShort(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(0)}K`;
+  return String(n);
 }
 
 function fmtDateTime(iso?: string) {
@@ -18,14 +68,82 @@ function fmtDateTime(iso?: string) {
   }
 }
 
-function colorForItem(it: GoldItem): string {
-  const key = (it.karat || it.name).toLowerCase();
-  if (key.includes("sjc")) return "#f59e0b";
-  if (key.includes("24") || key.includes("999")) return "#eab308";
-  if (key.includes("18") || key.includes("75")) return "#fbbf24";
-  if (key.includes("14")) return "#fcd34d";
-  if (key.includes("10")) return "#fde68a";
-  return "#f59e0b";
+function fmtRelative(iso?: string, now = Date.now()): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return null;
+  const s = Math.max(0, Math.round((now - t) / 1000));
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)} phút trước`;
+  if (s < 86400) return `${Math.floor(s / 3600)} giờ trước`;
+  return `${Math.floor(s / 86400)} ngày trước`;
+}
+
+function HeroCard({ item }: { item: GoldItem }) {
+  const spread = item.sell - item.buy;
+  const spreadPct = ((spread / item.buy) * 100).toFixed(2);
+  return (
+    <Card padding="lg" variant="outline" className="gp-hero">
+      <div className="gp-hero-glow" aria-hidden />
+      <div className="gp-hero-head">
+        <Badge variant="soft" tone="warning" className="gp-hero-badge">
+          <IconSparkles size={12} /> Featured
+        </Badge>
+        <span className="gp-hero-brand">{item.name}</span>
+      </div>
+      <div className="gp-hero-body">
+        <div className="gp-hero-side">
+          <span className="gp-hero-lbl">
+            <IconArrowDown size={13} stroke={2.2} /> Mua vào
+          </span>
+          <div className="gp-hero-value">{fmtVND(item.buy)}</div>
+          <span className="gp-hero-unit">đ / lượng</span>
+        </div>
+        <div className="gp-hero-divider" aria-hidden />
+        <div className="gp-hero-side">
+          <span className="gp-hero-lbl">
+            <IconArrowUp size={13} stroke={2.2} /> Bán ra
+          </span>
+          <div className="gp-hero-value">{fmtVND(item.sell)}</div>
+          <span className="gp-hero-unit">đ / lượng</span>
+        </div>
+      </div>
+      <div className="gp-hero-foot">
+        <span className="gp-hero-chip">Chênh lệch mua-bán</span>
+        <b>{fmtVND(spread)} đ</b>
+        <span className="gp-hero-pct">({spreadPct}%)</span>
+      </div>
+    </Card>
+  );
+}
+
+function PriceRow({ item }: { item: GoldItem }) {
+  const spread = item.sell - item.buy;
+  const color = karatAccent(item.karat ?? "");
+  return (
+    <div className="gp-row" style={{ ["--gp-acc" as string]: color }}>
+      <div className="gp-row-lead">
+        <span className="gp-row-karat">{item.karat ?? item.code}</span>
+        <div className="gp-row-name" title={item.name}>
+          {item.name}
+        </div>
+      </div>
+      <div className="gp-row-prices">
+        <div className="gp-row-cell gp-row-buy">
+          <span className="gp-row-lbl">Mua</span>
+          <b>{fmtVND(item.buy)}</b>
+        </div>
+        <div className="gp-row-cell gp-row-sell">
+          <span className="gp-row-lbl">Bán</span>
+          <b>{fmtVND(item.sell)}</b>
+        </div>
+        <div className="gp-row-cell gp-row-diff">
+          <span className="gp-row-lbl">Chênh</span>
+          <b>+{fmtShort(spread)}</b>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function GoldTool() {
@@ -33,7 +151,9 @@ export default function GoldTool() {
   const [snapshot, setSnapshot] = useState<GoldSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [branch, setBranch] = useState<string>("all");
+  const [active, setActive] = useState<Group | "all">("all");
+  const [query, setQuery] = useState("");
+  const [tick, setTick] = useState(0); // for re-rendering relative time
 
   const load = async (signal?: AbortSignal) => {
     setLoading(true);
@@ -58,42 +178,84 @@ export default function GoldTool() {
     return () => ctrl.abort();
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const data = snapshot ?? FALLBACK_SNAPSHOT;
   const isFallback = data.source === "fallback";
 
-  const branches = useMemo(() => {
-    const set = new Set<string>();
-    data.items.forEach((it) => it.branch && set.add(it.branch));
-    return Array.from(set);
-  }, [data.items]);
+  const featured = useMemo(() => data.items.find((i) => i.code === "SJC") ?? data.items[0], [data.items]);
 
-  const items = useMemo(() => {
-    if (branch === "all") return data.items;
-    return data.items.filter((it) => (it.branch ?? "") === branch);
-  }, [data.items, branch]);
+  const grouped = useMemo(() => {
+    const map = new Map<Group, GoldItem[]>();
+    for (const it of data.items) {
+      if (featured && it.code === featured.code) continue; // don't duplicate hero item
+      const g = groupOf(it);
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(it);
+    }
+    return map;
+  }, [data.items, featured]);
+
+  const q = query.trim().toLowerCase();
+  const filteredGroups: [Group, GoldItem[]][] = useMemo(() => {
+    return GROUP_ORDER.filter((g) => (active === "all" ? true : g === active))
+      .map((g) => {
+        const items = (grouped.get(g) ?? []).filter((it) => {
+          if (!q) return true;
+          return (
+            it.name.toLowerCase().includes(q) ||
+            it.code.toLowerCase().includes(q) ||
+            (it.karat ?? "").toLowerCase().includes(q)
+          );
+        });
+        return [g, items] as [Group, GoldItem[]];
+      })
+      .filter(([, items]) => items.length > 0);
+  }, [grouped, active, q]);
+
+  const totalShown = filteredGroups.reduce((s, [, arr]) => s + arr.length, 0);
+  const relative = fmtRelative(data.updatedAt, Date.now() + tick * 0); // tick triggers re-render
 
   return (
-    <div className="fp-tool">
-      <div className="fp-head">
-        <div className="fp-head-info">
+    <div className="fp-tool gp-tool">
+      {/* HEAD */}
+      <div className="gp-topbar">
+        <div className="gp-topbar-status">
           <Badge variant="dot" tone={isFallback ? "warning" : "success"}>
             {isFallback ? t("gp_mode_fallback") : t("gp_mode_live")}
           </Badge>
-          {data.sourceUrl && (
-            <a href={data.sourceUrl} target="_blank" rel="noreferrer" className="fp-src-link">
-              SJC feed <IconExternalLink size={12} />
-            </a>
+          {data.branch && (
+            <span className="gp-topbar-branch">
+              <IconMapPin size={12} stroke={2} />
+              {data.branch === "hochiminh" ? "TP. Hồ Chí Minh" : data.branch}
+            </span>
+          )}
+          {relative && (
+            <span className="gp-topbar-updated" title={fmtDateTime(data.updatedAt)}>
+              <IconClockHour4 size={12} stroke={2} />
+              {relative}
+            </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => load()}
-          loading={loading}
-          leftIcon={!loading ? <IconRefresh size={14} stroke={1.9} /> : undefined}
-        >
-          {t("gp_refresh")}
-        </Button>
+        <div className="gp-topbar-actions">
+          {data.sourceUrl && (
+            <a href="https://giavang.pnj.com.vn/" target="_blank" rel="noreferrer" className="gp-topbar-src">
+              PNJ live feed <IconExternalLink size={12} />
+            </a>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => load()}
+            loading={loading}
+            leftIcon={!loading ? <IconRefresh size={14} stroke={1.9} /> : undefined}
+          >
+            {t("gp_refresh")}
+          </Button>
+        </div>
       </div>
 
       {isFallback && !loading && (
@@ -107,101 +269,109 @@ export default function GoldTool() {
         </Alert>
       )}
 
-      {branches.length > 1 && (
-        <div className="gp-branches">
+      {/* HERO */}
+      {loading && !snapshot ? (
+        <Card padding="lg" variant="outline" className="gp-hero">
+          <Skeleton width={120} height={16} />
+          <div style={{ margin: "16px 0" }}>
+            <Skeleton width={220} height={40} />
+          </div>
+          <Skeleton width={160} height={14} />
+        </Card>
+      ) : featured ? (
+        <HeroCard item={featured} />
+      ) : null}
+
+      {/* FILTERS */}
+      <div className="gp-filters">
+        <div className="gp-tabs" role="tablist" aria-label="Nhóm vàng">
           <button
             type="button"
-            className={`gp-branch${branch === "all" ? " on" : ""}`}
-            onClick={() => setBranch("all")}
+            role="tab"
+            aria-selected={active === "all"}
+            className={`gp-tab${active === "all" ? " on" : ""}`}
+            onClick={() => setActive("all")}
           >
-            {t("gp_branch_all")}
+            Tất cả
+            <span className="gp-tab-count">{data.items.length}</span>
           </button>
-          {branches.map((b) => (
-            <button
-              key={b}
-              type="button"
-              className={`gp-branch${branch === b ? " on" : ""}`}
-              onClick={() => setBranch(b)}
-            >
-              {b}
-            </button>
-          ))}
+          {GROUP_ORDER.map((g) => {
+            const count = grouped.get(g)?.length ?? 0;
+            if (count === 0) return null;
+            return (
+              <button
+                key={g}
+                type="button"
+                role="tab"
+                aria-selected={active === g}
+                className={`gp-tab${active === g ? " on" : ""}`}
+                onClick={() => setActive(g)}
+              >
+                <span aria-hidden style={{ marginRight: 4 }}>
+                  {GROUP_META[g].icon}
+                </span>
+                {GROUP_META[g].vi.split(" (")[0]}
+                <span className="gp-tab-count">{count}</span>
+              </button>
+            );
+          })}
         </div>
-      )}
-
-      <div className="fp-grid">
-        {loading && !snapshot
-          ? Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i} padding="md" variant="outline" className="fp-card">
-                <Skeleton width={80} height={18} />
-                <div style={{ margin: "10px 0 6px" }}>
-                  <Skeleton width={140} height={32} />
-                </div>
-                <Skeleton width={120} height={12} />
-              </Card>
-            ))
-          : items.map((it, idx) => {
-              const color = colorForItem(it);
-              const spread = it.sell - it.buy;
-              return (
-                <Card
-                  key={`${it.branch ?? ""}-${it.name}-${idx}`}
-                  padding="md"
-                  variant="outline"
-                  className="fp-card"
-                  style={{ ["--fp-color" as string]: color }}
-                >
-                  <div className="fp-card-head">
-                    <Badge variant="soft" tone="neutral" className="fp-badge">
-                      <IconCoin size={12} />
-                      {it.karat ?? it.name.split(" ")[0]}
-                    </Badge>
-                    {it.branch && <span className="gp-branch-tag">{it.branch}</span>}
-                  </div>
-                  <div className="fp-name">{it.name}</div>
-                  <div className="gp-prices">
-                    <div className="gp-price">
-                      <span className="gp-price-lbl">{t("gp_buy")}</span>
-                      <b>{fmtVND(it.buy)}</b>
-                      <em>đ/lượng</em>
-                    </div>
-                    <div className="gp-price">
-                      <span className="gp-price-lbl">{t("gp_sell")}</span>
-                      <b>{fmtVND(it.sell)}</b>
-                      <em>đ/lượng</em>
-                    </div>
-                  </div>
-                  {spread > 0 && (
-                    <div className="gp-spread">
-                      {t("gp_spread")}: <b>{fmtVND(spread)}</b> đ
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
+        <div className="gp-search">
+          <input
+            type="search"
+            className="gp-search-input"
+            placeholder="Tìm nhanh: 24K, 18K, nhẫn, PNJ…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
       </div>
 
-      {!loading && items.length === 0 && (
-        <Alert tone="info" title={t("gp_empty_title")}>
-          {t("gp_empty_msg")}
+      {/* GROUPS */}
+      {loading && !snapshot ? (
+        <div className="gp-list">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} width="100%" height={54} />
+          ))}
+        </div>
+      ) : totalShown === 0 ? (
+        <Alert tone="info" title="Không có kết quả">
+          Không có mục nào khớp — thử bỏ bộ lọc hoặc từ khóa khác.
         </Alert>
+      ) : (
+        filteredGroups.map(([g, items]) => (
+          <section key={g} className="gp-section">
+            <header className="gp-section-head">
+              <span className="gp-section-icon" aria-hidden>
+                {GROUP_META[g].icon}
+              </span>
+              <h3 className="gp-section-title">{GROUP_META[g].vi}</h3>
+              <span className="gp-section-count">{items.length} loại</span>
+            </header>
+            <div className="gp-list">
+              {items.map((it) => (
+                <PriceRow key={it.code} item={it} />
+              ))}
+            </div>
+          </section>
+        ))
       )}
 
-      <div className="fp-meta">
-        <span className="fp-meta-item">
-          {t("gp_source")}:{" "}
-          <a href="https://sjc.com.vn/" target="_blank" rel="noreferrer">
-            SJC
-          </a>
-        </span>
+      {/* FOOT */}
+      <div className="gp-foot">
+        <div className="gp-foot-note">
+          <IconInfoCircle size={13} />
+          Nguồn:{" "}
+          <a href="https://giavang.pnj.com.vn/" target="_blank" rel="noreferrer">
+            PNJ live feed
+          </a>{" "}
+          — cập nhật vài phút một lần, đơn vị <b>đ/lượng</b> (1 lượng = 10 chỉ).
+        </div>
         {data.updatedAt && (
-          <span className="fp-meta-item">
-            {t("gp_published")}: <b>{fmtDateTime(data.updatedAt)}</b>
-          </span>
+          <div className="gp-foot-meta">
+            Bảng giá: <b>{fmtDateTime(data.updatedAt)}</b> · Đồng bộ: <b>{fmtDateTime(data.fetchedAt)}</b>
+          </div>
         )}
-        <span className="fp-meta-item">
-          {t("gp_fetched")}: <b>{fmtDateTime(data.fetchedAt)}</b>
-        </span>
       </div>
     </div>
   );
