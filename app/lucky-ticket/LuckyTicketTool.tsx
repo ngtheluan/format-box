@@ -1,9 +1,18 @@
 "use client";
 import { Alert, Badge, Button, Card, DatePickerInput, Input, Skeleton } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
-import { FALLBACK_LOTTERY, type LotterySnapshot, type Region, type TicketMatch, matchTicket } from "@/lib/lottery";
+import { FALLBACK_LOTTERY, matchTicket, type LotterySnapshot, type Region, type TicketMatch } from "@/lib/lottery";
+import {
+  FALLBACK_VIETLOTT,
+  VIETLOTT_PRODUCTS,
+  matchVietlottTicket,
+  type VietlottProduct,
+  type VietlottSnapshot,
+} from "@/lib/vietlott";
 import { IconExternalLink, IconRefresh, IconSearch, IconTicket } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
+
+type Mode = "traditional" | "vietlott";
 
 const REGIONS: { key: Region; label: string }[] = [
   { key: "mb", label: "Miền Bắc" },
@@ -40,6 +49,31 @@ function isoToDdmmyyyy(iso: string) {
 }
 
 export default function LuckyTicketTool() {
+  const [mode, setMode] = useState<Mode>("traditional");
+  return (
+    <div className="fp-tool lt-tool">
+      <div className="gp-branches lt-regions" style={{ marginBottom: 12, display: "flex", gap: 8 }}>
+        <button
+          type="button"
+          className={`gp-branch${mode === "traditional" ? " on" : ""}`}
+          onClick={() => setMode("traditional")}
+        >
+          Xổ số truyền thống
+        </button>
+        <button
+          type="button"
+          className={`gp-branch${mode === "vietlott" ? " on" : ""}`}
+          onClick={() => setMode("vietlott")}
+        >
+          Vietlott
+        </button>
+      </div>
+      {mode === "traditional" ? <TraditionalPanel /> : <VietlottPanel />}
+    </div>
+  );
+}
+
+function TraditionalPanel() {
   const { t } = useI18n();
   const [region, setRegion] = useState<Region>("mn");
   // yyyy-mm-dd. Empty = "let the API pick the latest available draw". After
@@ -107,7 +141,7 @@ export default function LuckyTicketTool() {
   const maxDateIso = mounted ? todayIso() : undefined;
 
   return (
-    <div className="fp-tool lt-tool">
+    <>
       <div className="lt-controls">
         <div className="lt-controls-row">
           <div className="gp-branches lt-regions">
@@ -299,6 +333,250 @@ export default function LuckyTicketTool() {
           </span>
         )}
       </div>
-    </div>
+    </>
+  );
+}
+
+function VietlottPanel() {
+  const { t } = useI18n();
+  const [product, setProduct] = useState<VietlottProduct>("power655");
+  const [snap, setSnap] = useState<VietlottSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [ticket, setTicket] = useState("");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const load = async (p: VietlottProduct, signal?: AbortSignal) => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/vietlott?product=${p}`, { cache: "no-store", signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSnap(await res.json());
+    } catch (e) {
+      if ((e as { name?: string })?.name === "AbortError") return;
+      setErr(e instanceof Error ? e.message : "unknown");
+      setSnap(FALLBACK_VIETLOTT[p]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    load(product, ctrl.signal);
+    return () => ctrl.abort();
+  }, [product]);
+
+  const data = snap ?? FALLBACK_VIETLOTT[product];
+  const isFallback = data.source === "fallback";
+  const needCount = product === "power655" ? 7 : 6;
+
+  const ticketNumbers = useMemo(() => {
+    return ticket
+      .split(/[\s,;]+/)
+      .map((s) => s.replace(/\D/g, ""))
+      .filter((s) => s.length > 0)
+      .slice(0, needCount);
+  }, [ticket, needCount]);
+
+  const check = useMemo(() => {
+    if (ticketNumbers.length < 6) return null;
+    return matchVietlottTicket(ticketNumbers, data);
+  }, [ticketNumbers, data]);
+
+  const drawnSet = useMemo(() => new Set(data.whiteBalls), [data.whiteBalls]);
+
+  return (
+    <>
+      <div className="lt-controls">
+        <div className="lt-controls-row">
+          <div className="gp-branches lt-regions">
+            {VIETLOTT_PRODUCTS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={`gp-branch${product === p.key ? " on" : ""}`}
+                onClick={() => setProduct(p.key)}
+                title={p.schedule}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div className="lt-controls-right">
+            <Badge variant="dot" tone={isFallback ? "warning" : "success"}>
+              {isFallback ? t("lt_mode_fallback") : t("lt_mode_live")}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => load(product)}
+              loading={loading}
+              leftIcon={!loading ? <IconRefresh size={14} stroke={1.9} /> : undefined}
+            >
+              {t("lt_refresh")}
+            </Button>
+          </div>
+        </div>
+
+        <div className="lt-check-inline">
+          <Input
+            value={ticket}
+            onChange={(e) => setTicket(e.target.value.replace(/[^\d\s,;]/g, ""))}
+            placeholder={
+              product === "power655"
+                ? "Nhập 6 số + 1 số Power (VD: 01 09 22 34 45 55 12)"
+                : "Nhập 6 số (VD: 03 09 14 22 27 40)"
+            }
+            leftIcon={<IconSearch size={14} />}
+            inputMode="numeric"
+            style={{ fontFamily: "var(--mono)", letterSpacing: 1 }}
+          />
+          {ticketNumbers.length > 0 && ticketNumbers.length < 6 && (
+            <div className="lt-check-summary miss">Cần {6 - ticketNumbers.length} số nữa</div>
+          )}
+          {check && (
+            <div className={`lt-check-summary ${check.tier === "—" ? "miss" : "win"}`}>
+              {check.tier === "—" ? (
+                <>Trùng {check.matched} số — không trúng giải</>
+              ) : (
+                <>
+                  <IconTicket size={14} /> 🎉 Trúng <b>{check.tier}</b> ({check.matched} số
+                  {check.powerMatched ? " + Power" : ""})
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isFallback && !loading && (
+        <Alert tone="warning" title={t("lt_stale_title")}>
+          {data.note ?? t("lt_stale_msg")}
+        </Alert>
+      )}
+      {err && !isFallback && (
+        <Alert tone="danger" title={t("lt_err_title")}>
+          {err}
+        </Alert>
+      )}
+
+      <div className="lt-results">
+        {loading && !snap ? (
+          <Card padding="sm" variant="outline">
+            <Skeleton width={180} height={22} />
+            <div style={{ marginTop: 12 }}>
+              <Skeleton width="100%" height={80} />
+            </div>
+          </Card>
+        ) : (
+          <Card padding="sm" variant="outline" className="lt-prov-card">
+            <div className="lt-prov-head">
+              <div className="lt-prov-name">
+                {VIETLOTT_PRODUCTS.find((p) => p.key === product)?.label}
+                {data.drawId && <span className="lt-prov-code">Kỳ #{data.drawId}</span>}
+              </div>
+              {data.resultDate && <div style={{ fontSize: 12, opacity: 0.7 }}>{data.resultDate}</div>}
+            </div>
+            <div className="lt-nums" style={{ padding: "12px 4px", gap: 10, flexWrap: "wrap" }}>
+              {data.whiteBalls.map((n, i) => {
+                const hit = ticketNumbers.slice(0, 6).some((t) => t.padStart(2, "0") === n);
+                return (
+                  <span
+                    key={i}
+                    className={`lt-num${hit ? " hit" : ""}`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      background: hit ? undefined : "var(--surface-2, #f4f4f5)",
+                    }}
+                  >
+                    {n}
+                  </span>
+                );
+              })}
+              {product === "power655" && data.powerBall && (
+                <>
+                  <span style={{ fontSize: 20, opacity: 0.4, margin: "0 4px" }}>|</span>
+                  <span
+                    className={`lt-num${
+                      ticketNumbers[6] && ticketNumbers[6].padStart(2, "0") === data.powerBall ? " hit" : ""
+                    }`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      background: "#fdecec",
+                      color: "#c0392b",
+                    }}
+                    title="Power"
+                  >
+                    {data.powerBall}
+                  </span>
+                </>
+              )}
+            </div>
+            {(data.jackpot1 || data.jackpot2) && (
+              <table className="lt-table">
+                <tbody>
+                  {data.jackpot1 && (
+                    <tr>
+                      <th style={{ width: 100 }}>{product === "power655" ? "Jackpot 1" : "Jackpot"}</th>
+                      <td>
+                        <b>{data.jackpot1}</b> VNĐ
+                      </td>
+                    </tr>
+                  )}
+                  {data.jackpot2 && (
+                    <tr>
+                      <th style={{ width: 100 }}>Jackpot 2</th>
+                      <td>
+                        <b>{data.jackpot2}</b> VNĐ
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+            {drawnSet.size > 0 && null}
+          </Card>
+        )}
+      </div>
+
+      <div className="fp-meta lt-meta">
+        <span className="fp-meta-item">
+          {t("lt_source")}:{" "}
+          <a href="https://vietlott.vn/" target="_blank" rel="noreferrer">
+            vietlott.vn
+          </a>
+          {data.sourceUrl && (
+            <>
+              {" "}
+              <a href={data.sourceUrl} target="_blank" rel="noreferrer">
+                <IconExternalLink size={11} />
+              </a>
+            </>
+          )}
+        </span>
+        {mounted && data.fetchedAt && (
+          <span className="fp-meta-item">
+            {t("lt_fetched")}: <b>{fmtDateTime(data.fetchedAt)}</b>
+          </span>
+        )}
+      </div>
+    </>
   );
 }
