@@ -9,7 +9,7 @@ import {
   type VietlottProduct,
   type VietlottSnapshot,
 } from "@/lib/vietlott";
-import { IconExternalLink, IconRefresh, IconSearch, IconTicket } from "@tabler/icons-react";
+import { IconConfetti, IconExternalLink, IconRefresh, IconSearch, IconTicket } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 
 type Mode = "traditional" | "vietlott";
@@ -200,7 +200,7 @@ function TraditionalPanel() {
             <div className={`lt-check-summary ${matches.length > 0 ? "win" : "miss"}`}>
               {matches.length > 0 ? (
                 <>
-                  <IconTicket size={14} /> 🎉 Trúng <b>{bestPrizeLabel}</b> ({matches[0].matchedDigits} chữ số)
+                  <IconTicket size={14} /> <IconConfetti size={14} /> Trúng <b>{bestPrizeLabel}</b> ({matches[0].matchedDigits} chữ số)
                 </>
               ) : (
                 <>Không trúng giải nào</>
@@ -442,7 +442,7 @@ function VietlottPanel() {
                 <>Trùng {check.matched} số — không trúng giải</>
               ) : (
                 <>
-                  <IconTicket size={14} /> 🎉 Trúng <b>{check.tier}</b> ({check.matched} số
+                  <IconTicket size={14} /> <IconConfetti size={14} /> Trúng <b>{check.tier}</b> ({check.matched} số
                   {check.powerMatched ? " + Power" : ""})
                 </>
               )}

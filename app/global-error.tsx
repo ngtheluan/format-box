@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { IconAlertTriangle } from "@tabler/icons-react";
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -23,7 +24,9 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         }}
       >
         <div style={{ textAlign: "center", maxWidth: 480 }}>
-          <div style={{ fontSize: "2.6rem", marginBottom: 8 }}>⚠️</div>
+          <div style={{ marginBottom: 8, display: "flex", justifyContent: "center", color: "#f59e0b" }}>
+            <IconAlertTriangle size={42} stroke={1.6} />
+          </div>
           <h1 style={{ fontSize: "1.6rem", margin: "0 0 8px", letterSpacing: "-0.02em" }}>
             Ứng dụng gặp lỗi nghiêm trọng
           </h1>

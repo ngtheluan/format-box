@@ -3,6 +3,7 @@ import {
   IconCalendar,
   IconChartDots3,
   IconClock,
+  IconCloud,
   IconCoin,
   IconConfetti,
   IconDevices,
@@ -214,6 +215,18 @@ export const TOOLS: Tool[] = [
       en: "Count down to important moments — birthdays, new year, deadlines. Save many events.",
     },
     tags: ["countdown", "timer", "event"],
+    category: "cat_life",
+  },
+  {
+    href: "/weather",
+    Icon: IconCloud,
+    title: "Weather",
+    sub: { vi: "Thời tiết realtime", en: "Realtime weather" },
+    desc: {
+      vi: "Xem thời tiết hiện tại và dự báo 7 ngày cho bất kỳ thành phố nào. Nguồn Open-Meteo.",
+      en: "Current conditions and 7-day forecast for any city. Powered by Open-Meteo.",
+    },
+    tags: ["weather", "forecast", "thoi-tiet"],
     category: "cat_life",
   },
   {

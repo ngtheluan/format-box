@@ -9,13 +9,13 @@ function convert(mode: Mode, value: string): string {
     if (mode === "encode") return btoa(unescape(encodeURIComponent(value)));
     return decodeURIComponent(escape(atob(value.trim())));
   } catch {
-    return "⚠ input không hợp lệ";
+    return "[!] input không hợp lệ";
   }
 }
 
 export default function LiveDemo() {
   const [mode, setMode] = useState<Mode>("encode");
-  const [input, setInput] = useState("Hello FormatBox 👋");
+  const [input, setInput] = useState("Hello FormatBox");
   const [output, setOutput] = useState("");
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export default function LiveDemo() {
 
   const swap = () => {
     const nextMode: Mode = mode === "encode" ? "decode" : "encode";
-    const nextInput = output.startsWith("⚠") ? "" : output;
+    const nextInput = output.startsWith("[!]") ? "" : output;
     setMode(nextMode);
     setInput(nextInput);
   };

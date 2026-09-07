@@ -4,6 +4,7 @@ import { useI18n } from "@/lib/i18n";
 import {
   IconArrowsShuffle,
   IconChefHat,
+  IconConfetti,
   IconGlassFull,
   IconPlayerPlayFilled,
   IconRefresh,
@@ -373,6 +374,7 @@ export default function WheelTool() {
 
             {winner && !spinning && !modalOpen && (
               <div className="wheel-winner">
+                <IconConfetti size={16} stroke={1.8} style={{ color: "#f59e0b" }} />
                 <span>{t("wh_winner")}</span>
                 <b>{winner}</b>
               </div>
@@ -389,7 +391,9 @@ export default function WheelTool() {
             <button className="wheel-modal-x" onClick={closeModal} aria-label="Close">
               <IconX size={16} stroke={2} />
             </button>
-            <div className="wheel-modal-emoji">🎉</div>
+            <div className="wheel-modal-emoji" style={{ color: "#f59e0b" }}>
+              <IconConfetti size={54} stroke={1.6} />
+            </div>
             <div className="wheel-modal-title">{t("wh_winner_title")}</div>
             <div className="wheel-modal-name">{winner}</div>
             <div className="wheel-modal-actions">

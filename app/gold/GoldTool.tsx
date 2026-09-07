@@ -6,11 +6,17 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconClockHour4,
+  IconCircle,
+  IconDiamond,
+  IconDiamondFilled,
   IconExternalLink,
   IconInfoCircle,
   IconMapPin,
   IconRefresh,
   IconSparkles,
+  IconSquare,
+  IconStar,
+  type Icon,
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -18,12 +24,12 @@ type Group = "premium" | "high" | "mid" | "low" | "raw";
 
 const GROUP_ORDER: Group[] = ["premium", "high", "mid", "low", "raw"];
 
-const GROUP_META: Record<Group, { vi: string; en: string; icon: string }> = {
-  premium: { vi: "Vàng miếng & Nhẫn trơn 999.9", en: "Bar & Plain rings 999.9", icon: "★" },
-  high: { vi: "Nữ trang cao tuổi (22K – 24K)", en: "High-karat jewelry (22K – 24K)", icon: "◆" },
-  mid: { vi: "Nữ trang tuổi trung (14K – 18K)", en: "Mid-karat jewelry (14K – 18K)", icon: "◇" },
-  low: { vi: "Nữ trang tuổi thấp (8K – 10K)", en: "Low-karat jewelry (8K – 10K)", icon: "○" },
-  raw: { vi: "Vàng nguyên liệu", en: "Raw material", icon: "▢" },
+const GROUP_META: Record<Group, { vi: string; en: string; Icon: Icon }> = {
+  premium: { vi: "Vàng miếng & Nhẫn trơn 999.9", en: "Bar & Plain rings 999.9", Icon: IconStar },
+  high: { vi: "Nữ trang cao tuổi (22K – 24K)", en: "High-karat jewelry (22K – 24K)", Icon: IconDiamondFilled },
+  mid: { vi: "Nữ trang tuổi trung (14K – 18K)", en: "Mid-karat jewelry (14K – 18K)", Icon: IconDiamond },
+  low: { vi: "Nữ trang tuổi thấp (8K – 10K)", en: "Low-karat jewelry (8K – 10K)", Icon: IconCircle },
+  raw: { vi: "Vàng nguyên liệu", en: "Raw material", Icon: IconSquare },
 };
 
 function groupOf(it: GoldItem): Group {
@@ -307,8 +313,11 @@ export default function GoldTool() {
                 className={`gp-tab${active === g ? " on" : ""}`}
                 onClick={() => setActive(g)}
               >
-                <span aria-hidden style={{ marginRight: 4 }}>
-                  {GROUP_META[g].icon}
+                <span aria-hidden style={{ marginRight: 4, display: "inline-flex", verticalAlign: "middle" }}>
+                  {(() => {
+                    const I = GROUP_META[g].Icon;
+                    return <I size={13} stroke={1.8} />;
+                  })()}
                 </span>
                 {GROUP_META[g].vi.split(" (")[0]}
                 <span className="gp-tab-count">{count}</span>
@@ -342,8 +351,11 @@ export default function GoldTool() {
         filteredGroups.map(([g, items]) => (
           <section key={g} className="gp-section">
             <header className="gp-section-head">
-              <span className="gp-section-icon" aria-hidden>
-                {GROUP_META[g].icon}
+              <span className="gp-section-icon" aria-hidden style={{ display: "inline-flex" }}>
+                {(() => {
+                  const I = GROUP_META[g].Icon;
+                  return <I size={16} stroke={1.8} />;
+                })()}
               </span>
               <h3 className="gp-section-title">{GROUP_META[g].vi}</h3>
               <span className="gp-section-count">{items.length} loại</span>

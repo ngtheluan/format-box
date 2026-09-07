@@ -1,7 +1,7 @@
 "use client";
 import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
-import { IconCake, IconChristmasTree, IconGift, IconPlus, IconSparkles, IconTrash } from "@tabler/icons-react";
+import { IconCake, IconChristmasTree, IconDeviceFloppy, IconGift, IconPlus, IconSparkles, IconTrash } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Input, Textarea } from "@/components/ui";
 
@@ -252,7 +252,9 @@ export default function CountdownTool() {
             </ul>
           )}
         </div>
-        <p className="wheel-saved-hint">💾 {t("cd_saved_hint")}</p>
+        <p className="wheel-saved-hint" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <IconDeviceFloppy size={14} stroke={1.8} /> {t("cd_saved_hint")}
+        </p>
       </aside>
 
       <div className="wheel-stage">

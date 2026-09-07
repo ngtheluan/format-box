@@ -1,5 +1,12 @@
 "use client";
 import type { HTMLAttributes, ReactNode } from "react";
+import {
+  IconAlertTriangle,
+  IconCheck,
+  IconInfoCircle,
+  IconPoint,
+  IconX,
+} from "@tabler/icons-react";
 
 export type AlertTone = "info" | "success" | "warning" | "danger" | "neutral";
 
@@ -11,12 +18,12 @@ export type AlertProps = HTMLAttributes<HTMLDivElement> & {
   children?: ReactNode;
 };
 
-const DEFAULT_ICONS: Record<AlertTone, string> = {
-  info: "i",
-  success: "✓",
-  warning: "!",
-  danger: "!",
-  neutral: "•",
+const DEFAULT_ICONS: Record<AlertTone, ReactNode> = {
+  info: <IconInfoCircle size={14} stroke={2} />,
+  success: <IconCheck size={14} stroke={2.4} />,
+  warning: <IconAlertTriangle size={14} stroke={2} />,
+  danger: <IconX size={14} stroke={2.4} />,
+  neutral: <IconPoint size={14} stroke={2} />,
 };
 
 export default function Alert({ tone = "info", title, icon, onClose, className, children, ...rest }: AlertProps) {
