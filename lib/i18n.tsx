@@ -466,6 +466,24 @@ const dict = {
     en: "Type your ticket number to auto-highlight matching prizes.",
   },
 
+  // CALENDAR
+  cal_title: { vi: "Lịch dương & âm", en: "Solar & Lunar" },
+  cal_sub: {
+    vi: "Xem lịch dương kèm âm lịch Việt Nam. Chọn một ngày để xem can chi ngày/tháng/năm.",
+    en: "Solar calendar with Vietnamese lunar dates. Pick a day to see its Can Chi day/month/year.",
+  },
+  cal_today: { vi: "Hôm nay", en: "Today" },
+  cal_solar: { vi: "Dương lịch", en: "Solar" },
+  cal_lunar: { vi: "Âm lịch", en: "Lunar" },
+  cal_leap: { vi: "nhuận", en: "leap" },
+  cal_day: { vi: "Ngày", en: "Day" },
+  cal_month: { vi: "Tháng", en: "Month" },
+  cal_year: { vi: "Năm", en: "Year" },
+  cal_hint: {
+    vi: "Chữ nhỏ dưới mỗi ô là ngày âm. Ngày mùng 1 hiển thị kèm tháng âm.",
+    en: "Small text under each cell is the lunar day. First day of a lunar month also shows the month.",
+  },
+
   // BILL
   bill_title: { vi: "Splitter", en: "Splitter" },
   bill_sub: {

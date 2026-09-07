@@ -9102,3 +9102,37 @@ label {
     font-size: 0.8rem;
   }
 }
+
+/* CALENDAR */
+.cal-wrap { display: grid; grid-template-columns: 1fr 300px; gap: 18px; }
+@media (max-width: 860px) { .cal-wrap { grid-template-columns: 1fr; } }
+.cal-main { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px; }
+.cal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cal-title { flex: 1; text-align: center; font-weight: 600; color: var(--bright); text-transform: capitalize; font-size: 15px; }
+.cal-nav { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 8px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.cal-nav:hover { border-color: var(--border-h); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-weekhead { margin-bottom: 6px; }
+.cal-wd { font-size: 11px; color: var(--dim); text-align: center; padding: 6px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.cal-wd.sun { color: #ef4444; }
+.cal-cell { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 6px 4px; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; color: var(--text); transition: all 0.15s; }
+.cal-cell:hover { border-color: var(--border-h); }
+.cal-cell.off { opacity: 0.35; }
+.cal-cell.sun .cal-solar { color: #ef4444; }
+.cal-cell.today { background: var(--glow); border-color: var(--accent); }
+.cal-cell.sel { background: var(--accent); border-color: var(--accent); }
+.cal-cell.sel .cal-solar, .cal-cell.sel .cal-lunar { color: #fff; }
+.cal-solar { font-size: 16px; font-weight: 600; color: var(--bright); line-height: 1; }
+.cal-lunar { font-size: 10px; color: var(--dim); line-height: 1; }
+.cal-lunar.strong { color: var(--accent2); font-weight: 600; }
+.cal-cell.sel .cal-lunar.strong { color: #fff; }
+.cal-side { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.cal-side-head { font-size: 13px; color: var(--dim); text-transform: capitalize; }
+.cal-big { text-align: center; padding: 10px 0; border-bottom: 1px dashed var(--border); }
+.cal-big-num { font-size: 56px; font-weight: 700; color: var(--accent); line-height: 1; }
+.cal-big-lbl { font-size: 12px; color: var(--dim); margin-top: 4px; }
+.cal-lunar-card { display: flex; flex-direction: column; gap: 8px; }
+.cal-lu-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.cal-lu-row span { color: var(--dim); }
+.cal-lu-row b { color: var(--bright); font-weight: 600; }
+.cal-hint { font-size: 11px; color: var(--dim); margin-top: auto; }

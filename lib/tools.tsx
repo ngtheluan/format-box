@@ -1,5 +1,6 @@
 import {
   IconBraces,
+  IconCalendar,
   IconChartDots3,
   IconClock,
   IconCoin,
@@ -189,6 +190,18 @@ export const TOOLS: Tool[] = [
       en: "Lucky wheel — enter a list, spin, pick randomly.",
     },
     tags: ["random", "picker", "wheel"],
+    category: "cat_life",
+  },
+  {
+    href: "/calendar",
+    Icon: IconCalendar,
+    title: "Calendar",
+    sub: { vi: "Lịch dương & âm", en: "Solar & Lunar" },
+    desc: {
+      vi: "Xem lịch dương kèm âm lịch Việt Nam. Chọn ngày để xem ngày/tháng/năm can chi.",
+      en: "Solar calendar with Vietnamese lunar dates. Pick a day to see its Can Chi day/month/year.",
+    },
+    tags: ["calendar", "lunar", "am-lich", "duong-lich", "vn"],
     category: "cat_life",
   },
   {
