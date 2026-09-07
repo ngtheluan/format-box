@@ -394,6 +394,55 @@ const dict = {
   cd_need_date: { vi: "Cần chọn thời gian", en: "Pick a target date/time" },
   cd_need_future: { vi: "Thời gian phải ở tương lai", en: "Target must be in the future" },
 
+  // TIMESTAMP
+  ts_title: { vi: "Converter", en: "Converter" },
+  ts_sub: {
+    vi: "Chuyển đổi Unix timestamp qua lại với ngày giờ. Xem ISO, UTC, local, relative — copy trong một cú click.",
+    en: "Convert Unix timestamps to and from dates. Inspect ISO, UTC, local, relative — copy in one click.",
+  },
+  ts_current: { vi: "Thời gian hiện tại", en: "Current time" },
+  ts_pause: { vi: "Tạm dừng", en: "Pause" },
+  ts_resume: { vi: "Tiếp tục", en: "Resume" },
+  ts_refresh: { vi: "Làm mới", en: "Refresh" },
+  ts_unix_s: { vi: "Unix (giây)", en: "Unix (seconds)" },
+  ts_unix_s_sub: { vi: "epoch tính bằng giây", en: "epoch in seconds" },
+  ts_unix_ms: { vi: "Unix (mili-giây)", en: "Unix (milliseconds)" },
+  ts_unix_ms_sub: { vi: "epoch tính bằng ms", en: "epoch in milliseconds" },
+  ts_iso_sub: { vi: "chuẩn ISO", en: "ISO standard" },
+  ts_local: { vi: "Local", en: "Local" },
+  ts_utc_sub: { vi: "Giờ chuẩn UTC", en: "Coordinated Universal" },
+  ts_rfc_sub: { vi: "RFC 2822 / HTTP", en: "RFC 2822 / HTTP" },
+  ts_convert_ts: { vi: "Timestamp → Ngày giờ", en: "Timestamp → Date" },
+  ts_convert_ts_ph: { vi: "Nhập Unix timestamp hoặc chuỗi ngày...", en: "Enter Unix timestamp or a date string..." },
+  ts_convert_date: { vi: "Ngày giờ → Timestamp", en: "Date → Timestamp" },
+  ts_unit_s: { vi: "Giây (s)", en: "Seconds (s)" },
+  ts_unit_ms: { vi: "Mili-giây (ms)", en: "Milliseconds (ms)" },
+  ts_use_now: { vi: "Dùng hiện tại", en: "Use now" },
+  ts_auto_unit: { vi: "Tự phát hiện", en: "Auto detect" },
+  ts_invalid: { vi: "Giá trị không hợp lệ", en: "Invalid value" },
+  ts_relative: { vi: "Tương đối", en: "Relative" },
+
+  // SPEED TEST
+  st_title: { vi: "Tốc độ mạng", en: "Network speed" },
+  st_sub: {
+    vi: "Đo tốc độ Wi-Fi / mạng: download, upload, ping, jitter. Sử dụng endpoint công khai của Cloudflare, chạy trực tiếp trên trình duyệt.",
+    en: "Measure Wi-Fi / network speed: download, upload, ping, jitter. Uses Cloudflare's public endpoints, runs right in your browser.",
+  },
+  st_start: { vi: "Bắt đầu đo", en: "Start test" },
+  st_run_again: { vi: "Đo lại", en: "Run again" },
+  st_stop: { vi: "Dừng", en: "Stop" },
+  st_download: { vi: "Download", en: "Download" },
+  st_upload: { vi: "Upload", en: "Upload" },
+  st_ping: { vi: "Ping", en: "Ping" },
+  st_jitter: { vi: "Jitter", en: "Jitter" },
+  st_server_loading: { vi: "Đang kết nối server...", en: "Connecting to server..." },
+  st_idle: { vi: "Sẵn sàng", en: "Ready" },
+  st_done: { vi: "Hoàn tất", en: "Done" },
+  st_note: {
+    vi: "Kết quả có thể sai lệch do tải hệ thống, tab khác, hoặc CPU. Để chính xác nhất: đóng bớt tab, cắm dây / đứng gần router.",
+    en: "Results can be skewed by system load, other tabs, or CPU. For best accuracy: close other tabs, plug in cable or stand near your router.",
+  },
+
   // FUEL PRICE
   fp_title: { vi: "Price", en: "Price" },
   fp_sub: {
@@ -562,6 +611,36 @@ const dict = {
   wt_w_stormh2: { vi: "Giông lớn kèm mưa đá", en: "Heavy thunderstorm with hail" },
   wt_w_unknown: { vi: "—", en: "—" },
 
+  // FAVICON EXPORT
+  fx_title: { vi: "Export", en: "Export" },
+  fx_sub: {
+    vi: "Upload 1 ảnh — sinh đầy đủ bộ favicon 16→512, apple-touch, PWA. Kèm snippet HTML và webmanifest.",
+    en: "Upload one image — get the full favicon set 16→512, apple-touch, PWA. HTML snippet and webmanifest included.",
+  },
+  fx_drop: { vi: "Kéo thả ảnh vuông vào đây hoặc", en: "Drop a square image here or" },
+  fx_drop_hint: {
+    vi: "PNG · JPG · SVG · WebP · nên dùng ảnh 512×512 trở lên",
+    en: "PNG · JPG · SVG · WebP · 512×512 or larger recommended",
+  },
+  fx_source: { vi: "Ảnh gốc", en: "Source" },
+  fx_total: { vi: "Tổng dung lượng", en: "Total size" },
+  fx_fit: { vi: "Kiểu vừa khung", en: "Fit" },
+  fx_fit_contain: { vi: "Chứa", en: "Contain" },
+  fx_fit_cover: { vi: "Phủ", en: "Cover" },
+  fx_bg: { vi: "Nền", en: "Background" },
+  fx_bg_transparent: { vi: "Trong suốt", en: "Transparent" },
+  fx_bg_color: { vi: "Màu tuỳ chỉnh", en: "Custom color" },
+  fx_padding: { vi: "Padding", en: "Padding" },
+  fx_radius: { vi: "Bo góc", en: "Corner radius" },
+  fx_radius_need_bg: {
+    vi: "Cần đặt nền màu để bo góc",
+    en: "Set a background color to round corners",
+  },
+  fx_output: { vi: "Kết quả", en: "Output" },
+  fx_download_all: { vi: "Tải tất cả", en: "Download all" },
+  fx_reset: { vi: "Chọn ảnh khác", en: "Pick another image" },
+  fx_snippet: { vi: "Snippet HTML", en: "HTML snippet" },
+
   // BILL
   bill_title: { vi: "Splitter", en: "Splitter" },
   bill_sub: {
@@ -636,6 +715,28 @@ const dict = {
   bill_toast_export_failed: { vi: "Xuất ảnh thất bại", en: "Export failed" },
   bill_toast_copied: { vi: "Đã copy ảnh vào clipboard", en: "Image copied to clipboard" },
   bill_toast_copy_failed: { vi: "Copy thất bại", en: "Copy failed" },
+
+  // COLOR
+  cl_title: { vi: "Converter & Inspector", en: "Converter & Inspector" },
+  cl_sub: {
+    vi: "Chuyển đổi HEX, RGB, HSL, HSB, OKLCH. Xem bảng tint/shade, contrast WCAG cho nền trắng/đen — copy một chạm.",
+    en: "Convert between HEX, RGB, HSL, HSB, OKLCH. Preview tint/shade palette and WCAG contrast on light/dark — copy in one click.",
+  },
+  cl_input: { vi: "Nhập màu", en: "Enter color" },
+  cl_preview: { vi: "Xem trước (kèm alpha)", en: "Preview (with alpha)" },
+  cl_pick: { vi: "Chọn màu", en: "Pick color" },
+  cl_random: { vi: "Ngẫu nhiên", en: "Random" },
+  cl_reset: { vi: "Về mặc định", en: "Reset" },
+  cl_invalid: { vi: "Màu không hợp lệ", en: "Invalid color" },
+  cl_shades: { vi: "Tint & Shade", en: "Tint & Shade" },
+  cl_contrast: { vi: "Contrast (WCAG)", en: "Contrast (WCAG)" },
+  cl_on_white: { vi: "Trên nền trắng", en: "On white" },
+  cl_on_black: { vi: "Trên nền đen", en: "On black" },
+  cl_sample: { vi: "Chữ mẫu", en: "Sample text" },
+  cl_sample_small: {
+    vi: "Chữ nhỏ hơn để kiểm tra khả năng đọc.",
+    en: "Smaller line to check legibility.",
+  },
 } as const;
 
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (key: keyof typeof dict) => string };
