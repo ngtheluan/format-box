@@ -9,7 +9,7 @@ export default function Page() {
   return (
     <>
       <Nav />
-      <div className="page bill-page" style={{ maxWidth: 1200 }}>
+      <div className="page bill-page" style={{ maxWidth: 980 }}>
         <h1 className="page-title">
           <IconReceipt size={22} stroke={1.8} /> Bill <span>{t("bill_title")}</span>
         </h1>
