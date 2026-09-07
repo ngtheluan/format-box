@@ -372,6 +372,7 @@ function VietlottPanel() {
   const data = snap ?? FALLBACK_VIETLOTT[product];
   const isFallback = data.source === "fallback";
   const needCount = product === "power655" ? 7 : 6;
+  const latest = data.draws[0];
 
   const ticketNumbers = useMemo(() => {
     return ticket
@@ -382,11 +383,9 @@ function VietlottPanel() {
   }, [ticket, needCount]);
 
   const check = useMemo(() => {
-    if (ticketNumbers.length < 6) return null;
-    return matchVietlottTicket(ticketNumbers, data);
-  }, [ticketNumbers, data]);
-
-  const drawnSet = useMemo(() => new Set(data.whiteBalls), [data.whiteBalls]);
+    if (!latest || ticketNumbers.length < 6) return null;
+    return matchVietlottTicket(ticketNumbers, latest, product);
+  }, [ticketNumbers, latest, product]);
 
   return (
     <>
@@ -463,104 +462,82 @@ function VietlottPanel() {
         </Alert>
       )}
 
-      <div className="lt-results">
-        {loading && !snap ? (
-          <Card padding="sm" variant="outline">
-            <Skeleton width={180} height={22} />
-            <div style={{ marginTop: 12 }}>
+      {loading && !snap ? (
+        <div className="vl-jackpot-wrap">
+          <Skeleton width="100%" height={80} />
+          {product === "power655" && (
+            <div style={{ marginTop: 10 }}>
               <Skeleton width="100%" height={80} />
             </div>
-          </Card>
-        ) : (
-          <Card padding="sm" variant="outline" className="lt-prov-card">
-            <div className="lt-prov-head">
-              <div className="lt-prov-name">
-                {VIETLOTT_PRODUCTS.find((p) => p.key === product)?.label}
-                {data.drawId && <span className="lt-prov-code">Kỳ #{data.drawId}</span>}
+          )}
+        </div>
+      ) : latest ? (
+        <>
+          <div className="vl-jackpot-title">
+            Giá trị Jackpot ước tính · Kỳ #{data.nextDrawId ?? "—"}
+          </div>
+          <div className="vl-jackpot-wrap">
+            {latest.jackpot1 && (
+              <div className="vl-jackpot vl-jackpot-1">
+                <div className="vl-jackpot-label">
+                  {product === "power655" ? "Giá trị Jackpot 1 ước tính" : "Giá trị Jackpot ước tính"}
+                </div>
+                <div className="vl-jackpot-amount">{latest.jackpot1} <span>VNĐ</span></div>
               </div>
-              {data.resultDate && <div style={{ fontSize: 12, opacity: 0.7 }}>{data.resultDate}</div>}
-            </div>
-            <div className="lt-nums" style={{ padding: "12px 4px", gap: 10, flexWrap: "wrap" }}>
-              {data.whiteBalls.map((n, i) => {
-                const hit = ticketNumbers.slice(0, 6).some((t) => t.padStart(2, "0") === n);
-                return (
-                  <span
-                    key={i}
-                    className={`lt-num${hit ? " hit" : ""}`}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      fontWeight: 700,
-                      fontSize: 15,
-                      background: hit ? undefined : "var(--surface-2, #f4f4f5)",
-                    }}
-                  >
-                    {n}
-                  </span>
-                );
-              })}
-              {product === "power655" && data.powerBall && (
-                <>
-                  <span style={{ fontSize: 20, opacity: 0.4, margin: "0 4px" }}>|</span>
-                  <span
-                    className={`lt-num${
-                      ticketNumbers[6] && ticketNumbers[6].padStart(2, "0") === data.powerBall ? " hit" : ""
-                    }`}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      fontWeight: 700,
-                      fontSize: 15,
-                      background: "#fdecec",
-                      color: "#c0392b",
-                    }}
-                    title="Power"
-                  >
-                    {data.powerBall}
-                  </span>
-                </>
-              )}
-            </div>
-            {(data.jackpot1 || data.jackpot2) && (
-              <table className="lt-table">
-                <tbody>
-                  {data.jackpot1 && (
-                    <tr>
-                      <th style={{ width: 100 }}>{product === "power655" ? "Jackpot 1" : "Jackpot"}</th>
-                      <td>
-                        <b>{data.jackpot1}</b> VNĐ
-                      </td>
-                    </tr>
-                  )}
-                  {data.jackpot2 && (
-                    <tr>
-                      <th style={{ width: 100 }}>Jackpot 2</th>
-                      <td>
-                        <b>{data.jackpot2}</b> VNĐ
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
             )}
-            {drawnSet.size > 0 && null}
-          </Card>
-        )}
-      </div>
+            {product === "power655" && latest.jackpot2 && (
+              <div className="vl-jackpot vl-jackpot-2">
+                <div className="vl-jackpot-label">Giá trị Jackpot 2 ước tính</div>
+                <div className="vl-jackpot-amount">{latest.jackpot2} <span>VNĐ</span></div>
+              </div>
+            )}
+          </div>
+
+          <div className="vl-history-title">Kết quả quay số mở thưởng</div>
+          <div className="vl-draws">
+            {data.draws.map((d) => {
+              const isLatest = d.drawId === latest.drawId;
+              const hits = new Set(
+                isLatest
+                  ? ticketNumbers.slice(0, 6).map((n) => n.padStart(2, "0")).filter((n) => d.whiteBalls.includes(n))
+                  : [],
+              );
+              const powerHit =
+                isLatest &&
+                product === "power655" &&
+                ticketNumbers[6] &&
+                ticketNumbers[6].padStart(2, "0") === d.powerBall;
+              return (
+                <div key={d.drawId} className="vl-draw-row">
+                  <div className="vl-draw-head">
+                    <span className="vl-draw-id">
+                      <span className="vl-draw-bar" /> Kỳ {d.drawId}
+                      {d.jackpotWon && <span className="vl-star" title="Kỳ có vé trúng Jackpot">⭐</span>}
+                    </span>
+                    <span className="vl-draw-date">{d.date}</span>
+                  </div>
+                  <div className="vl-balls">
+                    {d.whiteBalls.map((n, i) => (
+                      <span key={i} className={`vl-ball${hits.has(n) ? " on" : ""}`}>
+                        {n}
+                      </span>
+                    ))}
+                    {product === "power655" && d.powerBall && (
+                      <span className={`vl-ball vl-ball-power${powerHit ? " on" : ""}`}>{d.powerBall}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
 
       <div className="fp-meta lt-meta">
         <span className="fp-meta-item">
           {t("lt_source")}:{" "}
-          <a href="https://vietlott.vn/" target="_blank" rel="noreferrer">
-            vietlott.vn
+          <a href="https://www.minhngoc.net.vn/ket-qua-xo-so/dien-toan-vietlott.html" target="_blank" rel="noreferrer">
+            minhngoc.net.vn
           </a>
           {data.sourceUrl && (
             <>

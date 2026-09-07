@@ -70,10 +70,7 @@ function tierRank(t: PrizeTier) {
   return i < 0 ? 99 : i;
 }
 
-export function matchTicket(
-  ticket: string,
-  snapshot: LotterySnapshot,
-): TicketMatch[] {
+export function matchTicket(ticket: string, snapshot: LotterySnapshot): TicketMatch[] {
   const cleaned = ticket.replace(/\D/g, "");
   if (!cleaned) return [];
   const hits: TicketMatch[] = [];
@@ -157,9 +154,7 @@ function extractPrizeNumbers(cellHtml: string): string[] {
   // MN/MT: <div>NNN</div> per number
   const divMatches = cellHtml.match(/<div[^>]*>\s*([\d.]+)\s*<\/div>/gi);
   if (divMatches && divMatches.length > 0) {
-    return divMatches
-      .map((s) => s.replace(/<[^>]+>/g, "").replace(/\D/g, ""))
-      .filter(Boolean);
+    return divMatches.map((s) => s.replace(/<[^>]+>/g, "").replace(/\D/g, "")).filter(Boolean);
   }
   // MB: cell text like "83179 - 34863 - 27496 ..."
   const text = stripTags(cellHtml);
@@ -349,49 +344,47 @@ function mkFallback(region: Region): LotterySnapshot {
       source: "fallback",
       region,
       fetchedAt: "",
-      resultDate: "07/09/2026",
+      resultDate: "**/**/****",
       provinces: [
         {
           province: "Miền Bắc",
           code: "XSMB",
-          date: "07/09/2026",
+          date: "**/**/****",
           prizes: [
-            { tier: "special", label: "ĐB", numbers: ["12345"] },
-            { tier: "g1", label: "G1", numbers: ["67890"] },
-            { tier: "g2", label: "G2", numbers: ["11223", "44556"] },
-            { tier: "g3", label: "G3", numbers: ["10101", "20202", "30303", "40404", "50505", "60606"] },
-            { tier: "g4", label: "G4", numbers: ["1234", "5678", "9012", "3456"] },
-            { tier: "g5", label: "G5", numbers: ["7890", "1122", "3344", "5566", "7788", "9900"] },
-            { tier: "g6", label: "G6", numbers: ["111", "222", "333"] },
-            { tier: "g7", label: "G7", numbers: ["45", "67", "89", "01"] },
+            { tier: "special", label: "ĐB", numbers: ["******"] },
+            { tier: "g1", label: "G1", numbers: ["*****"] },
+            { tier: "g2", label: "G2", numbers: ["*****"] },
+            { tier: "g3", label: "G3", numbers: ["*****", "*****"] },
+            { tier: "g4", label: "G4", numbers: ["*****", "*****", "*****", "*****", "*****", "*****", "*****"] },
+            { tier: "g5", label: "G5", numbers: ["****"] },
+            { tier: "g6", label: "G6", numbers: ["****", "****", "****"] },
+            { tier: "g7", label: "G7", numbers: ["***"] },
+            { tier: "g8", label: "G8", numbers: ["**"] },
           ],
         },
       ],
       note: "Dữ liệu mẫu — không lấy được feed live.",
     };
   }
-  const provinces =
-    region === "mn"
-      ? ["TP. HCM", "Đồng Tháp", "Cà Mau"]
-      : ["Thừa Thiên Huế", "Phú Yên"];
+  const provinces = region === "mn" ? ["TP. HCM", "Đồng Tháp", "Cà Mau"] : ["Thừa Thiên Huế", "Phú Yên"];
   return {
     source: "fallback",
     region,
     fetchedAt: "",
-    resultDate: "07/09/2026",
+    resultDate: "**/**/****",
     provinces: provinces.map((province) => ({
       province,
-      date: "07/09/2026",
+      date: "**/**/****",
       prizes: [
-        { tier: "special", label: "ĐB", numbers: ["123456"] },
-        { tier: "g1", label: "G1", numbers: ["67890"] },
-        { tier: "g2", label: "G2", numbers: ["12345"] },
-        { tier: "g3", label: "G3", numbers: ["11111", "22222"] },
-        { tier: "g4", label: "G4", numbers: ["33333", "44444", "55555", "66666", "77777", "88888", "99999"] },
-        { tier: "g5", label: "G5", numbers: ["1234"] },
-        { tier: "g6", label: "G6", numbers: ["4321", "8765", "5432"] },
-        { tier: "g7", label: "G7", numbers: ["123"] },
-        { tier: "g8", label: "G8", numbers: ["45"] },
+        { tier: "special", label: "ĐB", numbers: ["******"] },
+        { tier: "g1", label: "G1", numbers: ["*****"] },
+        { tier: "g2", label: "G2", numbers: ["*****"] },
+        { tier: "g3", label: "G3", numbers: ["*****", "*****"] },
+        { tier: "g4", label: "G4", numbers: ["*****", "*****", "*****", "*****", "*****", "*****", "*****"] },
+        { tier: "g5", label: "G5", numbers: ["****"] },
+        { tier: "g6", label: "G6", numbers: ["****", "****", "****"] },
+        { tier: "g7", label: "G7", numbers: ["***"] },
+        { tier: "g8", label: "G8", numbers: ["**"] },
       ],
     })),
     note: "Dữ liệu mẫu — không lấy được feed live.",

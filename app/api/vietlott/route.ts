@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   FALLBACK_VIETLOTT,
-  parseVietlott,
+  parseMinhngocVietlott,
   VIETLOTT_URLS,
   type VietlottProduct,
   type VietlottSnapshot,
@@ -26,10 +26,10 @@ async function fetchLive(product: VietlottProduct): Promise<VietlottSnapshot> {
     },
     next: { revalidate: 300 },
   });
-  if (!res.ok) throw new Error(`vietlott HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`minhngoc HTTP ${res.status}`);
   const body = await res.text();
-  const snap = parseVietlott(body, product);
-  if (snap.whiteBalls.length < 6) throw new Error("Chưa có kết quả");
+  const snap = parseMinhngocVietlott(body, product);
+  if (snap.draws.length === 0) throw new Error("Chưa có kết quả");
   return snap;
 }
 

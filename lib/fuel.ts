@@ -118,10 +118,10 @@ export const FALLBACK_SNAPSHOT: FuelSnapshot = {
   source: "fallback",
   fetchedAt: "2026-09-03T15:00:00+07:00",
   items: [
-    { kind: "e10_ron95", name: NAMES.e10_ron95, unit: "L", price: 23270 },
-    { kind: "e5_ron92", name: NAMES.e5_ron92, unit: "L", price: 22480 },
-    { kind: "diesel", name: NAMES.diesel, unit: "L", price: 27740 },
-    { kind: "mazut", name: NAMES.mazut, unit: "kg", price: 17640 },
+    { kind: "e10_ron95", name: NAMES.e10_ron95, unit: "L", price: 0 },
+    { kind: "e5_ron92", name: NAMES.e5_ron92, unit: "L", price: 0 },
+    { kind: "diesel", name: NAMES.diesel, unit: "L", price: 0 },
+    { kind: "mazut", name: NAMES.mazut, unit: "kg", price: 0 },
   ],
   note: "Dữ liệu dự phòng (03/09/2026) — không lấy được bài mới nhất.",
 };
