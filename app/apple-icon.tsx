@@ -1,4 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+import { ImageResponse } from "next/og";
+
+export const size = { width: 180, height: 180 };
+export const contentType = "image/png";
+
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="180" y2="180" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#1e1b4b"/>
@@ -22,7 +27,19 @@
   <path d="M90 24 22 60l68 36 68-36L90 24Z" fill="url(#top)"/>
   <path d="M22 60v60l68 36V96L22 60Z" fill="url(#left)"/>
   <path d="M158 60v60l-68 36V96l68-36Z" fill="url(#right)"/>
-  <path d="M90 24 22 60l68 36 68-36L90 24Z" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity=".35" stroke-linejoin="round"/>
-  <path d="M22 60v60l68 36 68-36V60" fill="none" stroke="#fff" stroke-width="1.5" stroke-opacity=".2" stroke-linejoin="round"/>
-  <path d="M90 96v60" stroke="#fff" stroke-width="1.2" stroke-opacity=".22"/>
-</svg>
+  <path d="M90 24 22 60l68 36 68-36L90 24Z" fill="none" stroke="#fff" stroke-width="1.6" stroke-opacity=".4" stroke-linejoin="round"/>
+  <path d="M22 60v60l68 36 68-36V60" fill="none" stroke="#fff" stroke-width="1.6" stroke-opacity=".22" stroke-linejoin="round"/>
+  <path d="M90 96v60" stroke="#fff" stroke-width="1.4" stroke-opacity=".22"/>
+</svg>`;
+
+export default function AppleIcon() {
+  const dataUri = `data:image/svg+xml;base64,${Buffer.from(SVG).toString("base64")}`;
+  return new ImageResponse(
+    (
+      <div style={{ display: "flex", width: "100%", height: "100%" }}>
+        <img src={dataUri} width={180} height={180} />
+      </div>
+    ),
+    { ...size }
+  );
+}
