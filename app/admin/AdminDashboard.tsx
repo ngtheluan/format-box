@@ -28,7 +28,7 @@ const ADMIN_APPS: AdminApp[] = [
 
 export default function AdminDashboard() {
   return (
-    <div className="ad-scope ad-shell">
+    <div className="fb-scope fb-shell">
       <AdminHeader
         crumbs={[
           { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} />, current: true },

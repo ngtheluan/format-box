@@ -169,7 +169,7 @@ export default function MenuTools() {
   const set = <K extends keyof Tool>(k: K, v: Tool[K]) => setEditing((cur) => (cur ? { ...cur, [k]: v } : cur));
 
   return (
-    <div className="ad-scope ad-shell">
+    <div className="fb-scope fb-shell">
       <AdminHeader
         crumbs={[
           { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} />, href: "/admin" },

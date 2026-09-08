@@ -4,7 +4,7 @@
    Có "warning stripe" trên cùng để nhận biết ngay
    ========================================================= */
 
-.ad-scope {
+.fb-scope {
   --ad-accent: #f59e0b;
   --ad-accent-2: #ef4444;
   --ad-accent-soft: rgba(245, 158, 11, 0.14);
@@ -18,7 +18,7 @@
 }
 
 /* ============ Shell ============ */
-.ad-shell {
+.fb-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -31,7 +31,7 @@
 }
 
 /* subtle grid pattern → cảm giác dashboard */
-.ad-shell::before {
+.fb-shell::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -43,12 +43,12 @@
   pointer-events: none;
   z-index: 0;
 }
-[data-theme="light"] .ad-shell::before {
+[data-theme="light"] .fb-shell::before {
   background-image:
     linear-gradient(to right, rgba(30, 30, 40, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(30, 30, 40, 0.05) 1px, transparent 1px);
 }
-.ad-shell > * {
+.fb-shell > * {
   position: relative;
   z-index: 1;
 }
@@ -64,7 +64,7 @@
 }
 
 /* ============ Login ============ */
-.ad-login {
+.fb-login {
   min-height: 100vh;
   display: grid;
   place-items: center;
@@ -74,7 +74,7 @@
     radial-gradient(700px 400px at 80% 80%, rgba(239, 68, 68, 0.12), transparent 60%), var(--bg, #0a0e15);
   position: relative;
 }
-.ad-login::before {
+.fb-login::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -85,13 +85,13 @@
   mask-image: radial-gradient(700px 500px at 50% 50%, #000 30%, transparent 80%);
   pointer-events: none;
 }
-[data-theme="light"] .ad-login::before {
+[data-theme="light"] .fb-login::before {
   background-image:
     linear-gradient(to right, rgba(30, 30, 40, 0.06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(30, 30, 40, 0.06) 1px, transparent 1px);
 }
 
-.ad-login-card {
+.fb-login-card {
   width: 100%;
   max-width: 400px;
   padding: 28px 26px 24px;
@@ -105,7 +105,7 @@
   position: relative;
   overflow: hidden;
 }
-.ad-login-card::before {
+.fb-login-card::before {
   content: "";
   position: absolute;
   top: 0;
@@ -115,7 +115,7 @@
   background: linear-gradient(90deg, #f59e0b, #ef4444, #f59e0b);
 }
 
-.ad-login-brand {
+.fb-login-brand {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -124,7 +124,7 @@
   font-size: 17px;
   letter-spacing: -0.01em;
 }
-.ad-login-brand .dot {
+.fb-login-brand .dot {
   width: 40px;
   height: 40px;
   border-radius: 11px;
@@ -134,7 +134,7 @@
   color: #fff;
   box-shadow: 0 8px 24px -6px rgba(245, 158, 11, 0.55);
 }
-.ad-login-tag {
+.fb-login-tag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -148,17 +148,17 @@
   text-transform: uppercase;
   border: 1px solid var(--ad-accent-strong);
 }
-.ad-login-sub {
+.fb-login-sub {
   font-size: 13px;
   opacity: 0.62;
   margin: 8px 0 22px;
 }
 
-.ad-login-field {
+.fb-login-field {
   position: relative;
   margin-bottom: 12px;
 }
-.ad-login-field svg {
+.fb-login-field svg {
   position: absolute;
   left: 12px;
   top: 50%;

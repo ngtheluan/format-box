@@ -67,7 +67,7 @@ export default function UiDemo() {
   const [showAlert, setShowAlert] = useState(true);
 
   return (
-    <div className="ad-scope ad-shell">
+    <div className="fb-scope fb-shell">
       <AdminHeader
         crumbs={[
           { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} /> },

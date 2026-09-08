@@ -23,17 +23,17 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="ad-scope ad-login">
-      <form className="ad-login-card" onSubmit={submit}>
-        <div className="ad-login-brand">
+    <div className="fb-scope fb-login">
+      <form className="fb-login-card" onSubmit={submit}>
+        <div className="fb-login-brand">
           <span className="dot">
             <IconShieldLock size={20} stroke={2} />
           </span>
           <span>FormatBox</span>
-          <span className="ad-login-tag">Admin</span>
+          <span className="fb-login-tag">Admin</span>
         </div>
-        <div className="ad-login-sub">Khu vực quản trị — cần mật khẩu để tiếp tục</div>
-        <div className="ad-login-field">
+        <div className="fb-login-sub">Khu vực quản trị — cần mật khẩu để tiếp tục</div>
+        <div className="fb-login-field">
           <IconLock size={16} stroke={1.8} />
           <input
             className="ad-input"
