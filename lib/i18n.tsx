@@ -18,7 +18,7 @@ const dict = {
   cat_life: { vi: "Tiện ích", en: "Utilities" },
 
   // HERO
-  hero_tag: { vi: "100% client-side", en: "100% client-side" },
+  hero_tag: { vi: "Miễn phí · Không đăng ký", en: "Free · No signup" },
   hero_h1_1: { vi: "Chuyển đổi dữ liệu", en: "Convert your data" },
   hero_h1_2: { vi: "ngay trên trình duyệt.", en: "right in your browser." },
   hero_sub: {
@@ -438,6 +438,10 @@ const dict = {
   st_server_loading: { vi: "Đang kết nối server...", en: "Connecting to server..." },
   st_idle: { vi: "Sẵn sàng", en: "Ready" },
   st_done: { vi: "Hoàn tất", en: "Done" },
+  st_upload_failed: {
+    vi: "Không đo được upload — endpoint bị chặn hoặc mạng lỗi. Thử tắt VPN / ad-blocker và đo lại.",
+    en: "Upload could not be measured — endpoint blocked or network error. Try disabling VPN / ad-blocker and retry.",
+  },
   st_note: {
     vi: "Kết quả có thể sai lệch do tải hệ thống, tab khác, hoặc CPU. Để chính xác nhất: đóng bớt tab, cắm dây / đứng gần router.",
     en: "Results can be skewed by system load, other tabs, or CPU. For best accuracy: close other tabs, plug in cable or stand near your router.",
@@ -477,6 +481,39 @@ const dict = {
   fp_latest: { vi: "Kỳ mới nhất", en: "Latest cycle" },
   fp_click_hint: { vi: "Click 1 điểm trên chart để xem chi tiết", en: "Click a point on the chart for details" },
   fp_source_link: { vi: "Bài gốc", en: "Article" },
+
+  // EXCHANGE CURRENCY
+  xc_title: { vi: "Đổi ngoại tệ", en: "Currency Converter" },
+  xc_sub: {
+    vi: "Chuyển đổi tiền tệ và tính tiền chuyển quốc tế theo tỉ giá mid-market realtime.",
+    en: "Convert currencies and estimate international transfers at live mid-market rates.",
+  },
+  xc_refresh: { vi: "Làm mới", en: "Refresh" },
+  xc_mode_live: { vi: "Live", en: "Live" },
+  xc_mode_fallback: { vi: "Dự phòng", en: "Fallback" },
+  xc_stale_title: { vi: "Dữ liệu dự phòng", en: "Fallback data" },
+  xc_stale_msg: {
+    vi: "Không lấy được dữ liệu live — hiển thị tỉ giá tham khảo.",
+    en: "Live fetch failed — showing reference rates.",
+  },
+  xc_err_title: { vi: "Lỗi tải dữ liệu", en: "Load error" },
+  xc_from: { vi: "Từ", en: "From" },
+  xc_to: { vi: "Đến", en: "To" },
+  xc_swap: { vi: "Đảo chiều", en: "Swap" },
+  xc_result: { vi: "Kết quả", en: "Result" },
+  xc_transfer: { vi: "Tính phí chuyển tiền quốc tế", en: "Include transfer fee" },
+  xc_transfer_sub: {
+    vi: "Ước tính phí ~1.2% + $2 khi chuyển tiền qua ngân hàng / dịch vụ quốc tế.",
+    en: "Estimates ~1.2% spread + $2 fixed fee for international bank / remittance transfer.",
+  },
+  xc_fee: { vi: "Phí ước tính", en: "Estimated fee" },
+  xc_quick: { vi: "Cặp phổ biến", en: "Popular pairs" },
+  xc_quick_sub: { vi: "Bấm để chọn nhanh", en: "Click to load" },
+  xc_note: {
+    vi: "Nguồn tỉ giá:",
+    en: "Rate source:",
+  },
+  xc_note_updated: { vi: "Cập nhật", en: "Updated" },
 
   // GOLD PRICE
   gp_title: { vi: "Price", en: "Price" },

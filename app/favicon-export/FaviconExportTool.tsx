@@ -579,20 +579,6 @@ export default function FaviconExportTool() {
               )}
             </div>
           </aside>
-
-          <style jsx>{`
-            @media (max-width: 900px) {
-              .fx-layout {
-                grid-template-columns: 1fr !important;
-              }
-              .fx-panel {
-                position: static !important;
-              }
-              .fx-preview-row {
-                grid-template-columns: 120px minmax(0, 1fr) !important;
-              }
-            }
-          `}</style>
         </div>
       )}
     </>

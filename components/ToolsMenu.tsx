@@ -3,13 +3,16 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { IconChevronDown } from "@tabler/icons-react";
-import { CATEGORY_ORDER, TOOLS, type ToolCategory } from "@/lib/tools";
+import { CATEGORY_ORDER, type ToolCategory } from "@/lib/tools-shared";
+import { useTools } from "@/components/ToolsProvider";
+import { ToolIcon } from "@/lib/tool-icons";
 import { useI18n } from "@/lib/i18n";
 
 const catKey = (c: ToolCategory) => c;
 
 export default function ToolsMenu() {
   const { t, lang } = useI18n();
+  const TOOLS = useTools();
   const [openCat, setOpenCat] = useState<ToolCategory | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -73,7 +76,7 @@ export default function ToolsMenu() {
                         role="menuitem"
                       >
                         <div className="nav-cat-item-icon">
-                          <tool.Icon size={18} stroke={1.7} />
+                          <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
                         </div>
                         <div className="nav-cat-item-text">
                           <b>{tool.title}</b>

@@ -3,9 +3,10 @@ import Footer from "@/components/Footer";
 import HeroCanvas from "@/components/HeroCanvas";
 import LiveDemo from "@/components/LiveDemo";
 import Nav from "@/components/Nav";
+import { useTools } from "@/components/ToolsProvider";
 import { Button } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
-import { TOOLS, TOOLS as tools } from "@/lib/tools";
+import { ToolIcon } from "@/lib/tool-icons";
 import {
   IconCalculator,
   IconCheck,
@@ -32,9 +33,10 @@ const coming = [
 
 export default function Home() {
   const { t, lang } = useI18n();
+  const tools = useTools();
   const stats = [
     { k: "0", v: t("stat_ads") },
-    { k: TOOLS.length, v: t("stat_tools") },
+    { k: tools.length, v: t("stat_tools") },
     { k: "100%", v: t("stat_client") },
     { k: "∞", v: t("stat_uses") },
   ];
@@ -97,7 +99,7 @@ export default function Home() {
               <Link key={tool.href} href={tool.href} className="tool-card-m" style={{ animationDelay: `${i * 80}ms` }}>
                 <div className="tool-head">
                   <div className="tool-icon">
-                    <tool.Icon size={22} stroke={1.6} />
+                    <ToolIcon name={tool.iconName} size={22} stroke={1.6} />
                   </div>
                   <span className="tool-arrow">→</span>
                 </div>

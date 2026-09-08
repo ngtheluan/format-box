@@ -1,6 +1,7 @@
 import ScrollTop from "@/components/ScrollTop";
 import TitleUpdater from "@/components/TitleUpdater";
 import { ToastProvider } from "@/components/Toast";
+import { ToolsProvider } from "@/components/ToolsProvider";
 import { LanguageProvider } from "@/lib/i18n";
 import { themeInitScript } from "@/lib/theme";
 import type { Metadata, Viewport } from "next";
@@ -33,9 +34,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <LanguageProvider>
-          <TitleUpdater />
-          <ToastProvider>{children}</ToastProvider>
-          <ScrollTop />
+          <ToolsProvider>
+            <TitleUpdater />
+            <ToastProvider>{children}</ToastProvider>
+            <ScrollTop />
+          </ToolsProvider>
         </LanguageProvider>
       </body>
     </html>

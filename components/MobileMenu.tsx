@@ -4,13 +4,16 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { IconMenu2, IconX } from "@tabler/icons-react";
-import { CATEGORY_ORDER, TOOLS, type ToolCategory } from "@/lib/tools";
+import { CATEGORY_ORDER, type ToolCategory } from "@/lib/tools-shared";
+import { useTools } from "@/components/ToolsProvider";
+import { ToolIcon } from "@/lib/tool-icons";
 import { useI18n } from "@/lib/i18n";
 
 const catKey = (c: ToolCategory) => c;
 
 export default function MobileMenu() {
   const { t, lang } = useI18n();
+  const TOOLS = useTools();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
@@ -84,7 +87,7 @@ export default function MobileMenu() {
                             className={`mm-item mm-item-${cat}${active ? " active" : ""}`}
                           >
                             <div className="mm-item-icon">
-                              <tool.Icon size={18} stroke={1.7} />
+                              <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
                             </div>
                             <div className="mm-item-body">
                               <b>{tool.title}</b>

@@ -1,11 +1,13 @@
 "use client";
+import { useTools } from "@/components/ToolsProvider";
+import { ToolIcon } from "@/lib/tool-icons";
 import { useI18n } from "@/lib/i18n";
-import { TOOLS } from "@/lib/tools";
 import { IconArrowUpRight, IconMail } from "@tabler/icons-react";
 import Link from "next/link";
 
 export default function Footer() {
   const { t } = useI18n();
+  const TOOLS = useTools();
 
   return (
     <footer className="ft">
@@ -30,7 +32,7 @@ export default function Footer() {
             <div className="ft-tools-grid">
               {TOOLS.map((tool) => (
                 <Link key={tool.href} href={tool.href} className="ft-tool">
-                  <tool.Icon size={14} stroke={1.9} />
+                  <ToolIcon name={tool.iconName} size={14} stroke={1.9} />
                   <span>{tool.title}</span>
                   <IconArrowUpRight size={12} stroke={1.9} className="ft-tool-arr" />
                 </Link>

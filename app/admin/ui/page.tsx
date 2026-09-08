@@ -1,5 +1,6 @@
 "use client";
-import Nav from "@/components/Nav";
+import AdminHeader from "../AdminHeader";
+import "../admin.css";
 import {
   Accordion,
   AccordionItem,
@@ -43,10 +44,12 @@ import {
 import {
   IconBell,
   IconCheck,
+  IconComponents,
   IconCopy,
   IconDots,
   IconDownload,
   IconEdit,
+  IconLayoutGrid,
   IconMail,
   IconSearch,
   IconTrash,
@@ -64,13 +67,22 @@ export default function UiDemo() {
   const [showAlert, setShowAlert] = useState(true);
 
   return (
-    <>
-      <Nav />
-      <div className="page" style={{ maxWidth: 1100 }}>
-        <h1 className="page-title">UI Kit</h1>
-        <p className="sub">Bộ component dùng chung — Button, Input, Modal, Tabs, và nhiều hơn.</p>
+    <div className="ad-scope ad-shell">
+      <AdminHeader
+        crumbs={[
+          { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} /> },
+          { label: "UI Kit", current: true, icon: <IconComponents size={13} stroke={1.8} /> },
+        ]}
+      />
+      <div className="ad-body" style={{ maxWidth: 1100 }}>
+        <div style={{ marginBottom: 8 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>UI Kit</h1>
+          <p style={{ fontSize: 13, opacity: 0.62, marginTop: 4 }}>
+            Bộ component dùng chung — Button, Input, Modal, Tabs, và nhiều hơn.
+          </p>
+        </div>
 
-        <VStack gap={36} style={{ marginTop: 24 }}>
+        <VStack gap={36} style={{ marginTop: 20 }}>
           {/* BUTTONS */}
           <Section title="Buttons">
             <HStack wrap gap={10}>
@@ -78,23 +90,41 @@ export default function UiDemo() {
               <Button variant="ghost">Ghost</Button>
               <Button variant="subtle">Subtle</Button>
               <Button variant="danger">Danger</Button>
-              <Button variant="primary" loading>Loading</Button>
-              <Button variant="primary" disabled>Disabled</Button>
+              <Button variant="primary" loading>
+                Loading
+              </Button>
+              <Button variant="primary" disabled>
+                Disabled
+              </Button>
             </HStack>
             <HStack wrap gap={10} style={{ marginTop: 12 }}>
-              <Button size="sm" leftIcon={<IconDownload size={14} />}>Small</Button>
-              <Button size="md" leftIcon={<IconDownload size={14} />}>Medium</Button>
-              <Button size="lg" leftIcon={<IconDownload size={16} />}>Large</Button>
+              <Button size="sm" leftIcon={<IconDownload size={14} />}>
+                Small
+              </Button>
+              <Button size="md" leftIcon={<IconDownload size={14} />}>
+                Medium
+              </Button>
+              <Button size="lg" leftIcon={<IconDownload size={16} />}>
+                Large
+              </Button>
               <ButtonGroup attached>
                 <Button variant="subtle">Left</Button>
                 <Button variant="subtle">Middle</Button>
                 <Button variant="subtle">Right</Button>
               </ButtonGroup>
               <HStack gap={4}>
-                <IconButton aria-label="Copy" variant="ghost"><IconCopy size={16} /></IconButton>
-                <IconButton aria-label="Edit" variant="subtle"><IconEdit size={16} /></IconButton>
-                <IconButton aria-label="Delete" variant="danger"><IconTrash size={16} /></IconButton>
-                <IconButton aria-label="Notify" variant="primary" round><IconBell size={16} /></IconButton>
+                <IconButton aria-label="Copy" variant="ghost">
+                  <IconCopy size={16} />
+                </IconButton>
+                <IconButton aria-label="Edit" variant="subtle">
+                  <IconEdit size={16} />
+                </IconButton>
+                <IconButton aria-label="Delete" variant="danger">
+                  <IconTrash size={16} />
+                </IconButton>
+                <IconButton aria-label="Notify" variant="primary" round>
+                  <IconBell size={16} />
+                </IconButton>
               </HStack>
             </HStack>
           </Section>
@@ -106,7 +136,12 @@ export default function UiDemo() {
                 <Input type="email" placeholder="you@example.com" leftIcon={<IconMail size={16} />} />
               </Field>
               <Field label="Search" htmlFor="s">
-                <Input id="s" placeholder="Search…" leftIcon={<IconSearch size={16} />} rightSlot={<Kbd size="sm">⌘K</Kbd>} />
+                <Input
+                  id="s"
+                  placeholder="Search…"
+                  leftIcon={<IconSearch size={16} />}
+                  rightSlot={<Kbd size="sm">⌘K</Kbd>}
+                />
               </Field>
               <Field label="Invalid" error="Must be a number">
                 <Input value="abc" invalid readOnly />
@@ -126,7 +161,12 @@ export default function UiDemo() {
               </Field>
               <Field label="Preferences">
                 <VStack gap={8}>
-                  <Checkbox label="Email me" description="Weekly digest" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
+                  <Checkbox
+                    label="Email me"
+                    description="Weekly digest"
+                    checked={checked}
+                    onChange={(e) => setChecked(e.target.checked)}
+                  />
                   <Checkbox label="Push notifications" defaultChecked />
                   <Switch label="Dark mode" checked={sw} onChange={(e) => setSw(e.target.checked)} />
                 </VStack>
@@ -139,7 +179,13 @@ export default function UiDemo() {
                 </RadioGroup>
               </Field>
               <Field label={`Volume: ${vol}`}>
-                <Slider min={0} max={100} value={vol} onChange={(e) => setVol(Number(e.currentTarget.value))} showValue />
+                <Slider
+                  min={0}
+                  max={100}
+                  value={vol}
+                  onChange={(e) => setVol(Number(e.currentTarget.value))}
+                  showValue
+                />
               </Field>
             </div>
           </Section>
@@ -147,10 +193,20 @@ export default function UiDemo() {
           {/* FEEDBACK */}
           <Section title="Feedback">
             <VStack gap={10}>
-              {showAlert && <Alert tone="info" title="Có bản mới" onClose={() => setShowAlert(false)}>Nhấn F5 để cập nhật.</Alert>}
-              <Alert tone="success" title="Đã lưu">Thay đổi đã được lưu.</Alert>
-              <Alert tone="warning" title="Chú ý">Bạn còn 3 lượt miễn phí.</Alert>
-              <Alert tone="danger" title="Có lỗi xảy ra">Không thể kết nối tới server.</Alert>
+              {showAlert && (
+                <Alert tone="info" title="Có bản mới" onClose={() => setShowAlert(false)}>
+                  Nhấn F5 để cập nhật.
+                </Alert>
+              )}
+              <Alert tone="success" title="Đã lưu">
+                Thay đổi đã được lưu.
+              </Alert>
+              <Alert tone="warning" title="Chú ý">
+                Bạn còn 3 lượt miễn phí.
+              </Alert>
+              <Alert tone="danger" title="Có lỗi xảy ra">
+                Không thể kết nối tới server.
+              </Alert>
             </VStack>
             <Divider label="Progress & Spinner" />
             <VStack gap={12}>
@@ -177,7 +233,9 @@ export default function UiDemo() {
                 </CardHeader>
                 <CardBody>Bất kỳ nội dung nào cũng vào đây.</CardBody>
                 <CardFooter>
-                  <Button size="sm" variant="ghost">Cancel</Button>
+                  <Button size="sm" variant="ghost">
+                    Cancel
+                  </Button>
                   <Button size="sm">Save</Button>
                 </CardFooter>
               </Card>
@@ -189,9 +247,15 @@ export default function UiDemo() {
                 <CardBody>
                   <HStack gap={8} wrap>
                     <Badge tone="primary">primary</Badge>
-                    <Badge tone="success" variant="solid">solid</Badge>
-                    <Badge tone="warning" variant="outline">outline</Badge>
-                    <Badge tone="danger" variant="dot">danger</Badge>
+                    <Badge tone="success" variant="solid">
+                      solid
+                    </Badge>
+                    <Badge tone="warning" variant="outline">
+                      outline
+                    </Badge>
+                    <Badge tone="danger" variant="dot">
+                      danger
+                    </Badge>
                   </HStack>
                 </CardBody>
               </Card>
@@ -225,7 +289,9 @@ export default function UiDemo() {
               <TabsList>
                 <Tab value="a">Line tabs</Tab>
                 <Tab value="b">Another</Tab>
-                <Tab value="c" disabled>Disabled</Tab>
+                <Tab value="c" disabled>
+                  Disabled
+                </Tab>
               </TabsList>
               <TabPanel value="a">Line-variant panel.</TabPanel>
               <TabPanel value="b">Second panel.</TabPanel>
@@ -248,12 +314,20 @@ export default function UiDemo() {
           <Section title="Overlays">
             <HStack gap={10} wrap>
               <Button onClick={() => setModal(true)}>Open Modal</Button>
-              <Button variant="ghost" onClick={() => setDrawer(true)}>Open Drawer</Button>
+              <Button variant="ghost" onClick={() => setDrawer(true)}>
+                Open Drawer
+              </Button>
               <Tooltip content="Copy to clipboard">
-                <Button variant="subtle" leftIcon={<IconCopy size={14} />}>Hover me</Button>
+                <Button variant="subtle" leftIcon={<IconCopy size={14} />}>
+                  Hover me
+                </Button>
               </Tooltip>
               <Menu
-                trigger={<Button variant="ghost" leftIcon={<IconDots size={14} />}>Actions</Button>}
+                trigger={
+                  <Button variant="ghost" leftIcon={<IconDots size={14} />}>
+                    Actions
+                  </Button>
+                }
                 items={[
                   { label: "Edit", icon: <IconEdit size={14} />, onClick: () => {} },
                   { label: "Copy", icon: <IconCopy size={14} />, onClick: () => {} },
@@ -273,7 +347,9 @@ export default function UiDemo() {
         description="Hành động này không thể hoàn tác."
         footer={
           <>
-            <Button variant="ghost" onClick={() => setModal(false)}>Huỷ</Button>
+            <Button variant="ghost" onClick={() => setModal(false)}>
+              Huỷ
+            </Button>
             <Button variant="danger" leftIcon={<IconCheck size={14} />} onClick={() => setModal(false)}>
               Xoá
             </Button>
@@ -285,14 +361,17 @@ export default function UiDemo() {
 
       <Drawer open={drawer} onClose={() => setDrawer(false)} title="Cài đặt" side="right">
         <VStack gap={16}>
-          <Field label="Tên hiển thị"><Input placeholder="Luân" /></Field>
-          <Field label="Email"><Input type="email" placeholder="you@x.com" /></Field>
+          <Field label="Tên hiển thị">
+            <Input placeholder="Luân" />
+          </Field>
+          <Field label="Email">
+            <Input type="email" placeholder="you@x.com" />
+          </Field>
           <Switch label="Nhận email marketing" />
         </VStack>
       </Drawer>
 
-      <footer className="ft-slim">&copy; 2026 FormatBox</footer>
-    </>
+    </div>
   );
 }
 

@@ -8,7 +8,9 @@ import {
   IconX,
   IconArrowsMoveVertical,
 } from "@tabler/icons-react";
-import { CATEGORY_ORDER, TOOLS, toolSearchable, type Tool, type ToolCategory } from "@/lib/tools";
+import { CATEGORY_ORDER, toolSearchable, type Tool, type ToolCategory } from "@/lib/tools-shared";
+import { useTools } from "@/components/ToolsProvider";
+import { ToolIcon } from "@/lib/tool-icons";
 import { useI18n } from "@/lib/i18n";
 
 const catKey = (c: ToolCategory) => c;
@@ -29,6 +31,7 @@ function score(tool: Tool, q: string): number {
 
 export default function SearchPalette() {
   const { t, lang } = useI18n();
+  const TOOLS = useTools();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -77,7 +80,7 @@ export default function SearchPalette() {
       .filter((r) => r.s > 0)
       .sort((a, b) => b.s - a.s)
       .map((r) => r.tool);
-  }, [q]);
+  }, [q, TOOLS]);
 
   useEffect(() => setActive(0), [q]);
 
@@ -102,7 +105,7 @@ export default function SearchPalette() {
       onClick={() => go(tool)}
     >
       <div className="sp-item-icon">
-        <tool.Icon size={18} stroke={1.7} />
+        <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
       </div>
       <div className="sp-item-body">
         <b>{tool.title}</b>
