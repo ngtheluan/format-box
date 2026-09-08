@@ -67,14 +67,14 @@ export default function UiDemo() {
   const [showAlert, setShowAlert] = useState(true);
 
   return (
-    <div className="fb-scope fb-shell">
+    <div className="fx-scope fx-shell">
       <AdminHeader
         crumbs={[
           { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} /> },
           { label: "UI Kit", current: true, icon: <IconComponents size={13} stroke={1.8} /> },
         ]}
       />
-      <div className="ad-body" style={{ maxWidth: 1100 }}>
+      <div className="fx-body" style={{ maxWidth: 1100 }}>
         <div style={{ marginBottom: 8 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>UI Kit</h1>
           <p style={{ fontSize: 13, opacity: 0.62, marginTop: 4 }}>

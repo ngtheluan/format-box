@@ -28,13 +28,13 @@ const ADMIN_APPS: AdminApp[] = [
 
 export default function AdminDashboard() {
   return (
-    <div className="fb-scope fb-shell">
+    <div className="fx-scope fx-shell">
       <AdminHeader
         crumbs={[
           { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} />, current: true },
         ]}
       />
-      <div className="ad-body">
+      <div className="fx-body">
         <div style={{ marginBottom: 16 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
             Admin Apps
@@ -55,14 +55,14 @@ export default function AdminDashboard() {
             <a
               key={a.href}
               href={a.href}
-              className="ad-card"
+              className="fx-card"
               style={{
                 display: "flex",
                 gap: 12,
                 padding: 16,
                 borderRadius: 12,
-                border: "1px solid var(--ad-border, rgba(0,0,0,0.08))",
-                background: "var(--ad-card, #fff)",
+                border: "1px solid var(--fx-border, rgba(0,0,0,0.08))",
+                background: "var(--fx-card, #fff)",
                 textDecoration: "none",
                 color: "inherit",
               }}

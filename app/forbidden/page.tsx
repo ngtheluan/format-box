@@ -11,39 +11,39 @@ export default function ForbiddenPage({
 }) {
   const from = searchParams?.from;
   return (
-    <div className="fb-scope">
-      <div className="fb-glow" aria-hidden />
-      <div className="fb-card">
-        <div className="fb-icon-wrap">
-          <span className="fb-ping" />
-          <span className="fb-icon">
+    <div className="fx-scope">
+      <div className="fx-glow" aria-hidden />
+      <div className="fx-card">
+        <div className="fx-icon-wrap">
+          <span className="fx-ping" />
+          <span className="fx-icon">
             <IconLock size={30} stroke={1.8} />
           </span>
         </div>
 
-        <div className="fb-tag">403 · Forbidden</div>
-        <h1 className="fb-title">Không có quyền truy cập</h1>
-        <p className="fb-sub">
+        <div className="fx-tag">403 · Forbidden</div>
+        <h1 className="fx-title">Không có quyền truy cập</h1>
+        <p className="fx-sub">
           Trang bạn đang cố truy cập hiện đang <b>tắt</b>. Admin đã ẩn tính năng này khỏi menu.
         </p>
 
         {from && (
-          <div className="fb-from">
-            <span className="fb-from-lbl">Đường dẫn</span>
+          <div className="fx-from">
+            <span className="fx-from-lbl">Đường dẫn</span>
             <code>{from}</code>
           </div>
         )}
 
-        <div className="fb-actions">
-          <Link href="/" className="fb-btn fb-btn-primary">
+        <div className="fx-actions">
+          <Link href="/" className="fx-btn fx-btn-primary">
             <IconHome size={15} stroke={2} /> Về trang chủ
           </Link>
-          <Link href="/" className="fb-btn">
+          <Link href="/" className="fx-btn">
             <IconArrowLeft size={15} stroke={2} /> Quay lại
           </Link>
         </div>
 
-        <div className="fb-hint">
+        <div className="fx-hint">
           Nếu bạn là admin, có thể bật lại tính năng ở <Link href="/admin/menu">/admin/menu</Link>.
         </div>
       </div>

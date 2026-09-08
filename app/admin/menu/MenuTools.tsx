@@ -169,17 +169,17 @@ export default function MenuTools() {
   const set = <K extends keyof Tool>(k: K, v: Tool[K]) => setEditing((cur) => (cur ? { ...cur, [k]: v } : cur));
 
   return (
-    <div className="fb-scope fb-shell">
+    <div className="fx-scope fx-shell">
       <AdminHeader
         crumbs={[
           { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} />, href: "/admin" },
-          { label: "Menu", current: true, badge: <span className="ad-badge">{tools.length}</span> },
+          { label: "Menu", current: true, badge: <span className="fx-badge">{tools.length}</span> },
         ]}
         search={{ value: q, onChange: setQ, placeholder: "Tìm theo tên, href, tag…" }}
         onLogout={logout}
         actions={
           <>
-            <button onClick={seed} className="ad-btn" title="Seed defaults">
+            <button onClick={seed} className="fx-btn" title="Seed defaults">
               <IconDatabase size={14} stroke={1.9} /> Seed
             </button>
             <button
@@ -187,7 +187,7 @@ export default function MenuTools() {
                 setEditing({ ...emptyTool });
                 setIsNew(true);
               }}
-              className="ad-btn ad-btn-primary"
+              className="fx-btn fx-btn-primary"
             >
               <IconPlus size={14} stroke={2.2} /> Thêm
             </button>
@@ -195,69 +195,69 @@ export default function MenuTools() {
         }
       />
 
-      <div className="ad-stats">
-        <div className="ad-stat">
-          <span className="ad-stat-ico">
+      <div className="fx-stats">
+        <div className="fx-stat">
+          <span className="fx-stat-ico">
             <IconApps size={18} stroke={1.9} />
           </span>
-          <span className="ad-stat-txt">
-            <span className="ad-stat-val">{tools.length}</span>
-            <span className="ad-stat-lbl">Tổng tools</span>
+          <span className="fx-stat-txt">
+            <span className="fx-stat-val">{tools.length}</span>
+            <span className="fx-stat-lbl">Tổng tools</span>
           </span>
         </div>
-        <div className="ad-stat" data-tone="ok">
-          <span className="ad-stat-ico">
+        <div className="fx-stat" data-tone="ok">
+          <span className="fx-stat-ico">
             <IconToggleRight size={18} stroke={1.9} />
           </span>
-          <span className="ad-stat-txt">
-            <span className="ad-stat-val">{activeCount}</span>
-            <span className="ad-stat-lbl">Đang hiển thị</span>
+          <span className="fx-stat-txt">
+            <span className="fx-stat-val">{activeCount}</span>
+            <span className="fx-stat-lbl">Đang hiển thị</span>
           </span>
         </div>
-        <div className="ad-stat" data-tone="mute">
-          <span className="ad-stat-ico">
+        <div className="fx-stat" data-tone="mute">
+          <span className="fx-stat-ico">
             <IconEyeOff size={18} stroke={1.9} />
           </span>
-          <span className="ad-stat-txt">
-            <span className="ad-stat-val">{hiddenCount}</span>
-            <span className="ad-stat-lbl">Đang ẩn</span>
+          <span className="fx-stat-txt">
+            <span className="fx-stat-val">{hiddenCount}</span>
+            <span className="fx-stat-lbl">Đang ẩn</span>
           </span>
         </div>
-        <div className="ad-stat" data-tone="info">
-          <span className="ad-stat-ico">
+        <div className="fx-stat" data-tone="info">
+          <span className="fx-stat-ico">
             <IconLayoutGrid size={18} stroke={1.9} />
           </span>
-          <span className="ad-stat-txt">
-            <span className="ad-stat-val">{CATEGORY_ORDER.length}</span>
-            <span className="ad-stat-lbl">Nhóm danh mục</span>
+          <span className="fx-stat-txt">
+            <span className="fx-stat-val">{CATEGORY_ORDER.length}</span>
+            <span className="fx-stat-lbl">Nhóm danh mục</span>
           </span>
         </div>
       </div>
 
-      <div className="ad-tabs">
-        <button className={`ad-tab${filter === "all" ? " on" : ""}`} onClick={() => setFilter("all")}>
-          Tất cả <span className="ad-tab-count">{tools.length}</span>
+      <div className="fx-tabs">
+        <button className={`fx-tab${filter === "all" ? " on" : ""}`} onClick={() => setFilter("all")}>
+          Tất cả <span className="fx-tab-count">{tools.length}</span>
         </button>
         {CATEGORY_ORDER.map((c) => (
-          <button key={c} className={`ad-tab${filter === c ? " on" : ""}`} onClick={() => setFilter(c)}>
-            {catLabels[c]} <span className="ad-tab-count">{counts[c]}</span>
+          <button key={c} className={`fx-tab${filter === c ? " on" : ""}`} onClick={() => setFilter(c)}>
+            {catLabels[c]} <span className="fx-tab-count">{counts[c]}</span>
           </button>
         ))}
       </div>
 
-      <div className="ad-body">
+      <div className="fx-body">
         {loading ? (
-          <div className="ad-empty">Đang tải…</div>
+          <div className="fx-empty">Đang tải…</div>
         ) : visible.length === 0 ? (
-          <div className="ad-empty">
-            <div className="ad-empty-ico">
+          <div className="fx-empty">
+            <div className="fx-empty-ico">
               <IconDatabase size={22} stroke={1.7} />
             </div>
             {tools.length === 0 ? "Chưa có tool nào. Bấm Seed để nạp 23 tools mặc định." : "Không có kết quả phù hợp."}
           </div>
         ) : (
-          <div className="ad-table">
-            <div className="ad-row ad-row-head">
+          <div className="fx-table">
+            <div className="fx-row fx-row-head">
               <div />
               <div>Tool</div>
               <div>Category</div>
@@ -267,33 +267,33 @@ export default function MenuTools() {
             {visible.map((t) => {
               const active = t.active ?? true;
               return (
-                <div key={t.href} className={`ad-row${active ? "" : " dim"}`}>
-                  <div className="ad-icon-cell">
+                <div key={t.href} className={`fx-row${active ? "" : " dim"}`}>
+                  <div className="fx-icon-cell">
                     <ToolIcon name={t.iconName} size={18} stroke={1.7} />
                   </div>
-                  <div className="ad-title-cell">
-                    <div className="ad-t-row">
+                  <div className="fx-title-cell">
+                    <div className="fx-t-row">
                       <b>{t.title}</b>
-                      <span className="ad-t-href">{t.href}</span>
+                      <span className="fx-t-href">{t.href}</span>
                     </div>
-                    <span className="ad-t-sub">{t.sub.vi}</span>
+                    <span className="fx-t-sub">{t.sub.vi}</span>
                   </div>
                   <div>
-                    <span className="ad-cat-cell" data-cat={t.category}>
+                    <span className="fx-cat-cell" data-cat={t.category}>
                       {catLabels[t.category]}
                     </span>
                   </div>
                   <div>
                     <button
-                      className={`ad-switch${active ? " on" : ""}`}
+                      className={`fx-switch${active ? " on" : ""}`}
                       onClick={() => toggleActive(t)}
                       aria-label={active ? "Deactivate" : "Activate"}
                       title={active ? "Đang hiện — bấm để ẩn" : "Đang ẩn — bấm để hiện"}
                     />
                   </div>
-                  <div className="ad-row-actions">
+                  <div className="fx-row-actions">
                     <button
-                      className="ad-btn ad-btn-icon"
+                      className="fx-btn fx-btn-icon"
                       onClick={() => {
                         setEditing({ ...t });
                         setIsNew(false);
@@ -302,7 +302,7 @@ export default function MenuTools() {
                     >
                       <IconEdit size={14} stroke={1.9} />
                     </button>
-                    <button className="ad-btn ad-btn-icon ad-btn-danger" onClick={() => remove(t.href)} title="Xoá">
+                    <button className="fx-btn fx-btn-icon fx-btn-danger" onClick={() => remove(t.href)} title="Xoá">
                       <IconTrash size={14} stroke={1.9} />
                     </button>
                   </div>
@@ -315,13 +315,13 @@ export default function MenuTools() {
 
       {editing && (
         <div
-          className="ad-modal-bg"
+          className="fx-modal-bg"
           onClick={(e) => {
             if (e.target === e.currentTarget) setEditing(null);
           }}
         >
-          <div className="ad-modal">
-            <div className="ad-modal-head">
+          <div className="fx-modal">
+            <div className="fx-modal-head">
               <h2>
                 {isNew ? (
                   <>
@@ -332,15 +332,15 @@ export default function MenuTools() {
                     <IconEdit size={16} stroke={2} /> Sửa: {editing.title || editing.href}
                   </>
                 )}
-                <span className="ad-badge">{isNew ? "NEW" : "EDIT"}</span>
+                <span className="fx-badge">{isNew ? "NEW" : "EDIT"}</span>
               </h2>
-              <button className="ad-btn ad-btn-icon ad-btn-ghost" onClick={() => setEditing(null)}>
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setEditing(null)}>
                 <IconX size={16} stroke={2} />
               </button>
             </div>
-            <div className="ad-modal-body">
-              <div className="ad-grid2">
-                <div className="ad-field">
+            <div className="fx-modal-body">
+              <div className="fx-grid2">
+                <div className="fx-field">
                   <label>href *</label>
                   <input
                     value={editing.href}
@@ -349,13 +349,13 @@ export default function MenuTools() {
                     placeholder="/tool-path"
                   />
                 </div>
-                <div className="ad-field">
+                <div className="fx-field">
                   <label>Title *</label>
                   <input value={editing.title} onChange={(e) => set("title", e.target.value)} />
                 </div>
               </div>
-              <div className="ad-grid2">
-                <div className="ad-field">
+              <div className="fx-grid2">
+                <div className="fx-field">
                   <label>Icon</label>
                   <select value={editing.iconName} onChange={(e) => set("iconName", e.target.value)}>
                     {TOOL_ICON_NAMES.map((n) => (
@@ -365,7 +365,7 @@ export default function MenuTools() {
                     ))}
                   </select>
                 </div>
-                <div className="ad-field">
+                <div className="fx-field">
                   <label>Category</label>
                   <select value={editing.category} onChange={(e) => set("category", e.target.value as ToolCategory)}>
                     {CATEGORY_ORDER.map((c) => (
@@ -376,32 +376,32 @@ export default function MenuTools() {
                   </select>
                 </div>
               </div>
-              <div className="ad-grid2">
-                <div className="ad-field">
+              <div className="fx-grid2">
+                <div className="fx-field">
                   <label>Sub (VI)</label>
                   <input value={editing.sub.vi} onChange={(e) => set("sub", { ...editing.sub, vi: e.target.value })} />
                 </div>
-                <div className="ad-field">
+                <div className="fx-field">
                   <label>Sub (EN)</label>
                   <input value={editing.sub.en} onChange={(e) => set("sub", { ...editing.sub, en: e.target.value })} />
                 </div>
               </div>
-              <div className="ad-field">
+              <div className="fx-field">
                 <label>Desc (VI)</label>
                 <textarea
                   value={editing.desc.vi}
                   onChange={(e) => set("desc", { ...editing.desc, vi: e.target.value })}
                 />
               </div>
-              <div className="ad-field">
+              <div className="fx-field">
                 <label>Desc (EN)</label>
                 <textarea
                   value={editing.desc.en}
                   onChange={(e) => set("desc", { ...editing.desc, en: e.target.value })}
                 />
               </div>
-              <div className="ad-grid2">
-                <div className="ad-field">
+              <div className="fx-grid2">
+                <div className="fx-field">
                   <label>Tags (phẩy phân cách)</label>
                   <input
                     value={editing.tags.join(", ")}
@@ -416,7 +416,7 @@ export default function MenuTools() {
                     }
                   />
                 </div>
-                <div className="ad-field">
+                <div className="fx-field">
                   <label>Sort (nhỏ = trước)</label>
                   <input
                     type="number"
@@ -425,23 +425,23 @@ export default function MenuTools() {
                   />
                 </div>
               </div>
-              <div className="ad-field" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div className="fx-field" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button
                   type="button"
-                  className={`ad-switch${(editing.active ?? true) ? " on" : ""}`}
+                  className={`fx-switch${(editing.active ?? true) ? " on" : ""}`}
                   onClick={() => set("active", !(editing.active ?? true))}
                 />
                 <span style={{ fontSize: 13 }}>
                   {(editing.active ?? true) ? "Đang bật — hiện trong menu" : "Đang tắt — ẩn khỏi menu"}
                 </span>
               </div>
-              {err && <div className="ad-err">{err}</div>}
+              {err && <div className="fx-err">{err}</div>}
             </div>
-            <div className="ad-modal-foot">
-              <button className="ad-btn" onClick={() => setEditing(null)}>
+            <div className="fx-modal-foot">
+              <button className="fx-btn" onClick={() => setEditing(null)}>
                 Huỷ
               </button>
-              <button className="ad-btn ad-btn-primary" onClick={save} disabled={saving}>
+              <button className="fx-btn fx-btn-primary" onClick={save} disabled={saving}>
                 {saving ? "Đang lưu…" : "Lưu"}
               </button>
             </div>

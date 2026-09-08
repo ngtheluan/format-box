@@ -32,21 +32,21 @@ async function defaultLogout() {
 export default function AdminHeader({ crumbs, search, actions, showLogout = true, onLogout }: AdminHeaderProps) {
   return (
     <>
-      <div className="ad-stripe" />
-      <div className="ad-top">
-        <div className="ad-top-inner">
-          <a href="/admin/menu" className="ad-brand" style={{ textDecoration: "none", color: "inherit" }}>
-            <span className="ad-brand-mark">
+      <div className="fx-stripe" />
+      <div className="fx-top">
+        <div className="fx-top-inner">
+          <a href="/admin/menu" className="fx-brand" style={{ textDecoration: "none", color: "inherit" }}>
+            <span className="fx-brand-mark">
               <IconShieldLock size={17} stroke={2} />
             </span>
-            <span className="ad-brand-text">
-              <span className="ad-brand-title">FormatBox</span>
-              <span className="ad-brand-sub">Admin Panel</span>
+            <span className="fx-brand-text">
+              <span className="fx-brand-title">FormatBox</span>
+              <span className="fx-brand-sub">Admin Panel</span>
             </span>
           </a>
 
           {crumbs && crumbs.length > 0 && (
-            <div className="ad-crumbs">
+            <div className="fx-crumbs">
               {crumbs.map((c, i) => {
                 const clickable = !c.current && (c.href || c.onClick);
                 const inner = (
@@ -73,11 +73,11 @@ export default function AdminHeader({ crumbs, search, actions, showLogout = true
                     {i > 0 && <IconChevronRight size={12} stroke={1.8} className="sep" />}
                     {clickable ? (
                       c.href ? (
-                        <a href={c.href} onClick={c.onClick} className="ad-crumb-link" style={linkStyle}>
+                        <a href={c.href} onClick={c.onClick} className="fx-crumb-link" style={linkStyle}>
                           {inner}
                         </a>
                       ) : (
-                        <button type="button" onClick={c.onClick} className="ad-crumb-link" style={linkStyle}>
+                        <button type="button" onClick={c.onClick} className="fx-crumb-link" style={linkStyle}>
                           {inner}
                         </button>
                       )
@@ -91,7 +91,7 @@ export default function AdminHeader({ crumbs, search, actions, showLogout = true
           )}
 
           {search && (
-            <div className="ad-search">
+            <div className="fx-search">
               <IconSearch size={14} stroke={1.9} />
               <input
                 value={search.value}
@@ -101,12 +101,12 @@ export default function AdminHeader({ crumbs, search, actions, showLogout = true
             </div>
           )}
 
-          <div className="ad-actions">
+          <div className="fx-actions">
             {actions}
             {showLogout && (
               <button
                 onClick={onLogout ?? defaultLogout}
-                className="ad-btn ad-btn-ghost"
+                className="fx-btn fx-btn-ghost"
                 title="Đăng xuất"
                 aria-label="Đăng xuất"
               >

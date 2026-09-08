@@ -23,20 +23,20 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="fb-scope fb-login">
-      <form className="fb-login-card" onSubmit={submit}>
-        <div className="fb-login-brand">
+    <div className="fx-scope fx-login">
+      <form className="fx-login-card" onSubmit={submit}>
+        <div className="fx-login-brand">
           <span className="dot">
             <IconShieldLock size={20} stroke={2} />
           </span>
           <span>FormatBox</span>
-          <span className="fb-login-tag">Admin</span>
+          <span className="fx-login-tag">Admin</span>
         </div>
-        <div className="fb-login-sub">Khu vực quản trị — cần mật khẩu để tiếp tục</div>
-        <div className="fb-login-field">
+        <div className="fx-login-sub">Khu vực quản trị — cần mật khẩu để tiếp tục</div>
+        <div className="fx-login-field">
           <IconLock size={16} stroke={1.8} />
           <input
-            className="ad-input"
+            className="fx-input"
             type="password"
             value={pw}
             onChange={(e) => setPw(e.target.value)}
@@ -45,12 +45,12 @@ export default function AdminLogin() {
           />
         </div>
         {err && (
-          <div className="ad-err">
+          <div className="fx-err">
             <IconAlertCircle size={14} stroke={2} />
             {err}
           </div>
         )}
-        <button type="submit" disabled={busy || !pw} className="ad-btn ad-btn-primary ad-btn-lg">
+        <button type="submit" disabled={busy || !pw} className="fx-btn fx-btn-primary fx-btn-lg">
           {busy ? "Đang xác thực…" : "Đăng nhập"}
         </button>
       </form>
