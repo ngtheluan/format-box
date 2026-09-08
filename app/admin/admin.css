@@ -286,12 +286,13 @@
 .fx-brand-mark {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #f59e0b, #ef4444);
-  color: #fff;
-  box-shadow: 0 6px 16px -6px rgba(245, 158, 11, 0.6);
+  filter: drop-shadow(0 6px 14px rgba(245, 158, 11, 0.45));
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fx-brand:hover .fx-brand-mark {
+  transform: rotate(-8deg) scale(1.06);
 }
 .fx-brand-text {
   display: flex;

@@ -1,6 +1,7 @@
 "use client";
-import { IconChevronRight, IconLogout, IconSearch, IconShieldLock } from "@tabler/icons-react";
+import { IconChevronRight, IconLogout, IconSearch } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { LogoMark } from "@/components/Logo";
 import "./admin.css";
 
 export type AdminCrumb = {
@@ -37,7 +38,7 @@ export default function AdminHeader({ crumbs, search, actions, showLogout = true
         <div className="fx-top-inner">
           <a href="/admin" className="fx-brand" style={{ textDecoration: "none", color: "inherit" }}>
             <span className="fx-brand-mark">
-              <IconShieldLock size={17} stroke={2} />
+              <LogoMark variant="admin" size={26} />
             </span>
             <span className="fx-brand-text">
               <span className="fx-brand-title">FormatBox</span>
