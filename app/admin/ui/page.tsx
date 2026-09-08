@@ -1,6 +1,4 @@
 "use client";
-import AdminHeader from "../AdminHeader";
-import "../admin.css";
 import {
   Accordion,
   AccordionItem,
@@ -55,6 +53,8 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import AdminHeader from "../AdminHeader";
+import "../admin.css";
 
 export default function UiDemo() {
   const [modal, setModal] = useState(false);
@@ -70,7 +70,7 @@ export default function UiDemo() {
     <div className="fx-scope fx-shell">
       <AdminHeader
         crumbs={[
-          { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} /> },
+          { label: "Dashboard", href: "/admin", icon: <IconLayoutGrid size={13} stroke={1.8} /> },
           { label: "UI Kit", current: true, icon: <IconComponents size={13} stroke={1.8} /> },
         ]}
       />
@@ -370,7 +370,6 @@ export default function UiDemo() {
           <Switch label="Nhận email marketing" />
         </VStack>
       </Drawer>
-
     </div>
   );
 }

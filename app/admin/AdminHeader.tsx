@@ -35,7 +35,7 @@ export default function AdminHeader({ crumbs, search, actions, showLogout = true
       <div className="fx-stripe" />
       <div className="fx-top">
         <div className="fx-top-inner">
-          <a href="/admin/menu" className="fx-brand" style={{ textDecoration: "none", color: "inherit" }}>
+          <a href="/admin" className="fx-brand" style={{ textDecoration: "none", color: "inherit" }}>
             <span className="fx-brand-mark">
               <IconShieldLock size={17} stroke={2} />
             </span>

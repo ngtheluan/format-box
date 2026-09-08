@@ -15,6 +15,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import AdminHeader from "../AdminHeader";
 import "../admin.css";
+import { useToast } from "@/components/Toast";
+import { useToolsState } from "@/components/ToolsProvider";
 
 type Row = {
   href: string;
@@ -74,6 +76,8 @@ export default function MenuTools() {
   const [err, setErr] = useState("");
   const [filter, setFilter] = useState<FilterCat>("all");
   const [q, setQ] = useState("");
+  const toast = useToast();
+  const { reload: reloadPublicTools } = useToolsState();
 
   const load = async () => {
     setLoading(true);
@@ -113,6 +117,7 @@ export default function MenuTools() {
     setSaving(true);
     setErr("");
     const method = isNew ? "POST" : "PUT";
+    const wasNew = isNew;
     const res = await fetch("/api/admin/tools", {
       method,
       headers: { "Content-Type": "application/json" },
@@ -122,21 +127,26 @@ export default function MenuTools() {
     setSaving(false);
     if (!j.ok) {
       setErr(j.error || "Save failed");
+      toast(j.error || "Lưu thất bại");
       return;
     }
     setEditing(null);
     setIsNew(false);
+    toast(wasNew ? "Đã thêm tool" : "Đã lưu thay đổi");
     load();
+    reloadPublicTools();
   }
 
   async function remove(href: string) {
     if (!confirm(`Xoá ${href}?`)) return;
-    await fetch("/api/admin/tools", {
+    const res = await fetch("/api/admin/tools", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ href }),
     });
+    toast(res.ok ? `Đã xoá ${href}` : "Xoá thất bại");
     load();
+    reloadPublicTools();
   }
 
   async function toggleActive(t: Tool) {
@@ -147,7 +157,13 @@ export default function MenuTools() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ href: t.href, active: next }),
     });
-    if (!res.ok) load();
+    if (!res.ok) {
+      toast("Cập nhật thất bại");
+      load();
+    } else {
+      toast(next ? `Đã bật ${t.title}` : `Đã ẩn ${t.title}`);
+      reloadPublicTools();
+    }
   }
 
   async function seed() {
@@ -155,10 +171,12 @@ export default function MenuTools() {
     const res = await fetch("/api/admin/seed", { method: "POST" });
     const j = await res.json();
     if (!j.ok) {
-      alert("Seed failed: " + j.error);
+      toast("Seed thất bại: " + j.error);
       return;
     }
+    toast("Đã seed tools mặc định");
     load();
+    reloadPublicTools();
   }
 
   async function logout() {

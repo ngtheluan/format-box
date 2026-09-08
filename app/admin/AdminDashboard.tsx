@@ -1,5 +1,5 @@
 "use client";
-import { IconComponents, IconLayoutGrid, IconListDetails } from "@tabler/icons-react";
+import { IconComponents, IconLayoutGrid, IconListDetails, IconMessageDots } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import AdminHeader from "./AdminHeader";
 import "./admin.css";
@@ -23,6 +23,12 @@ const ADMIN_APPS: AdminApp[] = [
     title: "UI Kit",
     desc: "Bộ component dùng chung — Button, Input, Modal…",
     icon: <IconComponents size={20} stroke={1.7} />,
+  },
+  {
+    href: "/admin/feedback",
+    title: "Liên hệ góp ý",
+    desc: "Xem danh sách góp ý từ Google Sheet + file đính kèm Drive.",
+    icon: <IconMessageDots size={20} stroke={1.7} />,
   },
 ];
 

@@ -2,11 +2,13 @@
 import { useState } from "react";
 import { IconAlertCircle, IconLock, IconShieldLock } from "@tabler/icons-react";
 import "./admin.css";
+import { useToast } from "@/components/Toast";
 
 export default function AdminLogin() {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -18,8 +20,13 @@ export default function AdminLogin() {
       body: JSON.stringify({ password: pw }),
     });
     setBusy(false);
-    if (res.ok) window.location.href = "/admin/menu";
-    else setErr("Sai mật khẩu");
+    if (res.ok) {
+      toast("Đăng nhập thành công");
+      window.location.href = "/admin/menu";
+    } else {
+      setErr("Sai mật khẩu");
+      toast("Sai mật khẩu");
+    }
   }
 
   return (
