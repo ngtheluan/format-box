@@ -172,8 +172,8 @@ export default function MenuTools() {
     <div className="ad-scope ad-shell">
       <AdminHeader
         crumbs={[
-          { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} /> },
-          { label: "Tools", current: true, badge: <span className="ad-badge">{tools.length}</span> },
+          { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} />, href: "/admin" },
+          { label: "Menu", current: true, badge: <span className="ad-badge">{tools.length}</span> },
         ]}
         search={{ value: q, onChange: setQ, placeholder: "Tìm theo tên, href, tag…" }}
         onLogout={logout}

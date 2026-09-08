@@ -8,6 +8,8 @@ export type AdminCrumb = {
   icon?: ReactNode;
   current?: boolean;
   badge?: ReactNode;
+  href?: string;
+  onClick?: () => void;
 };
 
 export type AdminHeaderProps = {
@@ -27,13 +29,7 @@ async function defaultLogout() {
   window.location.href = "/admin";
 }
 
-export default function AdminHeader({
-  crumbs,
-  search,
-  actions,
-  showLogout = true,
-  onLogout,
-}: AdminHeaderProps) {
+export default function AdminHeader({ crumbs, search, actions, showLogout = true, onLogout }: AdminHeaderProps) {
   return (
     <>
       <div className="ad-stripe" />
@@ -51,14 +47,46 @@ export default function AdminHeader({
 
           {crumbs && crumbs.length > 0 && (
             <div className="ad-crumbs">
-              {crumbs.map((c, i) => (
-                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  {i > 0 && <IconChevronRight size={12} stroke={1.8} className="sep" />}
-                  {c.icon}
-                  <span className={c.current ? "cur" : ""}>{c.label}</span>
-                  {c.badge}
-                </span>
-              ))}
+              {crumbs.map((c, i) => {
+                const clickable = !c.current && (c.href || c.onClick);
+                const inner = (
+                  <>
+                    {c.icon}
+                    <span className={c.current ? "cur" : ""}>{c.label}</span>
+                    {c.badge}
+                  </>
+                );
+                const linkStyle = {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  textDecoration: "none",
+                  color: "inherit",
+                  cursor: "pointer",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  font: "inherit",
+                } as const;
+                return (
+                  <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {i > 0 && <IconChevronRight size={12} stroke={1.8} className="sep" />}
+                    {clickable ? (
+                      c.href ? (
+                        <a href={c.href} onClick={c.onClick} className="ad-crumb-link" style={linkStyle}>
+                          {inner}
+                        </a>
+                      ) : (
+                        <button type="button" onClick={c.onClick} className="ad-crumb-link" style={linkStyle}>
+                          {inner}
+                        </button>
+                      )
+                    ) : (
+                      inner
+                    )}
+                  </span>
+                );
+              })}
             </div>
           )}
 
