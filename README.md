@@ -1,4 +1,4 @@
-# FormatBox
+# Format-Box
 
 Data-conversion tools that run entirely in the browser — Base64, JSON, and images. No signup.
 
