@@ -1,14 +1,6 @@
-import Nav from "@/components/Nav";
-import type { Metadata } from "next";
-import MachuPodcast from "./MachuPodcast";
 import type { Episode, Video } from "./types";
 
-export const metadata: Metadata = {
-  title: "MachuTeam Podcast — Kỳ Án & Truyện Ma",
-  description: "Nghe podcast Kỳ Án từ MachuTeam",
-};
-
-async function fetchEpisodes(): Promise<Episode[]> {
+export async function fetchEpisodes(): Promise<Episode[]> {
   const categories = [
     "https://machuteam.vn/podcast/ki-an",
     "https://machuteam.vn/podcast/truyen",
@@ -22,7 +14,8 @@ async function fetchEpisodes(): Promise<Episode[]> {
     try {
       const res = await fetch(url, {
         headers: {
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36",
           Accept: "text/html,application/xhtml+xml",
         },
         next: { revalidate: 3600 },
@@ -68,7 +61,7 @@ async function fetchEpisodes(): Promise<Episode[]> {
   return episodes;
 }
 
-async function fetchVideos(): Promise<Video[]> {
+export async function fetchVideos(): Promise<Video[]> {
   try {
     const CHANNEL_ID = "UCGQSSE5pvBxV6r7VfZbvWuQ";
     const res = await fetch(
@@ -80,31 +73,22 @@ async function fetchVideos(): Promise<Video[]> {
     const xml = await res.text();
     const entries = xml.split("<entry>").slice(1);
 
-    return entries.map((entry) => {
-      const videoId = (entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/) || [])[1] ?? "";
-      const title = (entry.match(/<title>([^<]+)<\/title>/) || [])[1]?.trim() ?? "";
-      const published = (entry.match(/<published>([^<]+)<\/published>/) || [])[1] ?? "";
-      const thumbMatch = entry.match(/<media:thumbnail[^>]*\surl="([^"]+)"/);
-      const thumbnail = thumbMatch?.[1] ?? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-      const viewsMatch = entry.match(/views="(\d+)"/);
-      const views = viewsMatch ? parseInt(viewsMatch[1]) : 0;
-      const descMatch = entry.match(/<media:description>([^<]*)/);
-      const description = descMatch ? descMatch[1].trim().slice(0, 150) : "";
+    return entries
+      .map((entry) => {
+        const videoId = (entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/) || [])[1] ?? "";
+        const title = (entry.match(/<title>([^<]+)<\/title>/) || [])[1]?.trim() ?? "";
+        const published = (entry.match(/<published>([^<]+)<\/published>/) || [])[1] ?? "";
+        const thumbMatch = entry.match(/<media:thumbnail[^>]*\surl="([^"]+)"/);
+        const thumbnail = thumbMatch?.[1] ?? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+        const viewsMatch = entry.match(/views="(\d+)"/);
+        const views = viewsMatch ? parseInt(viewsMatch[1]) : 0;
+        const descMatch = entry.match(/<media:description>([^<]*)/);
+        const description = descMatch ? descMatch[1].trim().slice(0, 150) : "";
 
-      return { videoId, title, published, thumbnail, views, description };
-    }).filter((v) => v.videoId);
+        return { videoId, title, published, thumbnail, views, description };
+      })
+      .filter((v) => v.videoId);
   } catch {
     return [];
   }
-}
-
-export default async function Page() {
-  const [episodes, videos] = await Promise.all([fetchEpisodes(), fetchVideos()]);
-
-  return (
-    <>
-      <Nav />
-      <MachuPodcast episodes={episodes} videos={videos} />
-    </>
-  );
 }

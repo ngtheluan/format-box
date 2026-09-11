@@ -1,7 +1,7 @@
 "use client";
+import { LogoMark } from "@/components/Logo";
 import { IconChevronRight, IconLogout, IconSearch } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { LogoMark } from "@/components/Logo";
 import "./admin.css";
 
 export type AdminCrumb = {
@@ -91,30 +91,32 @@ export default function AdminHeader({ crumbs, search, actions, showLogout = true
             </div>
           )}
 
-          {search && (
-            <div className="fx-search">
-              <IconSearch size={14} stroke={1.9} />
-              <input
-                value={search.value}
-                onChange={(e) => search.onChange(e.target.value)}
-                placeholder={search.placeholder ?? "Tìm kiếm…"}
-              />
-            </div>
+          {showLogout && (
+            <button
+              onClick={onLogout ?? defaultLogout}
+              className="fx-btn fx-btn-ghost fx-logout"
+              title="Đăng xuất"
+              aria-label="Đăng xuất"
+            >
+              <IconLogout size={14} stroke={1.9} />
+            </button>
           )}
 
-          <div className="fx-actions">
-            {actions}
-            {showLogout && (
-              <button
-                onClick={onLogout ?? defaultLogout}
-                className="fx-btn fx-btn-ghost"
-                title="Đăng xuất"
-                aria-label="Đăng xuất"
-              >
-                <IconLogout size={14} stroke={1.9} />
-              </button>
-            )}
-          </div>
+          {(search || actions) && (
+            <div className="fx-top-right">
+              {search && (
+                <div className="fx-search">
+                  <IconSearch size={14} stroke={1.9} />
+                  <input
+                    value={search.value}
+                    onChange={(e) => search.onChange(e.target.value)}
+                    placeholder={search.placeholder ?? "Tìm kiếm…"}
+                  />
+                </div>
+              )}
+              {actions && <div className="fx-actions">{actions}</div>}
+            </div>
+          )}
         </div>
       </div>
     </>

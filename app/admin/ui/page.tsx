@@ -53,8 +53,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import AdminHeader from "../AdminHeader";
-import "../admin.css";
+import AdminBody from "../AdminBody";
 
 export default function UiDemo() {
   const [modal, setModal] = useState(false);
@@ -67,22 +66,17 @@ export default function UiDemo() {
   const [showAlert, setShowAlert] = useState(true);
 
   return (
-    <div className="fx-scope fx-shell">
-      <AdminHeader
+    <>
+      <AdminBody
         crumbs={[
           { label: "Dashboard", href: "/admin", icon: <IconLayoutGrid size={13} stroke={1.8} /> },
           { label: "UI Kit", current: true, icon: <IconComponents size={13} stroke={1.8} /> },
         ]}
-      />
-      <div className="fx-body" style={{ maxWidth: 1100 }}>
-        <div style={{ marginBottom: 8 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>UI Kit</h1>
-          <p style={{ fontSize: 13, opacity: 0.62, marginTop: 4 }}>
-            Bộ component dùng chung — Button, Input, Modal, Tabs, và nhiều hơn.
-          </p>
-        </div>
-
-        <VStack gap={36} style={{ marginTop: 20 }}>
+        title="UI Kit"
+        description="Bộ component dùng chung — Button, Input, Modal, Tabs, và nhiều hơn."
+        bodyStyle={{ maxWidth: 1100 }}
+      >
+        <VStack gap={36} style={{ marginTop: 4 }}>
           {/* BUTTONS */}
           <Section title="Buttons">
             <HStack wrap gap={10}>
@@ -338,7 +332,7 @@ export default function UiDemo() {
             </HStack>
           </Section>
         </VStack>
-      </div>
+      </AdminBody>
 
       <Modal
         open={modal}
@@ -370,7 +364,7 @@ export default function UiDemo() {
           <Switch label="Nhận email marketing" />
         </VStack>
       </Drawer>
-    </div>
+    </>
   );
 }
 

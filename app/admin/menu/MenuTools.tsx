@@ -1,4 +1,6 @@
 "use client";
+import { useToast } from "@/components/Toast";
+import { useToolsState } from "@/components/ToolsProvider";
 import { TOOL_ICON_NAMES, ToolIcon } from "@/lib/tool-icons";
 import { CATEGORY_ORDER, type Tool, type ToolCategory } from "@/lib/tools-shared";
 import {
@@ -13,10 +15,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
-import AdminHeader from "../AdminHeader";
-import "../admin.css";
-import { useToast } from "@/components/Toast";
-import { useToolsState } from "@/components/ToolsProvider";
+import AdminBody from "../AdminBody";
 
 type Row = {
   href: string;
@@ -187,83 +186,74 @@ export default function MenuTools() {
   const set = <K extends keyof Tool>(k: K, v: Tool[K]) => setEditing((cur) => (cur ? { ...cur, [k]: v } : cur));
 
   return (
-    <div className="fx-scope fx-shell">
-      <AdminHeader
-        crumbs={[
-          { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} />, href: "/admin" },
-          { label: "Menu", current: true, badge: <span className="fx-badge">{tools.length}</span> },
-        ]}
-        search={{ value: q, onChange: setQ, placeholder: "Tìm theo tên, href, tag…" }}
-        onLogout={logout}
-        actions={
-          <>
-            <button onClick={seed} className="fx-btn" title="Seed defaults">
-              <IconDatabase size={14} stroke={1.9} /> Seed
-            </button>
-            <button
-              onClick={() => {
-                setEditing({ ...emptyTool });
-                setIsNew(true);
-              }}
-              className="fx-btn fx-btn-primary"
-            >
-              <IconPlus size={14} stroke={2.2} /> Thêm
-            </button>
-          </>
-        }
-      />
-
-      <div className="fx-stats">
-        <div className="fx-stat">
-          <span className="fx-stat-ico">
-            <IconApps size={18} stroke={1.9} />
-          </span>
-          <span className="fx-stat-txt">
-            <span className="fx-stat-val">{tools.length}</span>
-            <span className="fx-stat-lbl">Tổng tools</span>
-          </span>
-        </div>
-        <div className="fx-stat" data-tone="ok">
-          <span className="fx-stat-ico">
-            <IconToggleRight size={18} stroke={1.9} />
-          </span>
-          <span className="fx-stat-txt">
-            <span className="fx-stat-val">{activeCount}</span>
-            <span className="fx-stat-lbl">Đang hiển thị</span>
-          </span>
-        </div>
-        <div className="fx-stat" data-tone="mute">
-          <span className="fx-stat-ico">
-            <IconEyeOff size={18} stroke={1.9} />
-          </span>
-          <span className="fx-stat-txt">
-            <span className="fx-stat-val">{hiddenCount}</span>
-            <span className="fx-stat-lbl">Đang ẩn</span>
-          </span>
-        </div>
-        <div className="fx-stat" data-tone="info">
-          <span className="fx-stat-ico">
-            <IconLayoutGrid size={18} stroke={1.9} />
-          </span>
-          <span className="fx-stat-txt">
-            <span className="fx-stat-val">{CATEGORY_ORDER.length}</span>
-            <span className="fx-stat-lbl">Nhóm danh mục</span>
-          </span>
-        </div>
-      </div>
-
-      <div className="fx-tabs">
-        <button className={`fx-tab${filter === "all" ? " on" : ""}`} onClick={() => setFilter("all")}>
-          Tất cả <span className="fx-tab-count">{tools.length}</span>
-        </button>
-        {CATEGORY_ORDER.map((c) => (
-          <button key={c} className={`fx-tab${filter === c ? " on" : ""}`} onClick={() => setFilter(c)}>
-            {catLabels[c]} <span className="fx-tab-count">{counts[c]}</span>
+    <AdminBody
+      crumbs={[
+        { label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} />, href: "/admin" },
+        { label: "Menu", current: true, badge: <span className="fx-badge">{tools.length}</span> },
+      ]}
+      search={{ value: q, onChange: setQ }}
+      onLogout={logout}
+      headerActions={
+        <>
+          <button onClick={seed} className="fx-btn" title="Seed defaults">
+            <IconDatabase size={14} stroke={1.9} /> Seed
           </button>
-        ))}
-      </div>
-
-      <div className="fx-body">
+          <button
+            onClick={() => {
+              setEditing({ ...emptyTool });
+              setIsNew(true);
+            }}
+            className="fx-btn fx-btn-primary"
+          >
+            <IconPlus size={14} stroke={2.2} /> Thêm
+          </button>
+        </>
+      }
+      stats={
+        <>
+          <div className="fx-stat">
+            <span className="fx-stat-ico"><IconApps size={18} stroke={1.9} /></span>
+            <span className="fx-stat-txt">
+              <span className="fx-stat-val">{tools.length}</span>
+              <span className="fx-stat-lbl">Tổng tools</span>
+            </span>
+          </div>
+          <div className="fx-stat" data-tone="ok">
+            <span className="fx-stat-ico"><IconToggleRight size={18} stroke={1.9} /></span>
+            <span className="fx-stat-txt">
+              <span className="fx-stat-val">{activeCount}</span>
+              <span className="fx-stat-lbl">Đang hiển thị</span>
+            </span>
+          </div>
+          <div className="fx-stat" data-tone="mute">
+            <span className="fx-stat-ico"><IconEyeOff size={18} stroke={1.9} /></span>
+            <span className="fx-stat-txt">
+              <span className="fx-stat-val">{hiddenCount}</span>
+              <span className="fx-stat-lbl">Đang ẩn</span>
+            </span>
+          </div>
+          <div className="fx-stat" data-tone="info">
+            <span className="fx-stat-ico"><IconLayoutGrid size={18} stroke={1.9} /></span>
+            <span className="fx-stat-txt">
+              <span className="fx-stat-val">{CATEGORY_ORDER.length}</span>
+              <span className="fx-stat-lbl">Nhóm danh mục</span>
+            </span>
+          </div>
+        </>
+      }
+      tabs={
+        <>
+          <button className={`fx-tab${filter === "all" ? " on" : ""}`} onClick={() => setFilter("all")}>
+            Tất cả <span className="fx-tab-count">{tools.length}</span>
+          </button>
+          {CATEGORY_ORDER.map((c) => (
+            <button key={c} className={`fx-tab${filter === c ? " on" : ""}`} onClick={() => setFilter(c)}>
+              {catLabels[c]} <span className="fx-tab-count">{counts[c]}</span>
+            </button>
+          ))}
+        </>
+      }
+    >
         {loading ? (
           <div className="fx-empty">Đang tải…</div>
         ) : visible.length === 0 ? (
@@ -329,7 +319,6 @@ export default function MenuTools() {
             })}
           </div>
         )}
-      </div>
 
       {editing && (
         <div
@@ -466,6 +455,6 @@ export default function MenuTools() {
           </div>
         </div>
       )}
-    </div>
+    </AdminBody>
   );
 }

@@ -13,8 +13,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import AdminHeader from "../AdminHeader";
-import "../admin.css";
+import AdminBody from "../AdminBody";
 
 type FeedbackItem = {
   row: number;
@@ -185,35 +184,20 @@ export default function AdminFeedbackPage() {
   };
 
   return (
-    <div className="fx-scope fx-shell">
-      <AdminHeader
-        crumbs={[
-          { label: "Dashboard", href: "/admin", icon: <IconLayoutGrid size={13} stroke={1.8} /> },
-          { label: "Liên hệ góp ý", icon: <IconMessageDots size={13} stroke={1.8} />, current: true },
-        ]}
-      />
-      <div className="fx-body">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 16,
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>Liên hệ góp ý</h1>
-            <p style={{ fontSize: 13, opacity: 0.62, marginTop: 4 }}>
-              Danh sách góp ý đọc từ Google Sheet đã cấu hình. File đính kèm mở từ Drive.
-            </p>
-          </div>
-          <button type="button" onClick={load} disabled={loading} style={btnGhost}>
-            {loading ? <IconLoader2 size={14} stroke={2} className="spin" /> : <IconRefresh size={14} stroke={2} />}
-            Tải lại
-          </button>
-        </div>
+    <AdminBody
+      crumbs={[
+        { label: "Dashboard", href: "/admin", icon: <IconLayoutGrid size={13} stroke={1.8} /> },
+        { label: "Liên hệ góp ý", icon: <IconMessageDots size={13} stroke={1.8} />, current: true },
+      ]}
+      title="Liên hệ góp ý"
+      description="Danh sách góp ý đọc từ Google Sheet đã cấu hình. File đính kèm mở từ Drive."
+      titleActions={
+        <button type="button" onClick={load} disabled={loading} style={btnGhost}>
+          {loading ? <IconLoader2 size={14} stroke={2} className="spin" /> : <IconRefresh size={14} stroke={2} />}
+          Tải lại
+        </button>
+      }
+    >
 
         {error && <div style={alertError}>{error}</div>}
 
@@ -399,7 +383,6 @@ export default function AdminFeedbackPage() {
             )}
           </div>
         )}
-      </div>
 
       {reply && (
         <div
@@ -599,7 +582,7 @@ export default function AdminFeedbackPage() {
           </div>
         </div>
       )}
-    </div>
+    </AdminBody>
   );
 }
 

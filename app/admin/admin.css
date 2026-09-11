@@ -48,10 +48,6 @@
     linear-gradient(to right, rgba(30, 30, 40, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(30, 30, 40, 0.05) 1px, transparent 1px);
 }
-.fx-shell > * {
-  position: relative;
-  z-index: 1;
-}
 
 /* Warning stripe trên cùng — dấu hiệu vùng admin */
 .fx-stripe {
@@ -273,7 +269,6 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
 }
 .fx-brand {
   display: flex;
@@ -368,10 +363,19 @@
   box-shadow: var(--fx-ring);
 }
 
+.fx-logout {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.fx-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 .fx-actions {
   display: flex;
   gap: 8px;
-  margin-left: auto;
 }
 
 /* ============ Stats row ============ */
@@ -811,6 +815,92 @@
   gap: 12px;
 }
 
+/* ============ Page heading ============ */
+.fx-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.fx-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.015em;
+  color: var(--bright, #f2f5f9);
+  line-height: 1.2;
+}
+.fx-page-desc {
+  font-size: 13px;
+  opacity: 0.62;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+.fx-page-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* ============ Admin App Card (dashboard grid) ============ */
+.fx-app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.fx-app-card {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  background: var(--fx-card);
+  text-decoration: none;
+  color: inherit;
+  align-items: flex-start;
+}
+.fx-app-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  background: var(--fx-accent-soft);
+  color: var(--fx-accent);
+  flex-shrink: 0;
+  transition: transform 0.25s ease, background 0.2s ease;
+}
+.fx-app-card:hover .fx-app-icon {
+  transform: scale(1.06) rotate(-4deg);
+}
+.fx-app-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.fx-app-info b {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bright, #f2f5f9);
+}
+.fx-app-info span {
+  font-size: 12.5px;
+  opacity: 0.65;
+  line-height: 1.45;
+}
+.fx-app-info small {
+  font-size: 11px;
+  opacity: 0.4;
+  font-family: var(--mono, ui-monospace, monospace);
+  margin-top: 2px;
+}
+
 /* ============ Admin App Card ============ */
 .fx-card {
   position: relative;
@@ -888,9 +978,7 @@
     gap: 10px;
     padding: 10px 12px;
   }
-  .fx-row .fx-cat-cell {
-    display: none;
-  }
+  .fx-row > div:nth-child(3),
   .fx-row-head > div:nth-child(3) {
     display: none;
   }
@@ -912,11 +1000,83 @@
   .fx-crumbs {
     display: none;
   }
+  .fx-top-inner {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .fx-top-right {
+    flex: 1 1 100%;
+    order: 3;
+  }
   .fx-search {
+    flex: 1;
+    min-width: 0;
     max-width: none;
   }
   .fx-stats {
     padding: 0 12px;
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .fx-page-title {
+    font-size: 18px;
+  }
+  .fx-page-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .fx-page-actions {
+    justify-content: flex-end;
+  }
+  /* Hide "Seed" label, keep icon only */
+  .fx-btn-seed-label {
+    display: none;
+  }
+  /* Tighten stats to 2 cols */
+  .fx-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .fx-stat {
+    padding: 10px 12px;
+  }
+  .fx-stat-val {
+    font-size: 16px;
+  }
+  /* Table: restore all columns on small screens */
+  .fx-row {
+    grid-template-columns: 30px minmax(0, 1fr) 72px 44px 68px;
+    gap: 8px;
+    padding: 9px 10px;
+  }
+  .fx-row > div:nth-child(3),
+  .fx-row-head > div:nth-child(3) {
+    display: revert;
+  }
+  .fx-icon-cell {
+    width: 30px;
+    height: 30px;
+  }
+  /* Modal takes full height on phone */
+  .fx-modal-bg {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .fx-modal {
+    max-width: 100%;
+    max-height: 94dvh;
+    border-radius: 16px 16px 0 0;
+  }
+  .fx-tabs {
+    padding: 8px 10px 0;
+    gap: 2px;
+  }
+  .fx-tab {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+  .fx-body {
+    padding: 8px 10px 20px;
   }
 }
