@@ -264,7 +264,6 @@
 }
 .fx-top-inner {
   width: 100%;
-  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -381,7 +380,6 @@
 /* ============ Stats row ============ */
 .fx-stats {
   width: 100%;
-  max-width: 1200px;
   margin: 14px auto 0;
   padding: 0 20px;
   display: grid;
@@ -454,7 +452,6 @@
   display: flex;
   gap: 4px;
   padding: 12px 20px 0;
-  max-width: 1200px;
   margin: 0 auto;
   width: 100%;
   overflow-x: auto;
@@ -515,7 +512,6 @@
   padding: 12px 20px 24px;
   overflow-y: auto;
   width: 100%;
-  max-width: 1200px;
   margin: 0 auto;
 }
 .fx-table {
@@ -873,7 +869,9 @@
   background: var(--fx-accent-soft);
   color: var(--fx-accent);
   flex-shrink: 0;
-  transition: transform 0.25s ease, background 0.2s ease;
+  transition:
+    transform 0.25s ease,
+    background 0.2s ease;
 }
 .fx-app-card:hover .fx-app-icon {
   transform: scale(1.06) rotate(-4deg);

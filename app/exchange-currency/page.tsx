@@ -7,7 +7,7 @@ export default function Page() {
   const { t } = useI18n();
   return (
     <>
-      <div className="page">
+      <div className="page" style={{ maxWidth: 1200 }}>
         <h1 className="page-title">
           <IconCurrencyDollar size={22} stroke={1.8} /> Exchange <span>{t("xc_title")}</span>
         </h1>

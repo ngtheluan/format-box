@@ -7,7 +7,7 @@ export default function Page() {
   const { t } = useI18n();
   return (
     <>
-      <div className="page" style={{ maxWidth: 1100 }}>
+      <div className="page" style={{ maxWidth: 1200 }}>
         <h1 className="page-title">
           <IconCoin size={22} stroke={1.8} /> Gold <span>{t("gp_title")}</span>
         </h1>

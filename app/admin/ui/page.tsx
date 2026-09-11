@@ -74,7 +74,6 @@ export default function UiDemo() {
         ]}
         title="UI Kit"
         description="Bộ component dùng chung — Button, Input, Modal, Tabs, và nhiều hơn."
-        bodyStyle={{ maxWidth: 1100 }}
       >
         <VStack gap={36} style={{ marginTop: 4 }}>
           {/* BUTTONS */}
