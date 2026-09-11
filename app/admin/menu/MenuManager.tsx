@@ -66,7 +66,7 @@ function rowToTool(r: Row): Tool {
   };
 }
 
-export default function MenuTools() {
+export default function MenuManager() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Tool | null>(null);
@@ -212,28 +212,36 @@ export default function MenuTools() {
       stats={
         <>
           <div className="fx-stat">
-            <span className="fx-stat-ico"><IconApps size={18} stroke={1.9} /></span>
+            <span className="fx-stat-ico">
+              <IconApps size={18} stroke={1.9} />
+            </span>
             <span className="fx-stat-txt">
               <span className="fx-stat-val">{tools.length}</span>
               <span className="fx-stat-lbl">Tổng tools</span>
             </span>
           </div>
           <div className="fx-stat" data-tone="ok">
-            <span className="fx-stat-ico"><IconToggleRight size={18} stroke={1.9} /></span>
+            <span className="fx-stat-ico">
+              <IconToggleRight size={18} stroke={1.9} />
+            </span>
             <span className="fx-stat-txt">
               <span className="fx-stat-val">{activeCount}</span>
               <span className="fx-stat-lbl">Đang hiển thị</span>
             </span>
           </div>
           <div className="fx-stat" data-tone="mute">
-            <span className="fx-stat-ico"><IconEyeOff size={18} stroke={1.9} /></span>
+            <span className="fx-stat-ico">
+              <IconEyeOff size={18} stroke={1.9} />
+            </span>
             <span className="fx-stat-txt">
               <span className="fx-stat-val">{hiddenCount}</span>
               <span className="fx-stat-lbl">Đang ẩn</span>
             </span>
           </div>
           <div className="fx-stat" data-tone="info">
-            <span className="fx-stat-ico"><IconLayoutGrid size={18} stroke={1.9} /></span>
+            <span className="fx-stat-ico">
+              <IconLayoutGrid size={18} stroke={1.9} />
+            </span>
             <span className="fx-stat-txt">
               <span className="fx-stat-val">{CATEGORY_ORDER.length}</span>
               <span className="fx-stat-lbl">Nhóm danh mục</span>
@@ -254,71 +262,71 @@ export default function MenuTools() {
         </>
       }
     >
-        {loading ? (
-          <div className="fx-empty">Đang tải…</div>
-        ) : visible.length === 0 ? (
-          <div className="fx-empty">
-            <div className="fx-empty-ico">
-              <IconDatabase size={22} stroke={1.7} />
-            </div>
-            {tools.length === 0 ? "Chưa có tool nào. Bấm Seed để nạp 23 tools mặc định." : "Không có kết quả phù hợp."}
+      {loading ? (
+        <div className="fx-empty">Đang tải…</div>
+      ) : visible.length === 0 ? (
+        <div className="fx-empty">
+          <div className="fx-empty-ico">
+            <IconDatabase size={22} stroke={1.7} />
           </div>
-        ) : (
-          <div className="fx-table">
-            <div className="fx-row fx-row-head">
-              <div />
-              <div>Tool</div>
-              <div>Category</div>
-              <div>Active</div>
-              <div style={{ textAlign: "right" }}>Actions</div>
-            </div>
-            {visible.map((t) => {
-              const active = t.active ?? true;
-              return (
-                <div key={t.href} className={`fx-row${active ? "" : " dim"}`}>
-                  <div className="fx-icon-cell">
-                    <ToolIcon name={t.iconName} size={18} stroke={1.7} />
-                  </div>
-                  <div className="fx-title-cell">
-                    <div className="fx-t-row">
-                      <b>{t.title}</b>
-                      <span className="fx-t-href">{t.href}</span>
-                    </div>
-                    <span className="fx-t-sub">{t.sub.vi}</span>
-                  </div>
-                  <div>
-                    <span className="fx-cat-cell" data-cat={t.category}>
-                      {catLabels[t.category]}
-                    </span>
-                  </div>
-                  <div>
-                    <button
-                      className={`fx-switch${active ? " on" : ""}`}
-                      onClick={() => toggleActive(t)}
-                      aria-label={active ? "Deactivate" : "Activate"}
-                      title={active ? "Đang hiện — bấm để ẩn" : "Đang ẩn — bấm để hiện"}
-                    />
-                  </div>
-                  <div className="fx-row-actions">
-                    <button
-                      className="fx-btn fx-btn-icon"
-                      onClick={() => {
-                        setEditing({ ...t });
-                        setIsNew(false);
-                      }}
-                      title="Sửa"
-                    >
-                      <IconEdit size={14} stroke={1.9} />
-                    </button>
-                    <button className="fx-btn fx-btn-icon fx-btn-danger" onClick={() => remove(t.href)} title="Xoá">
-                      <IconTrash size={14} stroke={1.9} />
-                    </button>
-                  </div>
+          {tools.length === 0 ? "Chưa có tool nào. Bấm Seed để nạp 23 tools mặc định." : "Không có kết quả phù hợp."}
+        </div>
+      ) : (
+        <div className="fx-table">
+          <div className="fx-row fx-row-head">
+            <div />
+            <div>Tool</div>
+            <div>Category</div>
+            <div>Active</div>
+            <div style={{ textAlign: "right" }}>Actions</div>
+          </div>
+          {visible.map((t) => {
+            const active = t.active ?? true;
+            return (
+              <div key={t.href} className={`fx-row${active ? "" : " dim"}`}>
+                <div className="fx-icon-cell">
+                  <ToolIcon name={t.iconName} size={18} stroke={1.7} />
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <div className="fx-title-cell">
+                  <div className="fx-t-row">
+                    <b>{t.title}</b>
+                    <span className="fx-t-href">{t.href}</span>
+                  </div>
+                  <span className="fx-t-sub">{t.sub.vi}</span>
+                </div>
+                <div>
+                  <span className="fx-cat-cell" data-cat={t.category}>
+                    {catLabels[t.category]}
+                  </span>
+                </div>
+                <div>
+                  <button
+                    className={`fx-switch${active ? " on" : ""}`}
+                    onClick={() => toggleActive(t)}
+                    aria-label={active ? "Deactivate" : "Activate"}
+                    title={active ? "Đang hiện — bấm để ẩn" : "Đang ẩn — bấm để hiện"}
+                  />
+                </div>
+                <div className="fx-row-actions">
+                  <button
+                    className="fx-btn fx-btn-icon"
+                    onClick={() => {
+                      setEditing({ ...t });
+                      setIsNew(false);
+                    }}
+                    title="Sửa"
+                  >
+                    <IconEdit size={14} stroke={1.9} />
+                  </button>
+                  <button className="fx-btn fx-btn-icon fx-btn-danger" onClick={() => remove(t.href)} title="Xoá">
+                    <IconTrash size={14} stroke={1.9} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {editing && (
         <div
