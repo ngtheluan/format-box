@@ -617,8 +617,8 @@ section {
 /* ===== TOOL PAGE (shared) ===== */
 .page {
   padding: 80px 24px 60px;
-  max-width: 1040px;
   margin: 0 auto;
+  padding-bottom: 24px;
 }
 .page h1 {
   font-size: 1.6rem;
@@ -2751,49 +2751,240 @@ label {
   align-items: center;
   gap: 6px;
 }
-/* ===== JSON TOOL LAYOUT ===== */
-.json-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  align-items: start;
-}
-.json-col {
+/* ===== JSON TOOL ===== */
+.jt-root {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  height: calc(100vh - 220px);
+  min-height: 380px;
 }
-.json-col label {
-  margin-top: 0;
-}
-.json-input {
-  height: 360px;
-}
-.json-output {
-  min-height: 360px;
+
+/* Toolbar */
+.jt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
-.json-output .tree {
-  max-height: none;
+.jt-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
-.json-empty {
+.jt-toolbar-mid {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+.jt-indent-label {
+  font-size: 0.74rem;
   color: var(--dim);
-  font-size: 0.88rem;
-  padding: 24px 4px;
-  text-align: center;
+  margin-right: 2px;
+  white-space: nowrap;
 }
+.jt-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  margin-left: auto;
+  white-space: nowrap;
+}
+.jt-status.ok {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: var(--ok);
+}
+.jt-status.err {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--err);
+}
+.jt-status.idle {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+
+/* Error strip */
+.jt-err {
+  flex-shrink: 0;
+  margin-bottom: 6px;
+  padding: 8px 14px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--err);
+  line-height: 1.5;
+}
+
+/* Split pane */
+.jt-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.jt-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.jt-divider {
+  width: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.jt-textarea.ui-textarea {
+  flex: 1;
+  resize: none;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  outline: none;
+  box-shadow: none;
+  height: 100%;
+  min-height: 0;
+}
+.jt-textarea.ui-textarea:focus {
+  border: none;
+  box-shadow: none;
+}
+
+/* Output pane */
+.jt-out-pane {
+  background: var(--bg2);
+  overflow: hidden;
+}
+.jt-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 14px 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.jt-badge {
+  padding: 2px 8px;
+  background: var(--bg3);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--dim);
+}
+.jt-badge-size {
+  margin-left: auto;
+}
+.jt-tree-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px 12px;
+  overflow: hidden;
+}
+.jt-tree-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+.jt-tree {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+.jt-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+  font-size: 0.85rem;
+}
+
+/* Reuse tree token colours */
+.jt-tree .tree-key {
+  color: var(--accent);
+}
+.jt-tree .tree-str {
+  color: var(--ok);
+}
+.jt-tree .tree-num {
+  color: var(--warn);
+}
+.jt-tree .tree-bool {
+  color: #e879f9;
+}
+.jt-tree .tree-null {
+  color: var(--dim);
+}
+.jt-tree details {
+  margin-left: 16px;
+}
+.jt-tree summary {
+  cursor: pointer;
+  color: var(--dim);
+}
+
 @media (max-width: 820px) {
-  .json-grid {
-    grid-template-columns: 1fr;
+  .jt-root {
+    height: auto;
   }
-  .json-input {
-    height: 220px;
+  .jt-split {
+    flex-direction: column;
   }
-  .json-output {
-    min-height: 220px;
+  .jt-divider {
+    width: auto;
+    height: 1px;
+  }
+  .jt-textarea {
+    min-height: 200px;
+  }
+  .jt-out-pane {
+    min-height: 240px;
+    max-height: 50vh;
+  }
+  .jt-tree {
+    max-height: 36vh;
+  }
+  .jt-toolbar {
+    gap: 6px;
+  }
+  .jt-status {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -5943,9 +6134,6 @@ label {
 }
 
 /* ===== GRAPH TOOL ===== */
-.graph-page {
-  max-width: 1280px;
-}
 .graph-layout {
   display: grid;
   grid-template-columns: 340px 1fr;
