@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { IconChevronDown } from "@tabler/icons-react";
 import { CATEGORY_ORDER, type ToolCategory } from "@/lib/tools-shared";
 import { useTools } from "@/components/ToolsProvider";
@@ -13,9 +13,11 @@ const catKey = (c: ToolCategory) => c;
 export default function ToolsMenu() {
   const { t, lang } = useI18n();
   const TOOLS = useTools();
+  const router = useRouter();
   const [openCat, setOpenCat] = useState<ToolCategory | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const prefetched = useRef(new Set<string>());
 
   // Close on route change
   useEffect(() => setOpenCat(null), [pathname]);
@@ -37,6 +39,15 @@ export default function ToolsMenu() {
     };
   }, [openCat]);
 
+  const prefetchCat = (cat: ToolCategory) => {
+    TOOLS.filter((tt) => tt.category === cat).forEach((tool) => {
+      if (!prefetched.current.has(tool.href)) {
+        prefetched.current.add(tool.href);
+        router.prefetch(tool.href);
+      }
+    });
+  };
+
   const toggle = (c: ToolCategory) => setOpenCat((cur) => (cur === c ? null : c));
 
   return (
@@ -53,6 +64,8 @@ export default function ToolsMenu() {
               className={`nav-cat-btn${catActive ? " active" : ""}`}
               aria-expanded={isOpen}
               aria-haspopup="menu"
+              onMouseEnter={() => prefetchCat(cat)}
+              onFocus={() => prefetchCat(cat)}
               onClick={() => toggle(cat)}
             >
               <span>{t(catKey(cat))}</span>

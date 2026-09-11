@@ -1,4 +1,5 @@
 import AppShell from "@/components/AppShell";
+import NavigationProgress from "@/components/NavigationProgress";
 import ScrollTop from "@/components/ScrollTop";
 import TitleUpdater from "@/components/TitleUpdater";
 import { ToastProvider } from "@/components/Toast";
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <LanguageProvider>
           <ToolsProvider>
+            <NavigationProgress />
             <TitleUpdater />
             <ToastProvider>
               <AppShell>{children}</AppShell>
