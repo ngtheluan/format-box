@@ -1,19 +1,12 @@
 "use client";
-import { useI18n } from "@/lib/i18n";
-import { IconDevices } from "@tabler/icons-react";
+import { ToolHeader } from "@/components/ToolHeader";
 import ResponsiveTool from "./ResponsiveTool";
 
 export default function Page() {
-  const { t } = useI18n();
   return (
-    <>
-      <div className="page">
-        <h1 className="page-title">
-          <IconDevices size={22} stroke={1.8} /> Responsive <span>{t("rt_title")}</span>
-        </h1>
-        <p className="sub">{t("rt_sub")}</p>
-        <ResponsiveTool />
-      </div>
-    </>
+    <div className="page">
+      <ToolHeader href="/responsive" />
+      <ResponsiveTool />
+    </div>
   );
 }

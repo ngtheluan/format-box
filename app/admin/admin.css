@@ -523,7 +523,7 @@
 }
 .fx-row {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 90px 44px 80px;
+  grid-template-columns: 20px 40px minmax(0, 1fr) 90px 44px 80px;
   align-items: center;
   gap: 14px;
   padding: 10px 16px;

@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Tool } from "@/lib/tools-shared";
+import { SEED_TOOLS, type Tool } from "@/lib/tools-shared";
 
 type Ctx = {
   tools: Tool[];
@@ -8,10 +8,10 @@ type Ctx = {
   reload: () => void;
 };
 
-const ToolsCtx = createContext<Ctx>({ tools: [], loading: true, reload: () => {} });
+const ToolsCtx = createContext<Ctx>({ tools: SEED_TOOLS, loading: false, reload: () => {} });
 
 export function ToolsProvider({ children }: { children: ReactNode }) {
-  const [tools, setTools] = useState<Tool[]>([]);
+  const [tools, setTools] = useState<Tool[]>(SEED_TOOLS);
   const [loading, setLoading] = useState(true);
 
   const load = () => {

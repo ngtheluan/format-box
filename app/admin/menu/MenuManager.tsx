@@ -1,20 +1,22 @@
 "use client";
 import { useToast } from "@/components/Toast";
 import { useToolsState } from "@/components/ToolsProvider";
-import { TOOL_ICON_NAMES, ToolIcon } from "@/lib/tool-icons";
+import { TOOL_ICON_NAMES, TOOL_ICONS, ToolIcon } from "@/lib/tool-icons";
 import { CATEGORY_ORDER, type Tool, type ToolCategory } from "@/lib/tools-shared";
 import {
   IconApps,
   IconDatabase,
   IconEdit,
   IconEyeOff,
+  IconGripVertical,
   IconLayoutGrid,
   IconPlus,
+  IconSearch,
   IconToggleRight,
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AdminBody from "../AdminBody";
 
 type Row = {
@@ -66,6 +68,145 @@ function rowToTool(r: Row): Tool {
   };
 }
 
+function IconPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const needle = q.toLowerCase().replace(/^icon/, "");
+    return needle ? TOOL_ICON_NAMES.filter((n) => n.toLowerCase().includes(needle)) : TOOL_ICON_NAMES;
+  }, [q]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const SelectedIcon = TOOL_ICONS[value];
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          width: "100%",
+          padding: "6px 10px",
+          background: "var(--fx-input-bg, var(--bg2))",
+          border: "1px solid var(--fx-border, var(--border))",
+          borderRadius: 6,
+          cursor: "pointer",
+          color: "var(--fg)",
+          fontSize: 13,
+        }}
+      >
+        {SelectedIcon && <SelectedIcon size={16} stroke={1.8} />}
+        <span style={{ flex: 1, textAlign: "left" }}>{value}</span>
+        <span style={{ fontSize: 10, opacity: 0.5 }}>{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            zIndex: 200,
+            background: "var(--bg1, var(--bg))",
+            border: "1px solid var(--fx-border, var(--border))",
+            borderRadius: 8,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+            width: 300,
+            padding: 10,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <IconSearch size={13} stroke={1.9} style={{ opacity: 0.5, flexShrink: 0 }} />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Tìm icon…"
+              style={{
+                flex: 1,
+                border: "none",
+                background: "transparent",
+                outline: "none",
+                fontSize: 13,
+                color: "var(--fg)",
+              }}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--fg-muted, #888)", padding: 0 }}
+              >
+                <IconX size={12} stroke={2} />
+              </button>
+            )}
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+              gap: 2,
+              maxHeight: 220,
+              overflowY: "auto",
+            }}
+          >
+            {filtered.map((name) => {
+              const Ico = TOOL_ICONS[name];
+              const selected = name === value;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  title={name.replace(/^Icon/, "")}
+                  onClick={() => {
+                    onChange(name);
+                    setOpen(false);
+                    setQ("");
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 6,
+                    borderRadius: 5,
+                    border: selected ? "1.5px solid var(--accent, #6366f1)" : "1.5px solid transparent",
+                    background: selected ? "var(--accent-soft, rgba(99,102,241,0.12))" : "transparent",
+                    cursor: "pointer",
+                    color: selected ? "var(--accent, #6366f1)" : "var(--fg)",
+                  }}
+                >
+                  <Ico size={16} stroke={1.8} />
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 11, opacity: 0.4, textAlign: "right", marginTop: 6 }}>
+            {filtered.length} icons
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MenuManager() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +216,8 @@ export default function MenuManager() {
   const [err, setErr] = useState("");
   const [filter, setFilter] = useState<FilterCat>("all");
   const [q, setQ] = useState("");
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
   const toast = useToast();
   const { reload: reloadPublicTools } = useToolsState();
 
@@ -183,6 +326,61 @@ export default function MenuManager() {
     window.location.href = "/admin";
   }
 
+  function handleDragStart(idx: number) {
+    setDragIdx(idx);
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    setDropIdx(idx);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    if (dragIdx === null || dropIdx === null || dragIdx === dropIdx) {
+      setDragIdx(null);
+      setDropIdx(null);
+      return;
+    }
+    // Reorder within visible subset
+    const nextVisible = [...visible];
+    const [moved] = nextVisible.splice(dragIdx, 1);
+    nextVisible.splice(dropIdx, 0, moved);
+
+    // Assign new sort values using the sorted values of the original visible set
+    const sortValues = visible.map((t) => t.sort ?? 0).sort((a, b) => a - b);
+    const reindexed = nextVisible.map((t, i) => ({ ...t, sort: sortValues[i] ?? i }));
+
+    // Rebuild full tools array: replace visible items in their new order, keep hidden items in place
+    const visibleHrefs = new Set(visible.map((t) => t.href));
+    const hrefToUpdated = new Map(reindexed.map((t) => [t.href, t]));
+    setTools((cur) => {
+      const result: Tool[] = [];
+      let visibleCursor = 0;
+      for (const t of cur) {
+        if (visibleHrefs.has(t.href)) {
+          result.push(reindexed[visibleCursor++]);
+        } else {
+          result.push(t);
+        }
+      }
+      return result;
+    });
+    setDragIdx(null);
+    setDropIdx(null);
+
+    reindexed.forEach((t) => {
+      fetch("/api/admin/tools", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ href: t.href, sort: t.sort }),
+      });
+    });
+    void hrefToUpdated; // used above
+    toast("Đã cập nhật thứ tự");
+    reloadPublicTools();
+  }
+
   const set = <K extends keyof Tool>(k: K, v: Tool[K]) => setEditing((cur) => (cur ? { ...cur, [k]: v } : cur));
 
   return (
@@ -275,15 +473,38 @@ export default function MenuManager() {
         <div className="fx-table">
           <div className="fx-row fx-row-head">
             <div />
+            <div />
             <div>Tool</div>
             <div>Category</div>
             <div>Active</div>
             <div style={{ textAlign: "right" }}>Actions</div>
           </div>
-          {visible.map((t) => {
+          {visible.map((t, i) => {
             const active = t.active ?? true;
+            const isDragging = dragIdx === i;
+            const isOver = dropIdx === i && dragIdx !== null && dragIdx !== i;
             return (
-              <div key={t.href} className={`fx-row${active ? "" : " dim"}`}>
+              <div
+                key={t.href}
+                className={`fx-row${active ? "" : " dim"}`}
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={(e) => handleDrop(e)}
+                onDragEnd={() => { setDragIdx(null); setDropIdx(null); }}
+                style={{
+                  opacity: isDragging ? 0.4 : 1,
+                  borderTop: isOver ? "2px solid var(--accent, #6366f1)" : undefined,
+                }}
+              >
+                <div style={{
+                  color: "var(--fg-muted, #888)",
+                  cursor: "grab",
+                  display: "flex",
+                  alignItems: "center",
+                }}>
+                  <IconGripVertical size={14} stroke={1.8} />
+                </div>
                 <div className="fx-icon-cell">
                   <ToolIcon name={t.iconName} size={18} stroke={1.7} />
                 </div>
@@ -372,13 +593,7 @@ export default function MenuManager() {
               <div className="fx-grid2">
                 <div className="fx-field">
                   <label>Icon</label>
-                  <select value={editing.iconName} onChange={(e) => set("iconName", e.target.value)}>
-                    {TOOL_ICON_NAMES.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                  <IconPicker value={editing.iconName} onChange={(v) => set("iconName", v)} />
                 </div>
                 <div className="fx-field">
                   <label>Category</label>
@@ -415,30 +630,20 @@ export default function MenuManager() {
                   onChange={(e) => set("desc", { ...editing.desc, en: e.target.value })}
                 />
               </div>
-              <div className="fx-grid2">
-                <div className="fx-field">
-                  <label>Tags (phẩy phân cách)</label>
-                  <input
-                    value={editing.tags.join(", ")}
-                    onChange={(e) =>
-                      set(
-                        "tags",
-                        e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      )
-                    }
-                  />
-                </div>
-                <div className="fx-field">
-                  <label>Sort (nhỏ = trước)</label>
-                  <input
-                    type="number"
-                    value={editing.sort ?? 0}
-                    onChange={(e) => set("sort", Number(e.target.value) || 0)}
-                  />
-                </div>
+              <div className="fx-field">
+                <label>Tags (phẩy phân cách)</label>
+                <input
+                  value={editing.tags.join(", ")}
+                  onChange={(e) =>
+                    set(
+                      "tags",
+                      e.target.value
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                />
               </div>
               <div className="fx-field" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button
