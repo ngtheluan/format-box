@@ -1,8 +1,6 @@
 "use client";
-import Footer from "@/components/Footer";
 import HeroCanvas from "@/components/HeroCanvas";
 import LiveDemo from "@/components/LiveDemo";
-import Nav from "@/components/Nav";
 import { useTools } from "@/components/ToolsProvider";
 import { Button } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
@@ -49,7 +47,6 @@ export default function Home() {
 
   return (
     <>
-      <Nav />
 
       <header className="hero-modern">
         <div className="hero-canvas-wrap">
@@ -170,7 +167,6 @@ export default function Home() {
         </div>
       </section>
 
-      <Footer />
     </>
   );
 }

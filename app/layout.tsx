@@ -1,3 +1,5 @@
+import Footer from "@/components/Footer";
+import Nav from "@/components/Nav";
 import ScrollTop from "@/components/ScrollTop";
 import TitleUpdater from "@/components/TitleUpdater";
 import { ToastProvider } from "@/components/Toast";
@@ -36,7 +38,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LanguageProvider>
           <ToolsProvider>
             <TitleUpdater />
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider>
+              <Nav />
+              {children}
+              <Footer />
+            </ToastProvider>
             <ScrollTop />
           </ToolsProvider>
         </LanguageProvider>
