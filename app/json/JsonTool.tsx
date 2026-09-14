@@ -1,9 +1,9 @@
 "use client";
 import { useToast } from "@/components/Toast";
+import { Button, Textarea } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import { IconCheck, IconChevronDown, IconChevronRight, IconCopy, IconEraser, IconX } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
-import { Button, Textarea } from "@/components/ui";
 
 type Indent = "2" | "4" | "tab";
 type Status = { type: "ok" | "err" | "idle"; msg: string };
@@ -48,8 +48,7 @@ function TreeNode({ data }: { data: unknown }) {
       <summary>{`{${keys.length} keys}`}</summary>
       {keys.map((k) => (
         <div key={k}>
-          <span className="tree-key">&quot;{k}&quot;:</span>{" "}
-          <TreeNode data={(data as Record<string, unknown>)[k]} />
+          <span className="tree-key">&quot;{k}&quot;:</span> <TreeNode data={(data as Record<string, unknown>)[k]} />
         </div>
       ))}
     </details>
@@ -137,7 +136,10 @@ export default function JsonTool() {
 
   const doValidate = () => {
     const v = value.trim();
-    if (!v) { toast(t("toast_no_data")); return; }
+    if (!v) {
+      toast(t("toast_no_data"));
+      return;
+    }
     try {
       JSON.parse(v);
       setStatus({ type: "ok", msg: t("json_valid") });
@@ -162,83 +164,93 @@ export default function JsonTool() {
   };
 
   return (
-    <div className="jt-root">
-      {/* ── Toolbar ── */}
-      <div className="jt-toolbar">
-        <div className="jt-actions">
-          <Button size="sm" onClick={doFormat}>{t("act_format")}</Button>
-          <Button size="sm" variant="subtle" onClick={doMinify}>{t("act_minify")}</Button>
-          <Button size="sm" variant="subtle" onClick={doValidate}>{t("act_validate")}</Button>
-          <Button size="sm" variant="subtle" onClick={doCopy} leftIcon={<IconCopy size={14} stroke={1.8} />}>
-            {t("act_copy")}
-          </Button>
-          <Button size="sm" variant="subtle" onClick={doClear} leftIcon={<IconEraser size={14} stroke={1.8} />}>
-            {t("act_clear")}
-          </Button>
-        </div>
+    <div className="tool-card">
+      <div className="jt-root">
+        {/* ── Toolbar ── */}
+        <div className="jt-toolbar">
+          <div className="jt-actions">
+            <Button size="sm" onClick={doFormat}>
+              {t("act_format")}
+            </Button>
+            <Button size="sm" variant="subtle" onClick={doMinify}>
+              {t("act_minify")}
+            </Button>
+            <Button size="sm" variant="subtle" onClick={doValidate}>
+              {t("act_validate")}
+            </Button>
+            <Button size="sm" variant="subtle" onClick={doCopy} leftIcon={<IconCopy size={14} stroke={1.8} />}>
+              {t("act_copy")}
+            </Button>
+            <Button size="sm" variant="subtle" onClick={doClear} leftIcon={<IconEraser size={14} stroke={1.8} />}>
+              {t("act_clear")}
+            </Button>
+          </div>
 
-        <div className="jt-toolbar-mid">
-          <span className="jt-indent-label">{t("json_indent")}</span>
-          {(["2", "4", "tab"] as Indent[]).map((i) => (
-            <button key={i} className={`indent-btn${indent === i ? " active" : ""}`} onClick={() => setIndent(i)}>
-              {i === "tab" ? t("json_tab") : `${i}`}
-            </button>
-          ))}
-        </div>
-
-        <div className={`jt-status ${status.type}`}>
-          {status.type === "ok" && <IconCheck size={12} stroke={2.5} />}
-          {status.type === "err" && <IconX size={12} stroke={2.5} />}
-          {status.msg}
-        </div>
-      </div>
-
-      {/* ── Error strip ── */}
-      {errDetail && (
-        <div className="jt-err">{errDetail}</div>
-      )}
-
-      {/* ── Split pane ── */}
-      <div className="jt-split">
-        {/* Input */}
-        <div className="jt-pane">
-          <Textarea
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder='{"name": "FormatBox", "version": 1}'
-            className="jt-textarea"
-            monospace
-          />
-        </div>
-
-        <div className="jt-divider" />
-
-        {/* Output */}
-        <div className="jt-pane jt-out-pane">
-          {info && (
-            <div className="jt-meta">
-              <span className="jt-badge">{info.type === "Array" ? t("json_type_array") : t("json_type_object")}</span>
-              <span className="jt-badge">{info.keys} {t("json_keys")}</span>
-              <span className="jt-badge">{t("json_depth")} {info.depth}</span>
-              <span className="jt-badge jt-badge-size">{info.size}</span>
-            </div>
-          )}
-
-          {tree !== undefined ? (
-            <div className="jt-tree-wrap">
-              <button className="jt-tree-toggle" onClick={() => setShowTree((v) => !v)}>
-                {showTree ? <IconChevronDown size={13} stroke={2} /> : <IconChevronRight size={13} stroke={2} />}
-                {t("json_tree_view")}
+          <div className="jt-toolbar-mid">
+            <span className="jt-indent-label">{t("json_indent")}</span>
+            {(["2", "4", "tab"] as Indent[]).map((i) => (
+              <button key={i} className={`indent-btn${indent === i ? " active" : ""}`} onClick={() => setIndent(i)}>
+                {i === "tab" ? t("json_tab") : `${i}`}
               </button>
-              {showTree && (
-                <div className="jt-tree">
-                  <TreeNode data={tree} />
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="jt-empty">{t("json_empty")}</div>
-          )}
+            ))}
+          </div>
+
+          <div className={`jt-status ${status.type}`}>
+            {status.type === "ok" && <IconCheck size={12} stroke={2.5} />}
+            {status.type === "err" && <IconX size={12} stroke={2.5} />}
+            {status.msg}
+          </div>
+        </div>
+
+        {/* ── Error strip ── */}
+        {errDetail && <div className="jt-err">{errDetail}</div>}
+
+        {/* ── Split pane ── */}
+        <div className="jt-split">
+          {/* Input */}
+          <div className="jt-pane">
+            <Textarea
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder='{"name": "FormatBox", "version": 1}'
+              className="jt-textarea"
+              monospace
+            />
+          </div>
+
+          <div className="jt-divider" />
+
+          {/* Output */}
+          <div className="jt-pane jt-out-pane">
+            {info && (
+              <div className="jt-meta">
+                <span className="jt-badge">{info.type === "Array" ? t("json_type_array") : t("json_type_object")}</span>
+                <span className="jt-badge">
+                  {info.keys} {t("json_keys")}
+                </span>
+                <span className="jt-badge">
+                  {t("json_depth")} {info.depth}
+                </span>
+                <span className="jt-badge jt-badge-size">{info.size}</span>
+              </div>
+            )}
+
+            {tree !== undefined ? (
+              <div className="jt-tree-wrap">
+                <button className="jt-tree-toggle" onClick={() => setShowTree((v) => !v)}>
+                  {showTree ? <IconChevronDown size={13} stroke={2} /> : <IconChevronRight size={13} stroke={2} />}
+                  {t("json_tree_view")}
+                </button>
+                {showTree && (
+                  <div className="jt-tree">
+                    <TreeNode data={tree} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="jt-empty">{t("json_empty")}</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
