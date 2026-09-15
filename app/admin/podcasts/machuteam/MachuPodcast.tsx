@@ -201,12 +201,19 @@ export default function MachuPodcast({
 
   useEffect(() => {
     const a = new Audio();
-    // iOS Safari needs playsinline + preload=auto so streamed audio starts
-    // without opening the native full-screen player.
     a.setAttribute("playsinline", "");
     a.setAttribute("webkit-playsinline", "");
     a.preload = "auto";
     audioRef.current = a;
+    // Debug: show every state transition in the UI so we can diagnose iOS failures.
+    const trace = (name: string) => () => {
+      setAudioError(
+        `${name} rs=${a.readyState} ns=${a.networkState} err=${a.error?.code ?? "-"}`,
+      );
+    };
+    for (const ev of ["loadstart", "loadedmetadata", "canplay", "waiting", "stalled", "suspend", "abort", "emptied"]) {
+      a.addEventListener(ev, trace(ev));
+    }
     const onTime = () => {
       if (!a.duration) return;
       setCurrentTime(a.currentTime);
