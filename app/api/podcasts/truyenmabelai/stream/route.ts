@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 import { spawn } from "node:child_process";
 import { createReadStream, promises as fs } from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 import { Readable } from "node:stream";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 600;
+export const maxDuration = 300;
 
 const CACHE_DIR = path.join(os.tmpdir(), "fb-podcast-cache");
 
