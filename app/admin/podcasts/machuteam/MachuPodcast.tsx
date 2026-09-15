@@ -156,6 +156,7 @@ export default function MachuPodcast({
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [audioError, setAudioError] = useState<string>("");
   const [speed, setSpeed] = useState(1);
   const speedRef = useRef(1);
 
@@ -200,6 +201,11 @@ export default function MachuPodcast({
 
   useEffect(() => {
     const a = new Audio();
+    // iOS Safari needs playsinline + preload=auto so streamed audio starts
+    // without opening the native full-screen player.
+    a.setAttribute("playsinline", "");
+    a.setAttribute("webkit-playsinline", "");
+    a.preload = "auto";
     audioRef.current = a;
     const onTime = () => {
       if (!a.duration) return;
@@ -251,8 +257,7 @@ export default function MachuPodcast({
       const code = a.error?.code;
       const msg = a.error?.message ?? "unknown";
       console.warn("[podcast] audio error", code, msg, "for", currentSlugRef.current);
-      // Don't auto-skip — cascade fails feel worse than a single failure. User
-      // can pick another episode or retry manually.
+      setAudioError(`err ${code ?? "?"}: ${msg}`);
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("pagehide", onBeforeUnload);
@@ -315,12 +320,14 @@ export default function MachuPodcast({
       // iOS Safari path: compute URL synchronously so audio.play() runs
       // inside the click handler and keeps the user-activation gesture.
       if (source.directUrl) {
+        setAudioError("");
         audio.src = source.directUrl(ep);
         audio.load();
         audio.playbackRate = speedRef.current;
         applySavedTime();
         audio.play().catch((e) => {
           console.warn("[podcast] play() rejected:", e?.name, e?.message);
+          setAudioError(`${e?.name || "PlayErr"}: ${e?.message || ""}`);
         });
         setLoading(false);
       } else {
@@ -594,13 +601,19 @@ export default function MachuPodcast({
               <div className="mp-player-title">{currentEp ? currentEp.title : ""}</div>
               {currentEp && (
                 <div className="mp-player-sub">
-                  <span className="mp-player-time">
-                    {fmtTime(currentTime)}
-                    <span className="mp-player-time-sep"> / </span>
-                    <span className="mp-player-time-total">{fmtTime(duration)}</span>
-                  </span>
-                  <span className="mp-player-sub-dot">·</span>
-                  <span>{currentEp.date}</span>
+                  {audioError ? (
+                    <span style={{ color: "var(--err, #ef4444)" }}>{audioError}</span>
+                  ) : (
+                    <>
+                      <span className="mp-player-time">
+                        {fmtTime(currentTime)}
+                        <span className="mp-player-time-sep"> / </span>
+                        <span className="mp-player-time-total">{fmtTime(duration)}</span>
+                      </span>
+                      <span className="mp-player-sub-dot">·</span>
+                      <span>{currentEp.date}</span>
+                    </>
+                  )}
                 </div>
               )}
             </div>
