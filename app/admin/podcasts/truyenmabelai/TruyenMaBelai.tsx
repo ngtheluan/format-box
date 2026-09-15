@@ -9,6 +9,9 @@ export default function TruyenMaBelai({ episodes, query }: { episodes: Episode[]
       episodes={episodes}
       query={query}
       source={{
+        // Same shape as machuteam: apiPath returns { audioUrl } and the client
+        // just sets it on the media element. audioUrl here is a progressive
+        // mp4 (format 18) fetched straight from googlevideo — no proxying.
         apiPath: "/api/podcasts/truyenmabelai",
         artist: "Truyện Ma Bẻ Lái",
         album: "Truyện ma đêm khuya",
@@ -16,11 +19,9 @@ export default function TruyenMaBelai({ episodes, query }: { episodes: Episode[]
         title: "Truyện Ma",
         titleAlt: "Bẻ Lái",
         thumbAlign: "right",
-        // Use a hidden <video playsinline> because iOS Safari refuses YouTube's
-        // audio-only m4a in <audio> — see MachuPodcast mediaKind comment.
+        // iOS Safari refuses YouTube's audio-only m4a in <audio>, but plays
+        // combined mp4 in <video playsinline> fine.
         mediaKind: "video",
-        directUrl: (ep) => `/api/podcasts/truyenmabelai/stream?slug=${encodeURIComponent(ep.slug)}`,
-        fallbackUrl: (ep) => `/api/podcasts/truyenmabelai/stream?slug=${encodeURIComponent(ep.slug)}`,
       }}
     />
   );
