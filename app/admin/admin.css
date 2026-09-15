@@ -971,14 +971,33 @@
   }
 }
 @media (max-width: 700px) {
-  .fx-row {
-    grid-template-columns: 32px minmax(0, 1fr) 44px 68px;
-    gap: 10px;
-    padding: 10px 12px;
+  /* Keep full 6-column layout; horizontal scroll when content is too wide */
+  .fx-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  .fx-row > div:nth-child(3),
-  .fx-row-head > div:nth-child(3) {
-    display: none;
+  .fx-row {
+    min-width: 640px;
+    gap: 12px;
+    padding: 10px 14px;
+  }
+  /* Sticky-right: actions column stays visible at right edge while scrolling */
+  .fx-row > div:nth-child(6),
+  .fx-row-head > div:nth-child(6) {
+    position: sticky;
+    right: 0;
+    z-index: 3;
+    background: var(--fx-card);
+    box-shadow: -8px 0 12px -8px rgba(0, 0, 0, 0.35);
+  }
+  .fx-row-head > div:nth-child(6) {
+    background: color-mix(in srgb, var(--bg, #0a0e15) 92%, transparent);
+  }
+  .fx-row.dim > div:nth-child(6) {
+    background: var(--fx-card);
+  }
+  .fx-row:hover > div:nth-child(6) {
+    background: color-mix(in srgb, var(--fx-card) 92%, var(--fx-accent) 8%);
   }
   .fx-grid2 {
     grid-template-columns: 1fr;
@@ -1042,19 +1061,20 @@
   .fx-stat-val {
     font-size: 16px;
   }
-  /* Table: restore all columns on small screens */
+  /* Phones: keep full table, still horizontally scrollable */
   .fx-row {
-    grid-template-columns: 30px minmax(0, 1fr) 72px 44px 68px;
-    gap: 8px;
-    padding: 9px 10px;
-  }
-  .fx-row > div:nth-child(3),
-  .fx-row-head > div:nth-child(3) {
-    display: revert;
+    min-width: 600px;
+    padding: 9px 12px;
   }
   .fx-icon-cell {
     width: 30px;
     height: 30px;
+  }
+  .fx-title-cell b {
+    font-size: 13px;
+  }
+  .fx-title-cell .fx-t-sub {
+    font-size: 11px;
   }
   /* Modal takes full height on phone */
   .fx-modal-bg {
