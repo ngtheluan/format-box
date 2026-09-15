@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/speed-test" />
-      <SpeedTestTool />
+      <div className="tool-card">
+        <SpeedTestTool />
+      </div>
     </div>
   );
 }

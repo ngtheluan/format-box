@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/base64" />
-      <Base64Tool />
+      <div className="tool-card">
+        <Base64Tool />
+      </div>
     </div>
   );
 }

@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/bill" />
-      <BillTool />
+      <div className="tool-card">
+        <BillTool />
+      </div>
     </div>
   );
 }

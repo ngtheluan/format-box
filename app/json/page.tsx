@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/json" />
-      <JsonTool />
+      <div className="tool-card">
+        <JsonTool />
+      </div>
     </div>
   );
 }

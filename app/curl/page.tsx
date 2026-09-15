@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/curl" />
-      <CurlTool />
+      <div className="tool-card">
+        <CurlTool />
+      </div>
     </div>
   );
 }

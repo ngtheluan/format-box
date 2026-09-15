@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/responsive" />
-      <ResponsiveTool />
+      <div className="tool-card">
+        <ResponsiveTool />
+      </div>
     </div>
   );
 }

@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page" style={{ maxWidth: 1200 }}>
       <ToolHeader href="/lucky-ticket" />
-      <LuckyTicketTool />
+      <div className="tool-card">
+        <LuckyTicketTool />
+      </div>
     </div>
   );
 }

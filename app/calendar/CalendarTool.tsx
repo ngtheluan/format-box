@@ -60,84 +60,86 @@ export default function CalendarTool() {
   });
 
   return (
-    <div className="cal-wrap">
-      <div className="cal-main">
-        <div className="cal-head">
-          <button className="cal-nav" onClick={goPrev} aria-label="Prev">
-            <IconChevronLeft size={18} />
-          </button>
-          <div className="cal-title">{monthLabel}</div>
-          <button className="cal-nav" onClick={goNext} aria-label="Next">
-            <IconChevronRight size={18} />
-          </button>
-          <Button onClick={goToday} leftIcon={<IconCalendarEvent size={13} stroke={2} />}>
-            {t("cal_today")}
-          </Button>
+    <div>
+      <div className="cal-wrap">
+        <div className="cal-main">
+          <div className="cal-head">
+            <button className="cal-nav" onClick={goPrev} aria-label="Prev">
+              <IconChevronLeft size={18} />
+            </button>
+            <div className="cal-title">{monthLabel}</div>
+            <button className="cal-nav" onClick={goNext} aria-label="Next">
+              <IconChevronRight size={18} />
+            </button>
+            <Button onClick={goToday} leftIcon={<IconCalendarEvent size={13} stroke={2} />}>
+              {t("cal_today")}
+            </Button>
+          </div>
+
+          <div className="cal-grid cal-weekhead">
+            {weekdays.map((w, i) => (
+              <div key={w} className={`cal-wd${i === 0 ? " sun" : ""}`}>
+                {w}
+              </div>
+            ))}
+          </div>
+
+          <div className="cal-grid">
+            {cells.map(({ date, inMonth }, i) => {
+              const lu = solarToLunar(date.getDate(), date.getMonth() + 1, date.getFullYear());
+              const isToday = sameDate(date, today);
+              const isSel = sameDate(date, selected);
+              const isSun = date.getDay() === 0;
+              const showLunarMonth = lu.day === 1;
+              const lunarText = showLunarMonth ? `${lu.day}/${lu.month}${lu.leap ? "*" : ""}` : String(lu.day);
+              return (
+                <button
+                  key={i}
+                  className={`cal-cell${inMonth ? "" : " off"}${isToday ? " today" : ""}${isSel ? " sel" : ""}${isSun ? " sun" : ""}`}
+                  onClick={() => setSelected(date)}
+                >
+                  <div className="cal-solar">{date.getDate()}</div>
+                  <div className={`cal-lunar${showLunarMonth ? " strong" : ""}`}>{lunarText}</div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="cal-grid cal-weekhead">
-          {weekdays.map((w, i) => (
-            <div key={w} className={`cal-wd${i === 0 ? " sun" : ""}`}>
-              {w}
+        <aside className="cal-side">
+          <div className="cal-side-head">{selLabel}</div>
+          <div className="cal-big">
+            <div className="cal-big-num">{selected.getDate()}</div>
+            <div className="cal-big-lbl">
+              {t("cal_solar")} · {selected.getMonth() + 1}/{selected.getFullYear()}
             </div>
-          ))}
-        </div>
+          </div>
 
-        <div className="cal-grid">
-          {cells.map(({ date, inMonth }, i) => {
-            const lu = solarToLunar(date.getDate(), date.getMonth() + 1, date.getFullYear());
-            const isToday = sameDate(date, today);
-            const isSel = sameDate(date, selected);
-            const isSun = date.getDay() === 0;
-            const showLunarMonth = lu.day === 1;
-            const lunarText = showLunarMonth ? `${lu.day}/${lu.month}${lu.leap ? "*" : ""}` : String(lu.day);
-            return (
-              <button
-                key={i}
-                className={`cal-cell${inMonth ? "" : " off"}${isToday ? " today" : ""}${isSel ? " sel" : ""}${isSun ? " sun" : ""}`}
-                onClick={() => setSelected(date)}
-              >
-                <div className="cal-solar">{date.getDate()}</div>
-                <div className={`cal-lunar${showLunarMonth ? " strong" : ""}`}>{lunarText}</div>
-              </button>
-            );
-          })}
-        </div>
+          <div className="cal-lunar-card">
+            <div className="cal-lu-row">
+              <span>{t("cal_lunar")}</span>
+              <b>
+                {selLunar.day}/{selLunar.month}
+                {selLunar.leap ? ` (${t("cal_leap")})` : ""}/{selLunar.year}
+              </b>
+            </div>
+            <div className="cal-lu-row">
+              <span>{t("cal_day")}</span>
+              <b>{selCanChiDay}</b>
+            </div>
+            <div className="cal-lu-row">
+              <span>{t("cal_month")}</span>
+              <b>{selCanChiMonth}</b>
+            </div>
+            <div className="cal-lu-row">
+              <span>{t("cal_year")}</span>
+              <b>{selCanChiYear}</b>
+            </div>
+          </div>
+
+          <p className="cal-hint">{t("cal_hint")}</p>
+        </aside>
       </div>
-
-      <aside className="cal-side">
-        <div className="cal-side-head">{selLabel}</div>
-        <div className="cal-big">
-          <div className="cal-big-num">{selected.getDate()}</div>
-          <div className="cal-big-lbl">
-            {t("cal_solar")} · {selected.getMonth() + 1}/{selected.getFullYear()}
-          </div>
-        </div>
-
-        <div className="cal-lunar-card">
-          <div className="cal-lu-row">
-            <span>{t("cal_lunar")}</span>
-            <b>
-              {selLunar.day}/{selLunar.month}
-              {selLunar.leap ? ` (${t("cal_leap")})` : ""}/{selLunar.year}
-            </b>
-          </div>
-          <div className="cal-lu-row">
-            <span>{t("cal_day")}</span>
-            <b>{selCanChiDay}</b>
-          </div>
-          <div className="cal-lu-row">
-            <span>{t("cal_month")}</span>
-            <b>{selCanChiMonth}</b>
-          </div>
-          <div className="cal-lu-row">
-            <span>{t("cal_year")}</span>
-            <b>{selCanChiYear}</b>
-          </div>
-        </div>
-
-        <p className="cal-hint">{t("cal_hint")}</p>
-      </aside>
     </div>
   );
 }

@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/calendar" />
-      <CalendarTool />
+      <div className="tool-card">
+        <CalendarTool />
+      </div>
     </div>
   );
 }

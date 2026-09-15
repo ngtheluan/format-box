@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/wheel" />
-      <WheelTool />
+      <div className="tool-card">
+        <WheelTool />
+      </div>
     </div>
   );
 }

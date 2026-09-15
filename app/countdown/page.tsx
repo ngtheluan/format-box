@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/countdown" />
-      <CountdownTool />
+      <div className="tool-card">
+        <CountdownTool />
+      </div>
     </div>
   );
 }

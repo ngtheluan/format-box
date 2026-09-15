@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/graph" />
-      <GraphTool />
+      <div className="tool-card">
+        <GraphTool />
+      </div>
     </div>
   );
 }

@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/markdown" />
-      <MarkdownTool />
+      <div className="tool-card">
+        <MarkdownTool />
+      </div>
     </div>
   );
 }

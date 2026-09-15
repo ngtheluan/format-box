@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/favicon-export" />
-      <FaviconExportTool />
+      <div className="tool-card">
+        <FaviconExportTool />
+      </div>
     </div>
   );
 }

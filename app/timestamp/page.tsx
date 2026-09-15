@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/timestamp" />
-      <TimestampTool />
+      <div className="tool-card">
+        <TimestampTool />
+      </div>
     </div>
   );
 }

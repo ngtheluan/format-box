@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page" style={{ maxWidth: 1200 }}>
       <ToolHeader href="/gold" />
-      <GoldTool />
+      <div className="tool-card">
+        <GoldTool />
+      </div>
     </div>
   );
 }

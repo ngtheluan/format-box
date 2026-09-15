@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/color" />
-      <ColorTool />
+      <div className="tool-card">
+        <ColorTool />
+      </div>
     </div>
   );
 }

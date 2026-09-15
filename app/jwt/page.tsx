@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/jwt" />
-      <JwtTool />
+      <div className="tool-card">
+        <JwtTool />
+      </div>
     </div>
   );
 }

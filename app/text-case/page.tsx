@@ -6,7 +6,9 @@ export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/text-case" />
-      <TextCaseTool />
+      <div className="tool-card">
+        <TextCaseTool />
+      </div>
     </div>
   );
 }
