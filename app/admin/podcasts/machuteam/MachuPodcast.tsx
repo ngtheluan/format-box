@@ -39,13 +39,80 @@ function fmtListens(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1).replace(".0", "")}k` : String(n);
 }
 
+const LS_PROGRESS = "machu-podcast-progress";
+const LS_LAST = "machu-podcast-last";
+type ProgressMap = Record<string, number>;
+function loadProgressMap(): ProgressMap {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(LS_PROGRESS) || "{}");
+  } catch {
+    return {};
+  }
+}
+function saveProgressFor(slug: string, time: number, duration: number) {
+  if (typeof window === "undefined" || !slug) return;
+  try {
+    const map = loadProgressMap();
+    // If nearly finished (>95%) or too short, drop the entry.
+    if (duration > 0 && (time / duration > 0.95 || time < 3)) {
+      delete map[slug];
+    } else {
+      map[slug] = time;
+    }
+    localStorage.setItem(LS_PROGRESS, JSON.stringify(map));
+  } catch {
+    /**/
+  }
+}
+function getSavedTime(slug: string): number {
+  return loadProgressMap()[slug] ?? 0;
+}
+
+const squareArtCache = new Map<string, string>();
+async function toSquareArt(src: string, size = 512): Promise<string> {
+  if (squareArtCache.has(src)) return squareArtCache.get(src)!;
+  // Try client-side canvas crop first (works if image is CORS-clean).
+  const canvasResult = await new Promise<string | null>((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(null);
+        const s = Math.min(img.naturalWidth, img.naturalHeight);
+        const sx = (img.naturalWidth - s) / 2;
+        const sy = (img.naturalHeight - s) / 2;
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+        resolve(canvas.toDataURL("image/jpeg", 0.9));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+  // Fallback: use free image proxy that square-crops server-side.
+  const out =
+    canvasResult ??
+    `https://wsrv.nl/?url=${encodeURIComponent(src)}&w=${size}&h=${size}&fit=cover&output=jpg`;
+  squareArtCache.set(src, out);
+  return out;
+}
+
 export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos: Video[] }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const filteredRef = useRef<Episode[]>(episodes);
+  const currentSlugRef = useRef<string>("");
+  const lastSaveRef = useRef<number>(0);
+  const loadAndPlayRef = useRef<((ep: Episode, idx: number, a?: HTMLAudioElement) => void) | null>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const scrubberRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const dragStartY = useRef<number | null>(null);
 
   const PAGE_SIZE = 30;
 
@@ -60,11 +127,27 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const speedRef = useRef(1);
+
+  const SPEEDS = [1, 1.5, 2];
+  const cycleSpeed = () => {
+    const i = SPEEDS.indexOf(speed);
+    const next = SPEEDS[(i + 1) % SPEEDS.length];
+    setSpeed(next);
+    speedRef.current = next;
+    if (audioRef.current) audioRef.current.playbackRate = next;
+  };
+  const fmtSpeed = (s: number) => (Number.isInteger(s) ? `${s}×` : `${s}×`);
 
   useEffect(() => {
     setFiltered(episodes);
     setPage(1);
   }, [episodes]);
+
+  useEffect(() => {
+    filteredRef.current = filtered;
+  }, [filtered]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -88,6 +171,12 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
       if (!a.duration) return;
       setCurrentTime(a.currentTime);
       setProgress(a.currentTime / a.duration);
+      // Persist progress every ~5s while playing.
+      const now = Date.now();
+      if (currentSlugRef.current && now - lastSaveRef.current > 5000) {
+        lastSaveRef.current = now;
+        saveProgressFor(currentSlugRef.current, a.currentTime, a.duration);
+      }
       if ("mediaSession" in navigator) {
         try {
           navigator.mediaSession.setPositionState({
@@ -102,30 +191,43 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
     };
     const onDur = () => setDuration(a.duration || 0);
     const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
+    const onPause = () => {
+      setPlaying(false);
+      if (currentSlugRef.current) saveProgressFor(currentSlugRef.current, a.currentTime, a.duration);
+    };
     const onEnded = () => {
+      if (currentSlugRef.current) saveProgressFor(currentSlugRef.current, a.duration, a.duration);
       setCurrentIdx((idx) => {
+        const list = filteredRef.current;
         const next = idx + 1;
-        if (next < filtered.length) {
-          loadAndPlay(filtered[next], next, a);
+        if (next < list.length) {
+          (loadAndPlayRef.current ?? loadAndPlay)(list[next], next, a);
           return next;
         }
         setPlaying(false);
         return idx;
       });
     };
+    const onBeforeUnload = () => {
+      if (currentSlugRef.current) saveProgressFor(currentSlugRef.current, a.currentTime, a.duration);
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("pagehide", onBeforeUnload);
     a.addEventListener("timeupdate", onTime);
     a.addEventListener("durationchange", onDur);
     a.addEventListener("play", onPlay);
     a.addEventListener("pause", onPause);
     a.addEventListener("ended", onEnded);
     return () => {
+      if (currentSlugRef.current) saveProgressFor(currentSlugRef.current, a.currentTime, a.duration);
       a.pause();
       a.removeEventListener("timeupdate", onTime);
       a.removeEventListener("durationchange", onDur);
       a.removeEventListener("play", onPlay);
       a.removeEventListener("pause", onPause);
       a.removeEventListener("ended", onEnded);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("pagehide", onBeforeUnload);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -135,6 +237,16 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
     async (ep: Episode, idx: number, a?: HTMLAudioElement) => {
       const audio = a ?? audioRef.current;
       if (!audio) return;
+      // Persist previous track's position before switching.
+      if (currentSlugRef.current && currentSlugRef.current !== ep.slug) {
+        saveProgressFor(currentSlugRef.current, audio.currentTime, audio.duration);
+      }
+      currentSlugRef.current = ep.slug;
+      try {
+        localStorage.setItem(LS_LAST, ep.slug);
+      } catch {
+        /**/
+      }
       setLoading(true);
       setProgress(0);
       setCurrentTime(0);
@@ -143,13 +255,27 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
       setLoading(false);
       audio.src = url;
       audio.load();
+      audio.playbackRate = speedRef.current;
+      const savedTime = getSavedTime(ep.slug);
+      if (savedTime > 0) {
+        const onMeta = () => {
+          try {
+            audio.currentTime = savedTime;
+          } catch {
+            /**/
+          }
+          audio.removeEventListener("loadedmetadata", onMeta);
+        };
+        audio.addEventListener("loadedmetadata", onMeta);
+      }
       audio.play().catch(() => {});
       if ("mediaSession" in navigator) {
+        const artSrc = await toSquareArt(ep.img, 512);
         navigator.mediaSession.metadata = new MediaMetadata({
           title: ep.title,
           artist: "MachuTeam Podcast",
           album: "Kỳ Án & Truyện Ma",
-          artwork: [{ src: ep.img, sizes: "512x512", type: "image/jpeg" }],
+          artwork: [{ src: artSrc, sizes: "512x512", type: "image/jpeg" }],
         });
         navigator.mediaSession.setActionHandler("play", () => audio.play());
         navigator.mediaSession.setActionHandler("pause", () => audio.pause());
@@ -177,6 +303,10 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
     },
     [filtered],
   );
+
+  useEffect(() => {
+    loadAndPlayRef.current = loadAndPlay;
+  }, [loadAndPlay]);
 
   const playEp = useCallback(
     (i: number) => {
@@ -211,44 +341,14 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
 
   const currentEp = currentIdx >= 0 ? filtered[currentIdx] : null;
 
-  /* drag-to-dismiss helpers */
-  const onSheetDragStart = (y: number) => {
-    dragStartY.current = y;
-  };
-  const onSheetDragMove = (y: number) => {
-    if (dragStartY.current === null || !sheetRef.current) return;
-    const dy = y - dragStartY.current;
-    if (dy > 0) sheetRef.current.style.transform = `translateY(${dy}px)`;
-  };
-  const onSheetDragEnd = (y: number) => {
-    if (dragStartY.current === null) return;
-    const dy = y - dragStartY.current;
-    if (dy > 80) setShowDetail(false);
-    else if (sheetRef.current) sheetRef.current.style.transform = "";
-    dragStartY.current = null;
-  };
-
   return (
     <>
       {/* ═══ Episode detail overlay ═══ */}
       {showDetail && currentEp && (
-        <div className="mp-detail-backdrop">
+        <div className="mp-detail-backdrop" onClick={() => setShowDetail(false)}>
           <div className="mp-detail-bg" style={{ backgroundImage: `url(${currentEp.img})` }} />
           <div className="mp-detail-bg-shade" />
-          <div
-            ref={sheetRef}
-            className="mp-detail-sheet"
-            onMouseDown={(e) => onSheetDragStart(e.clientY)}
-            onMouseMove={(e) => onSheetDragMove(e.clientY)}
-            onMouseUp={(e) => onSheetDragEnd(e.clientY)}
-            onMouseLeave={() => {
-              if (sheetRef.current) sheetRef.current.style.transform = "";
-              dragStartY.current = null;
-            }}
-            onTouchStart={(e) => onSheetDragStart(e.touches[0].clientY)}
-            onTouchMove={(e) => onSheetDragMove(e.touches[0].clientY)}
-            onTouchEnd={(e) => onSheetDragEnd(e.changedTouches[0].clientY)}
-          >
+          <div ref={sheetRef} className="mp-detail-sheet" onClick={(e) => e.stopPropagation()}>
             <div className={`mp-detail-art${playing ? " playing" : ""}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={currentEp.img} alt={currentEp.title} />
@@ -454,11 +554,6 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
       {/* ═══ Fixed player ═══ */}
       <div className="mp-player">
         <div className="mp-player-pill">
-          {/* Left: time */}
-          <div className="mp-player-right">
-            <span className="mp-player-time">{fmtTime(currentTime)}</span>
-          </div>
-
           {/* Center: scrubber + art + info */}
           <div className="mp-player-center" onClick={() => currentEp && setShowDetail(true)}>
             {/* Art */}
@@ -471,14 +566,26 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
             </div>
             {/* Info */}
             <div className="mp-player-info">
-              <div className="mp-player-title">{currentEp ? currentEp.title : "Chọn một tập để nghe"}</div>
-              {currentEp && <div className="mp-player-sub">{currentEp.date}</div>}
+              <div className="mp-player-title">{currentEp ? currentEp.title : ""}</div>
+              {currentEp && (
+                <div className="mp-player-sub">
+                  <span className="mp-player-time">
+                    {fmtTime(currentTime)}
+                    <span className="mp-player-time-sep"> / </span>
+                    <span className="mp-player-time-total">{fmtTime(duration)}</span>
+                  </span>
+                  <span className="mp-player-sub-dot">·</span>
+                  <span>{currentEp.date}</span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right: speed + skip controls */}
-          <div className="mp-player-left">
-            <button className="mp-pbtn mp-pbtn--speed">1×</button>
+          <div className="mp-player-right">
+            <button className="mp-pbtn mp-pbtn--speed" onClick={cycleSpeed} title="Tốc độ phát">
+              {fmtSpeed(speed)}
+            </button>
             <button className="mp-pbtn" onClick={() => skip(-15)} disabled={currentIdx < 0}>
               <svg
                 width="18"

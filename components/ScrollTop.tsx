@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   IconArrowUp,
   IconMessageDots,
@@ -13,6 +14,8 @@ import {
 const FEEDBACK_ENDPOINT = "/api/feedback";
 
 export default function ScrollTop() {
+  const pathname = usePathname();
+  const isAdmin = pathname?.startsWith("/admin");
   const [show, setShow] = useState(false);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -91,14 +94,16 @@ export default function ScrollTop() {
   return (
     <>
       <div className="floating-actions">
-        <button
-          className="floating-btn feedback-btn-fab show"
-          aria-label="Liên hệ góp ý"
-          title="Liên hệ góp ý"
-          onClick={() => setOpen(true)}
-        >
-          <IconMessageDots size={20} stroke={2} />
-        </button>
+        {!isAdmin && (
+          <button
+            className="floating-btn feedback-btn-fab show"
+            aria-label="Liên hệ góp ý"
+            title="Liên hệ góp ý"
+            onClick={() => setOpen(true)}
+          >
+            <IconMessageDots size={20} stroke={2} />
+          </button>
+        )}
         <button
           className={`floating-btn scroll-top${show ? " show" : ""}`}
           aria-label="Về đầu trang"

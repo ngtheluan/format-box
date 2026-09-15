@@ -26,7 +26,7 @@ const ADMIN_APPS: AdminApp[] = [
   {
     href: "/admin/feedback",
     title: "Liên hệ góp ý",
-    desc: "Xem danh sách góp ý từ Google Sheet + file đính kèm Drive.",
+    desc: "Danh sách góp ý từ Google Sheet + file đính kèm Drive.",
     icon: <IconMessageDots size={20} stroke={1.7} />,
   },
   {
