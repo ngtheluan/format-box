@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
 import { createReadStream, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -9,11 +10,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+const execFileAsync = promisify(execFile);
+
 const CACHE_DIR = path.join(os.tmpdir(), "fb-podcast-cache");
 
 type Job = {
   partPath: string;
   finalPath: string;
+  totalSize: number;
   finalize: Promise<string>;
   isDone: boolean;
 };
@@ -32,9 +36,36 @@ async function fileSize(p: string): Promise<number> {
   }
 }
 
-// Start (or reuse) a single yt-dlp process for this videoId that writes the
-// audio to disk. Concurrent requests tail-read the same growing file.
-function startJob(videoId: string): Job {
+// Ask yt-dlp for the exact filesize of the chosen audio format without
+// downloading anything. Fast (~2s) — the response is signed by YouTube in a
+// single innertube call, so we can set Content-Length upfront (iOS Safari
+// refuses audio streams without a known Content-Length).
+async function probeSize(videoId: string): Promise<number> {
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  const args = [
+    "--print",
+    "%(filesize,filesize_approx)s",
+    "--skip-download",
+    "-f",
+    "bestaudio[ext=m4a]/bestaudio",
+    "--no-warnings",
+  ];
+  const run = async (extra: string[]) => {
+    const { stdout } = await execFileAsync("yt-dlp", [...extra, ...args, url], {
+      timeout: 30_000,
+      maxBuffer: 1024 * 1024,
+    });
+    const n = parseInt(stdout.trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  try {
+    return await run(["--cookies-from-browser", "chrome"]);
+  } catch {
+    return await run([]);
+  }
+}
+
+function startJob(videoId: string, totalSize: number): Job {
   const existing = jobs.get(videoId);
   if (existing) return existing;
 
@@ -54,7 +85,6 @@ function startJob(videoId: string): Job {
           "--no-part",
           `https://www.youtube.com/watch?v=${videoId}`,
         ];
-        // Chrome cookies bypass YouTube's per-IP rate limit.
         const withCookies = ["--cookies-from-browser", "chrome", ...args];
 
         const attempt = (finalArgs: string[], retry: boolean) => {
@@ -68,14 +98,13 @@ function startJob(videoId: string): Job {
             if (code === 0) {
               try {
                 await fs.rename(partPath, finalPath).catch(() => {});
-                const job = jobs.get(videoId);
-                if (job) job.isDone = true;
+                const j = jobs.get(videoId);
+                if (j) j.isDone = true;
                 resolve(finalPath);
               } catch (e) {
                 reject(e);
               }
             } else if (retry) {
-              // Retry without cookies (Chrome might not be running).
               attempt(args, false);
             } else {
               jobs.delete(videoId);
@@ -92,17 +121,26 @@ function startJob(videoId: string): Job {
       .catch(reject);
   });
 
-  const job: Job = { partPath, finalPath, finalize, isDone: false };
+  const job: Job = { partPath, finalPath, totalSize, finalize, isDone: false };
   jobs.set(videoId, job);
   return job;
 }
 
-function parseRange(header: string | null, total: number) {
+// Cap open-ended Range requests so we don't block waiting for the entire
+// file to hit disk before flushing anything. The browser will keep asking
+// for further chunks as playback advances.
+const OPEN_RANGE_CHUNK = 2 * 1024 * 1024; // 2 MB
+
+function parseRange(header: string | null, total: number, capOpenEnd = false) {
   if (!header) return { start: 0, end: total - 1 };
   const m = header.match(/bytes=(\d+)-(\d*)/);
   if (!m) return { start: 0, end: total - 1 };
   const start = parseInt(m[1], 10);
-  const end = m[2] ? Math.min(parseInt(m[2], 10), total - 1) : total - 1;
+  const naturalEnd = m[2] ? Math.min(parseInt(m[2], 10), total - 1) : total - 1;
+  const end =
+    capOpenEnd && !m[2]
+      ? Math.min(start + OPEN_RANGE_CHUNK - 1, total - 1)
+      : naturalEnd;
   return { start, end };
 }
 
@@ -110,66 +148,55 @@ function serveCached(filePath: string, total: number, rangeHeader: string | null
   const { start, end } = parseRange(rangeHeader, total);
   const nodeStream = createReadStream(filePath, { start, end });
   const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream<Uint8Array>;
-  const headers = new Headers({
-    "Content-Type": "audio/mp4",
-    "Accept-Ranges": "bytes",
-    "Content-Length": String(end - start + 1),
-    "Content-Range": `bytes ${start}-${end}/${total}`,
-    "Cache-Control": "private, max-age=3600",
-  });
   return new Response(webStream, {
     status: rangeHeader ? 206 : 200,
-    headers,
+    headers: {
+      "Content-Type": "audio/mp4",
+      "Accept-Ranges": "bytes",
+      "Content-Length": String(end - start + 1),
+      "Content-Range": `bytes ${start}-${end}/${total}`,
+      "Cache-Control": "private, max-age=3600",
+    },
   });
 }
 
-// Tail-read the growing part file while yt-dlp writes it. Keeps polling for
-// new bytes until the job resolves. Delivers a continuous audio stream.
-function tailStream(job: Job): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    async start(controller) {
-      let position = 0;
-      let closed = false;
-      const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Wait until the growing part file (or the finalised final file) contains at
+// least `upto` bytes. Polls at 250ms. Returns the path to read from.
+async function waitForBytes(job: Job, upto: number): Promise<string> {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // Bound to avoid a hung read blocking a request forever.
+  for (let i = 0; i < 4 * 60 * 5 /* 5 min */; i++) {
+    const active = job.isDone ? job.finalPath : job.partPath;
+    const size = await fileSize(active);
+    if (size >= upto) return active;
+    if (job.isDone && size < upto) return active; // truncated; caller will see EOF
+    await wait(250);
+  }
+  throw new Error("timeout waiting for bytes");
+}
 
-      const pump = async () => {
-        while (!closed) {
-          const activePath = job.isDone ? job.finalPath : job.partPath;
-          const size = await fileSize(activePath);
-          if (size > position) {
-            const stream = createReadStream(activePath, { start: position, end: size - 1 });
-            for await (const chunk of stream) {
-              controller.enqueue(new Uint8Array(chunk as Buffer));
-              position += (chunk as Buffer).length;
-            }
-          } else if (job.isDone) {
-            controller.close();
-            return;
-          } else {
-            await wait(250);
-          }
-        }
-      };
-
-      job.finalize.catch((e) => {
-        try {
-          controller.error(e);
-        } catch {
-          /* already closed */
-        }
-        closed = true;
-      });
-
-      pump().catch((e) => {
-        try {
-          controller.error(e);
-        } catch {
-          /* already closed */
-        }
-      });
-    },
-    cancel() {
-      // Job stays alive so other clients keep receiving bytes.
+// Serve a byte range while the file is still being downloaded. Waits until
+// enough bytes are on disk, then reads that slice.
+async function serveRangeDuringDownload(job: Job, rangeHeader: string | null) {
+  const total = job.totalSize;
+  const { start, end } = parseRange(rangeHeader, total, true);
+  let activePath: string;
+  try {
+    activePath = await waitForBytes(job, end + 1);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "unknown";
+    return new Response(`wait failed: ${msg}`, { status: 504 });
+  }
+  const nodeStream = createReadStream(activePath, { start, end });
+  const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream<Uint8Array>;
+  return new Response(webStream, {
+    status: 206,
+    headers: {
+      "Content-Type": "audio/mp4",
+      "Accept-Ranges": "bytes",
+      "Content-Length": String(end - start + 1),
+      "Content-Range": `bytes ${start}-${end}/${total}`,
+      "Cache-Control": "private, no-store",
     },
   });
 }
@@ -184,32 +211,20 @@ export async function GET(req: NextRequest) {
   const cachedSize = await fileSize(finalPath);
 
   // Fully cached: seekable Range response.
-  if (cachedSize > 0) return serveCached(finalPath, cachedSize, req.headers.get("range"));
-
-  const job = startJob(videoId);
-
-  // Range request during download: wait for the download to finish, then
-  // serve the requested range. Progressive streaming can't honor Range mid-download.
-  if (req.headers.get("range")) {
-    try {
-      await job.finalize;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "unknown";
-      return new Response(`download failed: ${msg}`, { status: 502 });
-    }
-    const total = await fileSize(finalPath);
-    if (!total) return new Response("empty file", { status: 502 });
-    return serveCached(finalPath, total, req.headers.get("range"));
+  if (cachedSize > 0) {
+    return serveCached(finalPath, cachedSize, req.headers.get("range"));
   }
 
-  // No Range: pipe bytes as they land on disk.
-  const stream = tailStream(job);
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      "Content-Type": "audio/mp4",
-      "Cache-Control": "private, no-store",
-      "Accept-Ranges": "none",
-    },
-  });
+  // Cold: probe total size, then kick off download.
+  let job = jobs.get(videoId);
+  if (!job) {
+    const size = await probeSize(videoId).catch(() => 0);
+    if (!size) return new Response("size probe failed", { status: 502 });
+    job = startJob(videoId, size);
+  }
+
+  // iOS Safari requires proper Range/206 support with a known total size.
+  // We always advertise Accept-Ranges + Content-Length and honour Range even
+  // during the download by waiting for the needed slice to hit disk.
+  return serveRangeDuringDownload(job, req.headers.get("range"));
 }
