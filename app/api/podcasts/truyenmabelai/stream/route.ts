@@ -7,7 +7,7 @@ import { Readable } from "node:stream";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 600;
+export const maxDuration = 300;
 
 // MachuTeam works on iPhone because it serves plain .mp3 files. YouTube's
 // audio-only .m4a (AAC in MP4) is refused by iOS Safari's streaming code path
@@ -73,9 +73,7 @@ async function downloadMp3(videoId: string): Promise<string> {
           const size = await fileSize(finalPath);
           if (size > 0) return resolve(finalPath);
           // Sometimes yt-dlp keeps the .m4a next to the .mp3 — pick whichever exists.
-          const files = (await fs.readdir(CACHE_DIR)).filter(
-            (n) => n.startsWith(`${videoId}.`) && n.endsWith(".mp3"),
-          );
+          const files = (await fs.readdir(CACHE_DIR)).filter((n) => n.startsWith(`${videoId}.`) && n.endsWith(".mp3"));
           if (files[0]) return resolve(path.join(CACHE_DIR, files[0]));
           reject(new Error("mp3 not produced"));
         } else if (retry) {
