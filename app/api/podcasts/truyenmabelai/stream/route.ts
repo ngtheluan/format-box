@@ -19,11 +19,12 @@ export const maxDuration = 300;
 type CacheEntry = { url: string; expiresAt: number };
 const urlCache = new Map<string, CacheEntry>();
 
-// Format selection: prefer smallest combined mp4 (video+audio muxed) so we get
-// a byte-seekable progressive file — separated adaptive streams don't work in
-// a plain <video src>. 360p combined mp4 is the last format YouTube still ships
-// as a single file, and its audio is the same 128k AAC we care about.
-const YTDLP_FORMAT = "best[ext=mp4][acodec!=none][vcodec!=none]/best[ext=mp4]/best";
+// Format 18 = 360p H.264 baseline + AAC in a single progressive mp4. It's the
+// only format YouTube still ships as one combined, byte-seekable file that iOS
+// Safari can start playing without downloading the whole thing. Adaptive DASH
+// streams (video-only + audio-only) can't be played in a plain <video src>.
+// Fallbacks are last-ditch and may not play on iOS.
+const YTDLP_FORMAT = "18/best[protocol^=http][ext=mp4][acodec!=none][vcodec!=none]";
 
 function resolveVideoUrl(videoId: string, useCookies: boolean): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -47,9 +48,14 @@ function resolveVideoUrl(videoId: string, useCookies: boolean): Promise<string> 
     });
     child.on("exit", (code) => {
       if (code === 0) {
-        const line = stdout.trim().split("\n").filter(Boolean)[0];
-        if (line) return resolve(line);
-        return reject(new Error("no url in yt-dlp output"));
+        const lines = stdout.trim().split("\n").filter(Boolean);
+        // yt-dlp with a "video+audio" format prints 2 URLs — we only support
+        // single-URL progressive streams here (format 18). Refuse the rest so
+        // we don't silently serve a video-only stream that iOS won't play.
+        if (lines.length !== 1) {
+          return reject(new Error(`expected 1 progressive URL, got ${lines.length}`));
+        }
+        return resolve(lines[0]);
       }
       reject(new Error(`yt-dlp exit ${code}: ${stderr.slice(-200)}`));
     });
