@@ -23,6 +23,10 @@ type PodcastSource = {
   title?: string;
   titleAlt?: string;
   thumbAlign?: "center" | "right" | "left";
+  // iOS Safari refuses YouTube's audio-only m4a in <audio> even with valid
+  // Range responses, but it plays combined mp4 in <video playsinline> fine.
+  // Set to "video" to use a hidden HTMLVideoElement instead of Audio.
+  mediaKind?: "audio" | "video";
 };
 
 const DEFAULT_SOURCE: PodcastSource = {
@@ -133,12 +137,12 @@ export default function MachuPodcast({
   query?: string;
   source?: PodcastSource;
 }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLMediaElement | null>(null);
   const filteredRef = useRef<Episode[]>(episodes);
   const currentSlugRef = useRef<string>("");
   const lastSaveRef = useRef<number>(0);
   const sourceRef = useRef<PodcastSource>(source);
-  const loadAndPlayRef = useRef<((ep: Episode, idx: number, a?: HTMLAudioElement) => void) | null>(null);
+  const loadAndPlayRef = useRef<((ep: Episode, idx: number, a?: HTMLMediaElement) => void) | null>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const scrubberRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -200,7 +204,26 @@ export default function MachuPodcast({
   const visibleEps = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page]);
 
   useEffect(() => {
-    const a = new Audio();
+    let a: HTMLMediaElement;
+    if (source.mediaKind === "video") {
+      // iOS Safari requires video elements to be attached to the DOM and
+      // visible-ish (opacity 0 is fine, display:none is not) to play.
+      const v = document.createElement("video");
+      v.setAttribute("playsinline", "");
+      v.setAttribute("webkit-playsinline", "");
+      v.style.position = "fixed";
+      v.style.left = "0";
+      v.style.bottom = "0";
+      v.style.width = "1px";
+      v.style.height = "1px";
+      v.style.opacity = "0";
+      v.style.pointerEvents = "none";
+      v.style.zIndex = "-1";
+      document.body.appendChild(v);
+      a = v;
+    } else {
+      a = new Audio();
+    }
     a.setAttribute("playsinline", "");
     a.setAttribute("webkit-playsinline", "");
     a.preload = "auto";
@@ -276,13 +299,14 @@ export default function MachuPodcast({
       a.removeEventListener("error", onError);
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("pagehide", onBeforeUnload);
+      if (a instanceof HTMLVideoElement && a.parentNode) a.parentNode.removeChild(a);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadAndPlay = useCallback(
-    async (ep: Episode, idx: number, a?: HTMLAudioElement) => {
+    async (ep: Episode, idx: number, a?: HTMLMediaElement) => {
       const audio = a ?? audioRef.current;
       if (!audio) return;
       // Persist previous track's position before switching.

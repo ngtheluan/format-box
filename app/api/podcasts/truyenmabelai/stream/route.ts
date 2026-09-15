@@ -1,142 +1,171 @@
 import { NextRequest } from "next/server";
 import { spawn } from "node:child_process";
-import { createReadStream, promises as fs } from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { Readable } from "node:stream";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-// MachuTeam works on iPhone because it serves plain .mp3 files. YouTube's
-// audio-only .m4a (AAC in MP4) is refused by iOS Safari's streaming code path
-// even with proper Range headers. We convert the YouTube audio to MP3 via
-// yt-dlp+ffmpeg, cache the .mp3 on disk, then serve it exactly like a static
-// MP3 file — identical shape to MachuTeam's audio.
+// Resolve YouTube's direct progressive mp4 URL via yt-dlp -g, then proxy the
+// bytes through here so the browser sees a same-origin stream (googlevideo URLs
+// are IP-bound and 403 when hit directly from the client).
+//
+// This replaces the old yt-dlp+ffmpeg → mp3 pipeline: no transcoding means the
+// first byte arrives within ~1–2s (just the -g call), which keeps iOS Safari
+// happy — its media element aborts if headers take longer than ~20–30s.
+// The client uses a <video playsinline> element (mediaKind: "video") because
+// iOS Safari refuses YouTube's audio-only m4a in <audio> even with valid Range
+// responses, but it plays combined mp4 in <video> fine.
 
-const CACHE_DIR = path.join(os.tmpdir(), "fb-podcast-cache");
-const inflight = new Map<string, Promise<string>>();
+type CacheEntry = { url: string; expiresAt: number };
+const urlCache = new Map<string, CacheEntry>();
 
-async function ensureCacheDir() {
-  await fs.mkdir(CACHE_DIR, { recursive: true });
-}
+// Format selection: prefer smallest combined mp4 (video+audio muxed) so we get
+// a byte-seekable progressive file — separated adaptive streams don't work in
+// a plain <video src>. 360p combined mp4 is the last format YouTube still ships
+// as a single file, and its audio is the same 128k AAC we care about.
+const YTDLP_FORMAT = "best[ext=mp4][acodec!=none][vcodec!=none]/best[ext=mp4]/best";
 
-async function fileSize(p: string): Promise<number> {
-  try {
-    const s = await fs.stat(p);
-    return s.isFile() ? s.size : 0;
-  } catch {
-    return 0;
-  }
-}
-
-async function downloadMp3(videoId: string): Promise<string> {
-  await ensureCacheDir();
-  const finalPath = path.join(CACHE_DIR, `${videoId}.mp3`);
-  if ((await fileSize(finalPath)) > 0) return finalPath;
-
-  const existing = inflight.get(videoId);
-  if (existing) return existing;
-
-  const job = new Promise<string>((resolve, reject) => {
-    // yt-dlp -x --audio-format mp3 downloads best audio and re-encodes to MP3
-    // via ffmpeg. Output template gets the correct .mp3 extension applied by
-    // the postprocessor.
-    const outTemplate = path.join(CACHE_DIR, `${videoId}.%(ext)s`);
+function resolveVideoUrl(videoId: string, useCookies: boolean): Promise<string> {
+  return new Promise((resolve, reject) => {
     const url = `https://www.youtube.com/watch?v=${videoId}`;
-    const baseArgs = [
+    const args = [
+      ...(useCookies ? ["--cookies-from-browser", "chrome"] : []),
       "--no-warnings",
       "--no-progress",
+      "-g",
       "-f",
-      "bestaudio",
-      "-x",
-      "--audio-format",
-      "mp3",
-      "--audio-quality",
-      "128k",
-      "-o",
-      outTemplate,
+      YTDLP_FORMAT,
+      url,
     ];
-    const withCookies = ["--cookies-from-browser", "chrome", ...baseArgs, url];
-    const withoutCookies = [...baseArgs, url];
-
-    const attempt = (args: string[], retry: boolean) => {
-      const child = spawn("yt-dlp", args, { stdio: ["ignore", "ignore", "pipe"] });
-      let stderrBuf = "";
-      child.stderr.on("data", (b: Buffer) => {
-        stderrBuf += b.toString();
-        if (stderrBuf.length > 8192) stderrBuf = stderrBuf.slice(-8192);
-      });
-      child.on("exit", async (code) => {
-        if (code === 0) {
-          const size = await fileSize(finalPath);
-          if (size > 0) return resolve(finalPath);
-          // Sometimes yt-dlp keeps the .m4a next to the .mp3 — pick whichever exists.
-          const files = (await fs.readdir(CACHE_DIR)).filter((n) => n.startsWith(`${videoId}.`) && n.endsWith(".mp3"));
-          if (files[0]) return resolve(path.join(CACHE_DIR, files[0]));
-          reject(new Error("mp3 not produced"));
-        } else if (retry) {
-          attempt(withoutCookies, false);
-        } else {
-          inflight.delete(videoId);
-          reject(new Error(`yt-dlp exit ${code}: ${stderrBuf.slice(-200)}`));
-        }
-      });
-      child.on("error", (e) => {
-        inflight.delete(videoId);
-        reject(e);
-      });
-    };
-    attempt(withCookies, true);
+    const child = spawn("yt-dlp", args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (b: Buffer) => (stdout += b.toString()));
+    child.stderr.on("data", (b: Buffer) => {
+      stderr += b.toString();
+      if (stderr.length > 8192) stderr = stderr.slice(-8192);
+    });
+    child.on("exit", (code) => {
+      if (code === 0) {
+        const line = stdout.trim().split("\n").filter(Boolean)[0];
+        if (line) return resolve(line);
+        return reject(new Error("no url in yt-dlp output"));
+      }
+      reject(new Error(`yt-dlp exit ${code}: ${stderr.slice(-200)}`));
+    });
+    child.on("error", reject);
   });
-
-  const wrapped = job.finally(() => inflight.delete(videoId));
-  inflight.set(videoId, wrapped);
-  return wrapped;
 }
 
-function parseRange(header: string | null, total: number) {
-  if (!header) return { start: 0, end: total - 1 };
-  const m = header.match(/bytes=(\d+)-(\d*)/);
-  if (!m) return { start: 0, end: total - 1 };
-  const start = parseInt(m[1], 10);
-  const end = m[2] ? Math.min(parseInt(m[2], 10), total - 1) : total - 1;
-  return { start, end };
+async function getUpstreamUrl(videoId: string): Promise<string> {
+  const now = Date.now();
+  const cached = urlCache.get(videoId);
+  // Refresh a minute before expiry to avoid mid-playback 403s.
+  if (cached && cached.expiresAt > now + 60_000) return cached.url;
+
+  let url: string;
+  try {
+    url = await resolveVideoUrl(videoId, true);
+  } catch {
+    url = await resolveVideoUrl(videoId, false);
+  }
+  // googlevideo URLs typically live ~6h; cache for 5h to leave a safety margin.
+  urlCache.set(videoId, { url, expiresAt: now + 5 * 60 * 60 * 1000 });
+  return url;
 }
 
-function serveMp3(filePath: string, total: number, rangeHeader: string | null) {
-  const { start, end } = parseRange(rangeHeader, total);
-  const nodeStream = createReadStream(filePath, { start, end });
-  const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream<Uint8Array>;
-  return new Response(webStream, {
-    status: rangeHeader ? 206 : 200,
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Accept-Ranges": "bytes",
-      "Content-Length": String(end - start + 1),
-      "Content-Range": `bytes ${start}-${end}/${total}`,
-      "Cache-Control": "private, max-age=3600",
-    },
+const HOP_BY_HOP = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailers",
+  "transfer-encoding",
+  "upgrade",
+]);
+
+function copyHeaders(from: Headers, keys: string[]): HeadersInit {
+  const out: Record<string, string> = {};
+  for (const k of keys) {
+    const v = from.get(k);
+    if (v) out[k] = v;
+  }
+  return out;
+}
+
+async function proxy(req: NextRequest, upstream: string, videoId: string, isHead: boolean): Promise<Response> {
+  // Forward the client's Range so seeking works; add a browser-ish UA because
+  // googlevideo sometimes rejects "node/undici" clients.
+  const headers: Record<string, string> = {
+    "User-Agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+  };
+  const range = req.headers.get("range");
+  if (range) headers["Range"] = range;
+
+  let upstreamRes = await fetch(upstream, { method: isHead ? "HEAD" : "GET", headers, cache: "no-store" });
+
+  // URL expired or rotated between resolve and use — refresh once.
+  if (upstreamRes.status === 403 || upstreamRes.status === 410) {
+    urlCache.delete(videoId);
+    const fresh = await getUpstreamUrl(videoId);
+    upstreamRes = await fetch(fresh, { method: isHead ? "HEAD" : "GET", headers, cache: "no-store" });
+  }
+
+  const passthrough = copyHeaders(upstreamRes.headers, [
+    "content-type",
+    "content-length",
+    "content-range",
+    "accept-ranges",
+    "last-modified",
+    "etag",
+  ]) as Record<string, string>;
+  // Some googlevideo responses omit Accept-Ranges even though they support Range.
+  if (!passthrough["accept-ranges"]) passthrough["accept-ranges"] = "bytes";
+  // Normalize content-type: iOS is happier with a media type it recognizes.
+  if (!passthrough["content-type"] || passthrough["content-type"].startsWith("application/")) {
+    passthrough["content-type"] = "video/mp4";
+  }
+  passthrough["cache-control"] = "private, max-age=0, no-store";
+
+  // Strip hop-by-hop just in case fetch surfaced any.
+  for (const k of Object.keys(passthrough)) {
+    if (HOP_BY_HOP.has(k.toLowerCase())) delete passthrough[k];
+  }
+
+  return new Response(isHead ? null : upstreamRes.body, {
+    status: upstreamRes.status,
+    headers: passthrough,
   });
+}
+
+function validate(videoId: string | null): { ok: true; id: string } | { ok: false; res: Response } {
+  if (!videoId) return { ok: false, res: new Response("missing slug", { status: 400 }) };
+  if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return { ok: false, res: new Response("bad slug", { status: 400 }) };
+  return { ok: true, id: videoId };
 }
 
 export async function GET(req: NextRequest) {
-  const videoId = req.nextUrl.searchParams.get("slug");
-  if (!videoId) return new Response("missing slug", { status: 400 });
-  if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return new Response("bad slug", { status: 400 });
-
-  await ensureCacheDir();
-  let filePath: string;
+  const v = validate(req.nextUrl.searchParams.get("slug"));
+  if (!v.ok) return v.res;
   try {
-    filePath = await downloadMp3(videoId);
+    const upstream = await getUpstreamUrl(v.id);
+    return await proxy(req, upstream, v.id, false);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown";
-    return new Response(`download failed: ${msg}`, { status: 502 });
+    return new Response(`resolve failed: ${msg}`, { status: 502 });
   }
+}
 
-  const total = await fileSize(filePath);
-  if (!total) return new Response("empty file", { status: 502 });
-
-  return serveMp3(filePath, total, req.headers.get("range"));
+export async function HEAD(req: NextRequest) {
+  const v = validate(req.nextUrl.searchParams.get("slug"));
+  if (!v.ok) return v.res;
+  try {
+    const upstream = await getUpstreamUrl(v.id);
+    return await proxy(req, upstream, v.id, true);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "unknown";
+    return new Response(`resolve failed: ${msg}`, { status: 502 });
+  }
 }
