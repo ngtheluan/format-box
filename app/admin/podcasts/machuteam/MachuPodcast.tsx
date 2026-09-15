@@ -17,6 +17,9 @@ type PodcastSource = {
   album: string;
   storageKey: string;
   fallbackUrl?: (ep: Episode) => string;
+  // Compute audio URL synchronously to preserve the user-activation gesture
+  // on iOS Safari — an async fetch before audio.play() breaks it.
+  directUrl?: (ep: Episode) => string;
   title?: string;
   titleAlt?: string;
   thumbAlign?: "center" | "right" | "left";
@@ -293,24 +296,43 @@ export default function MachuPodcast({
       setProgress(0);
       setCurrentTime(0);
       setDuration(0);
-      const url = await resolveAudioUrl(ep, source);
-      setLoading(false);
-      audio.src = url;
-      audio.load();
-      audio.playbackRate = speedRef.current;
+
       const savedTime = getSavedTime(source.storageKey, ep.slug);
-      if (savedTime > 0) {
-        const onMeta = () => {
-          try {
-            audio.currentTime = savedTime;
-          } catch {
-            /**/
-          }
-          audio.removeEventListener("loadedmetadata", onMeta);
-        };
-        audio.addEventListener("loadedmetadata", onMeta);
+      const applySavedTime = () => {
+        if (savedTime > 0) {
+          const onMeta = () => {
+            try {
+              audio.currentTime = savedTime;
+            } catch {
+              /**/
+            }
+            audio.removeEventListener("loadedmetadata", onMeta);
+          };
+          audio.addEventListener("loadedmetadata", onMeta);
+        }
+      };
+
+      // iOS Safari path: compute URL synchronously so audio.play() runs
+      // inside the click handler and keeps the user-activation gesture.
+      if (source.directUrl) {
+        audio.src = source.directUrl(ep);
+        audio.load();
+        audio.playbackRate = speedRef.current;
+        applySavedTime();
+        audio.play().catch((e) => {
+          console.warn("[podcast] play() rejected:", e?.name, e?.message);
+        });
+        setLoading(false);
+      } else {
+        const url = await resolveAudioUrl(ep, source);
+        setLoading(false);
+        audio.src = url;
+        audio.load();
+        audio.playbackRate = speedRef.current;
+        applySavedTime();
+        audio.play().catch(() => {});
       }
-      audio.play().catch(() => {});
+
       if ("mediaSession" in navigator) {
         const artSrc = await toSquareArt(ep.img, 512);
         navigator.mediaSession.metadata = new MediaMetadata({

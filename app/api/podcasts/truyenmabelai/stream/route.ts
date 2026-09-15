@@ -40,7 +40,10 @@ async function fileSize(p: string): Promise<number> {
 // downloading anything. Fast (~2s) — the response is signed by YouTube in a
 // single innertube call, so we can set Content-Length upfront (iOS Safari
 // refuses audio streams without a known Content-Length).
+const sizeCache = new Map<string, number>();
 async function probeSize(videoId: string): Promise<number> {
+  const cached = sizeCache.get(videoId);
+  if (cached) return cached;
   const url = `https://www.youtube.com/watch?v=${videoId}`;
   const args = [
     "--print",
@@ -58,11 +61,14 @@ async function probeSize(videoId: string): Promise<number> {
     const n = parseInt(stdout.trim(), 10);
     return Number.isFinite(n) && n > 0 ? n : 0;
   };
+  let size = 0;
   try {
-    return await run(["--cookies-from-browser", "chrome"]);
+    size = await run(["--cookies-from-browser", "chrome"]);
   } catch {
-    return await run([]);
+    size = await run([]);
   }
+  if (size > 0) sizeCache.set(videoId, size);
+  return size;
 }
 
 function startJob(videoId: string, totalSize: number): Job {

@@ -16,6 +16,7 @@ export default function TruyenMaBelai({ episodes, query }: { episodes: Episode[]
         title: "Truyện Ma",
         titleAlt: "Bẻ Lái",
         thumbAlign: "right",
+        directUrl: (ep) => `/api/podcasts/truyenmabelai/stream?slug=${encodeURIComponent(ep.slug)}`,
         fallbackUrl: (ep) => `/api/podcasts/truyenmabelai/stream?slug=${encodeURIComponent(ep.slug)}`,
       }}
     />
