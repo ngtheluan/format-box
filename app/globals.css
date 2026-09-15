@@ -11785,7 +11785,7 @@ label {
   }
 
   .mp-player {
-    bottom: 8px;
+    bottom: 0px;
     width: calc(100vw - 16px);
     padding: 9px 12px 11px;
     gap: 8px;
