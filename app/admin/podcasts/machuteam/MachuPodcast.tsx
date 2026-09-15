@@ -11,9 +11,31 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Episode, Video } from "./types";
 
-async function resolveAudioUrl(ep: Episode): Promise<string> {
+type PodcastSource = {
+  apiPath: string;
+  artist: string;
+  album: string;
+  storageKey: string;
+  fallbackUrl?: (ep: Episode) => string;
+  title?: string;
+  titleAlt?: string;
+  thumbAlign?: "center" | "right" | "left";
+};
+
+const DEFAULT_SOURCE: PodcastSource = {
+  apiPath: "/api/podcasts/machuteam",
+  artist: "MachuTeam Podcast",
+  album: "Kỳ Án & Truyện Ma",
+  storageKey: "machu-podcast",
+  title: "MachuTeam",
+  titleAlt: "Podcast",
+  fallbackUrl: (ep) =>
+    `https://machuteam.vn/uploads/audio/singles/${ep.ts}_${ep.slug.replace(/-{2,}/g, "-")}.mp3`,
+};
+
+async function resolveAudioUrl(ep: Episode, src: PodcastSource): Promise<string> {
   try {
-    const res = await fetch(`/api/podcasts/machuteam?slug=${encodeURIComponent(ep.slug)}`);
+    const res = await fetch(`${src.apiPath}?slug=${encodeURIComponent(ep.slug)}`);
     if (res.ok) {
       const data = await res.json();
       if (data.audioUrl) return data.audioUrl;
@@ -21,7 +43,7 @@ async function resolveAudioUrl(ep: Episode): Promise<string> {
   } catch {
     /**/
   }
-  return `https://machuteam.vn/uploads/audio/singles/${ep.ts}_${ep.slug.replace(/-{2,}/g, "-")}.mp3`;
+  return src.fallbackUrl ? src.fallbackUrl(ep) : "";
 }
 
 function fmtTime(s: number) {
@@ -37,34 +59,31 @@ function fmtListens(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1).replace(".0", "")}k` : String(n);
 }
 
-const LS_PROGRESS = "machu-podcast-progress";
-const LS_LAST = "machu-podcast-last";
 type ProgressMap = Record<string, number>;
-function loadProgressMap(): ProgressMap {
+function loadProgressMap(storageKey: string): ProgressMap {
   if (typeof window === "undefined") return {};
   try {
-    return JSON.parse(localStorage.getItem(LS_PROGRESS) || "{}");
+    return JSON.parse(localStorage.getItem(`${storageKey}-progress`) || "{}");
   } catch {
     return {};
   }
 }
-function saveProgressFor(slug: string, time: number, duration: number) {
+function saveProgressFor(storageKey: string, slug: string, time: number, duration: number) {
   if (typeof window === "undefined" || !slug) return;
   try {
-    const map = loadProgressMap();
-    // If nearly finished (>95%) or too short, drop the entry.
+    const map = loadProgressMap(storageKey);
     if (duration > 0 && (time / duration > 0.95 || time < 3)) {
       delete map[slug];
     } else {
       map[slug] = time;
     }
-    localStorage.setItem(LS_PROGRESS, JSON.stringify(map));
+    localStorage.setItem(`${storageKey}-progress`, JSON.stringify(map));
   } catch {
     /**/
   }
 }
-function getSavedTime(slug: string): number {
-  return loadProgressMap()[slug] ?? 0;
+function getSavedTime(storageKey: string, slug: string): number {
+  return loadProgressMap(storageKey)[slug] ?? 0;
 }
 
 const squareArtCache = new Map<string, string>();
@@ -104,15 +123,18 @@ async function toSquareArt(src: string, size = 512): Promise<string> {
 export default function MachuPodcast({
   episodes,
   query = "",
+  source = DEFAULT_SOURCE,
 }: {
   episodes: Episode[];
-  videos: Video[];
+  videos?: Video[];
   query?: string;
+  source?: PodcastSource;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const filteredRef = useRef<Episode[]>(episodes);
   const currentSlugRef = useRef<string>("");
   const lastSaveRef = useRef<number>(0);
+  const sourceRef = useRef<PodcastSource>(source);
   const loadAndPlayRef = useRef<((ep: Episode, idx: number, a?: HTMLAudioElement) => void) | null>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const scrubberRef = useRef<HTMLDivElement>(null);
@@ -155,6 +177,10 @@ export default function MachuPodcast({
   }, [filtered]);
 
   useEffect(() => {
+    sourceRef.current = source;
+  }, [source]);
+
+  useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
@@ -180,7 +206,7 @@ export default function MachuPodcast({
       const now = Date.now();
       if (currentSlugRef.current && now - lastSaveRef.current > 5000) {
         lastSaveRef.current = now;
-        saveProgressFor(currentSlugRef.current, a.currentTime, a.duration);
+        saveProgressFor(sourceRef.current.storageKey, currentSlugRef.current, a.currentTime, a.duration);
       }
       if ("mediaSession" in navigator) {
         try {
@@ -198,10 +224,10 @@ export default function MachuPodcast({
     const onPlay = () => setPlaying(true);
     const onPause = () => {
       setPlaying(false);
-      if (currentSlugRef.current) saveProgressFor(currentSlugRef.current, a.currentTime, a.duration);
+      if (currentSlugRef.current) saveProgressFor(sourceRef.current.storageKey, currentSlugRef.current, a.currentTime, a.duration);
     };
     const onEnded = () => {
-      if (currentSlugRef.current) saveProgressFor(currentSlugRef.current, a.duration, a.duration);
+      if (currentSlugRef.current) saveProgressFor(sourceRef.current.storageKey, currentSlugRef.current, a.duration, a.duration);
       setCurrentIdx((idx) => {
         const list = filteredRef.current;
         const next = idx + 1;
@@ -214,7 +240,16 @@ export default function MachuPodcast({
       });
     };
     const onBeforeUnload = () => {
-      if (currentSlugRef.current) saveProgressFor(currentSlugRef.current, a.currentTime, a.duration);
+      if (currentSlugRef.current) saveProgressFor(sourceRef.current.storageKey, currentSlugRef.current, a.currentTime, a.duration);
+    };
+    const onError = () => {
+      setLoading(false);
+      setPlaying(false);
+      const code = a.error?.code;
+      const msg = a.error?.message ?? "unknown";
+      console.warn("[podcast] audio error", code, msg, "for", currentSlugRef.current);
+      // Don't auto-skip — cascade fails feel worse than a single failure. User
+      // can pick another episode or retry manually.
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("pagehide", onBeforeUnload);
@@ -223,14 +258,16 @@ export default function MachuPodcast({
     a.addEventListener("play", onPlay);
     a.addEventListener("pause", onPause);
     a.addEventListener("ended", onEnded);
+    a.addEventListener("error", onError);
     return () => {
-      if (currentSlugRef.current) saveProgressFor(currentSlugRef.current, a.currentTime, a.duration);
+      if (currentSlugRef.current) saveProgressFor(sourceRef.current.storageKey, currentSlugRef.current, a.currentTime, a.duration);
       a.pause();
       a.removeEventListener("timeupdate", onTime);
       a.removeEventListener("durationchange", onDur);
       a.removeEventListener("play", onPlay);
       a.removeEventListener("pause", onPause);
       a.removeEventListener("ended", onEnded);
+      a.removeEventListener("error", onError);
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("pagehide", onBeforeUnload);
     };
@@ -244,11 +281,11 @@ export default function MachuPodcast({
       if (!audio) return;
       // Persist previous track's position before switching.
       if (currentSlugRef.current && currentSlugRef.current !== ep.slug) {
-        saveProgressFor(currentSlugRef.current, audio.currentTime, audio.duration);
+        saveProgressFor(source.storageKey, currentSlugRef.current, audio.currentTime, audio.duration);
       }
       currentSlugRef.current = ep.slug;
       try {
-        localStorage.setItem(LS_LAST, ep.slug);
+        localStorage.setItem(`${source.storageKey}-last`, ep.slug);
       } catch {
         /**/
       }
@@ -256,12 +293,12 @@ export default function MachuPodcast({
       setProgress(0);
       setCurrentTime(0);
       setDuration(0);
-      const url = await resolveAudioUrl(ep);
+      const url = await resolveAudioUrl(ep, source);
       setLoading(false);
       audio.src = url;
       audio.load();
       audio.playbackRate = speedRef.current;
-      const savedTime = getSavedTime(ep.slug);
+      const savedTime = getSavedTime(source.storageKey, ep.slug);
       if (savedTime > 0) {
         const onMeta = () => {
           try {
@@ -278,8 +315,8 @@ export default function MachuPodcast({
         const artSrc = await toSquareArt(ep.img, 512);
         navigator.mediaSession.metadata = new MediaMetadata({
           title: ep.title,
-          artist: "MachuTeam Podcast",
-          album: "Kỳ Án & Truyện Ma",
+          artist: source.artist,
+          album: source.album,
           artwork: [{ src: artSrc, sizes: "512x512", type: "image/jpeg" }],
         });
         navigator.mediaSession.setActionHandler("play", () => audio.play());
@@ -470,18 +507,7 @@ export default function MachuPodcast({
       )}
 
       {/* ═══ Main page ═══ */}
-      <div className="mp-page">
-        {/* Sticky header */}
-        <div className="mp-header">
-          <div className="mp-header-left">
-            <IconHeadphones size={18} stroke={1.8} className="mp-header-icon" />
-            <span className="mp-header-title">
-              MachuTeam <em>Podcast</em>
-            </span>
-            <span className="mp-header-badge">{filtered.length}</span>
-          </div>
-        </div>
-
+      <div className={`mp-page${source.thumbAlign ? ` thumb-${source.thumbAlign}` : ""}`}>
         {/* Grid */}
         {filtered.length === 0 ? (
           <div className="mp-empty">Không tìm thấy kết quả nào.</div>

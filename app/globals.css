@@ -11044,8 +11044,19 @@ label {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   display: block;
   transition: transform 0.25s;
+}
+.mp-page.thumb-right .mp-card-thumb img,
+.mp-page.thumb-right .mp-detail-art img,
+.mp-page.thumb-right .mp-player-art img {
+  object-position: right center;
+}
+.mp-page.thumb-left .mp-card-thumb img,
+.mp-page.thumb-left .mp-detail-art img,
+.mp-page.thumb-left .mp-player-art img {
+  object-position: left center;
 }
 
 .mp-card:hover .mp-card-thumb img {
