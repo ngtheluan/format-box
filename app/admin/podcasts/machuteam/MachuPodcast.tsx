@@ -7,8 +7,6 @@ import {
   IconPlayerPlay,
   IconPlayerSkipBack,
   IconPlayerSkipForward,
-  IconSearch,
-  IconX,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Episode, Video } from "./types";
@@ -103,7 +101,14 @@ async function toSquareArt(src: string, size = 512): Promise<string> {
   return out;
 }
 
-export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos: Video[] }) {
+export default function MachuPodcast({
+  episodes,
+  query = "",
+}: {
+  episodes: Episode[];
+  videos: Video[];
+  query?: string;
+}) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const filteredRef = useRef<Episode[]>(episodes);
   const currentSlugRef = useRef<string>("");
@@ -123,7 +128,6 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [query, setQuery] = useState("");
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
@@ -141,9 +145,10 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
   const fmtSpeed = (s: number) => (Number.isInteger(s) ? `${s}×` : `${s}×`);
 
   useEffect(() => {
-    setFiltered(episodes);
+    const lq = query.toLowerCase().trim();
+    setFiltered(lq ? episodes.filter((ep) => ep.title.toLowerCase().includes(lq)) : episodes);
     setPage(1);
-  }, [episodes]);
+  }, [episodes, query]);
 
   useEffect(() => {
     filteredRef.current = filtered;
@@ -474,34 +479,6 @@ export default function MachuPodcast({ episodes }: { episodes: Episode[]; videos
               MachuTeam <em>Podcast</em>
             </span>
             <span className="mp-header-badge">{filtered.length}</span>
-          </div>
-          <div className="mp-search">
-            <IconSearch size={13} stroke={1.8} />
-            <input
-              type="search"
-              placeholder="Tìm tập..."
-              value={query}
-              onChange={(e) => {
-                const q = e.target.value;
-                setQuery(q);
-                const lq = q.toLowerCase().trim();
-                setFiltered(lq ? episodes.filter((ep) => ep.title.toLowerCase().includes(lq)) : episodes);
-                setPage(1);
-              }}
-              autoComplete="off"
-            />
-            {query && (
-              <button
-                className="mp-search-x"
-                onClick={() => {
-                  setQuery("");
-                  setFiltered(episodes);
-                  setPage(1);
-                }}
-              >
-                <IconX size={11} stroke={2.5} />
-              </button>
-            )}
           </div>
         </div>
 
