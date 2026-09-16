@@ -1,7 +1,21 @@
 "use client";
 import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
-import { IconCake, IconChristmasTree, IconDeviceFloppy, IconGift, IconPlus, IconSparkles, IconTrash } from "@tabler/icons-react";
+import {
+  IconBell,
+  IconBellOff,
+  IconBellRinging,
+  IconChristmasTree,
+  IconDeviceFloppy,
+  IconFlag,
+  IconGift,
+  IconMoon,
+  IconMoonStars,
+  IconPlus,
+  IconSchool,
+  IconSparkles,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Input, Textarea } from "@/components/ui";
 
@@ -25,6 +39,72 @@ function xmasIso() {
   const d = new Date();
   const year = d.getMonth() > 11 || (d.getMonth() === 11 && d.getDate() > 25) ? d.getFullYear() + 1 : d.getFullYear();
   return new Date(year, 11, 25, 0, 0, 0).toISOString();
+}
+
+// Ngày mùng 1 Tết Nguyên đán (dương lịch, giờ Việt Nam) theo năm
+const LUNAR_NEW_YEAR: Record<number, [number, number]> = {
+  2024: [2, 10],
+  2025: [1, 29],
+  2026: [2, 17],
+  2027: [2, 6],
+  2028: [1, 26],
+  2029: [2, 13],
+  2030: [2, 3],
+  2031: [1, 23],
+  2032: [2, 11],
+  2033: [1, 31],
+  2034: [2, 19],
+  2035: [2, 8],
+};
+
+function tetIso() {
+  const now = new Date();
+  for (let y = now.getFullYear(); y <= now.getFullYear() + 2; y++) {
+    const entry = LUNAR_NEW_YEAR[y];
+    if (!entry) continue;
+    const [month, day] = entry;
+    const d = new Date(y, month - 1, day, 0, 0, 0);
+    if (d.getTime() > now.getTime()) return d.toISOString();
+  }
+  // Fallback: ~đầu tháng 2 năm kế tiếp
+  return new Date(now.getFullYear() + 1, 1, 1, 0, 0, 0).toISOString();
+}
+
+// Trung thu: rằm tháng 8 âm lịch — quy đổi sang dương lịch (giờ Việt Nam)
+const MID_AUTUMN: Record<number, [number, number]> = {
+  2024: [9, 17],
+  2025: [10, 6],
+  2026: [9, 25],
+  2027: [9, 15],
+  2028: [10, 3],
+  2029: [9, 22],
+  2030: [9, 12],
+  2031: [10, 1],
+  2032: [9, 19],
+  2033: [9, 8],
+  2034: [9, 27],
+  2035: [9, 16],
+};
+
+function midAutumnIso() {
+  const now = new Date();
+  for (let y = now.getFullYear(); y <= now.getFullYear() + 2; y++) {
+    const entry = MID_AUTUMN[y];
+    if (!entry) continue;
+    const [month, day] = entry;
+    const d = new Date(y, month - 1, day, 0, 0, 0);
+    if (d.getTime() > now.getTime()) return d.toISOString();
+  }
+  return new Date(now.getFullYear() + 1, 8, 15, 0, 0, 0).toISOString();
+}
+
+// Ngày lễ dương lịch tái diễn hằng năm — trả về mốc kế tiếp
+function annualIso(month: number, day: number) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const d = new Date(y, month - 1, day, 0, 0, 0);
+  if (d.getTime() > now.getTime()) return d.toISOString();
+  return new Date(y + 1, month - 1, day, 0, 0, 0).toISOString();
 }
 function toLocalInput(iso: string) {
   const d = new Date(iso);
@@ -53,7 +133,9 @@ export default function CountdownTool() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [ready, setReady] = useState(false);
+  const [notifyPerm, setNotifyPerm] = useState<NotificationPermission | "unsupported">("default");
   const celebratedRef = useRef<Set<string>>(new Set());
+  const notifiedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     try {
@@ -63,16 +145,27 @@ export default function CountdownTool() {
         parsed.length > 0
           ? parsed
           : [
+              { id: "seed-tet", title: t("cd_preset_tet"), target: tetIso(), color: COLORS[3] },
               { id: "seed-ny", title: t("cd_preset_ny"), target: nextYearIso(), color: COLORS[0] },
               { id: "seed-xm", title: t("cd_preset_xmas"), target: xmasIso(), color: COLORS[2] },
             ];
       setList(seeded);
       const savedActive = localStorage.getItem(ACTIVE_KEY);
       setActiveId(savedActive && seeded.find((c) => c.id === savedActive) ? savedActive : (seeded[0]?.id ?? null));
+      // Bỏ qua notify cho các mốc đã hết hạn trước khi mở trang
+      const nowTs = Date.now();
+      for (const c of seeded) {
+        if (new Date(c.target).getTime() <= nowTs) notifiedRef.current.add(c.id);
+      }
     } catch {
       /* ignore */
     } finally {
       setReady(true);
+    }
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifyPerm(Notification.permission);
+    } else {
+      setNotifyPerm("unsupported");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -114,6 +207,49 @@ export default function CountdownTool() {
       .catch(() => undefined);
   }, [active, finished]);
 
+  // Gửi Web Notification khi bất kỳ mốc nào chạm 0 (kể cả không phải active)
+  useEffect(() => {
+    if (!ready) return;
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    for (const c of list) {
+      if (notifiedRef.current.has(c.id)) continue;
+      const target = new Date(c.target).getTime();
+      if (target > now) continue;
+      notifiedRef.current.add(c.id);
+      try {
+        const n = new Notification(t("cd_notify_title"), {
+          body: c.title || t("cd_arrived"),
+          tag: `fb-cd-${c.id}`,
+          icon: "/favicon.ico",
+          badge: "/favicon.ico",
+        });
+        n.onclick = () => {
+          try {
+            window.focus();
+            setActiveId(c.id);
+          } catch {
+            /* ignore */
+          }
+        };
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [list, now, ready, t]);
+
+  const requestNotify = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    try {
+      const p = await Notification.requestPermission();
+      setNotifyPerm(p);
+      if (p === "granted") toast(t("cd_notify_on"));
+      else if (p === "denied") toast(t("cd_notify_blocked"));
+    } catch {
+      /* ignore */
+    }
+  };
+
   const addCountdown = (title: string, target: string) => {
     const id = `c-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const color = COLORS[list.length % COLORS.length];
@@ -121,6 +257,7 @@ export default function CountdownTool() {
     setList((prev) => [next, ...prev]);
     setActiveId(id);
     celebratedRef.current.delete(id);
+    notifiedRef.current.delete(id);
   };
 
   const removeCountdown = (id: string) => {
@@ -130,12 +267,16 @@ export default function CountdownTool() {
       return next;
     });
     celebratedRef.current.delete(id);
+    notifiedRef.current.delete(id);
   };
 
   const updateActive = (patch: Partial<Countdown>) => {
     if (!activeId) return;
     setList((prev) => prev.map((c) => (c.id === activeId ? { ...c, ...patch } : c)));
-    if (patch.target) celebratedRef.current.delete(activeId);
+    if (patch.target) {
+      celebratedRef.current.delete(activeId);
+      notifiedRef.current.delete(activeId);
+    }
   };
 
   const [newTitle, setNewTitle] = useState("");
@@ -165,15 +306,13 @@ export default function CountdownTool() {
     setNewTitle("");
   };
 
-  const addPreset = (kind: "ny" | "xmas" | "birthday") => {
+  const addPreset = (kind: "ny" | "tet" | "xmas" | "midautumn" | "natday" | "teachers") => {
     if (kind === "ny") addCountdown(t("cd_preset_ny"), nextYearIso());
+    else if (kind === "tet") addCountdown(t("cd_preset_tet"), tetIso());
     else if (kind === "xmas") addCountdown(t("cd_preset_xmas"), xmasIso());
-    else {
-      const d = new Date();
-      d.setDate(d.getDate() + 30);
-      d.setHours(0, 0, 0, 0);
-      addCountdown(t("cd_preset_birthday"), d.toISOString());
-    }
+    else if (kind === "midautumn") addCountdown(t("cd_preset_midautumn"), midAutumnIso());
+    else if (kind === "natday") addCountdown(t("cd_preset_natday"), annualIso(9, 2));
+    else if (kind === "teachers") addCountdown(t("cd_preset_teachers"), annualIso(11, 20));
   };
 
   return (
@@ -201,6 +340,22 @@ export default function CountdownTool() {
           {t("cd_presets")}
         </div>
         <div className="wheel-presets">
+          <button type="button" className="wheel-preset" onClick={() => addPreset("tet")}>
+            <IconMoonStars size={14} stroke={1.9} />
+            <span>{t("cd_preset_tet")}</span>
+          </button>
+          <button type="button" className="wheel-preset" onClick={() => addPreset("midautumn")}>
+            <IconMoon size={14} stroke={1.9} />
+            <span>{t("cd_preset_midautumn")}</span>
+          </button>
+          <button type="button" className="wheel-preset" onClick={() => addPreset("natday")}>
+            <IconFlag size={14} stroke={1.9} />
+            <span>{t("cd_preset_natday")}</span>
+          </button>
+          <button type="button" className="wheel-preset" onClick={() => addPreset("teachers")}>
+            <IconSchool size={14} stroke={1.9} />
+            <span>{t("cd_preset_teachers")}</span>
+          </button>
           <button type="button" className="wheel-preset" onClick={() => addPreset("ny")}>
             <IconSparkles size={14} stroke={1.9} />
             <span>{t("cd_preset_ny")}</span>
@@ -208,10 +363,6 @@ export default function CountdownTool() {
           <button type="button" className="wheel-preset" onClick={() => addPreset("xmas")}>
             <IconChristmasTree size={14} stroke={1.9} />
             <span>{t("cd_preset_xmas")}</span>
-          </button>
-          <button type="button" className="wheel-preset" onClick={() => addPreset("birthday")}>
-            <IconCake size={14} stroke={1.9} />
-            <span>{t("cd_preset_birthday")}</span>
           </button>
         </div>
 
@@ -252,9 +403,51 @@ export default function CountdownTool() {
             </ul>
           )}
         </div>
-        <p className="wheel-saved-hint" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <IconDeviceFloppy size={14} stroke={1.8} /> {t("cd_saved_hint")}
-        </p>
+        <div
+          style={{
+            marginTop: 10,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <p className="wheel-saved-hint" style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: 0 }}>
+            <IconDeviceFloppy size={14} stroke={1.8} /> {t("cd_saved_hint")}
+          </p>
+          {notifyPerm !== "unsupported" && (
+            <button
+              type="button"
+              className="wheel-preset"
+              onClick={notifyPerm === "default" ? requestNotify : undefined}
+              disabled={notifyPerm !== "default"}
+              style={{ padding: "4px 8px", fontSize: 12, opacity: notifyPerm === "default" ? 1 : 0.75 }}
+              title={
+                notifyPerm === "granted"
+                  ? t("cd_notify_on")
+                  : notifyPerm === "denied"
+                    ? t("cd_notify_blocked")
+                    : t("cd_notify_enable")
+              }
+            >
+              {notifyPerm === "granted" ? (
+                <IconBellRinging size={13} stroke={1.9} />
+              ) : notifyPerm === "denied" ? (
+                <IconBellOff size={13} stroke={1.9} />
+              ) : (
+                <IconBell size={13} stroke={1.9} />
+              )}
+              <span>
+                {notifyPerm === "granted"
+                  ? t("cd_notify_on")
+                  : notifyPerm === "denied"
+                    ? t("cd_notify_blocked")
+                    : t("cd_notify_enable")}
+              </span>
+            </button>
+          )}
+        </div>
       </aside>
 
       <div className="wheel-stage">

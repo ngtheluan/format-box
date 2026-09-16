@@ -372,8 +372,11 @@ const dict = {
   cd_add: { vi: "Thêm", en: "Add" },
   cd_presets: { vi: "Mẫu nhanh", en: "Quick presets" },
   cd_preset_ny: { vi: "Năm mới", en: "New Year" },
+  cd_preset_tet: { vi: "Tết Âm lịch", en: "Lunar New Year" },
+  cd_preset_midautumn: { vi: "Trung thu", en: "Mid-Autumn" },
+  cd_preset_natday: { vi: "Quốc khánh 2/9", en: "National Day (Sep 2)" },
+  cd_preset_teachers: { vi: "Nhà giáo 20/11", en: "Teachers' Day (Nov 20)" },
   cd_preset_xmas: { vi: "Giáng sinh", en: "Christmas" },
-  cd_preset_birthday: { vi: "Sinh nhật (30 ngày nữa)", en: "Birthday (in 30 days)" },
   cd_list: { vi: "Danh sách", en: "Your list" },
   cd_count: { vi: "mốc", en: "events" },
   cd_list_empty: { vi: "Chưa có mốc nào.", en: "No countdowns yet." },
@@ -393,6 +396,10 @@ const dict = {
   cd_need_title: { vi: "Cần nhập tên sự kiện", en: "Need an event title" },
   cd_need_date: { vi: "Cần chọn thời gian", en: "Pick a target date/time" },
   cd_need_future: { vi: "Thời gian phải ở tương lai", en: "Target must be in the future" },
+  cd_notify_enable: { vi: "Bật thông báo", en: "Enable notifications" },
+  cd_notify_on: { vi: "Đã bật thông báo", en: "Notifications enabled" },
+  cd_notify_blocked: { vi: "Trình duyệt đã chặn", en: "Blocked by browser" },
+  cd_notify_title: { vi: "Đã tới lúc!", en: "Time's up!" },
 
   // TIMESTAMP
   ts_title: { vi: "Converter", en: "Converter" },
