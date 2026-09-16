@@ -71,6 +71,10 @@ function findPriceFor(text: string, matchIdx: number, matchLen: number): { price
   // Find first plausible price in the window
   const priceMatch = new RegExp(PRICE_RE.source).exec(window);
   if (!priceMatch) return null;
+  // Skip world-market / percentage sentences (e.g. "E10 RON 95 tăng 9,2% lên 132,2 USD"),
+  // whose window can spill into the next retail paragraph and grab the wrong price.
+  const preSegment = window.slice(0, priceMatch.index);
+  if (/USD|%/i.test(preSegment)) return null;
   const price = Number(priceMatch[1].replace(/\./g, ""));
   if (!Number.isFinite(price) || price < 5000 || price > 100000) return null;
 
