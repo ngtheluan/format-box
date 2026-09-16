@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
-import { IconAlertCircle, IconLock, IconShieldLock } from "@tabler/icons-react";
-import "./admin.css";
 import { useToast } from "@/components/Toast";
+import { IconAlertCircle, IconLock, IconShieldLock } from "@tabler/icons-react";
+import { useState } from "react";
+import "./admin.css";
 
 export default function AdminLogin() {
   const [pw, setPw] = useState("");
@@ -22,7 +22,7 @@ export default function AdminLogin() {
     setBusy(false);
     if (res.ok) {
       toast("Đăng nhập thành công");
-      window.location.href = "/admin/menu";
+      window.location.href = "/admin";
     } else {
       setErr("Sai mật khẩu");
       toast("Sai mật khẩu");

@@ -1,5 +1,12 @@
 "use client";
-import { IconComponents, IconLayoutGrid, IconListDetails, IconMessageDots, IconMicrophone } from "@tabler/icons-react";
+import {
+  IconComponents,
+  IconLayoutGrid,
+  IconListDetails,
+  IconMessageDots,
+  IconMicrophone,
+  IconPalette,
+} from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import AdminBody from "./AdminBody";
 
@@ -16,6 +23,12 @@ const ADMIN_APPS: AdminApp[] = [
     title: "Menu",
     desc: "Quản lý danh sách tools hiển thị ngoài trang chủ.",
     icon: <IconListDetails size={20} stroke={1.7} />,
+  },
+  {
+    href: "/admin/theme",
+    title: "Theme",
+    desc: "Chọn theme cho toàn site và bật/tắt.",
+    icon: <IconPalette size={20} stroke={1.7} />,
   },
   {
     href: "/admin/ui",

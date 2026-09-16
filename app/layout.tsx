@@ -1,10 +1,12 @@
 import AppShell from "@/components/AppShell";
 import NavigationProgress from "@/components/NavigationProgress";
 import ScrollTop from "@/components/ScrollTop";
+import SkinScene from "@/components/SkinScene";
 import TitleUpdater from "@/components/TitleUpdater";
 import { ToastProvider } from "@/components/Toast";
 import { ToolsProvider } from "@/components/ToolsProvider";
 import { LanguageProvider } from "@/lib/i18n";
+import { SkinProvider } from "@/lib/skin-context";
 import { themeInitScript } from "@/lib/theme";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
@@ -36,14 +38,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <LanguageProvider>
-          <ToolsProvider>
-            <NavigationProgress />
-            <TitleUpdater />
-            <ToastProvider>
-              <AppShell>{children}</AppShell>
-            </ToastProvider>
-            <ScrollTop />
-          </ToolsProvider>
+          <SkinProvider>
+            <ToolsProvider>
+              <SkinScene />
+              <NavigationProgress />
+              <TitleUpdater />
+              <ToastProvider>
+                <AppShell>{children}</AppShell>
+              </ToastProvider>
+              <ScrollTop />
+            </ToolsProvider>
+          </SkinProvider>
         </LanguageProvider>
       </body>
     </html>

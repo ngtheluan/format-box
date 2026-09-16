@@ -215,6 +215,7 @@ export default function MenuManager() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [filter, setFilter] = useState<FilterCat>("all");
+  const [statFilter, setStatFilter] = useState<"all" | "active" | "hidden">("all");
   const [q, setQ] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
@@ -245,6 +246,9 @@ export default function MenuManager() {
     const needle = q.trim().toLowerCase();
     return tools.filter((t) => {
       if (filter !== "all" && t.category !== filter) return false;
+      const isActive = t.active ?? true;
+      if (statFilter === "active" && !isActive) return false;
+      if (statFilter === "hidden" && isActive) return false;
       if (!needle) return true;
       return (
         t.title.toLowerCase().includes(needle) ||
@@ -252,7 +256,9 @@ export default function MenuManager() {
         t.tags.some((x) => x.toLowerCase().includes(needle))
       );
     });
-  }, [tools, filter, q]);
+  }, [tools, filter, statFilter, q]);
+
+  const statActiveStyle = { border: "1.5px solid #f97316", boxShadow: "0 0 0 2px rgba(249,115,22,0.15)" } as const;
 
   async function save() {
     if (!editing) return;
@@ -393,8 +399,8 @@ export default function MenuManager() {
       onLogout={logout}
       headerActions={
         <>
-          <button onClick={seed} className="fx-btn" title="Seed defaults">
-            <IconDatabase size={14} stroke={1.9} /> Seed
+          <button onClick={seed} className="fx-btn" title="Insert Data">
+            <IconDatabase size={14} stroke={1.9} /> Insert Data
           </button>
           <button
             onClick={() => {
@@ -409,7 +415,11 @@ export default function MenuManager() {
       }
       stats={
         <>
-          <div className="fx-stat">
+          <div
+            className="fx-stat"
+            onClick={() => setStatFilter("all")}
+            style={{ cursor: "pointer", ...(statFilter === "all" ? statActiveStyle : null) }}
+          >
             <span className="fx-stat-ico">
               <IconApps size={18} stroke={1.9} />
             </span>
@@ -418,7 +428,12 @@ export default function MenuManager() {
               <span className="fx-stat-lbl">Tổng tools</span>
             </span>
           </div>
-          <div className="fx-stat" data-tone="ok">
+          <div
+            className="fx-stat"
+            data-tone="ok"
+            onClick={() => setStatFilter("active")}
+            style={{ cursor: "pointer", ...(statFilter === "active" ? statActiveStyle : null) }}
+          >
             <span className="fx-stat-ico">
               <IconToggleRight size={18} stroke={1.9} />
             </span>
@@ -427,7 +442,12 @@ export default function MenuManager() {
               <span className="fx-stat-lbl">Đang hiển thị</span>
             </span>
           </div>
-          <div className="fx-stat" data-tone="mute">
+          <div
+            className="fx-stat"
+            data-tone="mute"
+            onClick={() => setStatFilter("hidden")}
+            style={{ cursor: "pointer", ...(statFilter === "hidden" ? statActiveStyle : null) }}
+          >
             <span className="fx-stat-ico">
               <IconEyeOff size={18} stroke={1.9} />
             </span>

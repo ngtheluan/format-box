@@ -11840,3 +11840,148 @@ label {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
+
+/* ============================================================
+   Skin picker + seasonal skins
+   ============================================================ */
+.skin-picker {
+  position: relative;
+  display: inline-flex;
+}
+.skin-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 6px;
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.skin-menu-h {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  padding: 6px 10px 4px;
+}
+.skin-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+.skin-item:hover {
+  background: var(--bg3);
+  color: var(--bright);
+}
+.skin-item.active {
+  color: var(--bright);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.skin-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.skin-label { flex: 1; }
+
+[data-skin="mid-autumn"] {
+  --accent: #e53935;
+  --accent2: #f9a825;
+  --border-h: rgba(229, 57, 53, 0.4);
+  --glow: rgba(249, 168, 37, 0.14);
+}
+[data-skin="christmas"] {
+  --accent: #c62828;
+  --accent2: #2e7d32;
+  --border-h: rgba(198, 40, 40, 0.4);
+  --glow: rgba(46, 125, 50, 0.14);
+}
+[data-skin="lunar-new-year"] {
+  --accent: #d32f2f;
+  --accent2: #f4b400;
+  --border-h: rgba(211, 47, 47, 0.4);
+  --glow: rgba(244, 180, 0, 0.14);
+}
+[data-skin="halloween"] {
+  --accent: #ef6c00;
+  --accent2: #6a1b9a;
+  --border-h: rgba(239, 108, 0, 0.4);
+  --glow: rgba(106, 27, 154, 0.16);
+}
+
+html[data-skin]:not([data-skin="modern"]) body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
+  background-size: 200% 100%;
+  animation: skinStripe 8s linear infinite;
+  z-index: 1000;
+  pointer-events: none;
+}
+@keyframes skinStripe {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skin-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+}
+html[data-skin]:not([data-skin="modern"]) body {
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+html[data-skin="mid-autumn"] {
+  background:
+    radial-gradient(1200px 700px at 85% 15%, rgba(255, 210, 120, 0.18), transparent 60%),
+    radial-gradient(900px 600px at 10% 85%, rgba(229, 57, 53, 0.12), transparent 60%),
+    var(--bg);
+}
+html[data-skin="christmas"] {
+  background:
+    radial-gradient(1000px 700px at 20% 10%, rgba(198, 40, 40, 0.12), transparent 60%),
+    radial-gradient(1000px 700px at 85% 90%, rgba(46, 125, 50, 0.12), transparent 60%),
+    var(--bg);
+}
+html[data-skin="lunar-new-year"] {
+  background:
+    radial-gradient(1000px 700px at 50% 0%, rgba(244, 180, 0, 0.14), transparent 60%),
+    radial-gradient(900px 600px at 10% 90%, rgba(211, 47, 47, 0.16), transparent 60%),
+    var(--bg);
+}
+html[data-skin="halloween"] {
+  background:
+    radial-gradient(900px 700px at 15% 20%, rgba(239, 108, 0, 0.16), transparent 60%),
+    radial-gradient(900px 700px at 85% 85%, rgba(106, 27, 154, 0.18), transparent 60%),
+    var(--bg);
+}
+
+/* Under a themed skin, let the fixed three.js scene show through the admin shell */
+html[data-skin]:not([data-skin="modern"]) .fx-shell {
+  background: transparent;
+}
+html[data-skin]:not([data-skin="modern"]) .fx-shell::before {
+  opacity: 0.35;
+}
