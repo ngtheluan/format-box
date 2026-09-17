@@ -474,18 +474,19 @@ export default function BillTool() {
             </div>
           </div>
 
-          {/* People panel — only visible while editing */}
-          {editing && (
-            <div className="bill-people">
-              <div className="bill-people-head">
-                <IconUsers size={14} stroke={1.8} />
-                <span>{t("bill_people_head")}</span>
+          <div className="bill-people">
+            <div className="bill-people-head">
+              <IconUsers size={14} stroke={1.8} />
+              <span>{t("bill_people_head")}</span>
+              {editing && (
                 <button type="button" className="bill-people-add" onClick={addPerson}>
                   <IconPlus size={12} stroke={2} /> {t("bill_people_add")}
                 </button>
-              </div>
-              <div className="bill-people-chips">
-                {data.people.map((p) => (
+              )}
+            </div>
+            <div className="bill-people-chips">
+              {data.people.map((p) =>
+                editing ? (
                   <span className="bill-person-chip" key={p.id}>
                     <input
                       value={p.name}
@@ -501,10 +502,14 @@ export default function BillTool() {
                       <IconX size={11} stroke={2.2} />
                     </button>
                   </span>
-                ))}
-              </div>
+                ) : (
+                  <span className="bill-person-chip bill-person-chip-static" key={p.id}>
+                    {p.name || t("bill_people_name_placeholder")}
+                  </span>
+                ),
+              )}
             </div>
-          )}
+          </div>
 
           <table className="bill-table">
             <thead>

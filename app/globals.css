@@ -5498,6 +5498,11 @@ label {
   background: var(--bp-accent);
   color: #fff;
 }
+.bill-person-chip-static {
+  padding: 3px 12px;
+  color: var(--bp-strong);
+  font-weight: 500;
+}
 
 /* ===== Table ===== */
 .bill-table {
