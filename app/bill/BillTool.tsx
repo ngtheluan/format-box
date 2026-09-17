@@ -244,7 +244,7 @@ export default function BillTool() {
 
   const withoutEditing = async <T,>(fn: () => Promise<T>): Promise<T> => {
     setEditing(false);
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
     try {
       return await fn();
     } finally {
