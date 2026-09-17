@@ -11960,8 +11960,10 @@ html[data-skin]:not([data-skin="modern"]) body {
 }
 html[data-skin="mid-autumn"] {
   background:
-    radial-gradient(1200px 700px at 85% 15%, rgba(255, 210, 120, 0.18), transparent 60%),
-    radial-gradient(900px 600px at 10% 85%, rgba(229, 57, 53, 0.12), transparent 60%),
+    radial-gradient(600px 400px at 82% 18%, rgba(255, 230, 160, 0.28), transparent 65%),
+    radial-gradient(1200px 800px at 85% 15%, rgba(255, 200, 110, 0.16), transparent 65%),
+    radial-gradient(900px 700px at 15% 90%, rgba(229, 57, 53, 0.16), transparent 65%),
+    radial-gradient(700px 500px at 50% 60%, rgba(249, 168, 37, 0.08), transparent 70%),
     var(--bg);
 }
 html[data-skin="christmas"] {

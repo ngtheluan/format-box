@@ -46,50 +46,398 @@ export default function SkinScene() {
     let tick: ((t: number) => void) | null = null;
 
     if (effectiveSkin === "mid-autumn") {
-      const moonGeo = new THREE.CircleGeometry(3.2, 64);
-      const moonMat = new THREE.MeshBasicMaterial({ color: 0xfff2c2, transparent: true, opacity: 0.85 });
-      const moon = new THREE.Mesh(moonGeo, moonMat);
-      moon.position.set(9, 6, -5);
+      // Helper: create a canvas-backed texture
+      const makeTex = (size: number, draw: (ctx: CanvasRenderingContext2D, s: number) => void) => {
+        const c = document.createElement("canvas");
+        c.width = c.height = size;
+        const ctx = c.getContext("2d")!;
+        draw(ctx, size);
+        const tex = new THREE.CanvasTexture(c);
+        tex.anisotropy = 4;
+        disposables.push(tex);
+        return tex;
+      };
+
+      // Soft moon aura (large, behind moon)
+      const auraTex = makeTex(512, (ctx, s) => {
+        const cx = s / 2;
+        const g = ctx.createRadialGradient(cx, cx, s / 10, cx, cx, s / 2);
+        g.addColorStop(0, "rgba(255, 225, 150, 0.5)");
+        g.addColorStop(0.35, "rgba(255, 200, 110, 0.22)");
+        g.addColorStop(0.7, "rgba(255, 170, 80, 0.06)");
+        g.addColorStop(1, "rgba(255, 170, 80, 0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, s, s);
+      });
+      const auraMat = new THREE.SpriteMaterial({ map: auraTex, transparent: true, depthWrite: false });
+      disposables.push(auraMat);
+      const aura = new THREE.Sprite(auraMat);
+      aura.position.set(9, 6, -7);
+      aura.scale.setScalar(22);
+      scene.add(aura);
+
+      // Moon disc (rendered as a beautiful gradient sprite)
+      const moonTex = makeTex(512, (ctx, s) => {
+        const cx = s / 2;
+        const g = ctx.createRadialGradient(cx - 60, cx - 70, 20, cx, cx, s / 2 - 10);
+        g.addColorStop(0, "#fffef2");
+        g.addColorStop(0.4, "#fff2c2");
+        g.addColorStop(0.78, "#ffd680");
+        g.addColorStop(0.98, "rgba(255, 190, 100, 0.4)");
+        g.addColorStop(1, "rgba(255, 190, 100, 0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx, cx, s / 2 - 10, 0, Math.PI * 2);
+        ctx.fill();
+        // Craters (deterministic-ish)
+        const seed = [
+          [0.32, 0.28, 0.05],
+          [0.62, 0.4, 0.04],
+          [0.48, 0.62, 0.055],
+          [0.72, 0.68, 0.035],
+          [0.38, 0.72, 0.028],
+          [0.58, 0.22, 0.03],
+        ];
+        for (const [u, v, r] of seed) {
+          const x = u * s;
+          const y = v * s;
+          const rr = r * s;
+          const cg = ctx.createRadialGradient(x, y, 0, x, y, rr);
+          cg.addColorStop(0, "rgba(200, 160, 90, 0.28)");
+          cg.addColorStop(1, "rgba(200, 160, 90, 0)");
+          ctx.fillStyle = cg;
+          ctx.beginPath();
+          ctx.arc(x, y, rr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+      const moonMat = new THREE.SpriteMaterial({ map: moonTex, transparent: true, depthWrite: false });
+      disposables.push(moonMat);
+      const moon = new THREE.Sprite(moonMat);
+      moon.position.set(9, 6, -6);
+      moon.scale.setScalar(9);
       scene.add(moon);
-      disposables.push(moonGeo, moonMat);
 
-      const haloGeo = new THREE.RingGeometry(3.3, 5.2, 64);
-      const haloMat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.14, side: THREE.DoubleSide });
-      const halo = new THREE.Mesh(haloGeo, haloMat);
-      halo.position.copy(moon.position);
-      scene.add(halo);
-      disposables.push(haloGeo, haloMat);
+      // Silhouette of a distant mountain / pagoda skyline (adds depth)
+      const skylineTex = makeTex(1024, (ctx, s) => {
+        ctx.clearRect(0, 0, s, s);
+        ctx.fillStyle = "rgba(30, 15, 40, 0.55)";
+        ctx.beginPath();
+        ctx.moveTo(0, s);
+        const peaks = 7;
+        for (let i = 0; i <= peaks; i++) {
+          const x = (i / peaks) * s;
+          const y = s * (0.55 + Math.sin(i * 1.7) * 0.12 + (i % 2 === 0 ? 0.1 : 0));
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(s, s);
+        ctx.closePath();
+        ctx.fill();
+        // Pagoda
+        ctx.fillStyle = "rgba(20, 10, 30, 0.75)";
+        const px = s * 0.68;
+        const py = s * 0.52;
+        for (let i = 0; i < 4; i++) {
+          const w = 90 - i * 15;
+          const h = 22;
+          ctx.fillRect(px - w / 2, py + i * 30, w, h);
+          // eaves
+          ctx.beginPath();
+          ctx.moveTo(px - w / 2 - 10, py + i * 30);
+          ctx.lineTo(px + w / 2 + 10, py + i * 30);
+          ctx.lineTo(px + w / 2 - 5, py + i * 30 - 8);
+          ctx.lineTo(px - w / 2 + 5, py + i * 30 - 8);
+          ctx.closePath();
+          ctx.fill();
+        }
+        // spire
+        ctx.beginPath();
+        ctx.moveTo(px, py - 30);
+        ctx.lineTo(px - 6, py);
+        ctx.lineTo(px + 6, py);
+        ctx.closePath();
+        ctx.fill();
+      });
+      const skylineMat = new THREE.SpriteMaterial({ map: skylineTex, transparent: true, depthWrite: false, opacity: 0.7 });
+      disposables.push(skylineMat);
+      const skyline = new THREE.Sprite(skylineMat);
+      skyline.position.set(0, -6, -8);
+      skyline.scale.set(50, 25, 1);
+      scene.add(skyline);
 
-      const lanterns: { mesh: THREE.Mesh; sway: number; speed: number; base: THREE.Vector3 }[] = [];
-      const lantGeo = new THREE.SphereGeometry(0.55, 24, 20);
-      disposables.push(lantGeo);
-      const colors = [0xe53935, 0xff5722, 0xf9a825, 0xd32f2f];
-      for (let i = 0; i < 22; i++) {
-        const mat = new THREE.MeshBasicMaterial({ color: colors[i % colors.length], transparent: true, opacity: 0.9 });
+      // Lantern texture (elegant round Chinese lantern with glow)
+      const lanternTex = (hue: number) =>
+        makeTex(256, (ctx, s) => {
+          const cx = s / 2;
+          // Outer glow
+          const glow = ctx.createRadialGradient(cx, cx, 20, cx, cx, s / 2);
+          glow.addColorStop(0, `hsla(${hue}, 95%, 65%, 0.5)`);
+          glow.addColorStop(0.4, `hsla(${hue}, 90%, 55%, 0.18)`);
+          glow.addColorStop(1, `hsla(${hue}, 90%, 50%, 0)`);
+          ctx.fillStyle = glow;
+          ctx.fillRect(0, 0, s, s);
+          // Lantern body (ellipse)
+          ctx.save();
+          ctx.translate(cx, cx);
+          ctx.scale(0.82, 1);
+          const bg = ctx.createRadialGradient(-24, -32, 6, 0, 0, 82);
+          bg.addColorStop(0, `hsl(${hue}, 100%, 78%)`);
+          bg.addColorStop(0.55, `hsl(${hue}, 88%, 52%)`);
+          bg.addColorStop(1, `hsl(${hue}, 82%, 34%)`);
+          ctx.fillStyle = bg;
+          ctx.beginPath();
+          ctx.arc(0, 0, 78, 0, Math.PI * 2);
+          ctx.fill();
+          // Ribs
+          ctx.strokeStyle = `hsla(${hue}, 100%, 92%, 0.55)`;
+          ctx.lineWidth = 2;
+          for (let i = -2; i <= 2; i++) {
+            const off = i * 20;
+            ctx.beginPath();
+            ctx.moveTo(off, -76);
+            ctx.bezierCurveTo(off + Math.sign(i) * 8, -30, off + Math.sign(i) * 8, 30, off, 76);
+            ctx.stroke();
+          }
+          ctx.restore();
+          // Caps
+          ctx.fillStyle = "#3a1c0e";
+          ctx.fillRect(cx - 32, cx - 92, 64, 12);
+          ctx.fillRect(cx - 32, cx + 80, 64, 12);
+          ctx.fillStyle = "#5a2a14";
+          ctx.fillRect(cx - 26, cx - 96, 52, 6);
+          ctx.fillRect(cx - 26, cx + 90, 52, 6);
+          // String upward
+          ctx.strokeStyle = "rgba(255, 200, 120, 0.55)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(cx, cx - 96);
+          ctx.lineTo(cx, 6);
+          ctx.stroke();
+          // Tassel
+          ctx.strokeStyle = "#f4c94a";
+          ctx.lineWidth = 2;
+          for (let i = -2; i <= 2; i++) {
+            ctx.beginPath();
+            ctx.moveTo(cx + i * 4, cx + 96);
+            ctx.lineTo(cx + i * 2, cx + 120);
+            ctx.stroke();
+          }
+          ctx.fillStyle = "#c9832b";
+          ctx.beginPath();
+          ctx.arc(cx, cx + 96, 5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+      const hues = [355, 8, 20, 38, 355, 12, 28, 45];
+      const lanterns: { spr: THREE.Sprite; sway: number; speed: number; base: THREE.Vector3; size: number }[] = [];
+      for (let i = 0; i < 12; i++) {
+        const hue = hues[i % hues.length];
+        const mat = new THREE.SpriteMaterial({ map: lanternTex(hue), transparent: true, depthWrite: false });
         disposables.push(mat);
-        const m = new THREE.Mesh(lantGeo, mat);
-        const base = new THREE.Vector3((Math.random() - 0.5) * 30, -6 - Math.random() * 4, (Math.random() - 0.5) * 8);
-        m.position.copy(base);
-        m.scale.setScalar(0.6 + Math.random() * 0.9);
-        scene.add(m);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0xffb74d, transparent: true, opacity: 0.35 });
-        disposables.push(lineMat);
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.55, 0), new THREE.Vector3(0, 2.4, 0)]);
-        disposables.push(lineGeo);
-        const line = new THREE.Line(lineGeo, lineMat);
-        m.add(line);
-        lanterns.push({ mesh: m, sway: Math.random() * Math.PI * 2, speed: 0.3 + Math.random() * 0.5, base });
+        const spr = new THREE.Sprite(mat);
+        const base = new THREE.Vector3(
+          (Math.random() - 0.5) * 34,
+          -12 - Math.random() * 6,
+          (Math.random() - 0.5) * 8,
+        );
+        const size = 2.2 + Math.random() * 2;
+        spr.scale.set(size, size, 1);
+        spr.position.copy(base);
+        scene.add(spr);
+        lanterns.push({ spr, sway: Math.random() * Math.PI * 2, speed: 0.14 + Math.random() * 0.3, base, size });
       }
 
-      tick = (t) => {
-        halo.rotation.z = t * 0.05;
-        haloMat.opacity = 0.12 + Math.sin(t * 0.8) * 0.04;
-        for (const l of lanterns) {
-          l.mesh.position.y = l.base.y + ((t * l.speed) % 20);
-          if (l.mesh.position.y > 10) l.mesh.position.y -= 20;
-          l.mesh.position.x = l.base.x + Math.sin(t * 0.6 + l.sway) * 0.6;
-          l.mesh.rotation.z = Math.sin(t * 0.7 + l.sway) * 0.15;
+      // Mooncake texture (detailed rosette pattern)
+      const mooncakeTex = makeTex(256, (ctx, s) => {
+        const cx = s / 2;
+        // Outer crust
+        const outer = ctx.createRadialGradient(cx - 22, cx - 22, 10, cx, cx, 112);
+        outer.addColorStop(0, "#e0a558");
+        outer.addColorStop(0.65, "#a9631f");
+        outer.addColorStop(1, "#5b2f0e");
+        ctx.fillStyle = outer;
+        ctx.beginPath();
+        ctx.arc(cx, cx, 110, 0, Math.PI * 2);
+        ctx.fill();
+        // Scalloped edge notches
+        for (let k = 0; k < 20; k++) {
+          const a = (k / 20) * Math.PI * 2;
+          const x = cx + Math.cos(a) * 104;
+          const y = cx + Math.sin(a) * 104;
+          const g = ctx.createRadialGradient(x, y, 0, x, y, 12);
+          g.addColorStop(0, "rgba(90, 45, 15, 0.55)");
+          g.addColorStop(1, "rgba(90, 45, 15, 0)");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, 12, 0, Math.PI * 2);
+          ctx.fill();
         }
+        // Top face
+        const top = ctx.createRadialGradient(cx - 18, cx - 22, 8, cx, cx, 92);
+        top.addColorStop(0, "#f2c47a");
+        top.addColorStop(1, "#b87528");
+        ctx.fillStyle = top;
+        ctx.beginPath();
+        ctx.arc(cx, cx, 90, 0, Math.PI * 2);
+        ctx.fill();
+        // Rosette petals
+        ctx.fillStyle = "rgba(107, 55, 18, 0.85)";
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          ctx.save();
+          ctx.translate(cx + Math.cos(a) * 32, cx + Math.sin(a) * 32);
+          ctx.rotate(a);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 22, 8, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        // Center dot
+        ctx.fillStyle = "#6b3712";
+        ctx.beginPath();
+        ctx.arc(cx, cx, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#f4d18a";
+        ctx.beginPath();
+        ctx.arc(cx - 4, cx - 4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        // Border ring
+        ctx.strokeStyle = "rgba(80, 40, 15, 0.5)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(cx, cx, 90, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+
+      const mooncakes: { spr: THREE.Sprite; spin: number; base: THREE.Vector3 }[] = [];
+      for (let i = 0; i < 5; i++) {
+        const mat = new THREE.SpriteMaterial({ map: mooncakeTex, transparent: true, depthWrite: false });
+        disposables.push(mat);
+        const spr = new THREE.Sprite(mat);
+        const base = new THREE.Vector3(
+          -15 + i * 7 + (Math.random() - 0.5) * 2,
+          -3 + (Math.random() - 0.5) * 4,
+          -3 - Math.random() * 2,
+        );
+        const size = 1.6 + Math.random() * 0.6;
+        spr.scale.set(size, size, 1);
+        spr.position.copy(base);
+        scene.add(spr);
+        mooncakes.push({ spr, spin: Math.random() * Math.PI * 2, base });
+      }
+
+      // Cloud texture (soft warm mist)
+      const cloudTex = makeTex(512, (ctx, s) => {
+        ctx.clearRect(0, 0, s, s);
+        for (let i = 0; i < 8; i++) {
+          const x = (i / 8) * s + (Math.random() - 0.5) * 40;
+          const y = s / 2 + (Math.random() - 0.5) * 40;
+          const r = 50 + Math.random() * 70;
+          const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0, "rgba(255, 240, 200, 0.35)");
+          g.addColorStop(0.6, "rgba(255, 220, 160, 0.1)");
+          g.addColorStop(1, "rgba(255, 220, 160, 0)");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+      const clouds: { spr: THREE.Sprite; speed: number }[] = [];
+      for (let i = 0; i < 5; i++) {
+        const mat = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false });
+        disposables.push(mat);
+        const spr = new THREE.Sprite(mat);
+        spr.position.set((Math.random() - 0.5) * 44, 2 + Math.random() * 8, -7);
+        spr.scale.set(16 + Math.random() * 8, 5, 1);
+        scene.add(spr);
+        clouds.push({ spr, speed: 0.2 + Math.random() * 0.3 });
+      }
+
+      // Stars (soft glowing points)
+      const starTex = makeTex(64, (ctx, s) => {
+        const c = s / 2;
+        const g = ctx.createRadialGradient(c, c, 0, c, c, c);
+        g.addColorStop(0, "rgba(255, 253, 230, 1)");
+        g.addColorStop(0.3, "rgba(255, 230, 160, 0.7)");
+        g.addColorStop(1, "rgba(255, 200, 100, 0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, s, s);
+      });
+      const S = 220;
+      const sPos = new Float32Array(S * 3);
+      for (let i = 0; i < S; i++) {
+        sPos[i * 3] = (Math.random() - 0.5) * 60;
+        sPos[i * 3 + 1] = (Math.random() - 0.5) * 32 + 3;
+        sPos[i * 3 + 2] = -8 - Math.random() * 6;
+      }
+      const sg = new THREE.BufferGeometry();
+      sg.setAttribute("position", new THREE.BufferAttribute(sPos, 3));
+      const sm = new THREE.PointsMaterial({
+        map: starTex,
+        size: 0.55,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+        sizeAttenuation: true,
+      });
+      const stars = new THREE.Points(sg, sm);
+      scene.add(stars);
+      disposables.push(sg, sm);
+
+      // Sparkle particles rising with lanterns
+      const P = 80;
+      const pPos = new Float32Array(P * 3);
+      const pSpeed = new Float32Array(P);
+      for (let i = 0; i < P; i++) {
+        pPos[i * 3] = (Math.random() - 0.5) * 40;
+        pPos[i * 3 + 1] = -10 + Math.random() * 20;
+        pPos[i * 3 + 2] = (Math.random() - 0.5) * 6;
+        pSpeed[i] = 0.5 + Math.random() * 1.2;
+      }
+      const pg = new THREE.BufferGeometry();
+      pg.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+      const pm = new THREE.PointsMaterial({
+        map: starTex,
+        size: 0.35,
+        transparent: true,
+        opacity: 0.75,
+        color: 0xffd88a,
+        depthWrite: false,
+      });
+      const sparks = new THREE.Points(pg, pm);
+      scene.add(sparks);
+      disposables.push(pg, pm);
+
+      tick = (t) => {
+        moonMat.opacity = 0.9 + Math.sin(t * 0.5) * 0.06;
+        aura.scale.setScalar(22 + Math.sin(t * 0.45) * 1.5);
+        auraMat.opacity = 0.85 + Math.sin(t * 0.5) * 0.1;
+        sm.opacity = 0.55 + Math.sin(t * 1.4) * 0.3;
+        for (const l of lanterns) {
+          l.spr.position.y = l.base.y + ((t * l.speed * 0.7) % 26);
+          if (l.spr.position.y > 14) l.spr.position.y -= 26;
+          l.spr.position.x = l.base.x + Math.sin(t * 0.4 + l.sway) * 0.9;
+          const bob = 1 + Math.sin(t * 1.4 + l.sway) * 0.03;
+          l.spr.scale.set(l.size * bob, l.size * bob, 1);
+          l.spr.material.rotation = Math.sin(t * 0.5 + l.sway) * 0.08;
+        }
+        for (const m of mooncakes) {
+          m.spr.position.y = m.base.y + Math.sin(t * 0.4 + m.spin) * 0.4;
+          m.spr.material.rotation = Math.sin(t * 0.3 + m.spin) * 0.25;
+        }
+        for (const c of clouds) {
+          c.spr.position.x += c.speed * 0.02;
+          if (c.spr.position.x > 26) c.spr.position.x = -26;
+        }
+        const arr = pg.attributes.position.array as Float32Array;
+        for (let i = 0; i < P; i++) {
+          arr[i * 3 + 1] += 0.01 * pSpeed[i];
+          arr[i * 3] += Math.sin(t + i) * 0.003;
+          if (arr[i * 3 + 1] > 12) arr[i * 3 + 1] = -12;
+        }
+        pg.attributes.position.needsUpdate = true;
+        pm.opacity = 0.55 + Math.sin(t * 2) * 0.2;
       };
     } else if (effectiveSkin === "christmas") {
       const N = 500;
