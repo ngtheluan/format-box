@@ -54,5 +54,5 @@ export function useThemesState(): Ctx {
 }
 
 export function useEnabledThemes(): Theme[] {
-  return useThemes().filter((t) => t.enabled || t.id === "modern");
+  return useThemes().filter((t) => t.enabled);
 }

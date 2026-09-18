@@ -1,6 +1,6 @@
 "use client";
-import { useToast } from "@/components/Toast";
 import { useThemesState } from "@/components/ThemesProvider";
+import { useToast } from "@/components/Toast";
 import { useSkin } from "@/lib/skin-context";
 import { SKIN_STORAGE, type Skin } from "@/lib/theme";
 import type { Theme } from "@/lib/themes-shared";
@@ -38,7 +38,9 @@ export default function ThemeManager() {
   const { themes, reload: reloadRaw } = useThemesState();
   const reload = async () => {
     await reloadRaw();
-    try { new BroadcastChannel("fb-themes").postMessage("reload"); } catch {}
+    try {
+      new BroadcastChannel("fb-themes").postMessage("reload");
+    } catch {}
   };
   const savedSkinRef = useRef<Skin>("modern");
   const [editing, setEditing] = useState<Draft | null>(null);
@@ -57,7 +59,7 @@ export default function ThemeManager() {
   }, [setSkin]);
 
   const defaultTheme = useMemo(() => themes.find((t) => t.isDefault)?.id ?? "modern", [themes]);
-  const enabledCount = themes.filter((t) => t.enabled || t.id === "modern").length;
+  const enabledCount = themes.filter((t) => t.enabled).length;
   const hiddenCount = themes.length - enabledCount;
 
   const labelOf = (id: string) => themes.find((t) => t.id === id)?.nameVi ?? id;
@@ -80,7 +82,7 @@ export default function ThemeManager() {
 
   const preview = (id: string) => {
     const t = themes.find((x) => x.id === id);
-    if (!t || (!t.enabled && id !== "modern")) {
+    if (!t || !t.enabled) {
       toast(`Theme đang ẩn — bật lên trước khi xem`);
       return;
     }
@@ -89,8 +91,12 @@ export default function ThemeManager() {
   };
 
   const toggle = async (t: Theme) => {
-    if (t.id === "modern") {
-      toast("Theme Modern luôn khả dụng");
+    if (t.enabled && t.isDefault) {
+      toast("Không thể ẩn theme mặc định — đặt theme khác làm mặc định trước");
+      return;
+    }
+    if (t.enabled && enabledCount <= 1) {
+      toast("Cần giữ ít nhất 1 theme đang bật");
       return;
     }
     const res = await fetch("/api/admin/themes", {
@@ -183,30 +189,40 @@ export default function ThemeManager() {
       stats={
         <>
           <div className="fx-stat">
-            <span className="fx-stat-ico"><IconPalette size={18} stroke={1.9} /></span>
+            <span className="fx-stat-ico">
+              <IconPalette size={18} stroke={1.9} />
+            </span>
             <span className="fx-stat-txt">
               <span className="fx-stat-val">{themes.length}</span>
               <span className="fx-stat-lbl">Tổng theme</span>
             </span>
           </div>
           <div className="fx-stat" data-tone="ok">
-            <span className="fx-stat-ico"><IconToggleRight size={18} stroke={1.9} /></span>
+            <span className="fx-stat-ico">
+              <IconToggleRight size={18} stroke={1.9} />
+            </span>
             <span className="fx-stat-txt">
               <span className="fx-stat-val">{enabledCount}</span>
               <span className="fx-stat-lbl">Đang bật</span>
             </span>
           </div>
           <div className="fx-stat" data-tone="mute">
-            <span className="fx-stat-ico"><IconEye size={18} stroke={1.9} /></span>
+            <span className="fx-stat-ico">
+              <IconEye size={18} stroke={1.9} />
+            </span>
             <span className="fx-stat-txt">
               <span className="fx-stat-val">{hiddenCount}</span>
               <span className="fx-stat-lbl">Đang ẩn</span>
             </span>
           </div>
           <div className="fx-stat" data-tone="info">
-            <span className="fx-stat-ico"><IconStar size={18} stroke={1.9} /></span>
+            <span className="fx-stat-ico">
+              <IconStar size={18} stroke={1.9} />
+            </span>
             <span className="fx-stat-txt">
-              <span className="fx-stat-val" style={{ fontSize: 14 }}>{labelOf(defaultTheme)}</span>
+              <span className="fx-stat-val" style={{ fontSize: 14 }}>
+                {labelOf(defaultTheme)}
+              </span>
               <span className="fx-stat-lbl">Mặc định</span>
             </span>
           </div>
@@ -215,7 +231,7 @@ export default function ThemeManager() {
     >
       <div className="skin-grid">
         {themes.map((s) => {
-          const isEnabled = s.enabled || s.id === "modern";
+          const isEnabled = s.enabled;
           const isDefault = s.isDefault;
           const isCurrent = currentSkin === s.id;
           return (
@@ -224,8 +240,16 @@ export default function ThemeManager() {
                 className="skin-card-hero"
                 style={{ background: `linear-gradient(135deg, ${s.swatch[0]}, ${s.swatch[1]})` }}
               >
-                {isDefault && <span className="skin-badge"><IconStar size={11} stroke={2.2} /> Mặc định</span>}
-                {isCurrent && <span className="skin-badge"><IconCheck size={11} stroke={2.4} /> Đang xem</span>}
+                {isDefault && (
+                  <span className="skin-badge">
+                    <IconStar size={11} stroke={2.2} /> Mặc định
+                  </span>
+                )}
+                {isCurrent && (
+                  <span className="skin-badge">
+                    <IconCheck size={11} stroke={2.4} /> Đang xem
+                  </span>
+                )}
               </div>
               <div className="skin-card-body">
                 <div className="skin-card-title">
@@ -245,14 +269,16 @@ export default function ThemeManager() {
                   >
                     <IconStar size={13} stroke={1.9} /> Mặc định
                   </button>
-                  <button className="fx-btn" onClick={() => { setEditing({ ...s }); setCreating(false); }}>
+                  <button
+                    className="fx-btn"
+                    onClick={() => {
+                      setEditing({ ...s });
+                      setCreating(false);
+                    }}
+                  >
                     <IconPencil size={13} stroke={1.9} />
                   </button>
-                  <button
-                    className={`fx-switch${isEnabled ? " on" : ""}`}
-                    onClick={() => toggle(s)}
-                    disabled={s.id === "modern"}
-                  />
+                  <button className={`fx-switch${isEnabled ? " on" : ""}`} onClick={() => toggle(s)} />
                   {s.id !== "modern" && (
                     <button className="fx-btn" onClick={() => remove(s.id)} title="Xóa">
                       <IconTrash size={13} stroke={1.9} />
@@ -266,7 +292,13 @@ export default function ThemeManager() {
       </div>
 
       {editing && (
-        <div className="theme-modal" onClick={() => { setEditing(null); setCreating(false); }}>
+        <div
+          className="theme-modal"
+          onClick={() => {
+            setEditing(null);
+            setCreating(false);
+          }}
+        >
           <div className="theme-dialog" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: 0, marginBottom: 12 }}>{creating ? "Tạo theme mới" : `Sửa: ${editing.nameVi}`}</h3>
             <div className="grid2">
@@ -297,87 +329,58 @@ export default function ThemeManager() {
               </label>
               <label>
                 <span>Swatch từ</span>
-                <input type="color" value={editing.swatch[0]} onChange={(e) => setEditing({ ...editing, swatch: [e.target.value, editing.swatch[1]] })} />
+                <input
+                  type="color"
+                  value={editing.swatch[0]}
+                  onChange={(e) => setEditing({ ...editing, swatch: [e.target.value, editing.swatch[1]] })}
+                />
               </label>
               <label>
                 <span>Swatch đến</span>
-                <input type="color" value={editing.swatch[1]} onChange={(e) => setEditing({ ...editing, swatch: [editing.swatch[0], e.target.value] })} />
+                <input
+                  type="color"
+                  value={editing.swatch[1]}
+                  onChange={(e) => setEditing({ ...editing, swatch: [editing.swatch[0], e.target.value] })}
+                />
               </label>
               <label style={{ gridColumn: "1 / -1" }}>
                 <span>Mô tả VI</span>
-                <textarea rows={2} value={editing.descVi} onChange={(e) => setEditing({ ...editing, descVi: e.target.value })} />
+                <textarea
+                  rows={2}
+                  value={editing.descVi}
+                  onChange={(e) => setEditing({ ...editing, descVi: e.target.value })}
+                />
               </label>
               <label style={{ gridColumn: "1 / -1" }}>
                 <span>Mô tả EN</span>
-                <textarea rows={2} value={editing.descEn} onChange={(e) => setEditing({ ...editing, descEn: e.target.value })} />
+                <textarea
+                  rows={2}
+                  value={editing.descEn}
+                  onChange={(e) => setEditing({ ...editing, descEn: e.target.value })}
+                />
               </label>
             </div>
             <div style={{ marginTop: 8, fontSize: 12, color: "var(--dim)" }}>
-              Lưu ý: hiệu ứng nền/animation cần khai báo CSS theo selector <code>[data-skin=&quot;{editing.id || "id"}&quot;]</code> trong <code>app/globals.css</code>.
+              Lưu ý: hiệu ứng nền/animation cần khai báo CSS theo selector{" "}
+              <code>[data-skin=&quot;{editing.id || "id"}&quot;]</code> trong <code>app/globals.css</code>.
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
-              <button className="fx-btn" onClick={() => { setEditing(null); setCreating(false); }}>Hủy</button>
-              <button className="fx-btn fx-btn-primary" onClick={save}>Lưu</button>
+              <button
+                className="fx-btn"
+                onClick={() => {
+                  setEditing(null);
+                  setCreating(false);
+                }}
+              >
+                Hủy
+              </button>
+              <button className="fx-btn fx-btn-primary" onClick={save}>
+                Lưu
+              </button>
             </div>
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .skin-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 14px;
-        }
-        .skin-card {
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          overflow: hidden;
-          background: var(--bg2);
-          display: flex;
-          flex-direction: column;
-          transition: transform 0.15s ease, border-color 0.15s ease;
-        }
-        .skin-card:hover { transform: translateY(-2px); border-color: var(--border-h); }
-        .skin-card.current { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); }
-        .skin-card.off { opacity: 0.55; }
-        .skin-card-hero {
-          position: relative;
-          height: 90px;
-          display: flex;
-          align-items: flex-start;
-          justify-content: flex-end;
-          padding: 8px;
-          gap: 6px;
-        }
-        .skin-badge {
-          display: inline-flex; align-items: center; gap: 4px;
-          font-size: 10px; padding: 3px 7px; border-radius: 999px;
-          background: rgba(0,0,0,.35); color: #fff; backdrop-filter: blur(4px); font-weight: 600;
-        }
-        .skin-card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
-        .skin-card-title { display: flex; align-items: baseline; gap: 8px; }
-        .skin-card-title b { font-size: 15px; color: var(--bright); }
-        .skin-card-title span { font-size: 11px; color: var(--dim); }
-        .skin-card-desc { font-size: 12.5px; color: var(--text); line-height: 1.5; margin: 0; min-height: 38px; }
-        .skin-card-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-
-        .theme-modal {
-          position: fixed; inset: 0; background: rgba(0,0,0,.55);
-          display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px;
-        }
-        .theme-dialog {
-          background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
-          padding: 18px; width: min(560px, 100%); max-height: 90vh; overflow: auto;
-        }
-        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .grid2 label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dim); }
-        .grid2 input, .grid2 textarea {
-          background: var(--bg); color: var(--text); border: 1px solid var(--border);
-          border-radius: 8px; padding: 6px 8px; font-size: 13px; font-family: inherit;
-        }
-        .grid2 input[type="color"] { padding: 2px; height: 34px; }
-      `}</style>
     </AdminBody>
   );
 }
