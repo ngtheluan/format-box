@@ -1,8 +1,8 @@
 "use client";
-import { useTools } from "@/components/ToolsProvider";
 import { LogoMark } from "@/components/Logo";
-import { ToolIcon } from "@/lib/tool-icons";
+import { useTools } from "@/components/ToolsProvider";
 import { useI18n } from "@/lib/i18n";
+import { ToolIcon } from "@/lib/tool-icons";
 import { IconArrowUpRight, IconMail } from "@tabler/icons-react";
 import Link from "next/link";
 
@@ -44,7 +44,11 @@ export default function Footer() {
 
         <div className="ft-bottom">
           <span>{t("ft_copy")}</span>
-          <span className="mono">{t("ft_stack")}</span>
+          <span className="mono">
+            {process.env.NEXT_PUBLIC_APP_VERSION}
+            {process.env.NEXT_PUBLIC_APP_COMMIT ? ` · ${process.env.NEXT_PUBLIC_APP_COMMIT}` : ""}
+            {" · Next.js"}
+          </span>
         </div>
       </div>
     </footer>
