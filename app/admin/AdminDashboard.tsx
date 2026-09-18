@@ -1,5 +1,6 @@
 "use client";
 import {
+  IconChartBar,
   IconComponents,
   IconLayoutGrid,
   IconListDetails,
@@ -24,6 +25,7 @@ const ADMIN_APPS: AdminApp[] = [
     desc: "Quản lý danh sách tools hiển thị ngoài trang chủ.",
     icon: <IconListDetails size={20} stroke={1.7} />,
   },
+
   {
     href: "/admin/theme",
     title: "Theme",
@@ -41,6 +43,12 @@ const ADMIN_APPS: AdminApp[] = [
     title: "Liên hệ góp ý",
     desc: "Danh sách góp ý từ Google Sheet + file đính kèm Drive.",
     icon: <IconMessageDots size={20} stroke={1.7} />,
+  },
+  {
+    href: "/admin/analytics",
+    title: "Thống kê",
+    desc: "Lượt sử dụng từng tool theo ngày, top tool hot.",
+    icon: <IconChartBar size={20} stroke={1.7} />,
   },
   {
     href: "/admin/podcasts",

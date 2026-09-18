@@ -1227,3 +1227,21 @@
   padding: 2px;
   height: 34px;
 }
+
+/* Spinner + overlay animations used across admin panels */
+.fx-scope .spin {
+  animation: fxSpin 0.7s linear infinite;
+}
+@keyframes fxSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fxFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
