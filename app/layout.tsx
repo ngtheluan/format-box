@@ -5,6 +5,7 @@ import SkinScene from "@/components/SkinScene";
 import TitleUpdater from "@/components/TitleUpdater";
 import { ToastProvider } from "@/components/Toast";
 import { ToolsProvider } from "@/components/ToolsProvider";
+import { ThemesProvider } from "@/components/ThemesProvider";
 import { LanguageProvider } from "@/lib/i18n";
 import { SkinProvider } from "@/lib/skin-context";
 import { themeInitScript } from "@/lib/theme";
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <LanguageProvider>
+          <ThemesProvider>
           <SkinProvider>
             <ToolsProvider>
               <SkinScene />
@@ -49,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ScrollTop />
             </ToolsProvider>
           </SkinProvider>
+          </ThemesProvider>
         </LanguageProvider>
       </body>
     </html>

@@ -1,25 +1,17 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
 import { useSkin } from "@/lib/skin-context";
-import { readEnabledSkins, SKINS, type Skin } from "@/lib/theme";
+import type { Skin } from "@/lib/theme";
 import { IconCheck, IconSparkles } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useEnabledThemes } from "./ThemesProvider";
 
 export default function SkinPicker() {
   const { lang } = useI18n();
   const { skin, setSkin } = useSkin();
   const [open, setOpen] = useState(false);
-  const [enabled, setEnabled] = useState<Skin[]>(() => SKINS.map((s) => s.id));
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setEnabled(readEnabledSkins());
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "fb-skin-enabled") setEnabled(readEnabledSkins());
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  const enabledThemes = useEnabledThemes();
 
   useEffect(() => {
     if (!open) return;
@@ -30,7 +22,7 @@ export default function SkinPicker() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  const visibleSkins = useMemo(() => SKINS.filter((s) => enabled.includes(s.id)), [enabled]);
+  const visibleSkins = useMemo(() => enabledThemes, [enabledThemes]);
 
   const pick = (s: Skin) => {
     setSkin(s);
@@ -57,7 +49,7 @@ export default function SkinPicker() {
                 aria-hidden
                 style={{ background: `linear-gradient(135deg, ${s.swatch[0]}, ${s.swatch[1]})` }}
               />
-              <span className="skin-label">{lang === "vi" ? s.vi : s.en}</span>
+              <span className="skin-label">{lang === "vi" ? s.nameVi : s.nameEn}</span>
               {s.id === skin && <IconCheck size={14} stroke={2.2} />}
             </button>
           ))}
