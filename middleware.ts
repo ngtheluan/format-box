@@ -60,6 +60,7 @@ export const config = {
     "/jwt",
     "/lucky-ticket",
     "/markdown",
+    "/qr",
     "/responsive",
     "/speed-test",
     "/text-case",

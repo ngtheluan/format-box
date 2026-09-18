@@ -76,6 +76,18 @@ export const SEED_TOOLS: Tool[] = [
     category: "cat_media",
   },
   {
+    href: "/qr",
+    iconName: "IconQrcode",
+    title: "QR Code",
+    sub: { vi: "Tạo & Tải về", en: "Generate & Download" },
+    desc: {
+      vi: "Tạo mã QR từ text/URL, tuỳ chỉnh màu, kích thước, mức sửa lỗi. Tải PNG/SVG.",
+      en: "Create QR codes from text/URL, customize color, size, error correction. Download PNG/SVG.",
+    },
+    tags: ["qr", "qrcode", "barcode", "png", "svg"],
+    category: "cat_media",
+  },
+  {
     href: "/favicon-export",
     iconName: "IconBrowser",
     title: "Favicon Export",

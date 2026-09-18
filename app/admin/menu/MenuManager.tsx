@@ -68,13 +68,7 @@ function rowToTool(r: Row): Tool {
   };
 }
 
-function IconPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (name: string) => void;
-}) {
+function IconPicker({ value, onChange }: { value: string; onChange: (name: string) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -153,7 +147,13 @@ function IconPicker({
               <button
                 type="button"
                 onClick={() => setQ("")}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--fg-muted, #888)", padding: 0 }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--fg-muted, #888)",
+                  padding: 0,
+                }}
               >
                 <IconX size={12} stroke={2} />
               </button>
@@ -198,9 +198,7 @@ function IconPicker({
               );
             })}
           </div>
-          <div style={{ fontSize: 11, opacity: 0.4, textAlign: "right", marginTop: 6 }}>
-            {filtered.length} icons
-          </div>
+          <div style={{ fontSize: 11, opacity: 0.4, textAlign: "right", marginTop: 6 }}>{filtered.length} icons</div>
         </div>
       )}
     </div>
@@ -315,7 +313,7 @@ export default function MenuManager() {
   }
 
   async function seed() {
-    if (!confirm("Seed 23 tools mặc định vào Supabase? (upsert theo href)")) return;
+    if (!confirm("Seed 23 tools mặc định vào Supabase?")) return;
     const res = await fetch("/api/admin/seed", { method: "POST" });
     const j = await res.json();
     if (!j.ok) {
@@ -399,8 +397,8 @@ export default function MenuManager() {
       onLogout={logout}
       headerActions={
         <>
-          <button onClick={seed} className="fx-btn" title="Insert Data">
-            <IconDatabase size={14} stroke={1.9} /> Insert Data
+          <button onClick={seed} className="fx-btn" title="Seed">
+            <IconDatabase size={14} stroke={1.9} /> Seed
           </button>
           <button
             onClick={() => {
@@ -511,18 +509,23 @@ export default function MenuManager() {
                 onDragStart={() => handleDragStart(i)}
                 onDragOver={(e) => handleDragOver(e, i)}
                 onDrop={(e) => handleDrop(e)}
-                onDragEnd={() => { setDragIdx(null); setDropIdx(null); }}
+                onDragEnd={() => {
+                  setDragIdx(null);
+                  setDropIdx(null);
+                }}
                 style={{
                   opacity: isDragging ? 0.4 : 1,
                   borderTop: isOver ? "2px solid var(--accent, #6366f1)" : undefined,
                 }}
               >
-                <div style={{
-                  color: "var(--fg-muted, #888)",
-                  cursor: "grab",
-                  display: "flex",
-                  alignItems: "center",
-                }}>
+                <div
+                  style={{
+                    color: "var(--fg-muted, #888)",
+                    cursor: "grab",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
                   <IconGripVertical size={14} stroke={1.8} />
                 </div>
                 <div className="fx-icon-cell">

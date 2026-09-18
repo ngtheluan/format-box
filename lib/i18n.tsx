@@ -269,6 +269,24 @@ const dict = {
   tc_reset_lower: { vi: "Về gốc lower", en: "Reset to lowercase" },
   tc_click_copy: { vi: "Click để copy", en: "Click to copy" },
 
+  // QR CODE
+  qr_input_label: { vi: "Nội dung", en: "Content" },
+  qr_input_placeholder: { vi: "Nhập text hoặc URL...", en: "Enter text or URL..." },
+  qr_options: { vi: "Tuỳ chỉnh", en: "Options" },
+  qr_size: { vi: "Kích thước", en: "Size" },
+  qr_margin: { vi: "Lề", en: "Margin" },
+  qr_ecc: { vi: "Mức sửa lỗi", en: "Error correction" },
+  qr_ecc_l: { vi: "Thấp (7%)", en: "Low (7%)" },
+  qr_ecc_m: { vi: "Vừa (15%)", en: "Medium (15%)" },
+  qr_ecc_q: { vi: "Cao (25%)", en: "Quartile (25%)" },
+  qr_ecc_h: { vi: "Rất cao (30%)", en: "High (30%)" },
+  qr_fg: { vi: "Màu mã", en: "Foreground" },
+  qr_bg: { vi: "Màu nền", en: "Background" },
+  qr_download_svg: { vi: "Tải SVG", en: "Download SVG" },
+  qr_copy_img: { vi: "Copy ảnh", en: "Copy image" },
+  qr_empty: { vi: "Nhập nội dung để tạo mã QR", en: "Enter content to generate a QR code" },
+  qr_toast_copied: { vi: "Đã copy ảnh QR", en: "QR image copied" },
+
   // RESPONSIVE TESTER
   rt_title: { vi: "Tester", en: "Tester" },
   rt_sub: {

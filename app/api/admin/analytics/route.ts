@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,10 +17,7 @@ export async function GET(req: Request) {
   since.setUTCDate(since.getUTCDate() - (days - 1));
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const { data, error } = await supabaseAdmin()
-    .from("tool_stats")
-    .select("href, day, count")
-    .gte("day", sinceStr);
+  const { data, error } = await supabaseAdmin().from("tool_stats").select("href, day, count").gte("day", sinceStr);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   const rows = (data as StatRow[]) ?? [];
@@ -38,9 +35,7 @@ export async function GET(req: Request) {
     byDay.set(r.day, (byDay.get(r.day) || 0) + c);
   }
 
-  const perTool = [...byTool.entries()]
-    .map(([href, count]) => ({ href, count }))
-    .sort((a, b) => b.count - a.count);
+  const perTool = [...byTool.entries()].map(([href, count]) => ({ href, count })).sort((a, b) => b.count - a.count);
 
   // Dense daily series (fill gaps with 0) for a clean chart
   const series: { day: string; count: number }[] = [];
