@@ -1,8 +1,32 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyAdminTokenEdge, ADMIN_COOKIE } from "@/lib/admin-auth-edge";
+import { getActiveToolHrefs } from "@/lib/edge-config";
 import { SEED_TOOLS } from "@/lib/tools-shared";
 
 const TOOL_HREFS = new Set(SEED_TOOLS.map((t) => t.href));
+
+/**
+ * Resolve the set of active tool hrefs. Prefers Vercel Edge Config (near-zero
+ * latency at the edge); falls back to the cached /api/tools route when Edge
+ * Config is unavailable. Returns null if neither source can be read, so the
+ * caller allows the request rather than locking users out.
+ */
+async function getActiveSet(req: NextRequest): Promise<Set<string> | null> {
+  const fromEdge = await getActiveToolHrefs();
+  if (fromEdge) return new Set(fromEdge);
+  try {
+    const res = await fetch(new URL("/api/tools", req.url), {
+      next: { revalidate: 60, tags: ["tools"] },
+    });
+    if (res.ok) {
+      const { tools } = (await res.json()) as { tools: { href: string }[] };
+      return new Set(tools.map((t) => t.href));
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -19,22 +43,14 @@ export async function middleware(req: NextRequest) {
 
   // Block access to tool pages that are toggled inactive in admin.
   if (TOOL_HREFS.has(pathname)) {
-    try {
-      const res = await fetch(new URL("/api/tools", req.url), {
-        next: { revalidate: 60, tags: ["tools"] },
-      });
-      if (res.ok) {
-        const { tools } = (await res.json()) as { tools: { href: string }[] };
-        const active = new Set(tools.map((t) => t.href));
-        if (!active.has(pathname)) {
-          const url = req.nextUrl.clone();
-          url.pathname = "/forbidden";
-          url.searchParams.set("from", pathname);
-          return NextResponse.rewrite(url);
-        }
-      }
-    } catch {
-      // On failure, fall through and allow — don't lock users out on API error.
+    const active = await getActiveSet(req);
+    // Only rewrite when we positively know the tool is inactive. On read
+    // failure (active === null) fall through and allow — don't lock users out.
+    if (active && !active.has(pathname)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/forbidden";
+      url.searchParams.set("from", pathname);
+      return NextResponse.rewrite(url);
     }
   }
 
@@ -52,6 +68,7 @@ export const config = {
     "/curl",
     "/exchange-currency",
     "/favicon-export",
+    "/flappy-bird",
     "/fuel",
     "/gold",
     "/graph",

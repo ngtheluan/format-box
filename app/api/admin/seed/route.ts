@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isAdmin } from "@/lib/admin-auth";
+import { syncActiveTools } from "@/lib/edge-config";
 import { supabaseAdmin } from "@/lib/supabase";
 import { toolToRow } from "@/lib/tools";
 import { SEED_TOOLS } from "@/lib/tools-shared";
@@ -21,5 +22,11 @@ export async function POST() {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
   revalidateTag("tools");
+  try {
+    const { data } = await supabaseAdmin().from("tools").select("href").eq("active", true);
+    if (data) await syncActiveTools((data as { href: string }[]).map((r) => r.href));
+  } catch {
+    /* best-effort */
+  }
   return NextResponse.json({ ok: true, count: rows.length });
 }

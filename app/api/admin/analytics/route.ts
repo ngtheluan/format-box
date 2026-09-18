@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   since.setUTCDate(since.getUTCDate() - (days - 1));
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const { data, error } = await supabaseAdmin().from("tool_stats").select("href, day, count").gte("day", sinceStr);
+  const { data, error } = await supabaseAdmin().from("analytics").select("href, day, count").gte("day", sinceStr);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   const rows = (data as StatRow[]) ?? [];

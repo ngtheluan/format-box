@@ -2,7 +2,7 @@ import type { Lang } from "./i18n";
 
 type Bilingual = { vi: string; en: string };
 
-export type ToolCategory = "cat_text" | "cat_media" | "cat_dev" | "cat_life";
+export type ToolCategory = "cat_text" | "cat_media" | "cat_dev" | "cat_life" | "cat_game";
 
 export type Tool = {
   href: string;
@@ -16,7 +16,7 @@ export type Tool = {
   active?: boolean;
 };
 
-export const CATEGORY_ORDER: ToolCategory[] = ["cat_text", "cat_media", "cat_dev", "cat_life"];
+export const CATEGORY_ORDER: ToolCategory[] = ["cat_text", "cat_media", "cat_dev", "cat_life", "cat_game"];
 
 export const toolSub = (t: Tool, lang: Lang) => t.sub[lang];
 export const toolDesc = (t: Tool, lang: Lang) => t.desc[lang];
@@ -302,5 +302,17 @@ export const SEED_TOOLS: Tool[] = [
     },
     tags: ["curl", "http", "api"],
     category: "cat_dev",
+  },
+  {
+    href: "/flappy-bird",
+    iconName: "IconFeather",
+    title: "Flappy Bird",
+    sub: { vi: "Chơi & Ghi điểm", en: "Play & Score" },
+    desc: {
+      vi: "Game Flappy Bird cổ điển — chạm/space để bay qua ống. Lưu điểm cao ngay trên trình duyệt.",
+      en: "Classic Flappy Bird — tap/space to flap through pipes. High score saved in your browser.",
+    },
+    tags: ["game", "flappy", "bird", "arcade", "play"],
+    category: "cat_game",
   },
 ];

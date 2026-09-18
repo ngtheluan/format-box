@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isAdmin } from "@/lib/admin-auth";
+import { syncActiveTools } from "@/lib/edge-config";
 import { supabaseAdmin } from "@/lib/supabase";
 import { toolToRow } from "@/lib/tools";
 import type { Tool } from "@/lib/tools-shared";
@@ -10,6 +11,18 @@ export const dynamic = "force-dynamic";
 
 function unauth() {
   return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+}
+
+// Recompute the active tool list from the DB and push it to Edge Config so the
+// middleware reads the fresh set at the edge. Runs after every mutation.
+async function refresh() {
+  revalidateTag("tools");
+  try {
+    const { data } = await supabaseAdmin().from("tools").select("href").eq("active", true);
+    if (data) await syncActiveTools((data as { href: string }[]).map((r) => r.href));
+  } catch {
+    /* best-effort */
+  }
 }
 
 export async function GET() {
@@ -28,7 +41,7 @@ export async function POST(req: Request) {
   const tool = (await req.json()) as Tool;
   const { error } = await supabaseAdmin().from("tools").insert(toolToRow(tool));
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-  revalidateTag("tools");
+  await refresh();
   return NextResponse.json({ ok: true });
 }
 
@@ -38,7 +51,7 @@ export async function PUT(req: Request) {
   const row = toolToRow(tool);
   const { error } = await supabaseAdmin().from("tools").upsert(row, { onConflict: "href" });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-  revalidateTag("tools");
+  await refresh();
   return NextResponse.json({ ok: true });
 }
 
@@ -48,7 +61,7 @@ export async function PATCH(req: Request) {
   if (!href) return NextResponse.json({ ok: false, error: "missing href" }, { status: 400 });
   const { error } = await supabaseAdmin().from("tools").update(patch).eq("href", href);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-  revalidateTag("tools");
+  await refresh();
   return NextResponse.json({ ok: true });
 }
 
@@ -58,6 +71,6 @@ export async function DELETE(req: Request) {
   if (!href) return NextResponse.json({ ok: false, error: "missing href" }, { status: 400 });
   const { error } = await supabaseAdmin().from("tools").delete().eq("href", href);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-  revalidateTag("tools");
+  await refresh();
   return NextResponse.json({ ok: true });
 }

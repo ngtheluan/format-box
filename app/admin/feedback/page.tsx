@@ -190,7 +190,7 @@ export default function AdminFeedbackPage() {
         { label: "Liên hệ góp ý", icon: <IconMessageDots size={13} stroke={1.8} />, current: true },
       ]}
       title="Liên hệ góp ý"
-      description="Danh sách góp ý đọc từ Google Sheet đã cấu hình. File đính kèm mở từ Drive."
+      description="Góp ý đọc từ Google Sheet đã cấu hình. File đính kèm mở từ Drive."
       titleActions={
         <button type="button" onClick={load} disabled={loading} style={btnGhost}>
           {loading ? <IconLoader2 size={14} stroke={2} className="spin" /> : <IconRefresh size={14} stroke={2} />}
@@ -198,191 +198,190 @@ export default function AdminFeedbackPage() {
         </button>
       }
     >
+      {error && <div style={alertError}>{error}</div>}
 
-        {error && <div style={alertError}>{error}</div>}
+      {!error && !loading && items.length === 0 && (
+        <div
+          style={{
+            padding: 24,
+            borderRadius: 12,
+            border: "1px dashed var(--fx-border, rgba(0,0,0,0.12))",
+            textAlign: "center",
+            fontSize: 13,
+            opacity: 0.7,
+          }}
+        >
+          Chưa có góp ý nào.
+        </div>
+      )}
 
-        {!error && !loading && items.length === 0 && (
-          <div
-            style={{
-              padding: 24,
-              borderRadius: 12,
-              border: "1px dashed var(--fx-border, rgba(0,0,0,0.12))",
-              textAlign: "center",
-              fontSize: 13,
-              opacity: 0.7,
-            }}
-          >
-            Chưa có góp ý nào.
-          </div>
-        )}
-
-        {(items.length > 0 || loading) && (
-          <div
-            style={{
-              position: "relative",
-              overflowX: "auto",
-              border: "1px solid var(--fx-border, rgba(0,0,0,0.08))",
-              borderRadius: 12,
-              background: "var(--fx-card, #fff)",
-            }}
-          >
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 1000 }}>
-              <thead>
-                <tr style={{ background: "rgba(0,0,0,0.04)", textAlign: "left" }}>
-                  <th style={th}>Thời gian</th>
-                  <th style={th}>Tên</th>
-                  <th style={th}>Email</th>
-                  <th style={{ ...th, minWidth: 320 }}>Nội dung</th>
-                  <th style={th}>File</th>
-                  <th style={{ ...th, width: 180 }}>Hành động</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it) => {
-                  const replied = replyCounts[it.email.trim().toLowerCase()] || 0;
-                  return (
-                    <tr
-                      key={it.row}
-                      style={{
-                        borderTop: "1px solid var(--fx-border, rgba(0,0,0,0.06))",
-                        background: replied ? "color-mix(in srgb, #10b981 6%, transparent)" : "transparent",
-                      }}
-                    >
-                      <td style={{ ...td, whiteSpace: "nowrap", opacity: 0.85 }}>
-                        <span
-                          title={replied ? "Đã trả lời" : "Chưa trả lời"}
-                          style={{
-                            display: "inline-block",
-                            width: 8,
-                            height: 8,
-                            borderRadius: 999,
-                            marginRight: 8,
-                            background: replied ? "#10b981" : "rgba(255,255,255,0.18)",
-                            boxShadow: replied ? "0 0 0 3px rgba(16,185,129,0.18)" : "none",
-                            verticalAlign: "middle",
-                          }}
-                        />
-                        {formatTime(it.timestamp)}
-                      </td>
-                      <td style={td}>{it.name}</td>
-                      <td style={td}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <a href={`mailto:${it.email}`} style={{ color: "var(--fx-accent, #f59e0b)" }}>
-                            {it.email}
-                          </a>
-                          {replied > 0 && (
-                            <span
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                padding: "2px 7px",
-                                borderRadius: 999,
-                                background: "rgba(16,185,129,0.14)",
-                                color: "#10b981",
-                                border: "1px solid rgba(16,185,129,0.35)",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                              }}
-                            >
-                              <IconCheck size={10} stroke={2.5} /> Đã trả lời{replied > 1 ? ` ×${replied}` : ""}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td style={{ ...td, whiteSpace: "pre-wrap" }}>{it.message}</td>
-                      <td style={td}>
-                        {it.file ? (
-                          isUrl(it.file) ? (
-                            <a
-                              href={it.file}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                color: "var(--fx-accent, #f59e0b)",
-                              }}
-                            >
-                              Mở <IconExternalLink size={12} stroke={2} />
-                            </a>
-                          ) : (
-                            <span style={{ opacity: 0.7 }}>{it.file}</span>
-                          )
-                        ) : (
-                          <span style={{ opacity: 0.4 }}>—</span>
-                        )}
-                      </td>
-                      <td style={td}>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button
-                            type="button"
-                            onClick={() => openReply(it)}
-                            disabled={busyRow === it.row}
-                            title="Trả lời qua email"
-                            style={iconBtn}
-                          >
-                            <IconMail size={14} stroke={2} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openHistory(it)}
-                            title={replied ? `Xem ${replied} phản hồi đã gửi` : "Chưa có phản hồi"}
-                            disabled={!replied}
+      {(items.length > 0 || loading) && (
+        <div
+          style={{
+            position: "relative",
+            overflowX: "auto",
+            border: "1px solid var(--fx-border, rgba(0,0,0,0.08))",
+            borderRadius: 12,
+            background: "var(--fx-card, #fff)",
+          }}
+        >
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 1000 }}>
+            <thead>
+              <tr style={{ background: "rgba(0,0,0,0.04)", textAlign: "left" }}>
+                <th style={th}>Thời gian</th>
+                <th style={th}>Tên</th>
+                <th style={th}>Email</th>
+                <th style={{ ...th, minWidth: 320 }}>Nội dung</th>
+                <th style={th}>File</th>
+                <th style={{ ...th, width: 180 }}>Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it) => {
+                const replied = replyCounts[it.email.trim().toLowerCase()] || 0;
+                return (
+                  <tr
+                    key={it.row}
+                    style={{
+                      borderTop: "1px solid var(--fx-border, rgba(0,0,0,0.06))",
+                      background: replied ? "color-mix(in srgb, #10b981 6%, transparent)" : "transparent",
+                    }}
+                  >
+                    <td style={{ ...td, whiteSpace: "nowrap", opacity: 0.85 }}>
+                      <span
+                        title={replied ? "Đã trả lời" : "Chưa trả lời"}
+                        style={{
+                          display: "inline-block",
+                          width: 8,
+                          height: 8,
+                          borderRadius: 999,
+                          marginRight: 8,
+                          background: replied ? "#10b981" : "rgba(255,255,255,0.18)",
+                          boxShadow: replied ? "0 0 0 3px rgba(16,185,129,0.18)" : "none",
+                          verticalAlign: "middle",
+                        }}
+                      />
+                      {formatTime(it.timestamp)}
+                    </td>
+                    <td style={td}>{it.name}</td>
+                    <td style={td}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <a href={`mailto:${it.email}`} style={{ color: "var(--fx-accent, #f59e0b)" }}>
+                          {it.email}
+                        </a>
+                        {replied > 0 && (
+                          <span
                             style={{
-                              ...iconBtn,
-                              opacity: replied ? 1 : 0.4,
-                              cursor: replied ? "pointer" : "not-allowed",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: "2px 7px",
+                              borderRadius: 999,
+                              background: "rgba(16,185,129,0.14)",
+                              color: "#10b981",
+                              border: "1px solid rgba(16,185,129,0.35)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
                             }}
                           >
-                            <IconHistory size={14} stroke={2} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setConfirmDel(it);
-                              setDelStatus("idle");
-                              setDelError("");
+                            <IconCheck size={10} stroke={2.5} /> Đã trả lời{replied > 1 ? ` ×${replied}` : ""}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ ...td, whiteSpace: "pre-wrap" }}>{it.message}</td>
+                    <td style={td}>
+                      {it.file ? (
+                        isUrl(it.file) ? (
+                          <a
+                            href={it.file}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              color: "var(--fx-accent, #f59e0b)",
                             }}
-                            disabled={busyRow === it.row}
-                            title="Xóa"
-                            style={{ ...iconBtn, color: "#ef4444" }}
                           >
-                            {busyRow === it.row ? (
-                              <IconLoader2 size={14} stroke={2} className="spin" />
-                            ) : (
-                              <IconTrash size={14} stroke={2} />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {loading && (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "color-mix(in srgb, var(--fx-card, #10151f) 70%, transparent)",
-                  backdropFilter: "blur(2px)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  fontSize: 13,
-                  opacity: 0.9,
-                  zIndex: 5,
-                }}
-              >
-                <IconLoader2 size={16} stroke={2} className="spin" /> Đang tải danh sách...
-              </div>
-            )}
-          </div>
-        )}
+                            Mở <IconExternalLink size={12} stroke={2} />
+                          </a>
+                        ) : (
+                          <span style={{ opacity: 0.7 }}>{it.file}</span>
+                        )
+                      ) : (
+                        <span style={{ opacity: 0.4 }}>—</span>
+                      )}
+                    </td>
+                    <td style={td}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => openReply(it)}
+                          disabled={busyRow === it.row}
+                          title="Trả lời qua email"
+                          style={iconBtn}
+                        >
+                          <IconMail size={14} stroke={2} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openHistory(it)}
+                          title={replied ? `Xem ${replied} phản hồi đã gửi` : "Chưa có phản hồi"}
+                          disabled={!replied}
+                          style={{
+                            ...iconBtn,
+                            opacity: replied ? 1 : 0.4,
+                            cursor: replied ? "pointer" : "not-allowed",
+                          }}
+                        >
+                          <IconHistory size={14} stroke={2} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmDel(it);
+                            setDelStatus("idle");
+                            setDelError("");
+                          }}
+                          disabled={busyRow === it.row}
+                          title="Xóa"
+                          style={{ ...iconBtn, color: "#ef4444" }}
+                        >
+                          {busyRow === it.row ? (
+                            <IconLoader2 size={14} stroke={2} className="spin" />
+                          ) : (
+                            <IconTrash size={14} stroke={2} />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {loading && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "color-mix(in srgb, var(--fx-card, #10151f) 70%, transparent)",
+                backdropFilter: "blur(2px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                fontSize: 13,
+                opacity: 0.9,
+                zIndex: 5,
+              }}
+            >
+              <IconLoader2 size={16} stroke={2} className="spin" /> Đang tải danh sách...
+            </div>
+          )}
+        </div>
+      )}
 
       {reply && (
         <div
