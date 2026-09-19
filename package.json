@@ -19,6 +19,7 @@
     "@types/dompurify": "^3.2.0",
     "@types/qrcode": "^1.5.6",
     "@types/three": "^0.185.4",
+    "@vercel/edge-config": "^1.5.1",
     "canvas-confetti": "^1.9.4",
     "dagre": "^0.8.5",
     "dompurify": "^3.4.14",
