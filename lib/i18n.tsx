@@ -51,9 +51,10 @@ const dict = {
   hero_h1_1: { vi: "Chuyển đổi dữ liệu", en: "Convert your data" },
   hero_h1_2: { vi: "ngay trên trình duyệt.", en: "right in your browser." },
   hero_sub: {
-    vi: "Base64, JSON, hình ảnh — paste vào, nhận kết quả tức thì. Dữ liệu không bao giờ rời khỏi máy bạn.",
-    en: "Base64, JSON, images — paste in, get results instantly. Your data never leaves your device.",
+    vi: "Công cụ trực tuyến dành cho lập trình viên và người làm dữ liệu: định dạng, chuyển đổi và kiểm tra dữ liệu ngay trong trình duyệt — nhanh, riêng tư, không cần cài đặt.",
+    en: "This is an online toolkit for developers and data teams to format, convert and validate data right in the browser — fast, private, and nothing to install.",
   },
+  hero_explore: { vi: "Khám phá tool", en: "Explore tools" },
 
   // STATS
   stat_ads: { vi: "quảng cáo", en: "ads" },
@@ -99,13 +100,8 @@ const dict = {
     vi: "Chọn một tool ở trên hoặc bắt đầu với Base64.",
     en: "Pick a tool above or start with Base64.",
   },
-  cta_btn: { vi: "Mở Base64 tool", en: "Open Base64 tool" },
 
   // FOOTER
-  ft_desc: {
-    vi: "Bộ công cụ chuyển đổi dữ liệu chạy hoàn toàn trên trình duyệt. Không đăng ký, không quảng cáo.",
-    en: "Client-side data-conversion utilities. No signup, no ads.",
-  },
   ft_tools: { vi: "CÔNG CỤ", en: "TOOLS" },
   ft_author: { vi: "TÁC GIẢ", en: "AUTHOR" },
   ft_copy: {
