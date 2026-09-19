@@ -315,4 +315,16 @@ export const SEED_TOOLS: Tool[] = [
     tags: ["game", "flappy", "bird", "arcade", "play"],
     category: "cat_game",
   },
+  {
+    href: "/typing-test",
+    iconName: "IconKeyboard",
+    title: "Typing Test",
+    sub: { vi: "Test gõ nhanh", en: "Typing Speed" },
+    desc: {
+      vi: "Đo tốc độ gõ WPM & độ chính xác. Đếm giờ, từ tô màu theo lỗi, lưu kỷ lục.",
+      en: "Measure your WPM & accuracy. Timed run, per-word coloring, saved best score.",
+    },
+    tags: ["typing", "wpm", "keyboard", "speed", "test", "text"],
+    category: "cat_text",
+  },
 ];

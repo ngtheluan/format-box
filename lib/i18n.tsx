@@ -828,6 +828,29 @@ const dict = {
     vi: "Chữ nhỏ hơn để kiểm tra khả năng đọc.",
     en: "Smaller line to check legibility.",
   },
+
+  // TYPING TEST
+  typing_lang: { vi: "Ngôn ngữ", en: "Language" },
+  typing_lang_vi: { vi: "Tiếng Việt", en: "Vietnamese" },
+  typing_lang_en: { vi: "Tiếng Anh", en: "English" },
+  typing_duration: { vi: "Thời gian", en: "Duration" },
+  typing_start_hint: {
+    vi: "Bắt đầu gõ để tính giờ. Nhấn phím cách để qua từ.",
+    en: "Start typing to begin the timer. Press space to move on.",
+  },
+  typing_wpm: { vi: "Từ/phút", en: "WPM" },
+  typing_cpm: { vi: "Ký tự/phút", en: "CPM" },
+  typing_accuracy: { vi: "Độ chính xác", en: "Accuracy" },
+  typing_correct: { vi: "Từ đúng", en: "Correct" },
+  typing_wrong: { vi: "Từ sai", en: "Wrong" },
+  typing_time_left: { vi: "Còn lại", en: "Time left" },
+  typing_restart: { vi: "Làm lại", en: "Restart" },
+  typing_new_words: { vi: "Đoạn mới", en: "New words" },
+  typing_result: { vi: "Kết quả", en: "Result" },
+  typing_keystrokes: { vi: "Lượt gõ", en: "Keystrokes" },
+  typing_best: { vi: "Kỷ lục", en: "Best" },
+  typing_finished: { vi: "Hết giờ!", en: "Time's up!" },
+  typing_input_placeholder: { vi: "Gõ ở đây…", en: "Type here…" },
 } as const;
 
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (key: keyof typeof dict) => string };

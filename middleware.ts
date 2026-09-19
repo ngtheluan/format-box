@@ -82,6 +82,7 @@ export const config = {
     "/speed-test",
     "/text-case",
     "/timestamp",
+    "/typing-test",
     "/weather",
     "/wheel",
   ],
