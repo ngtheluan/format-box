@@ -143,6 +143,7 @@ export default function MachuPodcast({
   const lastSaveRef = useRef<number>(0);
   const sourceRef = useRef<PodcastSource>(source);
   const loadAndPlayRef = useRef<((ep: Episode, idx: number, a?: HTMLMediaElement) => void) | null>(null);
+  const prefetchedUrlRef = useRef<{ slug: string; url: string } | null>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const scrubberRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -309,7 +310,6 @@ export default function MachuPodcast({
     async (ep: Episode, idx: number, a?: HTMLMediaElement) => {
       const audio = a ?? audioRef.current;
       if (!audio) return;
-      // Persist previous track's position before switching.
       if (currentSlugRef.current && currentSlugRef.current !== ep.slug) {
         saveProgressFor(source.storageKey, currentSlugRef.current, audio.currentTime, audio.duration);
       }
@@ -339,11 +339,22 @@ export default function MachuPodcast({
         }
       };
 
-      // iOS Safari path: compute URL synchronously so audio.play() runs
-      // inside the click handler and keeps the user-activation gesture.
-      if (source.directUrl) {
+      // Use prefetched URL if available, otherwise resolve synchronously
+      // with directUrl/fallbackUrl to avoid async gaps on iOS lock screen.
+      const prefetched = prefetchedUrlRef.current;
+      let url: string;
+      if (prefetched && prefetched.slug === ep.slug) {
+        url = prefetched.url;
+        prefetchedUrlRef.current = null;
+      } else if (source.directUrl) {
+        url = source.directUrl(ep);
+      } else {
+        url = "";
+      }
+
+      if (url) {
         setAudioError("");
-        audio.src = source.directUrl(ep);
+        audio.src = url;
         audio.load();
         audio.playbackRate = speedRef.current;
         applySavedTime();
@@ -353,22 +364,41 @@ export default function MachuPodcast({
         });
         setLoading(false);
       } else {
-        const url = await resolveAudioUrl(ep, source);
+        const resolved = await resolveAudioUrl(ep, source);
         setLoading(false);
-        audio.src = url;
+        setAudioError("");
+        audio.src = resolved;
         audio.load();
         audio.playbackRate = speedRef.current;
         applySavedTime();
-        audio.play().catch(() => {});
+        audio.play().catch((e) => {
+          console.warn("[podcast] play() rejected:", e?.name, e?.message);
+          setAudioError(`${e?.name || "PlayErr"}: ${e?.message || ""}`);
+        });
       }
 
+      // Pre-fetch the next episode's URL so auto-next can start instantly.
+      const list = filteredRef.current;
+      const nextIdx = idx + 1;
+      if (nextIdx < list.length) {
+        const nextEp = list[nextIdx];
+        if (source.directUrl) {
+          prefetchedUrlRef.current = { slug: nextEp.slug, url: source.directUrl(nextEp) };
+        } else {
+          resolveAudioUrl(nextEp, source).then((nextUrl) => {
+            if (nextUrl) prefetchedUrlRef.current = { slug: nextEp.slug, url: nextUrl };
+          });
+        }
+      }
+
+      // Update Media Session — set metadata with the raw thumbnail first,
+      // then upgrade to cropped art asynchronously.
       if ("mediaSession" in navigator) {
-        const artSrc = await toSquareArt(ep.img, 512);
         navigator.mediaSession.metadata = new MediaMetadata({
           title: ep.title,
           artist: source.artist,
           album: source.album,
-          artwork: [{ src: artSrc, sizes: "512x512", type: "image/jpeg" }],
+          artwork: [{ src: ep.img, sizes: "512x512", type: "image/jpeg" }],
         });
         navigator.mediaSession.setActionHandler("play", () => audio.play());
         navigator.mediaSession.setActionHandler("pause", () => audio.pause());
@@ -391,6 +421,15 @@ export default function MachuPodcast({
         });
         navigator.mediaSession.setActionHandler("seekforward", () => {
           audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 30);
+        });
+        toSquareArt(ep.img, 512).then((artSrc) => {
+          if (currentSlugRef.current !== ep.slug) return;
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: ep.title,
+            artist: source.artist,
+            album: source.album,
+            artwork: [{ src: artSrc, sizes: "512x512", type: "image/jpeg" }],
+          });
         });
       }
     },
@@ -569,7 +608,14 @@ export default function MachuPodcast({
                 <div
                   key={ep.ts}
                   className={`mp-card${i === currentIdx ? " active" : ""}${i === currentIdx && playing ? " playing" : ""}`}
-                  onClick={() => playEp(i)}
+                  onClick={() => {
+                    if (i === currentIdx) {
+                      const a = audioRef.current;
+                      if (a) a.paused ? a.play().catch(() => {}) : a.pause();
+                    } else {
+                      playEp(i);
+                    }
+                  }}
                 >
                   <div className="mp-card-thumb">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -609,9 +655,9 @@ export default function MachuPodcast({
       <div className="mp-player">
         <div className="mp-player-pill">
           {/* Center: scrubber + art + info */}
-          <div className="mp-player-center" onClick={() => currentEp && setShowDetail(true)}>
-            {/* Art */}
-            <div className="mp-player-art">
+          <div className="mp-player-center">
+            {/* Art — tap to open detail */}
+            <div className="mp-player-art" onClick={() => currentEp && setShowDetail(true)}>
               {currentEp ? (
                 /* eslint-disable-next-line @next/next/no-img-element */ <img src={currentEp.img} alt="" />
               ) : (
