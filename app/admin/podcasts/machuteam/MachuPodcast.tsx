@@ -40,9 +40,11 @@ const DEFAULT_SOURCE: PodcastSource = {
     `https://machuteam.vn/uploads/audio/singles/${ep.ts}_${ep.slug.replace(/-{2,}/g, "-")}.mp3`,
 };
 
-async function resolveAudioUrl(ep: Episode, src: PodcastSource): Promise<string> {
+async function resolveAudioUrl(ep: Episode, src: PodcastSource, refresh = false): Promise<string> {
   try {
-    const res = await fetch(`${src.apiPath}?slug=${encodeURIComponent(ep.slug)}`);
+    const q = new URLSearchParams({ slug: ep.slug });
+    if (refresh) q.set("refresh", "1");
+    const res = await fetch(`${src.apiPath}?${q}`);
     if (res.ok) {
       const data = await res.json();
       if (data.audioUrl) return data.audioUrl;
@@ -144,6 +146,7 @@ export default function MachuPodcast({
   const sourceRef = useRef<PodcastSource>(source);
   const loadAndPlayRef = useRef<((ep: Episode, idx: number, a?: HTMLMediaElement) => void) | null>(null);
   const prefetchedUrlRef = useRef<{ slug: string; url: string } | null>(null);
+  const retryingRef = useRef(false);
   const progressRef = useRef<HTMLDivElement>(null);
   const scrubberRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -274,11 +277,46 @@ export default function MachuPodcast({
       if (currentSlugRef.current) saveProgressFor(sourceRef.current.storageKey, currentSlugRef.current, a.currentTime, a.duration);
     };
     const onError = () => {
-      setLoading(false);
-      setPlaying(false);
       const code = a.error?.code;
       const msg = a.error?.message ?? "unknown";
       console.warn("[podcast] audio error", code, msg, "for", currentSlugRef.current);
+
+      // Retry once with a fresh URL (bust server cache).
+      if (!retryingRef.current && currentSlugRef.current) {
+        retryingRef.current = true;
+        const slug = currentSlugRef.current;
+        const ep = filteredRef.current.find((e) => e.slug === slug);
+        if (ep) {
+          resolveAudioUrl(ep, sourceRef.current, true).then((freshUrl) => {
+            retryingRef.current = false;
+            if (freshUrl && currentSlugRef.current === slug) {
+              a.src = freshUrl;
+              a.load();
+              a.playbackRate = speedRef.current;
+              a.play().catch(() => {});
+            } else {
+              // Retry failed — auto-skip to next track.
+              setLoading(false);
+              setAudioError(`err ${code ?? "?"}: ${msg}`);
+              setCurrentIdx((idx) => {
+                const list = filteredRef.current;
+                const next = idx + 1;
+                if (next < list.length) {
+                  setTimeout(() => (loadAndPlayRef.current ?? loadAndPlay)(list[next], next, a), 500);
+                  return next;
+                }
+                setPlaying(false);
+                return idx;
+              });
+            }
+          });
+          return;
+        }
+      }
+
+      retryingRef.current = false;
+      setLoading(false);
+      setPlaying(false);
       setAudioError(`err ${code ?? "?"}: ${msg}`);
     };
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -314,6 +352,7 @@ export default function MachuPodcast({
         saveProgressFor(source.storageKey, currentSlugRef.current, audio.currentTime, audio.duration);
       }
       currentSlugRef.current = ep.slug;
+      retryingRef.current = false;
       try {
         localStorage.setItem(`${source.storageKey}-last`, ep.slug);
       } catch {
@@ -366,6 +405,10 @@ export default function MachuPodcast({
       } else {
         const resolved = await resolveAudioUrl(ep, source);
         setLoading(false);
+        if (!resolved) {
+          setAudioError("Không tải được audio");
+          return;
+        }
         setAudioError("");
         audio.src = resolved;
         audio.load();
@@ -391,14 +434,14 @@ export default function MachuPodcast({
         }
       }
 
-      // Update Media Session — set metadata with the raw thumbnail first,
-      // then upgrade to cropped art asynchronously.
+      // Update Media Session — use proxy URL so iOS lock screen can fetch it.
       if ("mediaSession" in navigator) {
+        const proxyArt = `https://wsrv.nl/?url=${encodeURIComponent(ep.img)}&w=512&h=512&fit=cover&output=jpg`;
         navigator.mediaSession.metadata = new MediaMetadata({
           title: ep.title,
           artist: source.artist,
           album: source.album,
-          artwork: [{ src: ep.img, sizes: "512x512", type: "image/jpeg" }],
+          artwork: [{ src: proxyArt, sizes: "512x512", type: "image/jpeg" }],
         });
         navigator.mediaSession.setActionHandler("play", () => audio.play());
         navigator.mediaSession.setActionHandler("pause", () => audio.pause());
@@ -483,7 +526,7 @@ export default function MachuPodcast({
           <div ref={sheetRef} className="mp-detail-sheet" onClick={(e) => e.stopPropagation()}>
             <div className={`mp-detail-art${playing ? " playing" : ""}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={currentEp.img} alt={currentEp.title} />
+              <img src={currentEp.img} alt={currentEp.title} style={source.thumbAlign ? { objectPosition: `${source.thumbAlign} center` } : undefined} />
             </div>
 
             <div className="mp-detail-info">
@@ -659,7 +702,7 @@ export default function MachuPodcast({
             {/* Art — tap to open detail */}
             <div className="mp-player-art" onClick={() => currentEp && setShowDetail(true)}>
               {currentEp ? (
-                /* eslint-disable-next-line @next/next/no-img-element */ <img src={currentEp.img} alt="" />
+                /* eslint-disable-next-line @next/next/no-img-element */ <img src={currentEp.img} alt="" style={source.thumbAlign ? { objectPosition: `${source.thumbAlign} center` } : undefined} />
               ) : (
                 <IconHeadphones size={16} stroke={1.4} />
               )}
