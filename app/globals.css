@@ -2297,6 +2297,14 @@ label {
 .mm-group-cat_dev .mm-group-count {
   color: var(--c5);
 }
+.mm-group-cat_life .mm-group-head span:first-child,
+.mm-group-cat_life .mm-group-count {
+  color: var(--c4);
+}
+.mm-group-cat_game .mm-group-head span:first-child,
+.mm-group-cat_game .mm-group-count {
+  color: #ef4444;
+}
 .mm-list {
   display: flex;
   flex-direction: column;
@@ -2343,6 +2351,9 @@ label {
 .mm-item-cat_life .mm-item-icon {
   color: var(--c4);
 }
+.mm-item-cat_game .mm-item-icon {
+  color: #ef4444;
+}
 .mm-item-cat_text.active .mm-item-icon,
 .mm-item-cat_text:hover .mm-item-icon {
   background: var(--c1);
@@ -2366,6 +2377,12 @@ label {
   background: var(--c4);
   color: #fff;
   border-color: var(--c4);
+}
+.mm-item-cat_game.active .mm-item-icon,
+.mm-item-cat_game:hover .mm-item-icon {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
 }
 .mm-item-body {
   display: flex;
@@ -8510,11 +8527,6 @@ label {
   border-color: var(--c4);
 }
 
-.mm-group-cat_life .mm-group-head span:first-child,
-.mm-group-cat_life .mm-group-count {
-  color: var(--c4);
-}
-
 /* --- Fuel chart (SVG column) --- */
 .fp-chart {
   padding: 18px !important;
@@ -11932,14 +11944,12 @@ html[data-skin]:not([data-skin="modern"]) body::before {
 .skin-scene {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   opacity: 0.85;
 }
 html[data-skin]:not([data-skin="modern"]) body {
   background: transparent;
-  position: relative;
-  z-index: 1;
 }
 html[data-skin="mid-autumn"] {
   background:
