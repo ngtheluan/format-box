@@ -83,6 +83,7 @@ export const config = {
     "/text-case",
     "/timestamp",
     "/typing-test",
+    "/uuid",
     "/weather",
     "/wheel",
   ],

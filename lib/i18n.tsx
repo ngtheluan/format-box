@@ -825,6 +825,16 @@ const dict = {
     en: "Smaller line to check legibility.",
   },
 
+  // UUID
+  uuid_count: { vi: "Số lượng", en: "Count" },
+  uuid_case: { vi: "Kiểu chữ", en: "Case" },
+  uuid_hyphens: { vi: "Gạch nối", en: "Hyphens" },
+  uuid_with: { vi: "Có", en: "With" },
+  uuid_without: { vi: "Không", en: "Without" },
+  uuid_generate: { vi: "Tạo mới", en: "Generate" },
+  uuid_copy_all: { vi: "Copy tất cả", en: "Copy all" },
+  uuid_empty: { vi: "Bấm Tạo mới để sinh UUID.", en: "Click Generate to create UUIDs." },
+
   // TYPING TEST
   typing_lang: { vi: "Ngôn ngữ", en: "Language" },
   typing_lang_vi: { vi: "Tiếng Việt", en: "Vietnamese" },

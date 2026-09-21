@@ -327,4 +327,16 @@ export const SEED_TOOLS: Tool[] = [
     tags: ["typing", "wpm", "keyboard", "speed", "test", "text"],
     category: "cat_text",
   },
+  {
+    href: "/uuid",
+    iconName: "IconFingerprint",
+    title: "UUID",
+    sub: { vi: "Generate & Copy", en: "Generate & Copy" },
+    desc: {
+      vi: "Tạo UUID v4 ngẫu nhiên. Sinh hàng loạt, tuỳ chỉnh định dạng, copy một chạm.",
+      en: "Generate random UUID v4. Batch create, customize format, one-click copy.",
+    },
+    tags: ["uuid", "guid", "random", "id", "unique"],
+    category: "cat_dev",
+  },
 ];
