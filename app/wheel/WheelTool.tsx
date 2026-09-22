@@ -6,8 +6,10 @@ import {
   IconChefHat,
   IconConfetti,
   IconGlassFull,
+  IconHistory,
   IconPlayerPlayFilled,
   IconRefresh,
+  IconSettings,
   IconSparkles,
   IconTrash,
   IconUsersGroup,
@@ -53,9 +55,26 @@ const storageKey = (id: PresetId) => `fb-wheel-${id}`;
 const CURRENT_KEY = "fb-wheel-current";
 
 const SIZE = 420;
-const R = SIZE / 2 - 10;
+const R = SIZE / 2 - 18;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
+
+const WHEEL_COLORS = [
+  "#f43f5e",
+  "#f97316",
+  "#f59e0b",
+  "#eab308",
+  "#84cc16",
+  "#22c55e",
+  "#14b8a6",
+  "#06b6d4",
+  "#3b82f6",
+  "#6366f1",
+  "#8b5cf6",
+  "#a855f7",
+  "#d946ef",
+  "#ec4899",
+];
 
 function pt(cx: number, cy: number, r: number, deg: number) {
   const rad = ((deg - 90) * Math.PI) / 180;
@@ -102,6 +121,8 @@ export default function WheelTool() {
   const [removeWinner, setRemoveWinner] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load on mount
@@ -265,53 +286,26 @@ export default function WheelTool() {
         />
         <p className="wheel-saved-hint">{t("wh_saved_hint")}</p>
 
-        <div className="actions wheel-actions">
-          <Button
-            size="sm"
-            variant="subtle"
-            onClick={shuffle}
+        <div className="wheel-side-buttons">
+          <button
+            type="button"
+            className="wheel-pill"
+            onClick={() => setHistoryOpen(true)}
             disabled={spinning}
-            leftIcon={<IconArrowsShuffle size={14} stroke={1.9} />}
           >
-            {t("wh_shuffle")}
-          </Button>
-          <Button
-            size="sm"
-            variant="subtle"
-            onClick={reset}
-            disabled={spinning}
-            leftIcon={<IconRefresh size={14} stroke={1.9} />}
-          >
-            {t("wh_reset")}
-          </Button>
-        </div>
-        <Checkbox
-          label={t("wh_remove_winner")}
-          checked={removeWinner}
-          onChange={(e) => setRemoveWinner(e.target.checked)}
-          className="wheel-check"
-        />
-
-        <div className="wheel-history">
-          <div className="wheel-history-head">
+            <IconHistory size={14} stroke={1.9} />
             <span>{t("wh_history")}</span>
-            {history.length > 0 && (
-              <button className="wheel-history-clear" onClick={clearHistory}>
-                <IconTrash size={12} stroke={1.9} /> {t("wh_clear_history")}
-              </button>
-            )}
-          </div>
-          {history.length === 0 ? (
-            <div className="wheel-history-empty">{t("wh_history_empty")}</div>
-          ) : (
-            <ol className="wheel-history-list">
-              {history.map((h, i) => (
-                <li key={`${h}-${i}`}>
-                  <span>{i + 1}.</span> {h}
-                </li>
-              ))}
-            </ol>
-          )}
+            {history.length > 0 && <b className="wheel-pill-badge">{history.length}</b>}
+          </button>
+          <button
+            type="button"
+            className="wheel-pill"
+            onClick={() => setSettingsOpen(true)}
+            disabled={spinning}
+          >
+            <IconSettings size={14} stroke={1.9} />
+            <span>{t("wh_settings")}</span>
+          </button>
         </div>
       </aside>
 
@@ -325,38 +319,80 @@ export default function WheelTool() {
                 className={`wheel-svg${spinning ? " spinning" : ""}`}
                 style={{ transform: `rotate(${rotation}deg)` }}
               >
-                {items.map((item, i) => {
-                  const startDeg = i * step;
-                  const endDeg = (i + 1) * step;
-                  const midDeg = startDeg + step / 2;
-                  const textPt = pt(CX, CY, R * 0.62, midDeg);
-                  const hue = (i * 360) / Math.max(n, 1);
-                  return (
-                    <g key={i}>
-                      <path
-                        d={arcPath(startDeg, endDeg)}
-                        fill={`hsl(${hue}, 72%, 58%)`}
-                        stroke="#0a0e15"
-                        strokeWidth="2"
-                      />
-                      <text
-                        x={textPt.x}
-                        y={textPt.y}
-                        transform={`rotate(${midDeg}, ${textPt.x}, ${textPt.y})`}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fill="#fff"
-                        fontSize={n > 12 ? 12 : n > 8 ? 14 : 16}
-                        fontWeight={600}
-                        style={{ textShadow: "0 1px 3px rgba(0,0,0,.5)" }}
-                      >
-                        {truncate(item, n > 12 ? 8 : n > 8 ? 12 : 16)}
-                      </text>
-                    </g>
-                  );
+                <defs>
+                  <radialGradient id="wheel-shine" cx="50%" cy="35%" r="65%">
+                    <stop offset="0%" stopColor="rgba(255,255,255,0.45)" />
+                    <stop offset="55%" stopColor="rgba(255,255,255,0)" />
+                  </radialGradient>
+                  <radialGradient id="wheel-vignette" cx="50%" cy="50%" r="52%">
+                    <stop offset="70%" stopColor="rgba(0,0,0,0)" />
+                    <stop offset="100%" stopColor="rgba(0,0,0,0.35)" />
+                  </radialGradient>
+                  <radialGradient id="hub-grad" cx="50%" cy="35%" r="70%">
+                    <stop offset="0%" stopColor="#ffffff" />
+                    <stop offset="70%" stopColor="#f3f4f6" />
+                    <stop offset="100%" stopColor="#d1d5db" />
+                  </radialGradient>
+                  <radialGradient id="hub-dot" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#fbbf24" />
+                    <stop offset="100%" stopColor="#d97706" />
+                  </radialGradient>
+                  <filter id="wheel-drop" x="-10%" y="-10%" width="120%" height="120%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="6" />
+                    <feOffset dx="0" dy="4" result="off" />
+                    <feComponentTransfer>
+                      <feFuncA type="linear" slope="0.35" />
+                    </feComponentTransfer>
+                    <feMerge>
+                      <feMergeNode />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+
+                {/* Outer decorative rim */}
+                <circle cx={CX} cy={CY} r={R + 12} fill="#1f2937" />
+                <circle cx={CX} cy={CY} r={R + 12} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+                {Array.from({ length: 24 }).map((_, i) => {
+                  const p = pt(CX, CY, R + 6, (i * 360) / 24);
+                  return <circle key={`led-${i}`} cx={p.x} cy={p.y} r="2.4" fill={i % 2 ? "#fbbf24" : "#fff7ed"} />;
                 })}
-                <circle cx={CX} cy={CY} r={R} fill="none" stroke="#0a0e15" strokeWidth="4" />
-                <circle cx={CX} cy={CY} r="22" fill="#fff" stroke="#0a0e15" strokeWidth="3" />
+
+                <g filter="url(#wheel-drop)">
+                  {items.map((item, i) => {
+                    const startDeg = i * step;
+                    const endDeg = (i + 1) * step;
+                    const midDeg = startDeg + step / 2;
+                    const textPt = pt(CX, CY, R * 0.62, midDeg);
+                    const color = WHEEL_COLORS[i % WHEEL_COLORS.length];
+                    return (
+                      <g key={i}>
+                        <path d={arcPath(startDeg, endDeg)} fill={color} stroke="rgba(255,255,255,0.18)" strokeWidth="1.5" />
+                        <text
+                          x={textPt.x}
+                          y={textPt.y}
+                          transform={`rotate(${midDeg}, ${textPt.x}, ${textPt.y})`}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fill="#fff"
+                          fontSize={n > 12 ? 12 : n > 8 ? 14 : 16}
+                          fontWeight={700}
+                          style={{ textShadow: "0 1px 3px rgba(0,0,0,.55)", letterSpacing: 0.2 }}
+                        >
+                          {truncate(item, n > 12 ? 8 : n > 8 ? 12 : 16)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </g>
+
+                {/* Shine + vignette overlays */}
+                <circle cx={CX} cy={CY} r={R} fill="url(#wheel-shine)" pointerEvents="none" />
+                <circle cx={CX} cy={CY} r={R} fill="url(#wheel-vignette)" pointerEvents="none" />
+
+                {/* Center hub */}
+                <circle cx={CX} cy={CY} r="30" fill="url(#hub-grad)" stroke="rgba(0,0,0,0.15)" strokeWidth="1" />
+                <circle cx={CX} cy={CY} r="10" fill="url(#hub-dot)" />
               </svg>
             </div>
 
@@ -384,6 +420,84 @@ export default function WheelTool() {
           <div className="wheel-empty">{t("wh_empty_wheel")}</div>
         )}
       </div>
+
+      {historyOpen && (
+        <div className="wheel-modal" role="dialog" aria-modal="true" onClick={() => setHistoryOpen(false)}>
+          <div className="wheel-modal-card wheel-modal-panel" onClick={(e) => e.stopPropagation()}>
+            <button className="wheel-modal-x" onClick={() => setHistoryOpen(false)} aria-label="Close">
+              <IconX size={16} stroke={2} />
+            </button>
+            <div className="wheel-modal-panel-head">
+              <IconHistory size={18} stroke={1.9} />
+              <b>{t("wh_history")}</b>
+              {history.length > 0 && (
+                <button className="wheel-history-clear" onClick={clearHistory}>
+                  <IconTrash size={12} stroke={1.9} /> {t("wh_clear_history")}
+                </button>
+              )}
+            </div>
+            {history.length === 0 ? (
+              <div className="wheel-history-empty">{t("wh_history_empty")}</div>
+            ) : (
+              <ol className="wheel-history-list">
+                {history.map((h, i) => (
+                  <li key={`${h}-${i}`}>
+                    <span>{i + 1}.</span> {h}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div className="wheel-modal" role="dialog" aria-modal="true" onClick={() => setSettingsOpen(false)}>
+          <div className="wheel-modal-card wheel-modal-panel" onClick={(e) => e.stopPropagation()}>
+            <button className="wheel-modal-x" onClick={() => setSettingsOpen(false)} aria-label="Close">
+              <IconX size={16} stroke={2} />
+            </button>
+            <div className="wheel-modal-panel-head">
+              <IconSettings size={18} stroke={1.9} />
+              <b>{t("wh_settings")}</b>
+            </div>
+            <div className="wheel-settings-body">
+              <Checkbox
+                label={t("wh_remove_winner")}
+                checked={removeWinner}
+                onChange={(e) => setRemoveWinner(e.target.checked)}
+                className="wheel-check"
+              />
+              <div className="actions wheel-actions">
+                <Button
+                  size="sm"
+                  variant="subtle"
+                  onClick={() => {
+                    shuffle();
+                    setSettingsOpen(false);
+                  }}
+                  disabled={spinning}
+                  leftIcon={<IconArrowsShuffle size={14} stroke={1.9} />}
+                >
+                  {t("wh_shuffle")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="subtle"
+                  onClick={() => {
+                    reset();
+                    setSettingsOpen(false);
+                  }}
+                  disabled={spinning}
+                  leftIcon={<IconRefresh size={14} stroke={1.9} />}
+                >
+                  {t("wh_reset")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modalOpen && winner && (
         <div className="wheel-modal" role="dialog" aria-modal="true" onClick={closeModal}>
