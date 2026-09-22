@@ -8,10 +8,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isAdmin = pathname.startsWith("/admin");
 
   return (
-    <>
+    <div className="app-shell">
       {!isAdmin && <Nav />}
-      {children}
+      <main className="app-main">{children}</main>
       {!isAdmin && <Footer />}
-    </>
+    </div>
   );
 }

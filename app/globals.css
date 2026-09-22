@@ -75,6 +75,16 @@ body {
   overflow-x: hidden;
   min-height: 100vh;
 }
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.app-main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
 a {
   color: inherit;
   text-decoration: none;
@@ -83,8 +93,7 @@ a {
 html:not([data-skin]) {
   background:
     radial-gradient(900px 600px at 12% -5%, var(--aurora-a), transparent 65%),
-    radial-gradient(800px 560px at 92% 8%, var(--aurora-b), transparent 65%),
-    var(--bg);
+    radial-gradient(800px 560px at 92% 8%, var(--aurora-b), transparent 65%), var(--bg);
   background-attachment: fixed;
 }
 html:not([data-skin]) body {
@@ -582,6 +591,7 @@ section {
 
 /* ===== TOOL PAGE (shared) ===== */
 .page {
+  width: 100%;
   padding: 80px 24px 60px;
   margin: 0 auto;
   padding-bottom: 24px;
@@ -1913,6 +1923,7 @@ label {
   font-family: var(--font);
   font-size: 0.84rem;
   font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color 0.15s,
@@ -2153,6 +2164,19 @@ label {
   .nav-cat:last-child .nav-cat-panel {
     left: auto;
     right: -8px;
+  }
+}
+@media (max-width: 1190px) and (min-width: 901px) {
+  .nav-cats {
+    gap: 0;
+  }
+  .nav-cat-btn {
+    padding: 6px 8px;
+    font-size: 0.78rem;
+    gap: 3px;
+  }
+  .nav-cat-btn .chev {
+    display: none;
   }
 }
 @media (max-width: 900px) {
@@ -11944,7 +11968,9 @@ label {
   flex-shrink: 0;
   border: 1px solid var(--border);
 }
-.skin-label { flex: 1; }
+.skin-label {
+  flex: 1;
+}
 
 [data-skin="mid-autumn"] {
   --accent: #e53935;
@@ -11974,7 +12000,9 @@ label {
 html[data-skin]:not([data-skin="modern"]) body::before {
   content: "";
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 3px;
   background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
   background-size: 200% 100%;
@@ -11983,8 +12011,12 @@ html[data-skin]:not([data-skin="modern"]) body::before {
   pointer-events: none;
 }
 @keyframes skinStripe {
-  0% { background-position: 0% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .skin-scene {
@@ -12002,8 +12034,7 @@ html[data-skin="mid-autumn"] {
     radial-gradient(600px 400px at 82% 18%, rgba(255, 230, 160, 0.28), transparent 65%),
     radial-gradient(1200px 800px at 85% 15%, rgba(255, 200, 110, 0.16), transparent 65%),
     radial-gradient(900px 700px at 15% 90%, rgba(229, 57, 53, 0.16), transparent 65%),
-    radial-gradient(700px 500px at 50% 60%, rgba(249, 168, 37, 0.08), transparent 70%),
-    var(--bg);
+    radial-gradient(700px 500px at 50% 60%, rgba(249, 168, 37, 0.08), transparent 70%), var(--bg);
 }
 html[data-skin="christmas"] {
   background:
@@ -12432,7 +12463,11 @@ section {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(340px circle at var(--mx) var(--my), color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%);
+  background: radial-gradient(
+    340px circle at var(--mx) var(--my),
+    color-mix(in srgb, var(--accent) 16%, transparent),
+    transparent 62%
+  );
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;
@@ -12729,9 +12764,33 @@ section {
   .bento .tool-card-m.is-feature,
   .bento .tool-card-m.is-wide {
     grid-column: span 1;
+    grid-row: span 1;
+    padding: 20px;
   }
-  .bento .tool-card-m.is-feature {
-    padding: 28px;
+  .bento .is-feature .tool-icon,
+  .bento .is-wide .tool-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+  }
+  .bento .is-feature .tool-head,
+  .bento .is-wide .tool-head {
+    margin-bottom: revert;
+  }
+  .bento .is-feature h3,
+  .bento .is-wide h3 {
+    font-size: revert;
+    letter-spacing: revert;
+  }
+  .bento .is-feature p,
+  .bento .is-wide p {
+    font-size: revert;
+    max-width: none;
+    -webkit-line-clamp: 3;
+    display: -webkit-box;
+  }
+  .bento .tool-card-m > .tool-ghost {
+    display: none;
   }
   .cta-split .cta-copy {
     flex: none;
