@@ -77,6 +77,7 @@ export const config = {
     "/jwt",
     "/lucky-ticket",
     "/markdown",
+    "/pacman",
     "/qr",
     "/responsive",
     "/speed-test",

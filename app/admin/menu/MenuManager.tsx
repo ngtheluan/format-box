@@ -314,7 +314,7 @@ export default function MenuManager() {
   }
 
   async function seed() {
-    if (!confirm("Seed 23 tools mặc định vào Supabase?")) return;
+    if (!confirm("Seed tools menu vào Supabase?")) return;
     const res = await fetch("/api/admin/seed", { method: "POST" });
     const j = await res.json();
     if (!j.ok) {

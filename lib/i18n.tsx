@@ -46,6 +46,19 @@ const dict = {
   flappy_char_plane: { vi: "Máy bay", en: "Plane" },
   flappy_space_continue: { vi: "Nhấn Space để chơi tiếp", en: "Press Space to continue" },
 
+  // PAC-MAN
+  pacman_start: { vi: "Bắt đầu", en: "Start" },
+  pacman_restart: { vi: "Chơi lại", en: "Play again" },
+  pacman_score: { vi: "Điểm", en: "Score" },
+  pacman_best: { vi: "Kỷ lục", en: "Best" },
+  pacman_level: { vi: "Màn", en: "Level" },
+  pacman_lives: { vi: "Mạng", en: "Lives" },
+  pacman_ready: { vi: "Sẵn sàng?", en: "Ready?" },
+  pacman_gameover: { vi: "Kết thúc", en: "Game over" },
+  pacman_win: { vi: "Thắng rồi!", en: "You win!" },
+  pacman_hint: { vi: "Mũi tên / WASD để di chuyển", en: "Arrow keys / WASD to move" },
+  pacman_new_best: { vi: "Kỷ lục mới!", en: "New best!" },
+
   // HERO
   hero_tag: { vi: "Miễn phí · Không đăng ký", en: "Free · No signup" },
   hero_h1_1: { vi: "Chuyển đổi dữ liệu", en: "Convert your data" },

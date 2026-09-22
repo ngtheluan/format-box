@@ -328,6 +328,18 @@ export const SEED_TOOLS: Tool[] = [
     category: "cat_text",
   },
   {
+    href: "/pacman",
+    iconName: "IconGhost2",
+    title: "Pac-Man",
+    sub: { vi: "Chơi & Ăn điểm", en: "Play & Score" },
+    desc: {
+      vi: "Game Pac-Man cổ điển — mũi tên/WASD điều khiển, né ma, ăn hết chấm. Lưu kỷ lục ngay trong trình duyệt.",
+      en: "Classic Pac-Man — arrow keys/WASD to move, dodge ghosts, eat all dots. High score saved locally.",
+    },
+    tags: ["game", "pacman", "arcade", "maze", "ghost"],
+    category: "cat_game",
+  },
+  {
     href: "/uuid",
     iconName: "IconFingerprint",
     title: "UUID",

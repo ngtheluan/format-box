@@ -1094,8 +1094,8 @@ export default function FlappyBirdTool() {
         .flappy-stage {
           position: relative;
           width: 100%;
-          max-width: 460px;
-          aspect-ratio: 3 / 4;
+          max-width: 720px;
+          aspect-ratio: 4 / 3;
           max-height: calc(100vh - 220px);
           max-height: calc(100dvh - 220px);
           border-radius: 16px;
@@ -1122,12 +1122,22 @@ export default function FlappyBirdTool() {
         }
         @media (min-width: 700px) {
           .flappy-stage {
-            max-width: 720px;
+            max-width: 960px;
           }
         }
         @media (min-width: 1024px) {
           .flappy-stage {
-            max-width: 900px;
+            max-width: 1200px;
+          }
+        }
+        @media (min-width: 1440px) {
+          .flappy-stage {
+            max-width: 1440px;
+          }
+        }
+        @media (max-width: 640px) {
+          .flappy-stage {
+            aspect-ratio: 3 / 4;
           }
         }
         .flappy-hud {
