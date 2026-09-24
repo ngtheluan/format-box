@@ -3,7 +3,7 @@ import { useToast } from "@/components/Toast";
 import { Button, Textarea } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import { IconCheck, IconChevronDown, IconChevronRight, IconCopy, IconEraser, IconX } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 type Indent = "2" | "4" | "tab";
 type Status = { type: "ok" | "err" | "idle"; msg: string };
@@ -20,38 +20,163 @@ function maxDepth(obj: unknown, d = 0): number {
   return vs.length ? Math.max(...vs.map((v) => maxDepth(v, d + 1)), d) : d;
 }
 
-function TreeNode({ data }: { data: unknown }) {
-  if (data === null) return <span className="tree-null">null</span>;
-  if (typeof data === "boolean") return <span className="tree-bool">{String(data)}</span>;
-  if (typeof data === "number") return <span className="tree-num">{data}</span>;
-  if (typeof data === "string") {
-    const s = data.length > 80 ? data.slice(0, 77) + "..." : data;
-    return <span className="tree-str">&quot;{s}&quot;</span>;
-  }
-  if (Array.isArray(data)) {
-    if (data.length === 0) return <span className="tree-null">[]</span>;
+function renderPrimitive(v: unknown) {
+  if (v === null) return <span className="tree-null">null</span>;
+  if (typeof v === "boolean") return <span className="tree-bool">{String(v)}</span>;
+  if (typeof v === "number") return <span className="tree-num">{v}</span>;
+  if (typeof v === "string")
+    return <span className="tree-str">&quot;{v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}&quot;</span>;
+  return null;
+}
+
+type LineCtx = {
+  n: number;
+  collapsed: Set<string>;
+  toggle: (id: string) => void;
+};
+
+function Row({
+  line,
+  indent,
+  children,
+  toggle,
+  onToggle,
+}: {
+  line: number;
+  indent: number;
+  children: React.ReactNode;
+  toggle?: { id: string; open: boolean };
+  onToggle?: (id: string) => void;
+}) {
+  return (
+    <div className={`jt-line${toggle ? " jt-line-opener" : ""}`}>
+      <span className="jt-ln">{line}</span>
+      <span className="jt-lc" style={{ paddingLeft: indent * 14 }}>
+        {toggle && onToggle ? (
+          <button
+            className="jt-caret"
+            onClick={() => onToggle(toggle.id)}
+            aria-label={toggle.open ? "collapse" : "expand"}
+          >
+            {toggle.open ? <IconChevronDown size={12} stroke={2.2} /> : <IconChevronRight size={12} stroke={2.2} />}
+          </button>
+        ) : (
+          <span className="jt-caret jt-caret-spacer" />
+        )}
+        {children}
+      </span>
+    </div>
+  );
+}
+
+function renderNode({
+  ctx,
+  value,
+  indent,
+  path,
+  prefix,
+  suffix,
+}: {
+  ctx: LineCtx;
+  value: unknown;
+  indent: number;
+  path: string;
+  prefix?: React.ReactNode;
+  suffix?: string;
+}): React.ReactNode {
+  const isArr = Array.isArray(value);
+  const isObj = !isArr && typeof value === "object" && value !== null;
+
+  if (!isArr && !isObj) {
+    const ln = ++ctx.n;
     return (
-      <details open>
-        <summary>[{data.length} items]</summary>
-        {data.map((v, i) => (
-          <div key={i}>
-            <span className="tree-key">{i}:</span> <TreeNode data={v} />
-          </div>
-        ))}
-      </details>
+      <Row key={path || "$"} line={ln} indent={indent}>
+        {prefix}
+        {renderPrimitive(value)}
+        {suffix}
+      </Row>
     );
   }
-  const keys = Object.keys(data as object);
-  if (keys.length === 0) return <span className="tree-null">{"{}"}</span>;
+
+  const entries = isArr
+    ? (value as unknown[]).map((v, i) => [String(i), v] as const)
+    : Object.entries(value as Record<string, unknown>);
+  const open = isArr ? "[" : "{";
+  const close = isArr ? "]" : "}";
+
+  if (entries.length === 0) {
+    const ln = ++ctx.n;
+    return (
+      <Row key={path || "$"} line={ln} indent={indent}>
+        {prefix}
+        <span className="tree-null">{open + close}</span>
+        {suffix}
+      </Row>
+    );
+  }
+
+  const blockId = path || "$";
+  const collapsed = ctx.collapsed.has(blockId);
+  const openLine = ++ctx.n;
+
+  const openRow = (
+    <Row
+      line={openLine}
+      indent={indent}
+      toggle={{ id: blockId, open: !collapsed }}
+      onToggle={ctx.toggle}
+    >
+      {prefix}
+      <span className="tree-brace">{open}</span>
+      {collapsed && (
+        <>
+          <span className="jt-ellipsis" onClick={() => ctx.toggle(blockId)}>
+            {isArr ? `${entries.length} items` : `${entries.length} keys`}
+          </span>
+          <span className="tree-brace">{close}</span>
+          {suffix}
+        </>
+      )}
+    </Row>
+  );
+
+  if (collapsed) return <Fragment key={blockId}>{openRow}</Fragment>;
+
+  const childNodes = entries.map(([k, v], i) => {
+    const last = i === entries.length - 1;
+    const childPrefix = isArr ? null : (
+      <>
+        <span className="tree-key">&quot;{k}&quot;</span>
+        <span className="tree-colon">: </span>
+      </>
+    );
+    return renderNode({
+      ctx,
+      value: v,
+      indent: indent + 1,
+      path: `${blockId}.${k}`,
+      prefix: childPrefix,
+      suffix: last ? "" : ",",
+    });
+  });
+
+  const closeLine = ++ctx.n;
+
   return (
-    <details open>
-      <summary>{`{${keys.length} keys}`}</summary>
-      {keys.map((k) => (
-        <div key={k}>
-          <span className="tree-key">&quot;{k}&quot;:</span> <TreeNode data={(data as Record<string, unknown>)[k]} />
-        </div>
-      ))}
-    </details>
+    <Fragment key={blockId}>
+      {openRow}
+      <div
+        className="jt-block"
+        data-block={blockId}
+        style={{ ["--jt-guide-x" as string]: `${indent * 14 + 7}px` }}
+      >
+        {childNodes}
+      </div>
+      <Row line={closeLine} indent={indent}>
+        <span className="tree-brace">{close}</span>
+        {suffix}
+      </Row>
+    </Fragment>
   );
 }
 
@@ -64,6 +189,14 @@ export default function JsonTool() {
   const [errDetail, setErrDetail] = useState<string | null>(null);
   const [tree, setTree] = useState<unknown | undefined>(undefined);
   const [showTree, setShowTree] = useState(true);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleBlock = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const indentStr = useMemo(() => (indent === "tab" ? "\t" : " ".repeat(Number(indent))), [indent]);
 
@@ -243,7 +376,12 @@ export default function JsonTool() {
                 </button>
                 {showTree && (
                   <div className="jt-tree">
-                    <TreeNode data={tree} />
+                    {renderNode({
+                      ctx: { n: 0, collapsed, toggle: toggleBlock },
+                      value: tree,
+                      indent: 0,
+                      path: "",
+                    })}
                   </div>
                 )}
               </div>

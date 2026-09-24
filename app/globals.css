@@ -2948,10 +2948,99 @@ label {
 .jt-tree {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: auto;
   font-family: var(--mono);
-  font-size: 0.8rem;
-  line-height: 1.7;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  position: relative;
+}
+.jt-line {
+  display: flex;
+  align-items: flex-start;
+  white-space: pre;
+}
+.jt-line:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.jt-ln {
+  flex-shrink: 0;
+  width: 34px;
+  padding-right: 8px;
+  text-align: right;
+  color: var(--dim);
+  opacity: 0.55;
+  user-select: none;
+  font-size: 0.7rem;
+  line-height: inherit;
+  border-right: 1px solid var(--border);
+  margin-right: 6px;
+}
+.jt-lc {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+.jt-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 18px;
+  padding: 0;
+  margin-left: -14px;
+  background: none;
+  border: none;
+  color: var(--dim);
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.jt-caret:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.jt-caret-spacer {
+  cursor: default;
+  visibility: hidden;
+}
+.jt-block {
+  position: relative;
+}
+.jt-block::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(34px + 6px + var(--jt-guide-x, 0px));
+  width: 1px;
+  background: var(--border);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+.jt-line-opener:hover + .jt-block::before,
+.jt-block:hover::before {
+  opacity: 1;
+}
+.tree-brace {
+  color: var(--dim);
+}
+.tree-colon {
+  color: var(--dim);
+}
+.jt-ellipsis {
+  margin: 0 4px;
+  padding: 0 6px;
+  background: var(--bg3);
+  border-radius: 3px;
+  color: var(--dim);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.jt-ellipsis:hover {
+  color: var(--accent);
 }
 .jt-empty {
   flex: 1;
