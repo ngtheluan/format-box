@@ -97,6 +97,7 @@ import {
   IconUser,
   IconVideo,
   IconWand,
+  IconWaveSine,
   IconWorld,
   IconZip,
   type Icon,
@@ -199,6 +200,7 @@ export const TOOL_ICONS: Record<string, Icon> = {
   IconUser,
   IconVideo,
   IconWand,
+  IconWaveSine,
   IconWorld,
   IconZip,
 };

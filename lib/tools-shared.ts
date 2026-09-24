@@ -76,6 +76,18 @@ export const SEED_TOOLS: Tool[] = [
     category: "cat_media",
   },
   {
+    href: "/audio-studio",
+    iconName: "IconWaveSine",
+    title: "Audio Studio",
+    sub: { vi: "Cắt & Xử lý", en: "Edit & Process" },
+    desc: {
+      vi: "Cắt, đổi tốc độ, fade, đảo ngược, chuẩn hoá âm lượng. Xuất WAV, chạy 100% trên trình duyệt.",
+      en: "Trim, speed, fade, reverse, normalize. Export WAV, fully client-side.",
+    },
+    tags: ["audio", "mp3", "wav", "trim", "editor"],
+    category: "cat_media",
+  },
+  {
     href: "/qr",
     iconName: "IconQrcode",
     title: "QR Code",
