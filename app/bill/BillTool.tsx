@@ -17,7 +17,6 @@ import {
   IconReceipt2,
   IconStarFilled,
   IconTrash,
-  IconUser,
   IconUsers,
   IconUsersMinus,
   IconWallet,
@@ -40,14 +39,43 @@ type BillData = {
   payer: string;
   qrText: string;
   qrImage: string | null;
-  brands: string[];
+  bankBin: string;
+  accountNo: string;
+  accountName: string;
   footer: string;
   people: Person[];
   items: Item[];
   theme: ThemeKey;
 };
 
-const BANK_OPTIONS = ["MOMO"];
+const BANKS: { bin: string; code: string; name: string }[] = [
+  { bin: "970436", code: "VCB", name: "Vietcombank" },
+  { bin: "970407", code: "TCB", name: "Techcombank" },
+  { bin: "970422", code: "MB", name: "MB Bank" },
+  { bin: "970418", code: "BIDV", name: "BIDV" },
+  { bin: "970415", code: "CTG", name: "VietinBank" },
+  { bin: "970416", code: "ACB", name: "ACB" },
+  { bin: "970423", code: "TPB", name: "TPBank" },
+  { bin: "970403", code: "STB", name: "Sacombank" },
+  { bin: "970432", code: "VPB", name: "VPBank" },
+  { bin: "970405", code: "VBA", name: "Agribank" },
+  { bin: "970426", code: "MSB", name: "MSB" },
+  { bin: "970443", code: "SHB", name: "SHB" },
+  { bin: "970437", code: "HDB", name: "HDBank" },
+  { bin: "970448", code: "OCB", name: "OCB" },
+  { bin: "970440", code: "SEAB", name: "SeABank" },
+  { bin: "970441", code: "VIB", name: "VIB" },
+  { bin: "970431", code: "EIB", name: "Eximbank" },
+];
+
+const buildVietQR = (bin: string, acc: string, name: string, amount: number, info: string) => {
+  if (!bin || !acc || amount <= 0) return null;
+  const params = new URLSearchParams();
+  params.set("amount", String(amount));
+  if (info) params.set("addInfo", info);
+  if (name) params.set("accountName", name);
+  return `https://img.vietqr.io/image/${bin}-${acc}-compact2.png?${params.toString()}`;
+};
 
 type SplitKey = "equal" | "exception";
 const SPLIT_KEYS: SplitKey[] = ["equal", "exception"];
@@ -73,7 +101,9 @@ const DEFAULT_DATA: BillData = {
   payer: "Luân",
   qrText: "",
   qrImage: "",
-  brands: ["MOMO"],
+  bankBin: "",
+  accountNo: "",
+  accountName: "",
   footer: "",
   people: DEFAULT_PEOPLE,
   items: [],
@@ -91,6 +121,7 @@ export default function BillTool() {
   const [data, setData] = useState<BillData>(DEFAULT_DATA);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [showQrPanel, setShowQrPanel] = useState(false);
+  const [qrMode, setQrMode] = useState<"manual" | "image" | "link">("manual");
   const [openExclude, setOpenExclude] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(true);
@@ -139,12 +170,39 @@ export default function BillTool() {
     };
   }, [data.people, data.items, hasExclusions]);
 
+  const manualReady = qrMode === "manual" && !!(data.bankBin && data.accountNo);
+  const equalAmount = hasExclusions && equalPeople.length > 0
+    ? Math.round(perPersonMap[equalPeople[0].id] || 0)
+    : equalPerPerson;
+  const specialAmount = hasExclusions && specialPeople.length > 0
+    ? Math.round(perPersonMap[specialPeople[0].id] || 0)
+    : 0;
+
+  const info = (data.title || "Bill").trim();
+  const manualQr1 = useMemo(
+    () => (manualReady ? buildVietQR(data.bankBin, data.accountNo, data.accountName, equalAmount, info) : null),
+    [manualReady, data.bankBin, data.accountNo, data.accountName, equalAmount, info],
+  );
+  const manualQr2 = useMemo(
+    () =>
+      manualReady && hasExclusions && specialPeople.length > 0
+        ? buildVietQR(data.bankBin, data.accountNo, data.accountName, specialAmount, info)
+        : null,
+    [manualReady, hasExclusions, specialPeople.length, data.bankBin, data.accountNo, data.accountName, specialAmount, info],
+  );
+  const bankInfo = BANKS.find((b) => b.bin === data.bankBin);
+  const brandLabel = manualReady && bankInfo ? `${bankInfo.code} · ${data.accountNo}` : "";
+
   useEffect(() => {
-    if (data.qrImage) {
+    if (qrMode === "image" && data.qrImage) {
       setQrDataUrl(data.qrImage);
       return;
     }
-    if (!data.qrText.trim()) {
+    if (qrMode === "manual" && manualQr1) {
+      setQrDataUrl(manualQr1);
+      return;
+    }
+    if (qrMode !== "link" || !data.qrText.trim()) {
       setQrDataUrl(null);
       return;
     }
@@ -163,7 +221,7 @@ export default function BillTool() {
     return () => {
       cancelled = true;
     };
-  }, [data.qrText, data.qrImage, data.theme]);
+  }, [data.qrText, data.qrImage, data.theme, manualQr1, qrMode]);
 
   const update = <K extends keyof BillData>(key: K, value: BillData[K]) => setData((d) => ({ ...d, [key]: value }));
 
@@ -235,12 +293,6 @@ export default function BillTool() {
     reader.onload = () => update("qrImage", String(reader.result));
     reader.readAsDataURL(file);
   };
-
-  const toggleBrand = (b: string) =>
-    setData((d) => ({
-      ...d,
-      brands: d.brands.includes(b) ? d.brands.filter((x) => x !== b) : [...d.brands, b],
-    }));
 
   const withoutEditing = async <T,>(fn: () => Promise<T>): Promise<T> => {
     setEditing(false);
@@ -370,107 +422,6 @@ export default function BillTool() {
                 )}
               </MetaRow>
 
-              <MetaRow icon={<IconUser size={16} stroke={1.7} />} label={t("bill_payer")}>
-                <input
-                  className={`${ec} bill-ec-upper`}
-                  value={data.payer}
-                  onChange={(e) => update("payer", e.target.value.toUpperCase())}
-                  placeholder={t("bill_payer_placeholder")}
-                />
-              </MetaRow>
-            </div>
-
-            <div className="bill-qr">
-              <div className="bill-qr-head">{t("bill_qr_head")}</div>
-              <div className="bill-qr-brands">{data.brands.length ? data.brands.join(" · ") : " "}</div>
-              {qrDataUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={qrDataUrl} alt="QR" />
-              ) : (
-                <div className="bill-qr-empty">
-                  <IconLink size={26} stroke={1.4} />
-                  <span>{t("bill_qr_none")}</span>
-                  <span className="bill-qr-empty-hint">{t("bill_qr_hint")}</span>
-                </div>
-              )}
-              {hasExclusions ? (
-                perPersonRange.min === perPersonRange.max ? (
-                  <div className="bill-qr-amount">{fmt.format(perPersonRange.max)}đ</div>
-                ) : (
-                  <div className="bill-qr-amount bill-qr-amount-range">
-                    <small>{t("bill_qr_range_small")}</small>
-                    {fmt.format(perPersonRange.min)}
-                    <span> – </span>
-                    {fmt.format(perPersonRange.max)}đ
-                  </div>
-                )
-              ) : (
-                <div className="bill-qr-amount">{fmt.format(equalPerPerson)}đ</div>
-              )}
-
-              {editing && (
-                <div className="bill-qr-edit">
-                  <div className="bill-qr-actions">
-                    <button type="button" className="bill-qr-toggle" onClick={() => setShowQrPanel((v) => !v)}>
-                      <IconPencil size={11} stroke={2} />
-                      {showQrPanel ? t("bill_qr_hide") : t("bill_qr_edit")}
-                    </button>
-                    {data.qrImage && (
-                      <button
-                        type="button"
-                        className="bill-qr-toggle bill-qr-toggle-danger"
-                        onClick={() => update("qrImage", null)}
-                        title={t("bill_qr_remove_img")}
-                      >
-                        <IconX size={11} stroke={2} /> {t("bill_qr_remove_img")}
-                      </button>
-                    )}
-                  </div>
-
-                  {showQrPanel && (
-                    <div className="bill-qr-panel">
-                      <label className="bill-qr-panel-label">{t("bill_qr_bank_label")}</label>
-                      <div className="bill-qr-brand-chips">
-                        {BANK_OPTIONS.map((b) => (
-                          <button
-                            key={b}
-                            type="button"
-                            className={`bill-qr-chip${data.brands.includes(b) ? " on" : ""}`}
-                            onClick={() => toggleBrand(b)}
-                          >
-                            {b}
-                          </button>
-                        ))}
-                      </div>
-
-                      <label className="bill-qr-panel-label">{t("bill_qr_upload_label")}</label>
-                      <button type="button" className="bill-qr-upload" onClick={() => qrFileRef.current?.click()}>
-                        <IconPhotoUp size={14} stroke={1.8} />
-                        {data.qrImage ? t("bill_qr_change_img") : t("bill_qr_choose_img")}
-                      </button>
-                      <input
-                        ref={qrFileRef}
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
-                        onChange={(e) => handleQrUpload(e.target.files?.[0])}
-                      />
-
-                      {!data.qrImage && (
-                        <>
-                          <label className="bill-qr-panel-label">{t("bill_qr_or_link")}</label>
-                          <input
-                            className="bill-qr-input"
-                            value={data.qrText}
-                            onChange={(e) => update("qrText", e.target.value)}
-                            placeholder={t("bill_qr_link_placeholder")}
-                          />
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
@@ -685,6 +636,168 @@ export default function BillTool() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="bill-qr bill-qr-end">
+            <div className="bill-qr-head">{t("bill_qr_head")}</div>
+            <div className="bill-qr-brands">{brandLabel || " "}</div>
+            <div className={`bill-qr-grid${manualQr2 ? " bill-qr-grid-2" : ""}`}>
+              <div className="bill-qr-item bill-qr-item-equal">
+                {manualQr2 && (
+                  <div className="bill-qr-tag bill-qr-tag-equal">
+                    <IconUsers size={12} stroke={2} />
+                    {t("bill_qr_for_equal")}
+                  </div>
+                )}
+                {qrDataUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={qrDataUrl} alt="QR" crossOrigin="anonymous" />
+                ) : (
+                  <div className="bill-qr-empty">
+                    <IconLink size={26} stroke={1.4} />
+                    <span>{t("bill_qr_none")}</span>
+                    <span className="bill-qr-empty-hint">{t("bill_qr_hint")}</span>
+                  </div>
+                )}
+                {manualQr2 ? (
+                  <div className="bill-qr-amount">{fmt.format(equalAmount)}đ</div>
+                ) : hasExclusions ? (
+                  perPersonRange.min === perPersonRange.max ? (
+                    <div className="bill-qr-amount">{fmt.format(perPersonRange.max)}đ</div>
+                  ) : (
+                    <div className="bill-qr-amount bill-qr-amount-range">
+                      <small>{t("bill_qr_range_small")}</small>
+                      {fmt.format(perPersonRange.min)}
+                      <span> – </span>
+                      {fmt.format(perPersonRange.max)}đ
+                    </div>
+                  )
+                ) : (
+                  <div className="bill-qr-amount">{fmt.format(equalPerPerson)}đ</div>
+                )}
+              </div>
+              {manualQr2 && (
+                <div className="bill-qr-item bill-qr-item-special">
+                  <div className="bill-qr-tag bill-qr-tag-special">
+                    <IconUsersMinus size={12} stroke={2} />
+                    {t("bill_qr_for_special")}
+                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={manualQr2} alt="QR2" crossOrigin="anonymous" />
+                  <div className="bill-qr-amount">{fmt.format(specialAmount)}đ</div>
+                </div>
+              )}
+            </div>
+
+            {editing && (
+              <div className="bill-qr-edit">
+                <div className="bill-qr-actions">
+                  <button type="button" className="bill-qr-toggle" onClick={() => setShowQrPanel((v) => !v)}>
+                    <IconPencil size={11} stroke={2} />
+                    {showQrPanel ? t("bill_qr_hide") : t("bill_qr_edit")}
+                  </button>
+                  {data.qrImage && (
+                    <button
+                      type="button"
+                      className="bill-qr-toggle bill-qr-toggle-danger"
+                      onClick={() => update("qrImage", null)}
+                      title={t("bill_qr_remove_img")}
+                    >
+                      <IconX size={11} stroke={2} /> {t("bill_qr_remove_img")}
+                    </button>
+                  )}
+                </div>
+
+                {showQrPanel && (
+                  <div className="bill-qr-panel">
+                    <div className="bill-qr-modes">
+                      {(["manual", "image", "link"] as const).map((m) => (
+                        <label key={m} className={`bill-qr-mode${qrMode === m ? " on" : ""}`}>
+                          <input
+                            type="checkbox"
+                            checked={qrMode === m}
+                            onChange={() => setQrMode(m)}
+                          />
+                          <span>
+                            {m === "manual"
+                              ? t("bill_qr_manual_label")
+                              : m === "image"
+                                ? t("bill_qr_upload_label")
+                                : t("bill_qr_or_link")}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    {qrMode === "manual" && (
+                      <>
+                        <label className="bill-qr-panel-label">{t("bill_qr_bank_select")}</label>
+                        <span className="bill-select-wrap">
+                          <select
+                            className="bill-qr-input"
+                            value={data.bankBin}
+                            onChange={(e) => update("bankBin", e.target.value)}
+                          >
+                            <option value="">{t("bill_qr_bank_placeholder")}</option>
+                            {BANKS.map((b) => (
+                              <option key={b.bin} value={b.bin}>
+                                {b.name} ({b.code})
+                              </option>
+                            ))}
+                          </select>
+                        </span>
+
+                        <label className="bill-qr-panel-label">{t("bill_qr_account_no")}</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          className="bill-qr-input"
+                          value={data.accountNo}
+                          onChange={(e) => update("accountNo", e.target.value.replace(/\D/g, ""))}
+                        />
+
+                        <label className="bill-qr-panel-label">{t("bill_qr_account_name")}</label>
+                        <input
+                          className="bill-qr-input"
+                          value={data.accountName}
+                          onChange={(e) => update("accountName", e.target.value.toUpperCase())}
+                        />
+                      </>
+                    )}
+
+                    {qrMode === "image" && (
+                      <>
+                        <label className="bill-qr-panel-label">{t("bill_qr_upload_label")}</label>
+                        <button type="button" className="bill-qr-upload" onClick={() => qrFileRef.current?.click()}>
+                          <IconPhotoUp size={14} stroke={1.8} />
+                          {data.qrImage ? t("bill_qr_change_img") : t("bill_qr_choose_img")}
+                        </button>
+                        <input
+                          ref={qrFileRef}
+                          type="file"
+                          accept="image/*"
+                          style={{ display: "none" }}
+                          onChange={(e) => handleQrUpload(e.target.files?.[0])}
+                        />
+                      </>
+                    )}
+
+                    {qrMode === "link" && (
+                      <>
+                        <label className="bill-qr-panel-label">{t("bill_qr_or_link")}</label>
+                        <input
+                          className="bill-qr-input"
+                          value={data.qrText}
+                          onChange={(e) => update("qrText", e.target.value)}
+                          placeholder={t("bill_qr_link_placeholder")}
+                        />
+                      </>
+                    )}
                   </div>
                 )}
               </div>

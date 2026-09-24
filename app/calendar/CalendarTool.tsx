@@ -36,6 +36,7 @@ const SOLAR_HOLIDAYS: Record<string, string> = {
   "10-31": "Halloween",
   "11-9": "Pháp luật Việt Nam",
   "11-20": "Nhà giáo Việt Nam",
+  "11-24": "Ngày Văn hóa Việt Nam",
   "12-19": "Toàn quốc kháng chiến",
   "12-22": "Quân đội Nhân dân VN",
   "12-24": "Đêm Giáng sinh",

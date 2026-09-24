@@ -5243,18 +5243,19 @@ label {
 
 /* ===== Meta + QR ===== */
 .bill-meta {
-  display: grid;
-  grid-template-columns: 1fr 180px;
-  gap: 16px;
-  align-items: stretch;
+  display: block;
 }
 .bill-meta-left {
   display: grid;
-  grid-template-columns: 1fr;
-  grid-auto-rows: 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   font-size: 13px;
   color: var(--bp-text);
+}
+@media (max-width: 640px) {
+  .bill-meta-left {
+    grid-template-columns: 1fr;
+  }
 }
 .bill-meta-row {
   min-height: 56px;
@@ -5379,6 +5380,89 @@ label {
   font-weight: 700;
   color: var(--bp-deep);
   font-size: 14px;
+}
+.bill-qr-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.bill-qr-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 640px) {
+  .bill-qr-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+.bill-qr-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--bp-border-soft);
+  background: #fff;
+}
+.bill-qr-item-equal {
+  border-color: #86efac;
+  background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 60%);
+}
+.bill-qr-item-special {
+  border-color: #fdba74;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 60%);
+}
+.bill-qr-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.bill-qr-tag-equal {
+  background: #059669;
+}
+.bill-qr-tag-special {
+  background: #ea580c;
+}
+.bill-qr-end {
+  margin: 12px 0;
+  padding: 12px;
+}
+.bill-qr-modes {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.bill-qr-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--bp-border);
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  background: #fff;
+}
+.bill-qr-mode.on {
+  background: var(--bp-accent);
+  color: #fff;
+  border-color: var(--bp-accent);
+}
+.bill-qr-mode input {
+  margin: 0;
+  accent-color: var(--bp-accent);
+}
+.bill-qr-end img,
+.bill-qr-end .bill-qr-empty {
+  max-width: 200px;
 }
 .bill-qr-amount-range {
   font-size: 12px !important;
