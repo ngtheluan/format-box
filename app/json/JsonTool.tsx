@@ -3,7 +3,7 @@ import { useToast } from "@/components/Toast";
 import { Button, Textarea } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import { IconCheck, IconChevronDown, IconChevronRight, IconCopy, IconEraser, IconX } from "@tabler/icons-react";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, forwardRef, memo, useMemo, useRef, useState } from "react";
 
 type Indent = "2" | "4" | "tab";
 type Status = { type: "ok" | "err" | "idle"; msg: string };
@@ -19,6 +19,32 @@ function maxDepth(obj: unknown, d = 0): number {
   const vs = Object.values(obj as object);
   return vs.length ? Math.max(...vs.map((v) => maxDepth(v, d + 1)), d) : d;
 }
+
+// Lấy số dòng lỗi từ message của JSON.parse: "line N" (Chrome mới, Firefox) hoặc "position N" (Chrome/Node cũ)
+// Lỗi luôn được tính trên text đã trim(), nên cộng thêm số dòng trống ở đầu.
+function errorLine(msg: string | null, text: string): number | null {
+  if (!msg) return null;
+  const lead = text.length - text.trimStart().length;
+  const byLine = msg.match(/line (\d+)/);
+  if (byLine) return Number(byLine[1]) + text.slice(0, lead).split("\n").length - 1;
+  const byPos = msg.match(/position (\d+)/);
+  if (byPos) return text.slice(0, lead + Number(byPos[1])).split("\n").length;
+  return null;
+}
+
+const Gutter = memo(
+  forwardRef<HTMLDivElement, { count: number; errLine: number | null }>(function Gutter({ count, errLine }, ref) {
+    return (
+      <div className="jt-gutter" ref={ref} aria-hidden>
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} className={i + 1 === errLine ? "jt-gutter-err" : undefined}>
+            {i + 1}
+          </div>
+        ))}
+      </div>
+    );
+  }),
+);
 
 function renderPrimitive(v: unknown) {
   if (v === null) return <span className="tree-null">null</span>;
@@ -198,6 +224,10 @@ export default function JsonTool() {
       return next;
     });
 
+  const gutterRef = useRef<HTMLDivElement>(null);
+  const lineCount = useMemo(() => value.split("\n").length, [value]);
+  const errLine = useMemo(() => errorLine(errDetail, value), [errDetail, value]);
+
   const indentStr = useMemo(() => (indent === "tab" ? "\t" : " ".repeat(Number(indent))), [indent]);
 
   const info = useMemo(() => {
@@ -225,7 +255,7 @@ export default function JsonTool() {
       return;
     }
     try {
-      JSON.parse(v);
+      JSON.parse(v.trim());
       setStatus({ type: "ok", msg: t("json_valid") });
       setErrDetail(null);
     } catch (e) {
@@ -396,12 +426,18 @@ export default function JsonTool() {
         {/* ── Split pane ── */}
         <div className="jt-split">
           {/* Input */}
-          <div className="jt-pane">
+          <div className="jt-pane jt-editor">
+            <Gutter ref={gutterRef} count={lineCount} errLine={errLine} />
             <Textarea
               value={value}
               onChange={(e) => onChange(e.target.value)}
+              onScroll={(e) => {
+                if (gutterRef.current) gutterRef.current.scrollTop = e.currentTarget.scrollTop;
+              }}
               placeholder='{"name": "FormatBox", "version": 1}'
               className="jt-textarea"
+              wrap="off"
+              spellCheck={false}
               monospace
             />
           </div>
