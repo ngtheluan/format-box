@@ -1,17 +1,24 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { verifyAdminTokenEdge, ADMIN_COOKIE } from "@/lib/admin-auth-edge";
 import { getActiveToolHrefs } from "@/lib/edge-config";
 import { SEED_TOOLS } from "@/lib/tools-shared";
 
 const TOOL_HREFS = new Set(SEED_TOOLS.map((t) => t.href));
 
+// Edge isolates stay warm between requests, so keep the active set in memory
+// and serve it stale-while-revalidate: navigation never waits on a network read
+// once the isolate has seen one request.
+const ACTIVE_TTL_MS = 60_000;
+let activeCache: { set: Set<string> | null; at: number } | null = null;
+let activeInflight: Promise<Set<string> | null> | null = null;
+
 /**
- * Resolve the set of active tool hrefs. Prefers Vercel Edge Config (near-zero
+ * Read the set of active tool hrefs. Prefers Vercel Edge Config (near-zero
  * latency at the edge); falls back to the cached /api/tools route when Edge
  * Config is unavailable. Returns null if neither source can be read, so the
  * caller allows the request rather than locking users out.
  */
-async function getActiveSet(req: NextRequest): Promise<Set<string> | null> {
+async function fetchActiveSet(req: NextRequest): Promise<Set<string> | null> {
   const fromEdge = await getActiveToolHrefs();
   if (fromEdge) return new Set(fromEdge);
   try {
@@ -28,7 +35,29 @@ async function getActiveSet(req: NextRequest): Promise<Set<string> | null> {
   return null;
 }
 
-export async function middleware(req: NextRequest) {
+function refreshActiveSet(req: NextRequest): Promise<Set<string> | null> {
+  if (!activeInflight) {
+    activeInflight = fetchActiveSet(req)
+      .then((set) => {
+        // Keep the last good set when a refresh fails.
+        if (set || !activeCache) activeCache = { set, at: Date.now() };
+        else activeCache.at = Date.now();
+        return activeCache.set;
+      })
+      .finally(() => {
+        activeInflight = null;
+      });
+  }
+  return activeInflight;
+}
+
+async function getActiveSet(req: NextRequest, event: NextFetchEvent): Promise<Set<string> | null> {
+  if (!activeCache) return refreshActiveSet(req);
+  if (Date.now() - activeCache.at > ACTIVE_TTL_MS) event.waitUntil(refreshActiveSet(req));
+  return activeCache.set;
+}
+
+export async function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl;
 
   if (pathname.startsWith("/admin")) {
@@ -43,7 +72,7 @@ export async function middleware(req: NextRequest) {
 
   // Block access to tool pages that are toggled inactive in admin.
   if (TOOL_HREFS.has(pathname)) {
-    const active = await getActiveSet(req);
+    const active = await getActiveSet(req, event);
     // Only rewrite when we positively know the tool is inactive. On read
     // failure (active === null) fall through and allow — don't lock users out.
     if (active && !active.has(pathname)) {

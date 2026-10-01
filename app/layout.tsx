@@ -1,7 +1,7 @@
 import AppShell from "@/components/AppShell";
 import NavigationProgress from "@/components/NavigationProgress";
 import ScrollTop from "@/components/ScrollTop";
-import SkinScene from "@/components/SkinScene";
+import SkinScene from "@/components/SkinSceneLazy";
 import TitleUpdater from "@/components/TitleUpdater";
 import { ToastProvider } from "@/components/Toast";
 import { ToolsProvider } from "@/components/ToolsProvider";

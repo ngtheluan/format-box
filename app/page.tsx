@@ -1,5 +1,4 @@
 "use client";
-import HeroCanvas from "@/components/HeroCanvas";
 import LiveDemo from "@/components/LiveDemo";
 import { useTools } from "@/components/ToolsProvider";
 import { Button } from "@/components/ui";
@@ -17,8 +16,12 @@ import {
   IconRuler,
   IconTable,
 } from "@tabler/icons-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, type CSSProperties, type MouseEvent } from "react";
+
+// three.js stays out of the home page chunk; the hero paints first.
+const HeroCanvas = dynamic(() => import("@/components/HeroCanvas"), { ssr: false });
 
 const coming = [
   { Icon: IconLink, label: "URL Encode" },

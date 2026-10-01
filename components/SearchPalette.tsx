@@ -84,6 +84,13 @@ export default function SearchPalette() {
 
   useEffect(() => setActive(0), [q]);
 
+  // Warm the highlighted result so Enter / click lands instantly.
+  useEffect(() => {
+    if (!open) return;
+    const tool = results[active];
+    if (tool) router.prefetch(tool.href);
+  }, [active, open, results, router]);
+
   useEffect(() => {
     if (!open) return;
     const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`);
