@@ -1,5 +1,6 @@
 "use client";
 import {
+  IconBroadcast,
   IconChartBar,
   IconComponents,
   IconLayoutGrid,
@@ -43,6 +44,12 @@ const ADMIN_APPS: AdminApp[] = [
     title: "Liên hệ góp ý",
     desc: "Góp ý từ Google Sheet + file đính kèm Drive.",
     icon: <IconMessageDots size={20} stroke={1.7} />,
+  },
+  {
+    href: "/admin/banners",
+    title: "Thông báo",
+    desc: "Banner đẩy ra trang chủ — có lịch bật/tắt, cho đóng.",
+    icon: <IconBroadcast size={20} stroke={1.7} />,
   },
   {
     href: "/admin/analytics",
