@@ -2911,8 +2911,8 @@ label {
 }
 .jt-gutter {
   flex-shrink: 0;
-  min-width: 40px;
-  padding: 10px 8px 40px 6px;
+  min-width: 28px;
+  padding: 10px 6px 40px 4px;
   overflow: hidden;
   font-family: var(--mono);
   font-size: 0.86rem;
@@ -2931,8 +2931,8 @@ label {
   color: var(--err);
   font-weight: 700;
   background: color-mix(in srgb, var(--err) 14%, transparent);
-  margin: 0 -8px 0 -6px;
-  padding: 0 8px 0 6px;
+  margin: 0 -6px 0 -4px;
+  padding: 0 6px 0 4px;
 }
 
 /* Output pane */
