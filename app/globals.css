@@ -79,6 +79,8 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  /* Make room for the fixed broadcast banner (0 when none is shown). */
+  padding-top: var(--fb-banner-h, 0px);
 }
 .app-main {
   flex: 1 0 auto;
@@ -134,7 +136,7 @@ html:not([data-skin]) body::before {
 /* ===== NAV ===== */
 .nav {
   position: fixed;
-  top: 0;
+  top: var(--fb-banner-h, 0px);
   left: 0;
   right: 0;
   z-index: 100;
@@ -13610,3 +13612,73 @@ section {
   color: var(--warn, #eab308);
   width: 100%;
 }
+
+/* ── Broadcast banner (admin-managed, site-wide) ───────────────────── */
+.fb-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 101;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--bright);
+  background: color-mix(in srgb, var(--fb-banner-tone, var(--accent)) 16%, var(--bg2));
+  border-bottom: 1px solid color-mix(in srgb, var(--fb-banner-tone, var(--accent)) 40%, transparent);
+}
+.fb-banner[data-tone="info"] { --fb-banner-tone: var(--accent); }
+.fb-banner[data-tone="success"] { --fb-banner-tone: var(--ok); }
+.fb-banner[data-tone="warning"] { --fb-banner-tone: var(--warn); }
+.fb-banner[data-tone="danger"] { --fb-banner-tone: var(--err); }
+.fb-banner::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--fb-banner-tone, var(--accent));
+  box-shadow: 0 0 8px var(--fb-banner-tone, var(--accent));
+}
+.fb-banner-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.fb-banner-msg { min-width: 0; }
+.fb-banner-cta {
+  flex: 0 0 auto;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--bright);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--fb-banner-tone, var(--accent)) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fb-banner-tone, var(--accent)) 55%, transparent);
+  transition: background 0.15s ease;
+}
+.fb-banner-cta:hover {
+  background: color-mix(in srgb, var(--fb-banner-tone, var(--accent)) 48%, transparent);
+}
+.fb-banner-x {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--dim);
+  background: transparent;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.fb-banner-x:hover { color: var(--bright); background: rgba(160, 170, 255, 0.1); }

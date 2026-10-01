@@ -1245,3 +1245,47 @@
     opacity: 1;
   }
 }
+
+/* ── Banner manager list ───────────────────────────────────────────── */
+.fx-scope .fx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fx-scope .fx-row-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+}
+.fx-scope .fx-row-card[data-banner-tone="success"] { border-left: 3px solid var(--ok, #34d399); }
+.fx-scope .fx-row-card[data-banner-tone="warning"] { border-left: 3px solid var(--warn, #fbbf24); }
+.fx-scope .fx-row-card[data-banner-tone="danger"] { border-left: 3px solid var(--err, #f0566b); }
+.fx-scope .fx-row-card[data-banner-tone="info"] { border-left: 3px solid var(--fx-accent, #7565f6); }
+
+.fx-scope .fx-badge[data-tone="ok"] {
+  background: color-mix(in srgb, var(--ok, #34d399) 18%, transparent);
+  color: var(--ok, #34d399);
+  border-color: color-mix(in srgb, var(--ok, #34d399) 45%, transparent);
+}
+.fx-scope .fx-badge[data-tone="info"] {
+  background: color-mix(in srgb, var(--fx-accent, #7565f6) 18%, transparent);
+  color: var(--fx-accent, #7565f6);
+  border-color: color-mix(in srgb, var(--fx-accent, #7565f6) 45%, transparent);
+}
+.fx-scope .fx-badge[data-tone="mute"] {
+  background: rgba(160, 170, 255, 0.08);
+  color: var(--dim);
+  border-color: var(--border);
+}
+
+/* select inside admin forms matches input styling */
+.grid2 select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
