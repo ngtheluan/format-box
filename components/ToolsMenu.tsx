@@ -2,7 +2,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { IconChevronDown, IconLayoutGrid, IconSearch, IconArrowRight } from "@tabler/icons-react";
+import {
+  IconChevronDown,
+  IconLayoutGrid,
+  IconSearch,
+  IconArrowRight,
+  IconCornerDownLeft,
+} from "@tabler/icons-react";
 import { CATEGORY_ORDER, toolSearchable, type ToolCategory } from "@/lib/tools-shared";
 import { useTools } from "@/components/ToolsProvider";
 import { ToolIcon } from "@/lib/tool-icons";
@@ -15,17 +21,18 @@ export default function ToolsMenu() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [activeCat, setActiveCat] = useState<ToolCategory>(CATEGORY_ORDER[0]);
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const prefetched = useRef(false);
 
-  // Close + reset query on route change
+  // Close + reset on route change
   useEffect(() => {
     setOpen(false);
     setQ("");
   }, [pathname]);
 
-  // Focus the filter and prefetch every tool once opened
+  // Focus filter + prefetch all tools once opened
   useEffect(() => {
     if (!open) return;
     const id = requestAnimationFrame(() => inputRef.current?.focus());
@@ -54,22 +61,26 @@ export default function ToolsMenu() {
   }, [open]);
 
   const query = q.trim().toLowerCase();
-  const matches = useMemo(() => {
-    if (!query) return TOOLS;
-    return TOOLS.filter((tool) => toolSearchable(tool).includes(query));
-  }, [TOOLS, query]);
+  const searching = query.length > 0;
 
-  const grouped = useMemo(
-    () =>
-      CATEGORY_ORDER.map((cat) => ({
-        cat,
-        items: matches.filter((tool) => tool.category === cat),
-      })).filter((g) => g.items.length > 0),
-    [matches]
+  const countByCat = useMemo(() => {
+    const m = {} as Record<ToolCategory, number>;
+    CATEGORY_ORDER.forEach((c) => (m[c] = 0));
+    TOOLS.forEach((tool) => (m[tool.category] = (m[tool.category] ?? 0) + 1));
+    return m;
+  }, [TOOLS]);
+
+  const results = useMemo(
+    () => (searching ? TOOLS.filter((tool) => toolSearchable(tool).includes(query)) : []),
+    [TOOLS, query, searching]
   );
 
-  const goFirst = () => {
-    if (matches[0]) router.push(matches[0].href);
+  // Tools shown in the right pane
+  const shown = searching ? results : TOOLS.filter((tool) => tool.category === activeCat);
+
+  const go = (href: string) => {
+    router.push(href);
+    setOpen(false);
   };
 
   return (
@@ -89,61 +100,80 @@ export default function ToolsMenu() {
       {open && (
         <div className="tm-panel" role="menu">
           <div className="tm-search">
-            <IconSearch size={16} stroke={1.8} />
+            <IconSearch size={17} stroke={1.8} />
             <input
               ref={inputRef}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") goFirst();
+                if (e.key === "Enter" && shown[0]) go(shown[0].href);
               }}
               placeholder={t("nav_search_placeholder")}
               aria-label={t("nav_search_placeholder")}
             />
-            <span className="tm-count">
-              {matches.length} {query ? t("nav_results") : t("nav_all_tools")}
-            </span>
+            {searching && (
+              <kbd className="tm-kbd">
+                <IconCornerDownLeft size={12} stroke={2} />
+              </kbd>
+            )}
           </div>
 
-          {grouped.length === 0 ? (
-            <div className="tm-empty">
-              {t("nav_no_result")} “{q.trim()}”
+          <div className="tm-body">
+            {!searching && (
+              <nav className="tm-rail" aria-label={t("nav_tools")}>
+                {CATEGORY_ORDER.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`tm-rail-btn tm-${cat}${cat === activeCat ? " active" : ""}`}
+                    onMouseEnter={() => setActiveCat(cat)}
+                    onClick={() => setActiveCat(cat)}
+                  >
+                    <span className="tm-rail-dot" />
+                    <span className="tm-rail-name">{t(cat as ToolCategory)}</span>
+                    <span className="tm-rail-count">{countByCat[cat]}</span>
+                  </button>
+                ))}
+              </nav>
+            )}
+
+            <div className={`tm-pane${searching ? " searching" : ` tm-${activeCat}`}`}>
+              {searching && (
+                <div className="tm-pane-head">
+                  {results.length} {t("nav_results")}
+                </div>
+              )}
+              {shown.length === 0 ? (
+                <div className="tm-empty">
+                  {searching ? `${t("nav_no_result")} “${q.trim()}”` : "…"}
+                </div>
+              ) : (
+                <div className="tm-grid">
+                  {shown.map((tool) => {
+                    const active = pathname === tool.href;
+                    return (
+                      <Link
+                        key={tool.href}
+                        href={tool.href}
+                        className={`tm-card tm-${tool.category}${active ? " active" : ""}`}
+                        role="menuitem"
+                        onClick={() => setOpen(false)}
+                      >
+                        <span className="tm-card-icon">
+                          <ToolIcon name={tool.iconName} size={19} stroke={1.7} />
+                        </span>
+                        <span className="tm-card-text">
+                          <b>{tool.title}</b>
+                          <small>{tool.sub[lang]}</small>
+                        </span>
+                        <IconArrowRight size={15} stroke={1.9} className="tm-card-go" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="tm-grid">
-              {grouped.map(({ cat, items }) => (
-                <section key={cat} className={`tm-col tm-${cat}`}>
-                  <header className="tm-col-head">
-                    <span className="tm-dot" />
-                    <span className="tm-col-title">{t(cat as ToolCategory)}</span>
-                    <span className="tm-col-count">{items.length}</span>
-                  </header>
-                  <div className="tm-list">
-                    {items.map((tool) => {
-                      const active = pathname === tool.href;
-                      return (
-                        <Link
-                          key={tool.href}
-                          href={tool.href}
-                          className={`tm-item${active ? " active" : ""}`}
-                          role="menuitem"
-                        >
-                          <span className="tm-item-icon">
-                            <ToolIcon name={tool.iconName} size={17} stroke={1.7} />
-                          </span>
-                          <span className="tm-item-text">
-                            <b>{tool.title}</b>
-                            <small>{tool.sub[lang]}</small>
-                          </span>
-                          <IconArrowRight size={15} stroke={1.8} className="tm-item-go" />
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
       )}
     </div>
