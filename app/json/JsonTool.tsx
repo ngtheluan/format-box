@@ -206,7 +206,7 @@ export default function JsonTool() {
       const parsed = JSON.parse(value);
       const size = new Blob([value]).size;
       return {
-        type: Array.isArray(parsed) ? "Array" : "Object",
+        type: Array.isArray(parsed) ? "Array" : typeof parsed === "string" ? "String" : "Object",
         keys: countKeys(parsed),
         depth: maxDepth(parsed),
         size: size > 1024 ? (size / 1024).toFixed(1) + " KB" : size + " B",
@@ -267,6 +267,55 @@ export default function JsonTool() {
     }
   };
 
+  // JSON → chuỗi đã escape, ví dụ {"a":1} → "{\"a\":1}"
+  const doToString = () => {
+    const v = value.trim();
+    if (!v) return;
+    try {
+      const parsed = JSON.parse(v);
+      setValue(JSON.stringify(JSON.stringify(parsed)));
+      setStatus({ type: "ok", msg: t("json_stringified") });
+      setErrDetail(null);
+      setTree(undefined);
+    } catch (e) {
+      setStatus({ type: "err", msg: t("json_invalid") });
+      setErrDetail((e as Error).message);
+    }
+  };
+
+  // Chuỗi đã escape → JSON. Chấp nhận cả dạng có hoặc không có dấu nháy bao ngoài.
+  const doFromString = () => {
+    const v = value.trim();
+    if (!v) return;
+    let inner: unknown;
+    try {
+      inner = JSON.parse(v);
+    } catch {
+      try {
+        inner = JSON.parse(`"${v}"`);
+      } catch (e) {
+        setStatus({ type: "err", msg: t("json_not_string") });
+        setErrDetail((e as Error).message);
+        return;
+      }
+    }
+    if (typeof inner !== "string") {
+      setStatus({ type: "err", msg: t("json_not_string") });
+      setErrDetail(null);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(inner);
+      setValue(JSON.stringify(parsed, null, indentStr));
+      setStatus({ type: "ok", msg: t("json_unstringified") });
+      setErrDetail(null);
+      setTree(parsed);
+    } catch (e) {
+      setStatus({ type: "err", msg: t("json_invalid") });
+      setErrDetail((e as Error).message);
+    }
+  };
+
   const doValidate = () => {
     const v = value.trim();
     if (!v) {
@@ -310,6 +359,12 @@ export default function JsonTool() {
             </Button>
             <Button size="sm" variant="subtle" onClick={doValidate}>
               {t("act_validate")}
+            </Button>
+            <Button size="sm" variant="subtle" onClick={doToString}>
+              {t("act_json_to_string")}
+            </Button>
+            <Button size="sm" variant="subtle" onClick={doFromString}>
+              {t("act_string_to_json")}
             </Button>
             <Button size="sm" variant="subtle" onClick={doCopy} leftIcon={<IconCopy size={14} stroke={1.8} />}>
               {t("act_copy")}
@@ -357,7 +412,13 @@ export default function JsonTool() {
           <div className="jt-pane jt-out-pane">
             {info && (
               <div className="jt-meta">
-                <span className="jt-badge">{info.type === "Array" ? t("json_type_array") : t("json_type_object")}</span>
+                <span className="jt-badge">
+                  {info.type === "Array"
+                    ? t("json_type_array")
+                    : info.type === "String"
+                      ? t("json_type_string")
+                      : t("json_type_object")}
+                </span>
                 <span className="jt-badge">
                   {info.keys} {t("json_keys")}
                 </span>
