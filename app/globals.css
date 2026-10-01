@@ -2899,6 +2899,41 @@ label {
   border: none;
   box-shadow: none;
 }
+.jt-textarea.ui-textarea {
+  white-space: pre;
+  overflow: auto;
+}
+
+/* Line numbers — font-size/line-height/padding-top phải khớp với .ui-textarea--mono */
+.jt-editor {
+  flex-direction: row;
+  background: var(--bg);
+}
+.jt-gutter {
+  flex-shrink: 0;
+  min-width: 40px;
+  padding: 10px 8px 40px 6px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  text-align: right;
+  color: var(--dim);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  user-select: none;
+}
+.jt-gutter > div {
+  opacity: 0.6;
+}
+.jt-gutter > .jt-gutter-err {
+  opacity: 1;
+  color: var(--err);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+  margin: 0 -8px 0 -6px;
+  padding: 0 8px 0 6px;
+}
 
 /* Output pane */
 .jt-out-pane {
@@ -3089,6 +3124,11 @@ label {
   }
   .jt-textarea {
     min-height: 200px;
+  }
+  .jt-editor {
+    flex: none;
+    height: 45vh;
+    min-height: 240px;
   }
   .jt-out-pane {
     min-height: 240px;
