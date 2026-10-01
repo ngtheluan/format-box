@@ -79,6 +79,8 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  /* Make room for the fixed broadcast banner (0 when none is shown). */
+  padding-top: var(--fb-banner-h, 0px);
 }
 .app-main {
   flex: 1 0 auto;
@@ -134,7 +136,7 @@ html:not([data-skin]) body::before {
 /* ===== NAV ===== */
 .nav {
   position: fixed;
-  top: 0;
+  top: var(--fb-banner-h, 0px);
   left: 0;
   right: 0;
   z-index: 100;
@@ -13613,7 +13615,11 @@ section {
 
 /* ── Broadcast banner (admin-managed, site-wide) ───────────────────── */
 .fb-banner {
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 101;
   display: flex;
   align-items: center;
   gap: 10px;

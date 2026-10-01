@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { IconX } from "@tabler/icons-react";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -28,6 +28,28 @@ export default function BannerBar() {
   const { lang } = useI18n();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [current, setCurrent] = useState<Banner | null>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
+
+  // The banner is position:fixed, so publish its height to the layout as
+  // --fb-banner-h; the nav and page content offset by it (0 when hidden).
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const el = barRef.current;
+    if (!current || !el) {
+      root.style.setProperty("--fb-banner-h", "0px");
+      return;
+    }
+    const apply = () => root.style.setProperty("--fb-banner-h", `${el.offsetHeight}px`);
+    apply();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", apply);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", apply);
+      root.style.setProperty("--fb-banner-h", "0px");
+    };
+  }, [current, lang]);
 
   const pickVisible = (list: Banner[]) => {
     const live = sortBanners(list).filter((b) => isBannerLive(b) && !isDismissed(b));
@@ -76,7 +98,7 @@ export default function BannerBar() {
   };
 
   return (
-    <div className="fb-banner" data-tone={current.tone} role="status">
+    <div ref={barRef} className="fb-banner" data-tone={current.tone} role="status">
       <div className="fb-banner-inner">
         <span className="fb-banner-msg">{msg}</span>
         {current.href && cta && (
