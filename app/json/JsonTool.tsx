@@ -46,6 +46,28 @@ const Gutter = memo(
   }),
 );
 
+// Chuỗi đã escape chứa JSON (có hoặc không có dấu nháy bao ngoài) → giá trị JSON. Không hợp lệ → undefined.
+function parseStringJson(text: string): unknown {
+  const v = text.trim();
+  if (!v) return undefined;
+  let inner: unknown;
+  try {
+    inner = JSON.parse(v);
+  } catch {
+    try {
+      inner = JSON.parse(`"${v}"`);
+    } catch {
+      return undefined;
+    }
+  }
+  if (typeof inner !== "string") return undefined;
+  try {
+    return JSON.parse(inner);
+  } catch {
+    return undefined;
+  }
+}
+
 function renderPrimitive(v: unknown) {
   if (v === null) return <span className="tree-null">null</span>;
   if (typeof v === "boolean") return <span className="tree-bool">{String(v)}</span>;
@@ -225,6 +247,20 @@ export default function JsonTool() {
     });
 
   const gutterRef = useRef<HTMLDivElement>(null);
+  const [strOut, setStrOut] = useState<{ src: string; out: string } | null>(null);
+  // Kết quả JSON → String chỉ hiện khi input chưa bị sửa sau lần convert
+  const strOutText = strOut && strOut.src === value ? strOut.out : null;
+  // JSON → String: input phải là object/array hợp lệ
+  const canToString = useMemo(() => {
+    try {
+      const p = JSON.parse(value.trim());
+      return typeof p === "object" && p !== null;
+    } catch {
+      return false;
+    }
+  }, [value]);
+  // String → JSON: input phải là string chứa JSON hợp lệ
+  const canFromString = useMemo(() => parseStringJson(value) !== undefined, [value]);
   const lineCount = useMemo(() => value.split("\n").length, [value]);
   const errLine = useMemo(() => errorLine(errDetail, value), [errDetail, value]);
 
@@ -297,53 +333,28 @@ export default function JsonTool() {
     }
   };
 
-  // JSON → chuỗi đã escape, ví dụ {"a":1} → "{\"a\":1}"
+  // JSON → chuỗi đã escape, ví dụ {"a":1} → "{\"a\":1}". Kết quả hiện ở pane bên phải.
   const doToString = () => {
-    const v = value.trim();
-    if (!v) return;
-    try {
-      const parsed = JSON.parse(v);
-      setValue(JSON.stringify(JSON.stringify(parsed)));
-      setStatus({ type: "ok", msg: t("json_stringified") });
-      setErrDetail(null);
-      setTree(undefined);
-    } catch (e) {
-      setStatus({ type: "err", msg: t("json_invalid") });
-      setErrDetail((e as Error).message);
-    }
+    if (!canToString) return;
+    const out = JSON.stringify(JSON.stringify(JSON.parse(value.trim())));
+    setStrOut({ src: value, out });
+    setStatus({ type: "ok", msg: t("json_stringified") });
+    setErrDetail(null);
+    setTree(undefined);
   };
 
-  // Chuỗi đã escape → JSON. Chấp nhận cả dạng có hoặc không có dấu nháy bao ngoài.
   const doFromString = () => {
-    const v = value.trim();
-    if (!v) return;
-    let inner: unknown;
-    try {
-      inner = JSON.parse(v);
-    } catch {
-      try {
-        inner = JSON.parse(`"${v}"`);
-      } catch (e) {
-        setStatus({ type: "err", msg: t("json_not_string") });
-        setErrDetail((e as Error).message);
-        return;
-      }
-    }
-    if (typeof inner !== "string") {
-      setStatus({ type: "err", msg: t("json_not_string") });
-      setErrDetail(null);
-      return;
-    }
-    try {
-      const parsed = JSON.parse(inner);
-      setValue(JSON.stringify(parsed, null, indentStr));
-      setStatus({ type: "ok", msg: t("json_unstringified") });
-      setErrDetail(null);
-      setTree(parsed);
-    } catch (e) {
-      setStatus({ type: "err", msg: t("json_invalid") });
-      setErrDetail((e as Error).message);
-    }
+    const parsed = parseStringJson(value);
+    if (parsed === undefined) return;
+    setValue(JSON.stringify(parsed, null, indentStr));
+    setStatus({ type: "ok", msg: t("json_unstringified") });
+    setErrDetail(null);
+    setTree(parsed);
+  };
+
+  const copyStrOut = () => {
+    if (!strOutText) return;
+    navigator.clipboard.writeText(strOutText).then(() => toast(t("toast_copied")));
   };
 
   const doValidate = () => {
@@ -390,10 +401,10 @@ export default function JsonTool() {
             <Button size="sm" variant="subtle" onClick={doValidate}>
               {t("act_validate")}
             </Button>
-            <Button size="sm" variant="subtle" onClick={doToString}>
+            <Button size="sm" variant="subtle" onClick={doToString} disabled={!canToString}>
               {t("act_json_to_string")}
             </Button>
-            <Button size="sm" variant="subtle" onClick={doFromString}>
+            <Button size="sm" variant="subtle" onClick={doFromString} disabled={!canFromString}>
               {t("act_string_to_json")}
             </Button>
             <Button size="sm" variant="subtle" onClick={doCopy} leftIcon={<IconCopy size={14} stroke={1.8} />}>
@@ -465,7 +476,17 @@ export default function JsonTool() {
               </div>
             )}
 
-            {tree !== undefined ? (
+            {strOutText ? (
+              <div className="jt-str-out">
+                <div className="jt-str-head">
+                  <span>{t("act_json_to_string")}</span>
+                  <Button size="sm" variant="subtle" onClick={copyStrOut} leftIcon={<IconCopy size={14} stroke={1.8} />}>
+                    {t("act_copy")}
+                  </Button>
+                </div>
+                <pre className="jt-str-pre">{strOutText}</pre>
+              </div>
+            ) : tree !== undefined ? (
               <div className="jt-tree-wrap">
                 <button className="jt-tree-toggle" onClick={() => setShowTree((v) => !v)}>
                   {showTree ? <IconChevronDown size={13} stroke={2} /> : <IconChevronRight size={13} stroke={2} />}
