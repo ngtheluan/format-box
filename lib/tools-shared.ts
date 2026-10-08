@@ -352,6 +352,18 @@ export const SEED_TOOLS: Tool[] = [
     category: "cat_game",
   },
   {
+    href: "/regex",
+    iconName: "IconRegex",
+    title: "Regex",
+    sub: { vi: "Test & Match", en: "Test & Match" },
+    desc: {
+      vi: "Thử regex trực tiếp — chọn flag, xem match highlight và từng group bắt được.",
+      en: "Test regex live — pick flags, highlight matches, inspect captured groups.",
+    },
+    tags: ["regex", "regexp", "pattern", "match", "test"],
+    category: "cat_dev",
+  },
+  {
     href: "/uuid",
     iconName: "IconFingerprint",
     title: "UUID",
