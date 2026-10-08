@@ -2528,20 +2528,27 @@ label {
   }
 }
 
-/* ===== FEEDBACK MODAL ===== */
-.feedback-overlay {
+/* ===== FEEDBACK MODAL (fx-*) ===== */
+.fx-overlay {
   position: fixed;
   inset: 0;
-  background: color-mix(in srgb, #000 55%, transparent);
-  backdrop-filter: blur(4px);
+  background:
+    radial-gradient(
+      1200px 600px at 50% -10%,
+      color-mix(in srgb, var(--accent) 22%, transparent),
+      transparent 60%
+    ),
+    color-mix(in srgb, #050816 68%, transparent);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
   z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
-  animation: feedbackFade 0.18s ease;
+  animation: fxFade 0.2s ease;
 }
-@keyframes feedbackFade {
+@keyframes fxFade {
   from {
     opacity: 0;
   }
@@ -2549,188 +2556,638 @@ label {
     opacity: 1;
   }
 }
-.feedback-modal {
+.fx-modal {
+  position: relative;
   width: 100%;
-  max-width: 520px;
-  max-height: 92vh;
-  overflow: auto;
-  background: var(--panel, #fff);
-  color: var(--fg, #111);
-  border-radius: 16px;
-  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
-  animation: feedbackPop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  max-width: 500px;
+  max-height: min(92vh, 760px);
+  overflow: hidden auto;
+  background: var(--bg2);
+  color: var(--text);
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  box-shadow:
+    0 40px 120px -30px rgba(10, 10, 40, 0.65),
+    0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent) inset,
+    0 1px 0 color-mix(in srgb, #fff 10%, transparent) inset;
+  animation: fxPop 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.15);
 }
-@keyframes feedbackPop {
+@keyframes fxPop {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.96);
+    transform: translateY(14px) scale(0.96);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
-.feedback-header {
+.fx-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: -1px -1px auto -1px;
+  height: 220px;
+  background:
+    radial-gradient(
+      280px 160px at 20% 0%,
+      color-mix(in srgb, var(--accent) 55%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      320px 180px at 85% 10%,
+      color-mix(in srgb, var(--accent2) 50%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      260px 140px at 55% 0%,
+      rgba(236, 92, 176, 0.3),
+      transparent 70%
+    );
+  filter: blur(16px);
+  opacity: 0.75;
+  z-index: 0;
+}
+
+.fx-header {
+  position: relative;
+  z-index: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  gap: 12px;
+  padding: 22px 22px 14px;
 }
-.feedback-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-}
-.feedback-close {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
-  color: var(--muted, #666);
-  display: inline-flex;
-}
-.feedback-close:hover {
-  background: color-mix(in srgb, currentColor 12%, transparent);
-  color: var(--fg);
-}
-.feedback-body {
-  padding: 18px 20px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.feedback-field {
+.fx-head-text {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
 }
-.feedback-field > span {
+.fx-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--muted, #555);
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
 }
-.feedback-field em {
-  color: #e11d48;
-  font-style: normal;
+.fx-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--bright);
 }
-.feedback-field input,
-.feedback-field textarea {
-  width: 100%;
-  padding: 10px 12px;
+.fx-close {
+  background: color-mix(in srgb, var(--bg3) 70%, transparent);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  padding: 7px;
   border-radius: 10px;
-  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
-  background: var(--bg, #fafafa);
-  color: var(--fg);
+  color: var(--dim);
+  display: inline-flex;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    transform 0.1s;
+}
+.fx-close:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--bright);
+  transform: rotate(90deg);
+}
+
+.fx-tabs {
+  position: relative;
+  z-index: 1;
+  margin: 0 22px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--bg3) 85%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.fx-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 999px;
+  transition:
+    color 0.2s;
+}
+.fx-tab:hover {
+  color: var(--text);
+}
+.fx-tab.active {
+  color: #fff;
+}
+.fx-tab-slider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: calc(50% - 4px);
+  left: 4px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
+  box-shadow:
+    0 8px 20px -8px color-mix(in srgb, var(--accent) 65%, transparent),
+    0 0 0 1px color-mix(in srgb, #fff 18%, transparent) inset;
+  transition: transform 0.3s cubic-bezier(0.4, 0.1, 0.2, 1.1);
+}
+.fx-tab-slider.bug {
+  transform: translateX(100%);
+}
+
+.fx-body {
+  position: relative;
+  z-index: 1;
+  padding: 18px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.fx-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fx-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fx-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bright);
+  letter-spacing: 0.005em;
+}
+.fx-label em {
+  color: var(--err, #f0566b);
+  font-style: normal;
+  margin-left: 2px;
+}
+.fx-sublabel {
+  color: var(--dim);
+  font-weight: 500;
+  font-size: 12px;
+}
+.fx-counter {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+  transition: color 0.2s;
+}
+.fx-counter.warn {
+  color: var(--warn, #f59e0b);
+}
+.fx-contact-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.fx-stars {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}
+.fx-star {
+  background: transparent;
+  border: none;
+  padding: 2px;
+  margin: 0;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--dim) 55%, transparent);
+  transition:
+    color 0.2s,
+    transform 0.15s;
+  display: inline-flex;
+}
+.fx-star:hover,
+.fx-star:focus-visible {
+  outline: none;
+  transform: translateY(-2px) scale(1.08);
+}
+.fx-star.active {
+  color: #fbbf24;
+  filter: drop-shadow(0 4px 12px rgba(251, 191, 36, 0.45));
+  animation: fxStarPop 0.28s cubic-bezier(0.2, 0.8, 0.3, 1.3);
+}
+.fx-star.preview:not(.active) {
+  color: color-mix(in srgb, #fbbf24 65%, transparent);
+}
+@keyframes fxStarPop {
+  0% {
+    transform: scale(0.75);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.fx-mood {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.fx-mood.muted {
+  color: var(--dim);
+  font-weight: 500;
+}
+
+.fx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fx-chip {
+  position: relative;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--bg3) 60%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    color 0.18s,
+    transform 0.1s;
+}
+.fx-chip:hover {
+  border-color: var(--border-h);
+  color: var(--bright);
+  transform: translateY(-1px);
+}
+.fx-chip.selected {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
+  box-shadow:
+    0 6px 18px -8px color-mix(in srgb, var(--accent) 65%, transparent),
+    0 0 0 1px color-mix(in srgb, #fff 18%, transparent) inset;
+}
+
+.fx-input,
+.fx-textarea {
+  width: 100%;
+  padding: 11px 13px;
+  background: color-mix(in srgb, var(--bg3) 55%, transparent);
+  color: var(--bright);
+  border: 1px solid var(--border);
+  border-radius: 12px;
   font: inherit;
   font-size: 14px;
   transition:
     border-color 0.15s,
-    box-shadow 0.15s;
+    box-shadow 0.15s,
+    background 0.15s;
 }
-.feedback-field input:focus,
-.feedback-field textarea:focus {
+.fx-input::placeholder,
+.fx-textarea::placeholder {
+  color: color-mix(in srgb, var(--dim) 85%, transparent);
+}
+.fx-input:focus,
+.fx-textarea:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
+  background: color-mix(in srgb, var(--bg3) 75%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
 }
-.feedback-field textarea {
+.fx-textarea {
   resize: vertical;
-  min-height: 96px;
+  min-height: 90px;
+  line-height: 1.5;
 }
-.feedback-file-picker {
-  display: flex;
+
+.fx-hint {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--warn, #f59e0b);
 }
-.feedback-file-btn {
+.fx-page-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
-  border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--bg3) 55%, transparent);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: var(--dim);
 }
-.feedback-file-btn:hover {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-.feedback-file-name {
-  font-size: 12px;
-  color: var(--muted, #666);
-  max-width: 260px;
+.fx-page-chip code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 240px;
 }
-.feedback-alert {
+
+.fx-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+.fx-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.fx-check-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg3) 55%, transparent);
+  border: 1.5px solid var(--border);
+  color: transparent;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    transform 0.1s;
+}
+.fx-check input:checked + .fx-check-box {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
+  border-color: transparent;
+  color: #fff;
+}
+.fx-check input:disabled + .fx-check-box {
+  opacity: 0.5;
+}
+.fx-check:has(input:disabled) {
+  color: var(--dim);
+  cursor: not-allowed;
+}
+
+.fx-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 13px;
+}
+.fx-alert.error {
+  background: color-mix(in srgb, var(--err, #e11d48) 14%, transparent);
+  color: color-mix(in srgb, var(--err, #e11d48) 85%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--err, #e11d48) 30%, transparent);
+}
+
+.fx-footer {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
 }
-.feedback-alert.error {
-  background: color-mix(in srgb, #e11d48 12%, transparent);
-  color: #b91c1c;
+.fx-footer-note {
+  margin: 0;
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.4;
 }
-.feedback-alert.success {
-  background: color-mix(in srgb, #10b981 14%, transparent);
-  color: #047857;
-}
-.feedback-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding-top: 6px;
-}
-.feedback-btn {
+.fx-submit {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: 10px;
+  gap: 7px;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 12px;
   font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition:
-    background 0.15s,
-    transform 0.1s;
-}
-.feedback-btn.ghost {
-  background: transparent;
-  border-color: var(--border, rgba(0, 0, 0, 0.12));
-  color: var(--fg);
-}
-.feedback-btn.ghost:hover {
-  background: color-mix(in srgb, currentColor 8%, transparent);
-}
-.feedback-btn.primary {
-  background: var(--accent);
+  font-weight: 700;
   color: #fff;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
+  cursor: pointer;
+  box-shadow:
+    0 12px 28px -10px color-mix(in srgb, var(--accent) 70%, transparent),
+    0 0 0 1px color-mix(in srgb, #fff 18%, transparent) inset;
+  overflow: hidden;
+  transition:
+    transform 0.1s,
+    box-shadow 0.2s,
+    opacity 0.2s;
 }
-.feedback-btn.primary:hover {
-  background: var(--accent2, var(--accent));
+.fx-submit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.6s;
 }
-.feedback-btn:disabled {
-  opacity: 0.6;
+.fx-submit:hover:not(.disabled)::before {
+  transform: translateX(100%);
+}
+.fx-submit:hover:not(.disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 18px 32px -10px color-mix(in srgb, var(--accent) 75%, transparent),
+    0 0 0 1px color-mix(in srgb, #fff 22%, transparent) inset;
+}
+.fx-submit.disabled {
+  opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
-.feedback-btn .spin {
-  animation: feedbackSpin 0.9s linear infinite;
+.fx-submit .spin {
+  animation: fxSpin 0.9s linear infinite;
 }
-@keyframes feedbackSpin {
+@keyframes fxSpin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+.fx-success {
+  position: relative;
+  z-index: 1;
+  padding: 30px 24px 36px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.fx-success-ring {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    conic-gradient(
+      from 0deg,
+      var(--accent),
+      var(--accent2),
+      #ec5cb0,
+      var(--accent)
+    );
+  animation: fxSpinSlow 6s linear infinite;
+  margin-bottom: 6px;
+}
+.fx-success-ring::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--bg2);
+}
+.fx-success-check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
+  color: #fff;
+  box-shadow:
+    0 10px 24px -10px color-mix(in srgb, var(--accent) 70%, transparent),
+    0 0 0 1px color-mix(in srgb, #fff 20%, transparent) inset;
+  animation: fxCheckPop 0.5s cubic-bezier(0.2, 0.8, 0.3, 1.3);
+}
+@keyframes fxCheckPop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes fxSpinSlow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.fx-success h4 {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--bright);
+}
+.fx-success p {
+  margin: 0;
+  max-width: 320px;
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .fx-modal {
+    max-width: 100%;
+    border-radius: 20px;
+  }
+  .fx-header {
+    padding: 20px 18px 12px;
+  }
+  .fx-tabs {
+    margin: 0 18px;
+  }
+  .fx-body {
+    padding: 16px 18px 20px;
+  }
+  .fx-header h3 {
+    font-size: 18px;
+  }
+  .fx-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .fx-submit {
+    justify-content: center;
+  }
+}
+
+/* Scrollbar inside modal */
+.fx-modal::-webkit-scrollbar {
+  width: 10px;
+}
+.fx-modal::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--dim) 40%, transparent);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.fx-modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-overlay,
+  .fx-modal,
+  .fx-star.active,
+  .fx-success-ring,
+  .fx-success-check,
+  .fx-submit::before,
+  .fx-tab-slider {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
