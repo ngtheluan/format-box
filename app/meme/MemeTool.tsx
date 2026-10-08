@@ -52,6 +52,13 @@ function proxyUrl(url: string): string {
   return `/api/memes/image?url=${encodeURIComponent(url)}`;
 }
 
+// The user's browser loads image CDNs (i.redd.it, imgur…) directly from their
+// own IP — no cloud-IP block applies there. We only use the proxy for
+// clipboard/download, which run on the server side and need CORS bypass.
+function displayUrl(url: string): string {
+  return url;
+}
+
 function compact(n: number): string {
   if (n < 1000) return String(n);
   if (n < 10000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
@@ -290,10 +297,22 @@ export default function MemeTool() {
                   </div>
                 ) : (
                   <img
-                    src={proxyUrl(m.thumbnail || m.url)}
+                    src={displayUrl(m.thumbnail || m.url)}
                     alt={m.title}
                     loading="lazy"
                     className="meme-thumb"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const el = e.currentTarget;
+                      // Fallback 1: full-size URL. Fallback 2: our proxy.
+                      if (el.dataset.step !== "full" && m.url && el.src !== displayUrl(m.url)) {
+                        el.dataset.step = "full";
+                        el.src = displayUrl(m.url);
+                      } else if (el.dataset.step !== "proxy") {
+                        el.dataset.step = "proxy";
+                        el.src = proxyUrl(m.url);
+                      }
+                    }}
                   />
                 )}
                 {m.isGif && <span className="meme-badge-gif">GIF</span>}
@@ -362,14 +381,26 @@ export default function MemeTool() {
             </button>
             {preview.isVideo ? (
               <video
-                src={proxyUrl(preview.url)}
+                src={displayUrl(preview.url)}
                 controls
                 autoPlay
                 playsInline
                 className="meme-overlay-media"
               />
             ) : (
-              <img src={proxyUrl(preview.url)} alt={preview.title} className="meme-overlay-media" />
+              <img
+                src={displayUrl(preview.url)}
+                alt={preview.title}
+                className="meme-overlay-media"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  const el = e.currentTarget;
+                  if (el.dataset.step !== "proxy") {
+                    el.dataset.step = "proxy";
+                    el.src = proxyUrl(preview.url);
+                  }
+                }}
+              />
             )}
             <div className="meme-overlay-info">
               <h3 className="meme-overlay-title">{preview.title}</h3>
