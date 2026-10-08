@@ -2559,8 +2559,9 @@ label {
 .fx-modal {
   position: relative;
   width: 100%;
-  max-width: 460px;
-  max-height: min(92vh, 720px);
+  max-width: 440px;
+  max-height: min(92vh, 640px);
+  height: auto;
   overflow: hidden auto;
   background: var(--bg2);
   color: var(--text);
@@ -2724,15 +2725,23 @@ label {
 .fx-body {
   position: relative;
   z-index: 1;
-  padding: 12px 16px 14px;
+  padding: 6px 14px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 .fx-section {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 0;
+}
+.fx-section + .fx-section {
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+.fx-section:last-of-type {
+  padding-bottom: 2px;
 }
 .fx-label-row {
   display: flex;
@@ -2897,8 +2906,8 @@ label {
 }
 .fx-textarea {
   resize: vertical;
-  min-height: 68px;
-  line-height: 1.45;
+  min-height: 56px;
+  line-height: 1.4;
 }
 
 .fx-hint {
@@ -2994,7 +3003,9 @@ label {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 2px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
 }
 .fx-footer-note {
   margin: 0;
