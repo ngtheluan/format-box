@@ -268,6 +268,18 @@ export const SEED_TOOLS: Tool[] = [
     category: "cat_life",
   },
   {
+    href: "/weather-v2",
+    iconName: "IconCloud",
+    title: "Weather v2",
+    sub: { vi: "Thời tiết style Apple", en: "Apple-style weather" },
+    desc: {
+      vi: "Giao diện kiểu Apple Weather, dự báo 10 ngày, chuyển mô hình ECMWF / GFS / ICON, chất lượng không khí.",
+      en: "Apple Weather-style UI, 10-day forecast, switch between ECMWF / GFS / ICON models, air quality.",
+    },
+    tags: ["weather", "forecast", "thoi-tiet", "apple", "ecmwf", "aqi"],
+    category: "cat_life",
+  },
+  {
     href: "/timestamp",
     iconName: "IconClockHour4",
     title: "Timestamp",
