@@ -2559,12 +2559,12 @@ label {
 .fx-modal {
   position: relative;
   width: 100%;
-  max-width: 500px;
-  max-height: min(92vh, 760px);
+  max-width: 460px;
+  max-height: min(92vh, 720px);
   overflow: hidden auto;
   background: var(--bg2);
   color: var(--text);
-  border-radius: 22px;
+  border-radius: 18px;
   border: 1px solid var(--border);
   box-shadow:
     0 40px 120px -30px rgba(10, 10, 40, 0.65),
@@ -2586,25 +2586,25 @@ label {
   pointer-events: none;
   position: absolute;
   inset: -1px -1px auto -1px;
-  height: 220px;
+  height: 160px;
   background:
     radial-gradient(
-      280px 160px at 20% 0%,
-      color-mix(in srgb, var(--accent) 55%, transparent),
+      240px 130px at 20% 0%,
+      color-mix(in srgb, var(--accent) 50%, transparent),
       transparent 70%
     ),
     radial-gradient(
-      320px 180px at 85% 10%,
-      color-mix(in srgb, var(--accent2) 50%, transparent),
+      280px 150px at 85% 10%,
+      color-mix(in srgb, var(--accent2) 45%, transparent),
       transparent 70%
     ),
     radial-gradient(
-      260px 140px at 55% 0%,
-      rgba(236, 92, 176, 0.3),
+      220px 120px at 55% 0%,
+      rgba(236, 92, 176, 0.26),
       transparent 70%
     );
-  filter: blur(16px);
-  opacity: 0.75;
+  filter: blur(14px);
+  opacity: 0.7;
   z-index: 0;
 }
 
@@ -2612,45 +2612,52 @@ label {
   position: relative;
   z-index: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 22px 22px 14px;
+  gap: 10px;
+  padding: 14px 16px 8px;
 }
 .fx-head-text {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 .fx-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  width: fit-content;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 8px;
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
 }
+.fx-eyebrow > span {
+  display: none;
+}
 .fx-header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
   color: var(--bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .fx-close {
   background: color-mix(in srgb, var(--bg3) 70%, transparent);
   border: 1px solid var(--border);
   cursor: pointer;
-  padding: 7px;
-  border-radius: 10px;
+  padding: 5px;
+  border-radius: 8px;
   color: var(--dim);
   display: inline-flex;
+  flex: 0 0 auto;
   transition:
     background 0.15s,
     color 0.15s,
@@ -2665,8 +2672,8 @@ label {
 .fx-tabs {
   position: relative;
   z-index: 1;
-  margin: 0 22px;
-  padding: 4px;
+  margin: 2px 16px 0;
+  padding: 3px;
   background: color-mix(in srgb, var(--bg3) 85%, transparent);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -2679,12 +2686,12 @@ label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 9px 14px;
+  gap: 5px;
+  padding: 6px 12px;
   border: none;
   background: transparent;
   color: var(--dim);
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   border-radius: 999px;
@@ -2699,14 +2706,14 @@ label {
 }
 .fx-tab-slider {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
-  width: calc(50% - 4px);
-  left: 4px;
+  top: 3px;
+  bottom: 3px;
+  width: calc(50% - 3px);
+  left: 3px;
   border-radius: 999px;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
   box-shadow:
-    0 8px 20px -8px color-mix(in srgb, var(--accent) 65%, transparent),
+    0 6px 16px -8px color-mix(in srgb, var(--accent) 65%, transparent),
     0 0 0 1px color-mix(in srgb, #fff 18%, transparent) inset;
   transition: transform 0.3s cubic-bezier(0.4, 0.1, 0.2, 1.1);
 }
@@ -2717,15 +2724,15 @@ label {
 .fx-body {
   position: relative;
   z-index: 1;
-  padding: 18px 22px 20px;
+  padding: 12px 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 .fx-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 .fx-label-row {
   display: flex;
@@ -2737,7 +2744,7 @@ label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--bright);
   letter-spacing: 0.005em;
@@ -2750,10 +2757,10 @@ label {
 .fx-sublabel {
   color: var(--dim);
   font-weight: 500;
-  font-size: 12px;
+  font-size: 11.5px;
 }
 .fx-counter {
-  font-size: 11.5px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--dim);
   transition: color 0.2s;
@@ -2762,27 +2769,26 @@ label {
   color: var(--warn, #f59e0b);
 }
 .fx-contact-badge {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border-radius: 6px;
-  padding: 2px 8px;
+  border-radius: 5px;
+  padding: 1px 7px;
 }
 
 .fx-stars {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  padding-top: 4px;
+  gap: 2px;
 }
 .fx-star {
   background: transparent;
   border: none;
-  padding: 2px;
+  padding: 1px;
   margin: 0;
   cursor: pointer;
   color: color-mix(in srgb, var(--dim) 55%, transparent);
@@ -2794,11 +2800,11 @@ label {
 .fx-star:hover,
 .fx-star:focus-visible {
   outline: none;
-  transform: translateY(-2px) scale(1.08);
+  transform: translateY(-1px) scale(1.08);
 }
 .fx-star.active {
   color: #fbbf24;
-  filter: drop-shadow(0 4px 12px rgba(251, 191, 36, 0.45));
+  filter: drop-shadow(0 3px 8px rgba(251, 191, 36, 0.4));
   animation: fxStarPop 0.28s cubic-bezier(0.2, 0.8, 0.3, 1.3);
 }
 .fx-star.preview:not(.active) {
@@ -2819,8 +2825,8 @@ label {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 8px;
-  font-size: 12.5px;
+  margin-left: 6px;
+  font-size: 12px;
   font-weight: 600;
 }
 .fx-mood.muted {
@@ -2831,16 +2837,16 @@ label {
 .fx-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .fx-chip {
   position: relative;
-  padding: 8px 14px;
+  padding: 5px 11px;
   background: color-mix(in srgb, var(--bg3) 60%, transparent);
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -2859,20 +2865,20 @@ label {
   border-color: transparent;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
   box-shadow:
-    0 6px 18px -8px color-mix(in srgb, var(--accent) 65%, transparent),
+    0 5px 14px -8px color-mix(in srgb, var(--accent) 65%, transparent),
     0 0 0 1px color-mix(in srgb, #fff 18%, transparent) inset;
 }
 
 .fx-input,
 .fx-textarea {
   width: 100%;
-  padding: 11px 13px;
+  padding: 8px 11px;
   background: color-mix(in srgb, var(--bg3) 55%, transparent);
   color: var(--bright);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   transition:
     border-color 0.15s,
     box-shadow 0.15s,
@@ -2887,50 +2893,50 @@ label {
   outline: none;
   border-color: color-mix(in srgb, var(--accent) 65%, transparent);
   background: color-mix(in srgb, var(--bg3) 75%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 .fx-textarea {
   resize: vertical;
-  min-height: 90px;
-  line-height: 1.5;
+  min-height: 68px;
+  line-height: 1.45;
 }
 
 .fx-hint {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
+  gap: 4px;
+  font-size: 11px;
   color: var(--warn, #f59e0b);
 }
 .fx-page-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   width: fit-content;
   max-width: 100%;
-  padding: 5px 10px;
+  padding: 3px 8px;
   background: color-mix(in srgb, var(--bg3) 55%, transparent);
   border: 1px dashed var(--border);
-  border-radius: 8px;
-  font-size: 11.5px;
+  border-radius: 6px;
+  font-size: 11px;
   color: var(--dim);
+  margin-top: 2px;
 }
 .fx-page-chip code {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 240px;
+  max-width: 220px;
 }
 
 .fx-check {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  margin-top: 4px;
-  font-size: 12.5px;
+  gap: 8px;
+  font-size: 12px;
   color: var(--text);
   cursor: pointer;
   user-select: none;
@@ -2944,9 +2950,9 @@ label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
   background: color-mix(in srgb, var(--bg3) 55%, transparent);
   border: 1.5px solid var(--border);
   color: transparent;
@@ -2972,10 +2978,10 @@ label {
 .fx-alert {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 13px;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
 }
 .fx-alert.error {
   background: color-mix(in srgb, var(--err, #e11d48) 14%, transparent);
@@ -2987,31 +2993,31 @@ label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 4px;
+  gap: 10px;
+  margin-top: 2px;
 }
 .fx-footer-note {
   margin: 0;
   flex: 1;
-  font-size: 11.5px;
+  font-size: 10.5px;
   color: var(--dim);
-  line-height: 1.4;
+  line-height: 1.35;
 }
 .fx-submit {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 11px 20px;
+  gap: 6px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
   cursor: pointer;
   box-shadow:
-    0 12px 28px -10px color-mix(in srgb, var(--accent) 70%, transparent),
+    0 10px 24px -10px color-mix(in srgb, var(--accent) 70%, transparent),
     0 0 0 1px color-mix(in srgb, #fff 18%, transparent) inset;
   overflow: hidden;
   transition:
@@ -3058,17 +3064,17 @@ label {
 .fx-success {
   position: relative;
   z-index: 1;
-  padding: 30px 24px 36px;
+  padding: 22px 20px 26px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 .fx-success-ring {
   position: relative;
-  width: 86px;
-  height: 86px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -3082,7 +3088,7 @@ label {
       var(--accent)
     );
   animation: fxSpinSlow 6s linear infinite;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 .fx-success-ring::before {
   content: "";
@@ -3096,13 +3102,13 @@ label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 58px;
-  height: 58px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
   color: #fff;
   box-shadow:
-    0 10px 24px -10px color-mix(in srgb, var(--accent) 70%, transparent),
+    0 8px 20px -10px color-mix(in srgb, var(--accent) 70%, transparent),
     0 0 0 1px color-mix(in srgb, #fff 20%, transparent) inset;
   animation: fxCheckPop 0.5s cubic-bezier(0.2, 0.8, 0.3, 1.3);
 }
@@ -3126,34 +3132,31 @@ label {
 }
 .fx-success h4 {
   margin: 2px 0 0;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--bright);
 }
 .fx-success p {
   margin: 0;
-  max-width: 320px;
-  font-size: 13px;
+  max-width: 300px;
+  font-size: 12.5px;
   color: var(--dim);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 @media (max-width: 560px) {
   .fx-modal {
     max-width: 100%;
-    border-radius: 20px;
+    border-radius: 16px;
   }
   .fx-header {
-    padding: 20px 18px 12px;
+    padding: 12px 14px 6px;
   }
   .fx-tabs {
-    margin: 0 18px;
+    margin: 2px 14px 0;
   }
   .fx-body {
-    padding: 16px 18px 20px;
-  }
-  .fx-header h3 {
-    font-size: 18px;
+    padding: 10px 14px 12px;
   }
   .fx-footer {
     flex-direction: column;
