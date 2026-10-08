@@ -212,14 +212,13 @@ export default function ScrollTop() {
             <div className="fx-glow" aria-hidden />
             <div className="fx-header">
               <div className="fx-head-text">
-                <div className="fx-eyebrow">
+                <span className="fx-eyebrow" aria-hidden>
                   <IconSparkles size={14} stroke={2.2} />
-                  <span>2 phút để Format Box tốt hơn</span>
-                </div>
+                </span>
                 <h3>Góp ý cho Format Box</h3>
               </div>
               <button className="fx-close" onClick={closeModal} aria-label="Đóng">
-                <IconX size={18} stroke={2.2} />
+                <IconX size={16} stroke={2.2} />
               </button>
             </div>
 
@@ -231,7 +230,7 @@ export default function ScrollTop() {
                 onClick={() => setTab("rate")}
                 type="button"
               >
-                <IconHeartHandshake size={16} stroke={2.1} />
+                <IconHeartHandshake size={14} stroke={2.2} />
                 <span>Đánh giá</span>
               </button>
               <button
@@ -241,7 +240,7 @@ export default function ScrollTop() {
                 onClick={() => setTab("bug")}
                 type="button"
               >
-                <IconBug size={16} stroke={2.1} />
+                <IconBug size={14} stroke={2.2} />
                 <span>Báo lỗi trang này</span>
               </button>
               <span className={`fx-tab-slider ${tab}`} aria-hidden />
@@ -280,9 +279,9 @@ export default function ScrollTop() {
                               onClick={() => setRating(n)}
                             >
                               {active ? (
-                                <IconStarFilled size={30} />
+                                <IconStarFilled size={26} />
                               ) : (
-                                <IconStar size={30} stroke={1.8} />
+                                <IconStar size={26} stroke={1.8} />
                               )}
                             </button>
                           );
@@ -455,7 +454,7 @@ export default function ScrollTop() {
 
                 <div className="fx-footer">
                   <p className="fx-footer-note">
-                    Kèm theo trang bạn đang xem và loại thiết bị để Format Box xử lý nhanh hơn.
+                    Có kèm trang &amp; thiết bị để xử lý nhanh hơn.
                   </p>
                   <button
                     type="submit"
@@ -489,16 +488,16 @@ function SuccessState({ tab }: { tab: Tab }) {
     <div className="fx-success" role="status" aria-live="polite">
       <div className="fx-success-ring">
         <div className="fx-success-check">
-          <IconCheck size={34} stroke={3} />
+          <IconCheck size={26} stroke={3} />
         </div>
       </div>
       <h4>
-        {tab === "rate" ? "Cảm ơn bạn đã chấm điểm!" : "Format Box đã nhận báo lỗi."}
+        {tab === "rate" ? "Cảm ơn bạn đã chấm điểm!" : "Đã nhận báo lỗi."}
       </h4>
       <p>
         {tab === "rate"
-          ? "Mỗi ngôi sao bạn gửi là một nhịp để Format Box làm tốt hơn mỗi ngày."
-          : "Mình sẽ xem lại và sửa sớm nhất có thể. Rất quý khi bạn dành thời gian báo lại."}
+          ? "Mỗi sao là một nhịp để Format Box tốt hơn."
+          : "Mình sẽ xem lại và sửa sớm. Cảm ơn bạn!"}
       </p>
     </div>
   );
