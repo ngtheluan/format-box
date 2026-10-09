@@ -6,8 +6,8 @@ import { createPortal } from "react-dom";
 import {
   IconHome,
   IconMenu2,
+  IconMessageDots,
   IconSettings,
-  IconUser,
   IconX,
 } from "@tabler/icons-react";
 import ThemeToggle from "./ThemeToggle";
@@ -50,7 +50,7 @@ export default function MobileTabBar() {
           className={`mtab-btn${activeAction === "menu" ? " active" : ""}`}
           onClick={() => {
             setActiveAction("menu");
-            dispatch("fb:open-menu");
+            dispatch("fb:open-search");
           }}
           aria-label="Menu"
           aria-pressed={activeAction === "menu"}
@@ -81,8 +81,8 @@ export default function MobileTabBar() {
           aria-label="Account"
           aria-pressed={activeAction === "account"}
         >
-          <IconUser size={22} stroke={1.8} />
-          <span>Account</span>
+          <IconMessageDots size={22} stroke={1.8} />
+          <span>Feedback</span>
         </button>
       </nav>
 
