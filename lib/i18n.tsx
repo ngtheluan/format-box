@@ -903,6 +903,21 @@ const dict = {
   uuid_copy_all: { vi: "Copy tất cả", en: "Copy all" },
   uuid_empty: { vi: "Bấm Tạo mới để sinh UUID.", en: "Click Generate to create UUIDs." },
 
+  lp_search_ph: {
+    vi: "Nhập biển số (51K-123.45), mã (29) hoặc tên tỉnh…",
+    en: "Enter a plate (51K-123.45), code (29) or province name…",
+  },
+  lp_all: { vi: "Tất cả", en: "All" },
+  lp_empty: { vi: "Không tìm thấy tỉnh/thành phù hợp.", en: "No matching province found." },
+  lp_prov_code: { vi: "Mã tỉnh", en: "Province" },
+  lp_series: { vi: "Series", en: "Series" },
+  lp_serial: { vi: "Số xe", en: "Serial" },
+  lp_kind: { vi: "Loại biển", en: "Plate type" },
+  lp_note_district: {
+    vi: "Lưu ý: hệ thống biển số VN hiện tại chỉ mã hoá tỉnh/thành ở 2 số đầu — quận/huyện/phường không được mã hoá chính thức trên biển dân sự.",
+    en: "Note: current VN plates only encode the province (first 2 digits). District/ward is not officially encoded on civilian plates.",
+  },
+
   // MEME
   meme_search_ph: {
     vi: "Tìm meme theo từ khoá (bỏ trống để lướt trending)...",

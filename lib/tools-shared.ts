@@ -387,4 +387,16 @@ export const SEED_TOOLS: Tool[] = [
     tags: ["meme", "funny", "reddit", "image", "gif", "viral"],
     category: "cat_media",
   },
+  {
+    href: "/license-plate",
+    iconName: "IconCar",
+    title: "Biển số xe",
+    sub: { vi: "Tra theo tỉnh/thành", en: "VN license plate lookup" },
+    desc: {
+      vi: "Nhập biển số (vd 51K-123.45) hoặc tên tỉnh — hiển thị mã, vùng và danh sách đầy đủ 63 tỉnh/thành.",
+      en: "Type a plate (e.g. 51K-123.45) or a province — see code, region and the full list of 63 provinces.",
+    },
+    tags: ["bien so", "license", "plate", "vietnam", "tinh", "province", "xe"],
+    category: "cat_life",
+  },
 ];

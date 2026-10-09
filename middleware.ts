@@ -105,6 +105,7 @@ export const config = {
     "/image",
     "/json",
     "/jwt",
+    "/license-plate",
     "/lucky-ticket",
     "/markdown",
     "/pacman",
