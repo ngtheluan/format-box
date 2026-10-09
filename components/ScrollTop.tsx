@@ -66,6 +66,7 @@ export default function ScrollTop() {
   const [bugMessage, setBugMessage] = useState("");
 
   // shared
+  const [senderName, setSenderName] = useState("");
   const [contact, setContact] = useState("");
   const [allowContact, setAllowContact] = useState(false);
   const [pageUrl, setPageUrl] = useState("");
@@ -110,6 +111,7 @@ export default function ScrollTop() {
     setRateMessage("");
     setBugTypes([]);
     setBugMessage("");
+    setSenderName("");
     setContact("");
     setAllowContact(false);
     setStatus("idle");
@@ -155,6 +157,7 @@ export default function ScrollTop() {
     const payload: Record<string, string> = {
       kind: tab === "rate" ? "rating" : "bug",
       pageUrl,
+      senderName: senderName.trim(),
       contact: contact.trim(),
       allowContact: allowContact ? "1" : "0",
     };
@@ -411,6 +414,25 @@ export default function ScrollTop() {
                     </section>
                   </>
                 )}
+
+                <section className="fx-section">
+                  <div className="fx-label-row">
+                    <label className="fx-label" htmlFor="fx-name">
+                      Tên của bạn{" "}
+                      <span className="fx-sublabel">(không bắt buộc)</span>
+                    </label>
+                  </div>
+                  <input
+                    id="fx-name"
+                    className="fx-input"
+                    type="text"
+                    autoComplete="name"
+                    maxLength={80}
+                    placeholder="Để Format Box biết nên gọi bạn thế nào"
+                    value={senderName}
+                    onChange={(e) => setSenderName(e.target.value)}
+                  />
+                </section>
 
                 <section className="fx-section">
                   <div className="fx-label-row">

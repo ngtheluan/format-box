@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
     // New structured fields.
     const kind = String(form.get("kind") || "").trim();
     const content = String(form.get("content") || "").trim();
+    const senderName = String(form.get("senderName") || "").trim().slice(0, 80);
     const contact = String(form.get("contact") || "").trim();
     const allowContact = String(form.get("allowContact") || "") === "1";
     const pageUrl = String(form.get("pageUrl") || "").trim();
@@ -90,14 +91,16 @@ export async function POST(req: NextRequest) {
 
       const parts: string[] = [];
       if (kind === "rating") {
-        name = `★${rating} • Đánh giá`;
+        name = senderName || `★${rating} • Đánh giá`;
         parts.push(`Chấm sao: ${"★".repeat(rating)}${"☆".repeat(5 - rating)} (${rating}/5)`);
         if (helpfulness && HELPFULNESS_LABEL[helpfulness]) {
           parts.push(`Giúp hoàn thành: ${HELPFULNESS_LABEL[helpfulness]}`);
         }
       } else {
         const labels = errorTypes.map((id) => BUG_TYPE_LABEL[id] || id);
-        name = `🐞 Báo lỗi • ${labels.slice(0, 2).join(", ")}${labels.length > 2 ? "…" : ""}`;
+        name =
+          senderName ||
+          `🐞 Báo lỗi • ${labels.slice(0, 2).join(", ")}${labels.length > 2 ? "…" : ""}`;
         parts.push(`Loại lỗi: ${labels.join(", ")}`);
       }
 
@@ -157,6 +160,7 @@ export async function POST(req: NextRequest) {
         rating: kind === "rating" ? rating : undefined,
         helpfulness: kind === "rating" ? helpfulness || undefined : undefined,
         errorTypes: kind === "bug" ? errorTypes : undefined,
+        senderName: senderName || undefined,
         contact: contact || undefined,
         allowContact,
         pageUrl: pageUrl || undefined,
