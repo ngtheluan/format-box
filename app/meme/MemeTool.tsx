@@ -5,13 +5,14 @@ import {
   IconExternalLink,
   IconFlame,
   IconMessageCircle,
+  IconMoodEmpty,
+  IconPhoto,
   IconRefresh,
   IconSearch,
   IconX,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
-import { Button, Input, Select } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 
 type Meme = {
@@ -214,10 +215,31 @@ export default function MemeTool() {
     return `${d}${lang === "vi" ? " ngày" : "d"}`;
   };
 
+  // Esc closes the lightbox.
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPreview(null);
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [preview]);
+
+  const skeletonHeights = useMemo(
+    () => Array.from({ length: 14 }, (_, i) => 180 + ((i * 73) % 180)),
+    [],
+  );
+
   return (
     <div className="meme-tool">
-      <form className="meme-controls" onSubmit={onSearch}>
-        <div className="meme-search">
+      {/* Topbar */}
+      <div className="meme-topbar">
+        <form className="meme-search" onSubmit={onSearch}>
           <IconSearch size={16} stroke={1.9} className="meme-search-icon" />
           <input
             type="text"
@@ -228,70 +250,123 @@ export default function MemeTool() {
             spellCheck={false}
           />
           {q && (
-            <button type="button" className="meme-search-clear" onClick={clearSearch} aria-label="clear">
+            <button
+              type="button"
+              className="meme-search-clear"
+              onClick={clearSearch}
+              aria-label="clear"
+            >
               <IconX size={14} stroke={2} />
             </button>
           )}
+        </form>
+
+        <div className="meme-filters">
+          <div className="meme-select">
+            <select
+              value={sub}
+              onChange={(e) => setSub(e.target.value)}
+              aria-label="subreddit"
+            >
+              {subOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="meme-chips" role="tablist">
+            {sortOptions.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                role="tab"
+                aria-selected={sort === o.value}
+                className={`meme-chip ${sort === o.value ? "is-active" : ""}`}
+                onClick={() => setSort(o.value as Sort)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+
+          {sort === "top" && (
+            <div className="meme-select">
+              <select
+                value={topRange}
+                onChange={(e) => setTopRange(e.target.value as TopRange)}
+                aria-label="time range"
+              >
+                {topOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="meme-icon-btn"
+            onClick={fetchMemes}
+            disabled={loading}
+            aria-label={t("meme_refresh")}
+            title={t("meme_refresh")}
+          >
+            <IconRefresh size={16} stroke={2} className={loading ? "spin" : ""} />
+          </button>
         </div>
-        <Select
-          options={subOptions}
-          value={sub}
-          onChange={(e) => setSub(e.target.value)}
-          selectSize="sm"
-        />
-        <Select
-          options={sortOptions}
-          value={sort}
-          onChange={(e) => setSort(e.target.value as Sort)}
-          selectSize="sm"
-        />
-        {sort === "top" && (
-          <Select
-            options={topOptions}
-            value={topRange}
-            onChange={(e) => setTopRange(e.target.value as TopRange)}
-            selectSize="sm"
-          />
-        )}
-        <Button
-          size="sm"
-          type="button"
-          variant="subtle"
-          onClick={fetchMemes}
-          disabled={loading}
-          leftIcon={<IconRefresh size={14} stroke={1.9} />}
-        >
-          {t("meme_refresh")}
-        </Button>
-      </form>
+      </div>
 
       {query && (
         <div className="meme-query-info">
-          {t("meme_results_for")} <strong>&quot;{query}&quot;</strong>
+          <IconSearch size={13} stroke={2} />
+          <span>
+            {t("meme_results_for")} <strong>&quot;{query}&quot;</strong>
+          </span>
+          <button type="button" className="meme-chip meme-chip-ghost" onClick={clearSearch}>
+            <IconX size={12} stroke={2} />
+            {t("act_clear")}
+          </button>
         </div>
       )}
 
       {error && (
         <div className="meme-error">
-          {t("meme_error")}: {error}
+          <IconMoodEmpty size={16} stroke={1.8} />
+          <span>
+            {t("meme_error")}: {error}
+          </span>
         </div>
       )}
 
+      {/* Grid */}
       {loading && memes.length === 0 ? (
-        <div className="meme-grid">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="meme-skeleton" />
+        <div className="meme-masonry">
+          {skeletonHeights.map((h, i) => (
+            <div key={i} className="meme-skeleton" style={{ height: h }} />
           ))}
         </div>
       ) : memes.length === 0 ? (
-        <div className="meme-empty">{t("meme_empty")}</div>
+        <div className="meme-empty">
+          <IconPhoto size={32} stroke={1.4} />
+          <div>{t("meme_empty")}</div>
+        </div>
       ) : (
-        <div className="meme-grid">
+        <div className="meme-masonry">
           {memes.map((m) => (
             <article key={m.id} className="meme-card">
-              <button type="button" className="meme-thumb-btn" onClick={() => setPreview(m)}>
+              <button
+                type="button"
+                className="meme-thumb-btn"
+                onClick={() => setPreview(m)}
+                aria-label={m.title}
+              >
                 {m.isVideo ? (
-                  <div className="meme-video-placeholder">
+                  <div className="meme-video-ph">
+                    <IconPhoto size={24} stroke={1.6} />
                     <span>{t("meme_video")}</span>
                   </div>
                 ) : (
@@ -303,8 +378,11 @@ export default function MemeTool() {
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       const el = e.currentTarget;
-                      // Fallback 1: full-size URL. Fallback 2: our proxy.
-                      if (el.dataset.step !== "full" && m.url && el.src !== displayUrl(m.url)) {
+                      if (
+                        el.dataset.step !== "full" &&
+                        m.url &&
+                        el.src !== displayUrl(m.url)
+                      ) {
                         el.dataset.step = "full";
                         el.src = displayUrl(m.url);
                       } else if (el.dataset.step !== "proxy") {
@@ -314,14 +392,60 @@ export default function MemeTool() {
                     }}
                   />
                 )}
-                {m.isGif && <span className="meme-badge-gif">GIF</span>}
               </button>
-              <div className="meme-meta">
+
+              {/* Top-left: subreddit pill (always visible, subtle) */}
+              <div className="meme-pill meme-pill-sub">r/{m.subreddit}</div>
+              {m.isGif && <div className="meme-pill meme-pill-gif">GIF</div>}
+
+              {/* Hover overlay */}
+              <div className="meme-overlay-grad" aria-hidden="true" />
+
+              {/* Floating action buttons (top-right) */}
+              <div className="meme-float-actions">
+                <button
+                  type="button"
+                  className="meme-fab"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyImage(m);
+                  }}
+                  title={t("meme_copy_img")}
+                  aria-label={t("meme_copy_img")}
+                >
+                  <IconCopy size={15} stroke={1.9} />
+                </button>
+                <button
+                  type="button"
+                  className="meme-fab"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    download(m);
+                  }}
+                  title={t("meme_download")}
+                  aria-label={t("meme_download")}
+                >
+                  <IconDownload size={15} stroke={1.9} />
+                </button>
+                <a
+                  className="meme-fab"
+                  href={m.permalink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  title={t("meme_source")}
+                  aria-label={t("meme_source")}
+                >
+                  <IconExternalLink size={15} stroke={1.9} />
+                </a>
+              </div>
+
+              {/* Bottom caption */}
+              <div className="meme-caption">
                 <div className="meme-title" title={m.title}>
                   {m.title}
                 </div>
                 <div className="meme-stats">
-                  <span className="meme-sub">r/{m.subreddit}</span>
                   <span className="meme-stat">
                     <IconFlame size={12} stroke={2} />
                     {compact(m.score)}
@@ -330,36 +454,7 @@ export default function MemeTool() {
                     <IconMessageCircle size={12} stroke={2} />
                     {compact(m.comments)}
                   </span>
-                  <span className="meme-time">{timeAgo(m.createdAt)}</span>
-                </div>
-                <div className="meme-actions">
-                  <button
-                    type="button"
-                    className="meme-action"
-                    onClick={() => copyImage(m)}
-                    title={t("meme_copy_img")}
-                  >
-                    <IconCopy size={14} stroke={1.9} />
-                    <span>{t("meme_copy_img")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="meme-action"
-                    onClick={() => download(m)}
-                    title={t("meme_download")}
-                  >
-                    <IconDownload size={14} stroke={1.9} />
-                    <span>{t("meme_download")}</span>
-                  </button>
-                  <a
-                    className="meme-action"
-                    href={m.permalink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={t("meme_source")}
-                  >
-                    <IconExternalLink size={14} stroke={1.9} />
-                  </a>
+                  {m.createdAt && <span className="meme-time">{timeAgo(m.createdAt)}</span>}
                 </div>
               </div>
             </article>
@@ -367,86 +462,98 @@ export default function MemeTool() {
         </div>
       )}
 
+      {/* Lightbox */}
       {preview && (
-        <div className="meme-overlay" onClick={() => setPreview(null)} role="dialog" aria-modal>
-          <div className="meme-overlay-body" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="meme-overlay-close"
-              onClick={() => setPreview(null)}
-              aria-label="close"
-            >
-              <IconX size={18} stroke={2} />
-            </button>
-            {preview.isVideo ? (
-              <video
-                src={displayUrl(preview.url)}
-                controls
-                autoPlay
-                playsInline
-                className="meme-overlay-media"
-              />
-            ) : (
-              <img
-                src={displayUrl(preview.url)}
-                alt={preview.title}
-                className="meme-overlay-media"
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  const el = e.currentTarget;
-                  if (el.dataset.step !== "proxy") {
-                    el.dataset.step = "proxy";
-                    el.src = proxyUrl(preview.url);
-                  }
-                }}
-              />
-            )}
-            <div className="meme-overlay-info">
-              <h3 className="meme-overlay-title">{preview.title}</h3>
-              <div className="meme-stats">
-                <span className="meme-sub">r/{preview.subreddit}</span>
-                <span>u/{preview.author}</span>
+        <div
+          className="meme-lb"
+          onClick={() => setPreview(null)}
+          role="dialog"
+          aria-modal
+        >
+          <button
+            type="button"
+            className="meme-lb-close"
+            onClick={() => setPreview(null)}
+            aria-label="close"
+          >
+            <IconX size={20} stroke={2} />
+          </button>
+
+          <div className="meme-lb-body" onClick={(e) => e.stopPropagation()}>
+            <div className="meme-lb-media-wrap">
+              {preview.isVideo ? (
+                <video
+                  src={displayUrl(preview.url)}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="meme-lb-media"
+                />
+              ) : (
+                <img
+                  src={displayUrl(preview.url)}
+                  alt={preview.title}
+                  className="meme-lb-media"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const el = e.currentTarget;
+                    if (el.dataset.step !== "proxy") {
+                      el.dataset.step = "proxy";
+                      el.src = proxyUrl(preview.url);
+                    }
+                  }}
+                />
+              )}
+            </div>
+            <div className="meme-lb-info">
+              <h3 className="meme-lb-title">{preview.title}</h3>
+              <div className="meme-lb-meta">
+                <span className="meme-pill meme-pill-sub meme-pill-static">
+                  r/{preview.subreddit}
+                </span>
+                <span className="meme-lb-sub">u/{preview.author}</span>
                 <span className="meme-stat">
-                  <IconFlame size={12} stroke={2} />
+                  <IconFlame size={13} stroke={2} />
                   {compact(preview.score)}
                 </span>
                 <span className="meme-stat">
-                  <IconMessageCircle size={12} stroke={2} />
+                  <IconMessageCircle size={13} stroke={2} />
                   {compact(preview.comments)}
                 </span>
               </div>
-              <div className="meme-actions">
-                <Button
-                  size="sm"
+              <div className="meme-lb-actions">
+                <button
+                  type="button"
+                  className="meme-btn meme-btn-primary"
                   onClick={() => copyImage(preview)}
-                  leftIcon={<IconCopy size={14} stroke={1.9} />}
                 >
+                  <IconCopy size={15} stroke={1.9} />
                   {t("meme_copy_img")}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="subtle"
+                </button>
+                <button
+                  type="button"
+                  className="meme-btn"
                   onClick={() => copyLink(preview)}
-                  leftIcon={<IconCopy size={14} stroke={1.9} />}
                 >
+                  <IconCopy size={15} stroke={1.9} />
                   {t("meme_copy_link")}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="subtle"
+                </button>
+                <button
+                  type="button"
+                  className="meme-btn"
                   onClick={() => download(preview)}
-                  leftIcon={<IconDownload size={14} stroke={1.9} />}
                 >
+                  <IconDownload size={15} stroke={1.9} />
                   {t("meme_download")}
-                </Button>
+                </button>
                 <a
-                  className="meme-action meme-action-strong"
+                  className="meme-btn"
                   href={preview.permalink}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <IconExternalLink size={14} stroke={1.9} />
-                  <span>{t("meme_source")}</span>
+                  <IconExternalLink size={15} stroke={1.9} />
+                  {t("meme_source")}
                 </a>
               </div>
             </div>
@@ -460,162 +567,402 @@ export default function MemeTool() {
         .meme-tool {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 18px;
         }
-        .meme-controls {
+
+        /* --- Topbar --- */
+        .meme-topbar {
           display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          align-items: center;
+          flex-direction: column;
+          gap: 10px;
         }
         .meme-search {
           position: relative;
-          flex: 1 1 240px;
-          min-width: 220px;
           display: flex;
           align-items: center;
         }
         .meme-search-icon {
           position: absolute;
-          left: 10px;
-          opacity: 0.6;
+          left: 14px;
+          opacity: 0.55;
           pointer-events: none;
         }
         .meme-search-input {
           width: 100%;
-          padding: 8px 32px 8px 32px;
+          padding: 11px 40px 11px 40px;
           border: 1px solid var(--border);
-          border-radius: 10px;
+          border-radius: 999px;
           background: var(--bg2);
           color: var(--text);
-          font-size: 13px;
+          font-size: 14px;
           outline: none;
-          transition: border-color 0.15s;
+          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+        .meme-search-input:hover {
+          background: var(--bg);
         }
         .meme-search-input:focus {
           border-color: var(--accent);
+          box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 18%, transparent);
+          background: var(--bg);
         }
         .meme-search-clear {
           position: absolute;
-          right: 8px;
+          right: 10px;
           display: grid;
           place-items: center;
-          width: 20px;
-          height: 20px;
+          width: 22px;
+          height: 22px;
           border: none;
-          background: var(--bg3, var(--bg));
+          background: var(--border);
           color: var(--text);
           border-radius: 999px;
           cursor: pointer;
-          opacity: 0.7;
+          opacity: 0.75;
+          transition: opacity 0.15s;
         }
         .meme-search-clear:hover {
           opacity: 1;
         }
-        .meme-query-info {
+        .meme-filters {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+        }
+        .meme-select {
+          position: relative;
+        }
+        .meme-select::after {
+          content: "▾";
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 10px;
+          opacity: 0.6;
+          pointer-events: none;
+        }
+        .meme-select select {
+          appearance: none;
+          -webkit-appearance: none;
+          padding: 7px 28px 7px 14px;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          background: var(--bg2);
+          color: var(--text);
           font-size: 13px;
-          opacity: 0.75;
+          font-weight: 500;
+          cursor: pointer;
+          font-family: inherit;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .meme-select select:hover {
+          background: var(--bg);
+          border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+        }
+        .meme-chips {
+          display: inline-flex;
+          padding: 3px;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          background: var(--bg2);
+          gap: 2px;
+        }
+        .meme-chip {
+          padding: 5px 12px;
+          border: none;
+          border-radius: 999px;
+          background: transparent;
+          color: var(--text);
+          font-size: 12.5px;
+          font-weight: 500;
+          font-family: inherit;
+          cursor: pointer;
+          opacity: 0.72;
+          transition: opacity 0.15s, background 0.15s, color 0.15s;
+        }
+        .meme-chip:hover {
+          opacity: 1;
+          background: var(--bg);
+        }
+        .meme-chip.is-active {
+          background: var(--accent);
+          color: var(--on-accent, #fff);
+          opacity: 1;
+          font-weight: 600;
+        }
+        .meme-chip-ghost {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 10px;
+          border: 1px solid var(--border);
+          background: transparent;
+          font-size: 11px;
+          margin-left: auto;
+        }
+        .meme-icon-btn {
+          display: grid;
+          place-items: center;
+          width: 34px;
+          height: 34px;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          background: var(--bg2);
+          color: var(--text);
+          cursor: pointer;
+          margin-left: auto;
+          transition: background 0.15s, border-color 0.15s, transform 0.15s;
+        }
+        .meme-icon-btn:hover:not(:disabled) {
+          background: var(--bg);
+          border-color: color-mix(in oklab, var(--accent) 50%, var(--border));
+        }
+        .meme-icon-btn:active:not(:disabled) {
+          transform: scale(0.95);
+        }
+        .meme-icon-btn:disabled {
+          opacity: 0.5;
+          cursor: wait;
+        }
+        .spin {
+          animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        /* --- Query info / Error --- */
+        .meme-query-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 14px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: var(--bg2);
+          font-size: 13px;
+          opacity: 0.85;
         }
         .meme-error {
-          padding: 10px 12px;
-          border: 1px solid #ef4444aa;
-          background: #ef444422;
-          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 14px;
+          border: 1px solid #ef444455;
+          background: color-mix(in oklab, #ef4444 10%, transparent);
+          border-radius: 12px;
           color: var(--text);
           font-size: 13px;
         }
-        .meme-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 14px;
+
+        /* --- Masonry --- */
+        .meme-masonry {
+          column-count: 4;
+          column-gap: 12px;
         }
         .meme-skeleton {
-          height: 240px;
-          border-radius: 12px;
-          background: linear-gradient(90deg, var(--bg2) 0%, var(--bg) 50%, var(--bg2) 100%);
+          border-radius: 14px;
+          margin: 0 0 12px;
+          break-inside: avoid;
+          background: linear-gradient(
+            90deg,
+            var(--bg2) 0%,
+            color-mix(in oklab, var(--bg2) 70%, var(--bg)) 50%,
+            var(--bg2) 100%
+          );
           background-size: 200% 100%;
           animation: shimmer 1.4s linear infinite;
         }
         @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
+          0% {
+            background-position: 200% 0;
+          }
+          100% {
+            background-position: -200% 0;
+          }
         }
+
+        /* --- Card --- */
         .meme-card {
-          display: flex;
-          flex-direction: column;
-          border: 1px solid var(--border);
-          background: var(--bg2);
-          border-radius: 12px;
+          position: relative;
+          margin: 0 0 12px;
+          border-radius: 14px;
           overflow: hidden;
-          transition: transform 0.15s, border-color 0.15s;
+          background: var(--bg2);
+          break-inside: avoid;
+          box-shadow:
+            0 1px 2px rgba(0, 0, 0, 0.08),
+            0 2px 6px rgba(0, 0, 0, 0.04);
+          transition:
+            transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+            box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         .meme-card:hover {
-          transform: translateY(-2px);
-          border-color: var(--accent);
+          transform: translateY(-3px);
+          box-shadow:
+            0 4px 12px rgba(0, 0, 0, 0.12),
+            0 10px 28px rgba(0, 0, 0, 0.14);
         }
         .meme-thumb-btn {
-          position: relative;
           display: block;
-          border: none;
+          width: 100%;
           padding: 0;
+          border: none;
           background: var(--bg);
           cursor: zoom-in;
-          aspect-ratio: 1 / 1;
-          overflow: hidden;
         }
         .meme-thumb {
           width: 100%;
-          height: 100%;
-          object-fit: cover;
+          height: auto;
           display: block;
-        }
-        .meme-video-placeholder {
-          width: 100%;
-          height: 100%;
-          display: grid;
-          place-items: center;
-          font-size: 13px;
-          opacity: 0.7;
           background: var(--bg);
         }
-        .meme-badge-gif {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          padding: 2px 6px;
-          font-size: 10px;
-          font-weight: 700;
-          background: rgba(0, 0, 0, 0.72);
-          color: #fff;
-          border-radius: 4px;
-          letter-spacing: 0.3px;
-        }
-        .meme-meta {
+        .meme-video-ph {
           display: flex;
           flex-direction: column;
+          align-items: center;
+          justify-content: center;
           gap: 6px;
-          padding: 10px 12px 12px;
+          padding: 48px 20px;
+          color: var(--text);
+          opacity: 0.7;
+          font-size: 12px;
+        }
+
+        /* --- Pills --- */
+        .meme-pill {
+          position: absolute;
+          z-index: 2;
+          padding: 3px 9px;
+          font-size: 10.5px;
+          font-weight: 600;
+          letter-spacing: 0.2px;
+          color: #fff;
+          border-radius: 999px;
+          background: rgba(0, 0, 0, 0.55);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          pointer-events: none;
+        }
+        .meme-pill-sub {
+          top: 10px;
+          left: 10px;
+        }
+        .meme-pill-gif {
+          top: 10px;
+          right: 10px;
+          background: linear-gradient(135deg, #f59e0b, #ef4444);
+        }
+        .meme-pill-static {
+          position: static;
+          display: inline-flex;
+          background: color-mix(in oklab, var(--accent) 85%, transparent);
+          backdrop-filter: none;
+          pointer-events: auto;
+        }
+
+        /* --- Hover overlay + floating actions --- */
+        .meme-overlay-grad {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to top,
+            rgba(0, 0, 0, 0.78) 0%,
+            rgba(0, 0, 0, 0.42) 32%,
+            rgba(0, 0, 0, 0) 55%
+          );
+          opacity: 0;
+          transition: opacity 0.2s;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .meme-card:hover .meme-overlay-grad {
+          opacity: 1;
+        }
+        .meme-float-actions {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          display: flex;
+          gap: 6px;
+          z-index: 3;
+          opacity: 0;
+          transform: translateY(-4px);
+          transition: opacity 0.2s, transform 0.2s;
+        }
+        .meme-card:hover .meme-float-actions,
+        .meme-card:focus-within .meme-float-actions {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        /* GIF pill shouldn't sit under the FAB row */
+        .meme-card:hover .meme-pill-gif {
+          display: none;
+        }
+        .meme-fab {
+          display: grid;
+          place-items: center;
+          width: 32px;
+          height: 32px;
+          border: none;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.92);
+          color: #0a0e15;
+          cursor: pointer;
+          text-decoration: none;
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+          transition: transform 0.15s, background 0.15s;
+        }
+        .meme-fab:hover {
+          background: #fff;
+          transform: scale(1.08);
+        }
+        .meme-fab:active {
+          transform: scale(0.96);
+        }
+
+        /* --- Caption (bottom) --- */
+        .meme-caption {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          padding: 10px 12px 11px;
+          color: #fff;
+          z-index: 2;
+          opacity: 0;
+          transform: translateY(6px);
+          transition: opacity 0.2s, transform 0.2s;
+          pointer-events: none;
+        }
+        .meme-card:hover .meme-caption {
+          opacity: 1;
+          transform: translateY(0);
         }
         .meme-title {
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 600;
           line-height: 1.35;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+          margin-bottom: 4px;
         }
         .meme-stats {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px;
+          gap: 10px;
           font-size: 11px;
-          opacity: 0.7;
           align-items: center;
-        }
-        .meme-sub {
-          color: var(--accent);
-          font-weight: 600;
+          opacity: 0.9;
         }
         .meme-stat {
           display: inline-flex;
@@ -624,131 +971,256 @@ export default function MemeTool() {
         }
         .meme-time {
           margin-left: auto;
+          opacity: 0.75;
         }
-        .meme-actions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin-top: 4px;
-        }
-        .meme-action {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 5px 8px;
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text);
-          background: var(--bg);
-          border: 1px solid var(--border);
-          border-radius: 7px;
-          cursor: pointer;
-          text-decoration: none;
-          transition: background 0.15s, border-color 0.15s;
-        }
-        .meme-action:hover {
-          background: var(--bg2);
-          border-color: var(--accent);
-        }
-        .meme-action-strong {
-          background: var(--accent);
-          color: var(--on-accent, #fff);
-          border-color: var(--accent);
-        }
+
+        /* --- Empty --- */
         .meme-empty {
-          padding: 48px 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+          padding: 64px 24px;
           text-align: center;
-          font-size: 13px;
-          opacity: 0.7;
+          font-size: 14px;
+          opacity: 0.6;
           border: 1px dashed var(--border);
-          border-radius: 12px;
+          border-radius: 14px;
         }
         .meme-footnote {
           font-size: 11px;
-          opacity: 0.55;
+          opacity: 0.5;
           text-align: center;
-          margin: 12px 0 0;
+          margin: 8px 0 0;
         }
-        .meme-overlay {
+
+        /* --- Lightbox --- */
+        .meme-lb {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.78);
+          background: rgba(10, 14, 21, 0.86);
           display: grid;
           place-items: center;
           padding: 24px;
           z-index: 1000;
-          backdrop-filter: blur(6px);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          animation: fadeIn 0.18s ease-out;
         }
-        .meme-overlay-body {
-          position: relative;
-          max-width: min(960px, 100%);
-          max-height: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          background: var(--bg);
-          border: 1px solid var(--border);
-          border-radius: 14px;
-          overflow: hidden;
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
-        .meme-overlay-close {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          z-index: 1;
-          width: 32px;
-          height: 32px;
+        .meme-lb-close {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 1001;
+          width: 40px;
+          height: 40px;
           display: grid;
           place-items: center;
           border-radius: 999px;
           border: none;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(255, 255, 255, 0.1);
           color: #fff;
           cursor: pointer;
+          backdrop-filter: blur(8px);
+          transition: background 0.15s, transform 0.15s;
         }
-        .meme-overlay-media {
-          max-width: 100%;
-          max-height: 70vh;
-          object-fit: contain;
-          background: #000;
-          display: block;
-          margin: 0 auto;
+        .meme-lb-close:hover {
+          background: rgba(255, 255, 255, 0.2);
+          transform: scale(1.05);
         }
-        .meme-overlay-info {
-          padding: 12px 14px 14px;
+        .meme-lb-body {
+          max-width: min(1100px, 100%);
+          max-height: calc(100vh - 48px);
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 14px;
+          animation: slideUp 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        .meme-overlay-title {
-          font-size: 15px;
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(14px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .meme-lb-media-wrap {
+          display: grid;
+          place-items: center;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+        .meme-lb-media {
+          max-width: 100%;
+          max-height: 72vh;
+          object-fit: contain;
+          display: block;
+        }
+        .meme-lb-info {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 0 4px;
+          color: #fff;
+        }
+        .meme-lb-title {
+          font-size: 16px;
           font-weight: 700;
-          line-height: 1.35;
+          line-height: 1.4;
           margin: 0;
         }
+        .meme-lb-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          align-items: center;
+          font-size: 12px;
+          opacity: 0.85;
+        }
+        .meme-lb-sub {
+          opacity: 0.7;
+        }
+        .meme-lb-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 2px;
+        }
+        .meme-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          font-size: 13px;
+          font-weight: 600;
+          font-family: inherit;
+          color: #fff;
+          background: rgba(255, 255, 255, 0.12);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          border-radius: 10px;
+          cursor: pointer;
+          text-decoration: none;
+          backdrop-filter: blur(8px);
+          transition: background 0.15s, border-color 0.15s, transform 0.1s;
+        }
+        .meme-btn:hover {
+          background: rgba(255, 255, 255, 0.2);
+          border-color: rgba(255, 255, 255, 0.22);
+        }
+        .meme-btn:active {
+          transform: scale(0.97);
+        }
+        .meme-btn-primary {
+          background: var(--accent);
+          border-color: var(--accent);
+          color: var(--on-accent, #fff);
+        }
+        .meme-btn-primary:hover {
+          background: color-mix(in oklab, var(--accent) 85%, white);
+          border-color: color-mix(in oklab, var(--accent) 85%, white);
+        }
+
+        /* --- Responsive --- */
+        @media (min-width: 1400px) {
+          .meme-masonry {
+            column-count: 5;
+          }
+        }
+        @media (max-width: 1100px) {
+          .meme-masonry {
+            column-count: 3;
+          }
+        }
         @media (max-width: 720px) {
-          .meme-controls {
-            flex-direction: column;
-            align-items: stretch;
+          .meme-topbar {
+            gap: 8px;
           }
-          .meme-search {
-            flex: 1;
+          .meme-search-input {
+            font-size: 15px; /* avoids iOS zoom */
+            padding: 10px 36px;
           }
-          .meme-grid {
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 10px;
+          .meme-filters {
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 -4px;
+            padding: 0 4px 4px;
           }
-          .meme-thumb-btn {
-            aspect-ratio: 1 / 1;
-          }
-          .meme-title {
-            font-size: 12px;
-          }
-          .meme-action span {
+          .meme-filters::-webkit-scrollbar {
             display: none;
           }
-          .meme-action {
-            padding: 6px;
+          .meme-filters > * {
+            flex-shrink: 0;
+          }
+          .meme-icon-btn {
+            margin-left: 0;
+          }
+          .meme-masonry {
+            column-count: 2;
+            column-gap: 8px;
+          }
+          .meme-card {
+            margin-bottom: 8px;
+            border-radius: 12px;
+          }
+          .meme-skeleton {
+            margin-bottom: 8px;
+            border-radius: 12px;
+          }
+          /* On mobile the caption always shows (no hover state). */
+          .meme-caption,
+          .meme-overlay-grad,
+          .meme-float-actions {
+            opacity: 1;
+            transform: none;
+          }
+          .meme-float-actions {
+            top: 8px;
+            right: 8px;
+            gap: 4px;
+          }
+          .meme-fab {
+            width: 28px;
+            height: 28px;
+          }
+          .meme-pill-sub {
+            top: 8px;
+            left: 8px;
+            font-size: 10px;
+            padding: 2px 7px;
+          }
+          .meme-title {
+            font-size: 11.5px;
+          }
+          .meme-lb {
+            padding: 12px;
+          }
+          .meme-lb-close {
+            top: 10px;
+            right: 10px;
+          }
+          .meme-lb-media {
+            max-height: 60vh;
+          }
+          .meme-lb-title {
+            font-size: 14px;
+          }
+          .meme-btn {
+            padding: 7px 11px;
+            font-size: 12px;
           }
         }
       `}</style>
