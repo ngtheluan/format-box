@@ -77,7 +77,12 @@ export default function ScrollTop() {
     const onScroll = () => setShow(window.scrollY > 400);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const onOpenFeedback = () => setOpen(true);
+    window.addEventListener("fb:open-feedback", onOpenFeedback);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("fb:open-feedback", onOpenFeedback);
+    };
   }, []);
 
   useEffect(() => {
