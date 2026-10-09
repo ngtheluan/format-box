@@ -43,6 +43,19 @@ const CURATED_SUBS = [
   "PhotoshopBattles",
 ];
 
+// Vietnamese communities. Public Vietnamese meme sources on Facebook, voz,
+// Threads, TikTok and IG are not scrape-friendly, so we rely on the handful
+// of Vietnamese subreddits that do carry meme content. `VietNam` and
+// `VietNamNation` are general — the sort/time filters push meme-shaped
+// image posts to the top; non-image posts are filtered out downstream.
+const VIETNAMESE_SUBS = ["memesVN", "VietNam", "VietNamNation"];
+
+function multiSubList(sub: string): string[] | null {
+  if (sub === "all") return CURATED_SUBS;
+  if (sub === "vn") return VIETNAMESE_SUBS;
+  return null;
+}
+
 const UA = "web:format-box:v1.0.0";
 const IMG_EXT = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i;
 const VID_EXT = /\.(mp4|webm)(\?|$)/i;
@@ -296,35 +309,52 @@ export async function GET(req: Request) {
   // many titles won't match.
   const fetchSize = q ? Math.min(limit * 3, 100) : limit;
 
+  const multiSubs = multiSubList(sub);
+
   // Pass 0 — Reddit OAuth (preferred when env vars are set; supports search,
   // sort and time-range filters properly and is not blocked on cloud IPs).
   if (process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET) {
     try {
       let path: string;
       if (q) {
-        const base = sub === "all" ? "/search" : `/r/${encodeURIComponent(sub)}/search`;
-        const params = new URLSearchParams({
-          q,
-          sort,
-          t,
-          limit: String(limit),
-          type: "link",
-          restrict_sr: sub === "all" ? "0" : "1",
-          raw_json: "1",
-        });
-        path = `${base}?${params.toString()}`;
+        // Reddit search accepts a comma-separated list of subs via
+        // `/r/a+b+c/search`. For the global "all" case there's no restrict_sr.
+        if (multiSubs) {
+          const subPath = multiSubs.join("+");
+          const params = new URLSearchParams({
+            q,
+            sort,
+            t,
+            limit: String(limit),
+            type: "link",
+            restrict_sr: "1",
+            raw_json: "1",
+          });
+          path = sub === "all"
+            ? `/search?${new URLSearchParams({ q, sort, t, limit: String(limit), type: "link", raw_json: "1" })}`
+            : `/r/${subPath}/search?${params.toString()}`;
+        } else {
+          const params = new URLSearchParams({
+            q,
+            sort,
+            t,
+            limit: String(limit),
+            type: "link",
+            restrict_sr: "1",
+            raw_json: "1",
+          });
+          path = `/r/${encodeURIComponent(sub)}/search?${params.toString()}`;
+        }
         const memes = await fetchOAuth(path);
         return NextResponse.json(
           { memes, source: "reddit-oauth", sort, t, sub, q },
           { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=1800" } },
         );
       }
-      if (sub === "all") {
-        const perSub = Math.max(3, Math.floor(limit / CURATED_SUBS.length) + 1);
+      if (multiSubs) {
+        const perSub = Math.max(3, Math.floor(limit / multiSubs.length) + 1);
         const results = await Promise.allSettled(
-          CURATED_SUBS.map((s) =>
-            fetchOAuth(`/r/${s}/${sort}?limit=${perSub}&t=${t}&raw_json=1`),
-          ),
+          multiSubs.map((s) => fetchOAuth(`/r/${s}/${sort}?limit=${perSub}&t=${t}&raw_json=1`)),
         );
         const merged = results
           .filter((r): r is PromiseFulfilledResult<Meme[]> => r.status === "fulfilled")
@@ -333,7 +363,7 @@ export async function GET(req: Request) {
           .slice(0, limit);
         if (merged.length === 0) throw new Error("reddit-oauth returned 0 memes");
         return NextResponse.json(
-          { memes: merged, source: "reddit-oauth", sort, t, subs: CURATED_SUBS, q },
+          { memes: merged, source: "reddit-oauth", sort, t, sub, subs: multiSubs, q },
           { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=1800" } },
         );
       }
@@ -351,13 +381,12 @@ export async function GET(req: Request) {
   // Pass 1 — meme-api.com (works from Vercel; the primary path when OAuth
   // is not configured).
   try {
-    let path: string;
-    if (sub === "all") {
-      // Multi-sub: meme-api.com's default /gimme route pulls from
-      // wholesomememes + memes + me_irl. For broader variety we call several
-      // subs in parallel and merge.
-      const perSub = Math.min(MEME_API_MAX, Math.max(5, Math.floor(fetchSize / 4) + 1));
-      const pickSubs = CURATED_SUBS.slice(0, 5);
+    if (multiSubs) {
+      // meme-api.com's default /gimme route pulls from wholesomememes +
+      // memes + me_irl. For broader variety we call several subs in parallel
+      // and merge. For `vn` the list is small so each sub gets a bigger share.
+      const pickSubs = sub === "all" ? multiSubs.slice(0, 5) : multiSubs;
+      const perSub = Math.min(MEME_API_MAX, Math.max(5, Math.floor(fetchSize / pickSubs.length) + 1));
       const results = await Promise.allSettled(
         pickSubs.map((s) => fetchFromMemeApi(`${encodeURIComponent(s)}/${perSub}`)),
       );
@@ -369,12 +398,12 @@ export async function GET(req: Request) {
       if (q) memes = filterByQuery(memes, q);
       memes = memes.slice(0, limit);
       return NextResponse.json(
-        { memes, source: "meme-api.com", sort, t, subs: pickSubs, q },
+        { memes, source: "meme-api.com", sort, t, sub, subs: pickSubs, q },
         { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=1800" } },
       );
     } else {
       const perReq = Math.min(MEME_API_MAX, fetchSize);
-      path = `${encodeURIComponent(sub)}/${perReq}`;
+      const path = `${encodeURIComponent(sub)}/${perReq}`;
       let memes = await fetchFromMemeApi(path);
       if (q) memes = filterByQuery(memes, q);
       memes = memes.slice(0, limit);
@@ -393,24 +422,34 @@ export async function GET(req: Request) {
   try {
     let url: string;
     if (q) {
-      const base =
-        sub === "all"
-          ? "https://www.reddit.com/search.json"
-          : `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json`;
-      const params = new URLSearchParams({
-        q,
-        sort,
-        t,
-        limit: String(limit),
-        type: "link",
-        restrict_sr: sub === "all" ? "0" : "1",
-      });
-      url = `${base}?${params.toString()}`;
-    } else if (sub === "all") {
-      // Multi-sub curated feed.
-      const perSub = Math.max(3, Math.floor(limit / CURATED_SUBS.length) + 1);
+      if (multiSubs) {
+        const subPath = multiSubs.join("+");
+        const params = new URLSearchParams({
+          q,
+          sort,
+          t,
+          limit: String(limit),
+          type: "link",
+          restrict_sr: sub === "all" ? "0" : "1",
+        });
+        url = sub === "all"
+          ? `https://www.reddit.com/search.json?${new URLSearchParams({ q, sort, t, limit: String(limit), type: "link" })}`
+          : `https://www.reddit.com/r/${subPath}/search.json?${params.toString()}`;
+      } else {
+        const params = new URLSearchParams({
+          q,
+          sort,
+          t,
+          limit: String(limit),
+          type: "link",
+          restrict_sr: "1",
+        });
+        url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json?${params.toString()}`;
+      }
+    } else if (multiSubs) {
+      const perSub = Math.max(3, Math.floor(limit / multiSubs.length) + 1);
       const results = await Promise.allSettled(
-        CURATED_SUBS.map((s) =>
+        multiSubs.map((s) =>
           fetchRedditJson(`https://www.reddit.com/r/${s}/${sort}.json?limit=${perSub}&t=${t}`),
         ),
       );
@@ -421,7 +460,7 @@ export async function GET(req: Request) {
         .slice(0, limit);
       if (merged.length === 0) throw new Error("Reddit returned 0 memes");
       return NextResponse.json(
-        { memes: merged, source: "reddit", sort, t, subs: CURATED_SUBS, q },
+        { memes: merged, source: "reddit", sort, t, sub, subs: multiSubs, q },
         { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=1800" } },
       );
     } else {
