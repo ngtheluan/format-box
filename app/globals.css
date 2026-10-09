@@ -14161,16 +14161,16 @@ section {
 @media (max-width: 640px) {
   .nav { display: none !important; }
 
-  .app-main { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .app-main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
   .mtab {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 4px;
     position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    left: 16px;
+    right: 16px;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
     z-index: 110;
     padding: 6px;
     border-radius: 22px;
