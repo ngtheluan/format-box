@@ -13845,15 +13845,16 @@ section {
   right: 0;
   margin: 0 auto;
   width: min(1120px, calc(100vw - 32px));
-  background: color-mix(in srgb, var(--bg2) 82%, transparent);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: 20px;
+  /* Solid-feeling surface — the parent .nav already has backdrop-filter,
+     so a nested blur does nothing useful. Keep the panel opaque so page
+     content below can't bleed through. */
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 18px;
   box-shadow:
-    0 1px 0 color-mix(in srgb, #fff 6%, transparent) inset,
-    0 36px 90px -28px rgba(0, 0, 0, 0.55),
-    0 10px 24px -14px rgba(0, 0, 0, 0.35);
+    0 1px 0 color-mix(in srgb, #fff 5%, transparent) inset,
+    0 32px 80px -28px rgba(0, 0, 0, 0.55),
+    0 10px 24px -14px rgba(0, 0, 0, 0.3);
   padding: 14px;
   z-index: 200;
   transform-origin: top center;
@@ -13862,7 +13863,7 @@ section {
 .nav-mega-grid {
   display: grid;
   grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
 }
 .nav-mega-col {
   padding: 10px 10px 8px;
@@ -13870,14 +13871,11 @@ section {
   border: 1px solid transparent;
   transition:
     background 0.18s cubic-bezier(0.2, 0.9, 0.3, 1),
-    border-color 0.18s,
-    opacity 0.18s;
-  opacity: 0.78;
+    border-color 0.18s;
 }
 .nav-mega-col.is-focus {
-  background: color-mix(in srgb, var(--bg3) 85%, transparent);
+  background: color-mix(in srgb, var(--bg3) 55%, transparent);
   border-color: color-mix(in srgb, var(--border) 90%, transparent);
-  opacity: 1;
 }
 .nav-mega .nav-cat-panel-head {
   padding: 2px 4px 10px;
@@ -13891,21 +13889,6 @@ section {
   overscroll-behavior: contain;
   gap: 2px;
   padding-right: 2px;
-  /* Soft scroll edges */
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 12px,
-    #000 calc(100% - 12px),
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 12px,
-    #000 calc(100% - 12px),
-    transparent 100%
-  );
 }
 .nav-mega .nav-cat-item {
   padding: 8px 9px;
@@ -13914,8 +13897,8 @@ section {
 }
 .nav-mega .nav-cat-item:hover {
   transform: none;
-  background: color-mix(in srgb, var(--bg) 55%, transparent);
-  border-color: color-mix(in srgb, var(--border) 85%, transparent);
+  background: var(--bg3);
+  border-color: var(--border);
 }
 .nav-mega .nav-cat-item-icon {
   width: 32px;
@@ -13931,11 +13914,17 @@ section {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--dim);
 }
-/* Non-focus columns: muted icons so the focused column leads the eye */
+/* Non-focus columns: soft text + ghost icon chip so the focused column leads
+   the eye without the others fading away. */
 .nav-mega-col:not(.is-focus) .nav-cat-item-icon {
   background: transparent;
   border-color: color-mix(in srgb, var(--border) 55%, transparent);
+}
+.nav-mega-col:not(.is-focus) .nav-cat-item-text b {
+  color: var(--text);
+  font-weight: 500;
 }
 
 .nav-mega-foot {
@@ -14025,13 +14014,6 @@ section {
   }
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  .nav-mega {
-    background: var(--bg2);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-}
 
 /* ===== AUDIO STUDIO ===== */
 .as-root {
