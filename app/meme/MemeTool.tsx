@@ -38,15 +38,11 @@ type TopRange = "hour" | "day" | "week" | "month" | "year" | "all";
 
 const SUBS: { value: string; labelKey: string }[] = [
   { value: "all", labelKey: "meme_sub_all" },
-  { value: "vn", labelKey: "meme_sub_vn_all" },
   { value: "memes", labelKey: "meme_sub_memes" },
   { value: "dankmemes", labelKey: "meme_sub_dank" },
   { value: "wholesomememes", labelKey: "meme_sub_wholesome" },
   { value: "me_irl", labelKey: "meme_sub_meirl" },
   { value: "funny", labelKey: "meme_sub_funny" },
-  { value: "memesVN", labelKey: "meme_sub_vn" },
-  { value: "VietNam", labelKey: "meme_sub_vietnam" },
-  { value: "VietNamNation", labelKey: "meme_sub_vn_nation" },
   { value: "PhotoshopBattles", labelKey: "meme_sub_photoshop" },
   { value: "ComedyCemetery", labelKey: "meme_sub_cemetery" },
 ];

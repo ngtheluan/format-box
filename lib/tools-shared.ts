@@ -393,8 +393,8 @@ export const SEED_TOOLS: Tool[] = [
     title: "Meme",
     sub: { vi: "Tìm & Tải meme", en: "Find & Save memes" },
     desc: {
-      vi: "Lướt meme đang trending — xem, copy ảnh, tải về. Nguồn từ các cộng đồng meme lớn trên Reddit (nơi hầu hết meme viral trên FB, IG, Threads, TikTok đổ về).",
-      en: "Browse trending memes — preview, copy image, download. Sourced from large Reddit meme communities (where viral FB, IG, Threads, TikTok memes converge).",
+      vi: "Lướt meme đang trending — xem, copy ảnh, tải về. Nguồn từ các cộng đồng meme lớn trên Reddit.",
+      en: "Browse trending memes — preview, copy image, download. Sourced from large Reddit meme communities.",
     },
     tags: ["meme", "funny", "reddit", "image", "gif", "viral"],
     category: "cat_media",

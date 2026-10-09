@@ -39,20 +39,11 @@ const CURATED_SUBS = [
   "funny",
   "AdviceAnimals",
   "ComedyCemetery",
-  "memesVN",
   "PhotoshopBattles",
 ];
 
-// Vietnamese communities. Public Vietnamese meme sources on Facebook, voz,
-// Threads, TikTok and IG are not scrape-friendly, so we rely on the handful
-// of Vietnamese subreddits that do carry meme content. `VietNam` and
-// `VietNamNation` are general — the sort/time filters push meme-shaped
-// image posts to the top; non-image posts are filtered out downstream.
-const VIETNAMESE_SUBS = ["memesVN", "VietNam", "VietNamNation"];
-
 function multiSubList(sub: string): string[] | null {
   if (sub === "all") return CURATED_SUBS;
-  if (sub === "vn") return VIETNAMESE_SUBS;
   return null;
 }
 
