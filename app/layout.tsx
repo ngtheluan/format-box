@@ -1,5 +1,4 @@
 import AppShell from "@/components/AppShell";
-import NavigationProgress from "@/components/NavigationProgress";
 import ScrollTop from "@/components/ScrollTop";
 import SkinScene from "@/components/SkinSceneLazy";
 import TitleUpdater from "@/components/TitleUpdater";
@@ -27,7 +26,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" data-theme="dark">
+    <html lang="vi" data-theme="dark" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -43,7 +42,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SkinProvider>
             <ToolsProvider>
               <SkinScene />
-              <NavigationProgress />
               <TitleUpdater />
               <ToastProvider>
                 <AppShell>{children}</AppShell>

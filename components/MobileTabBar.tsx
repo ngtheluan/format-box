@@ -14,18 +14,14 @@ import ThemeToggle from "./ThemeToggle";
 import SkinPicker from "./SkinPicker";
 import LangToggle from "./LangToggle";
 
-type ActionKey = "menu" | "setting" | "account" | null;
-
 export default function MobileTabBar() {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [activeAction, setActiveAction] = useState<ActionKey>(null);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
     setSettingsOpen(false);
-    setActiveAction(null);
   }, [pathname]);
 
   const dispatch = (name: string) =>
@@ -38,48 +34,35 @@ export default function MobileTabBar() {
       <nav className="mtab" aria-label="Mobile">
         <Link
           href="/"
-          className={`mtab-btn${isHome && !activeAction ? " active" : ""}`}
+          className={`mtab-btn${isHome ? " active" : ""}`}
           aria-label="Home"
-          onClick={() => setActiveAction(null)}
         >
           <IconHome size={22} stroke={1.8} />
           <span>Home</span>
         </Link>
         <button
           type="button"
-          className={`mtab-btn${activeAction === "menu" ? " active" : ""}`}
-          onClick={() => {
-            setActiveAction("menu");
-            dispatch("fb:open-search");
-          }}
+          className="mtab-btn"
+          onClick={() => dispatch("fb:open-search")}
           aria-label="Menu"
-          aria-pressed={activeAction === "menu"}
         >
           <IconMenu2 size={22} stroke={1.8} />
           <span>Menu</span>
         </button>
         <button
           type="button"
-          className={`mtab-btn${activeAction === "setting" ? " active" : ""}`}
-          onClick={() => {
-            setActiveAction("setting");
-            setSettingsOpen(true);
-          }}
+          className="mtab-btn"
+          onClick={() => setSettingsOpen(true)}
           aria-label="Setting"
-          aria-pressed={activeAction === "setting"}
         >
           <IconSettings size={22} stroke={1.8} />
           <span>Setting</span>
         </button>
         <button
           type="button"
-          className={`mtab-btn${activeAction === "account" ? " active" : ""}`}
-          onClick={() => {
-            setActiveAction("account");
-            dispatch("fb:open-feedback");
-          }}
-          aria-label="Account"
-          aria-pressed={activeAction === "account"}
+          className="mtab-btn"
+          onClick={() => dispatch("fb:open-feedback")}
+          aria-label="Feedback"
         >
           <IconMessageDots size={22} stroke={1.8} />
           <span>Feedback</span>
