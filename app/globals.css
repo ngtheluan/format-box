@@ -14232,10 +14232,17 @@ section {
   .mtab-btn:active { transform: scale(0.95); }
   .mtab-btn:hover { color: var(--bright); }
   .mtab-btn.active {
-    color: var(--bright);
-    background: color-mix(in srgb, var(--bright) 16%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bright) 22%, transparent);
+    color: #fff;
+    background: linear-gradient(
+      135deg,
+      var(--accent),
+      var(--accent2, var(--accent))
+    );
+    box-shadow:
+      0 6px 16px -6px color-mix(in srgb, var(--accent) 70%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
   }
+  .mtab-btn.active:hover { color: #fff; }
   .mtab-btn span { line-height: 1; }
 
   .mtab-sheet-overlay {
