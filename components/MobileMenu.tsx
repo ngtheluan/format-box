@@ -20,6 +20,11 @@ export default function MobileMenu() {
 
   useEffect(() => setMounted(true), []);
   useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener("fb:open-menu", onOpen);
+    return () => window.removeEventListener("fb:open-menu", onOpen);
+  }, []);
 
   useEffect(() => {
     if (!open) return;

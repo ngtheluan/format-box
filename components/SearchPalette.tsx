@@ -57,7 +57,12 @@ export default function SearchPalette() {
       }
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    const onOpen = () => setOpen(true);
+    window.addEventListener("fb:open-search", onOpen);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("fb:open-search", onOpen);
+    };
   }, []);
 
   // Reset + focus + lock scroll when opened

@@ -1,6 +1,7 @@
 "use client";
 import BannerBar from "@/components/BannerBar";
 import Footer from "@/components/Footer";
+import MobileTabBar from "@/components/MobileTabBar";
 import Nav from "@/components/Nav";
 import { usePathname } from "next/navigation";
 
@@ -14,6 +15,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {!isAdmin && <Nav />}
       <main className="app-main">{children}</main>
       {!isAdmin && <Footer />}
+      {!isAdmin && <MobileTabBar />}
     </div>
   );
 }
