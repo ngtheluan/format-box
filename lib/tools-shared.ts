@@ -268,6 +268,18 @@ export const SEED_TOOLS: Tool[] = [
     category: "cat_life",
   },
   {
+    href: "/weather-v2",
+    iconName: "IconCloud",
+    title: "Weather v2",
+    sub: { vi: "Thời tiết style Apple", en: "Apple-style weather" },
+    desc: {
+      vi: "Giao diện kiểu Apple Weather, dự báo 10 ngày, chuyển mô hình ECMWF / GFS / ICON, chất lượng không khí.",
+      en: "Apple Weather-style UI, 10-day forecast, switch between ECMWF / GFS / ICON models, air quality.",
+    },
+    tags: ["weather", "forecast", "thoi-tiet", "apple", "ecmwf", "aqi"],
+    category: "cat_life",
+  },
+  {
     href: "/timestamp",
     iconName: "IconClockHour4",
     title: "Timestamp",
@@ -352,6 +364,18 @@ export const SEED_TOOLS: Tool[] = [
     category: "cat_game",
   },
   {
+    href: "/regex",
+    iconName: "IconRegex",
+    title: "Regex",
+    sub: { vi: "Test & Match", en: "Test & Match" },
+    desc: {
+      vi: "Thử regex trực tiếp — chọn flag, xem match highlight và từng group bắt được.",
+      en: "Test regex live — pick flags, highlight matches, inspect captured groups.",
+    },
+    tags: ["regex", "regexp", "pattern", "match", "test"],
+    category: "cat_dev",
+  },
+  {
     href: "/uuid",
     iconName: "IconFingerprint",
     title: "UUID",
@@ -362,5 +386,17 @@ export const SEED_TOOLS: Tool[] = [
     },
     tags: ["uuid", "guid", "random", "id", "unique"],
     category: "cat_dev",
+  },
+  {
+    href: "/meme",
+    iconName: "IconMoodSmile",
+    title: "Meme",
+    sub: { vi: "Tìm & Tải meme", en: "Find & Save memes" },
+    desc: {
+      vi: "Lướt meme đang trending — xem, copy ảnh, tải về. Nguồn từ các cộng đồng meme lớn trên Reddit (nơi hầu hết meme viral trên FB, IG, Threads, TikTok đổ về).",
+      en: "Browse trending memes — preview, copy image, download. Sourced from large Reddit meme communities (where viral FB, IG, Threads, TikTok memes converge).",
+    },
+    tags: ["meme", "funny", "reddit", "image", "gif", "viral"],
+    category: "cat_media",
   },
 ];
