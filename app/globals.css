@@ -2533,11 +2533,7 @@ label {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(
-      1200px 600px at 50% -10%,
-      color-mix(in srgb, var(--accent) 22%, transparent),
-      transparent 60%
-    ),
+    radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
     color-mix(in srgb, #050816 68%, transparent);
   backdrop-filter: blur(10px) saturate(1.1);
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
@@ -2560,7 +2556,7 @@ label {
   position: relative;
   width: 100%;
   max-width: 440px;
-  max-height: min(92vh, 640px);
+  max-height: min(93vh, 700px);
   height: auto;
   overflow: hidden auto;
   background: var(--bg2);
@@ -2589,21 +2585,9 @@ label {
   inset: -1px -1px auto -1px;
   height: 160px;
   background:
-    radial-gradient(
-      240px 130px at 20% 0%,
-      color-mix(in srgb, var(--accent) 50%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      280px 150px at 85% 10%,
-      color-mix(in srgb, var(--accent2) 45%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      220px 120px at 55% 0%,
-      rgba(236, 92, 176, 0.26),
-      transparent 70%
-    );
+    radial-gradient(240px 130px at 20% 0%, color-mix(in srgb, var(--accent) 50%, transparent), transparent 70%),
+    radial-gradient(280px 150px at 85% 10%, color-mix(in srgb, var(--accent2) 45%, transparent), transparent 70%),
+    radial-gradient(220px 120px at 55% 0%, rgba(236, 92, 176, 0.26), transparent 70%);
   filter: blur(14px);
   opacity: 0.7;
   z-index: 0;
@@ -2696,8 +2680,7 @@ label {
   font-weight: 600;
   cursor: pointer;
   border-radius: 999px;
-  transition:
-    color 0.2s;
+  transition: color 0.2s;
 }
 .fx-tab:hover {
   color: var(--text);
@@ -3040,12 +3023,7 @@ label {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    120deg,
-    transparent 20%,
-    rgba(255, 255, 255, 0.22) 50%,
-    transparent 80%
-  );
+  background: linear-gradient(120deg, transparent 20%, rgba(255, 255, 255, 0.22) 50%, transparent 80%);
   transform: translateX(-100%);
   transition: transform 0.6s;
 }
@@ -3090,14 +3068,7 @@ label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background:
-    conic-gradient(
-      from 0deg,
-      var(--accent),
-      var(--accent2),
-      #ec5cb0,
-      var(--accent)
-    );
+  background: conic-gradient(from 0deg, var(--accent), var(--accent2), #ec5cb0, var(--accent));
   animation: fxSpinSlow 6s linear infinite;
   margin-bottom: 2px;
 }
