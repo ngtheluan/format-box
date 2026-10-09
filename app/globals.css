@@ -13,51 +13,55 @@
 :root {
   --font: "Space Grotesk", system-ui, sans-serif;
   --mono: "JetBrains Mono", monospace;
-  --accent: #7565f6;
-  --accent2: #22c5e8;
+  /* macOS "Golden Gate" palette: International Orange bridge → SF sky violet */
+  --accent: #f2552c;
+  --accent2: #5f7cff;
   --r: 14px;
   --r-sm: 8px;
   --radius: 10px;
+  /* Apple-style spring curves: critically damped & light overshoot */
+  --spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 [data-theme="dark"] {
-  --bg: #070912;
-  --bg2: #0d1020;
-  --bg3: #141830;
-  --bg4: #1c2140;
-  --text: #b6bdd6;
-  --dim: #6a7392;
-  --bright: #f5f7ff;
-  --border: rgba(160, 170, 255, 0.08);
-  --border-h: rgba(117, 101, 246, 0.45);
-  --glow: rgba(117, 101, 246, 0.14);
-  --grid: rgba(160, 170, 255, 0.035);
+  --bg: #0b0710;
+  --bg2: #15101d;
+  --bg3: #231827;
+  --bg4: #2d2037;
+  --text: #d6c7cf;
+  --dim: #8a7585;
+  --bright: #fff5ec;
+  --border: rgba(255, 180, 150, 0.08);
+  --border-h: rgba(242, 85, 44, 0.45);
+  --glow: rgba(242, 85, 44, 0.16);
+  --grid: rgba(255, 180, 150, 0.035);
   --ok: #34d399;
   --warn: #fbbf24;
   --err: #f0566b;
-  --aurora-a: rgba(117, 101, 246, 0.26);
-  --aurora-b: rgba(34, 197, 232, 0.17);
-  --aurora-c: rgba(236, 92, 176, 0.13);
+  --aurora-a: rgba(242, 85, 44, 0.28);
+  --aurora-b: rgba(95, 124, 255, 0.2);
+  --aurora-c: rgba(236, 92, 176, 0.14);
 }
 
 [data-theme="light"] {
-  --bg: #f3f4fb;
-  --bg2: #fafaff;
-  --bg3: #e9eaf6;
-  --bg4: #dfe1f1;
-  --text: #464a63;
-  --dim: #82869f;
-  --bright: #1d2038;
-  --border: rgba(40, 45, 100, 0.09);
-  --border-h: rgba(117, 101, 246, 0.4);
-  --glow: rgba(117, 101, 246, 0.08);
-  --grid: rgba(40, 45, 100, 0.035);
+  --bg: #fff7f1;
+  --bg2: #ffffff;
+  --bg3: #ffeadf;
+  --bg4: #ffd9c6;
+  --text: #4a3a3f;
+  --dim: #8a7986;
+  --bright: #1a1420;
+  --border: rgba(90, 50, 60, 0.09);
+  --border-h: rgba(242, 85, 44, 0.4);
+  --glow: rgba(242, 85, 44, 0.08);
+  --grid: rgba(90, 50, 60, 0.035);
   --ok: #059669;
   --warn: #b45309;
   --err: #be1e3c;
-  --aurora-a: rgba(117, 101, 246, 0.2);
-  --aurora-b: rgba(34, 197, 232, 0.16);
-  --aurora-c: rgba(236, 92, 176, 0.11);
+  --aurora-a: rgba(242, 85, 44, 0.22);
+  --aurora-b: rgba(95, 124, 255, 0.18);
+  --aurora-c: rgba(236, 92, 176, 0.12);
 }
 
 html {
@@ -1105,11 +1109,26 @@ label {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  -webkit-tap-highlight-color: transparent;
   transition:
-    border-color 0.25s,
-    transform 0.25s,
-    box-shadow 0.25s;
+    border-color 0.3s var(--spring),
+    transform 0.42s var(--spring-bounce),
+    box-shadow 0.3s var(--spring);
   animation: fadeUp 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  will-change: transform;
+}
+.tool-card-m:active {
+  transform: scale(0.985) translateY(-2px);
+  transition: transform 110ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool-card-m,
+  .tool-card-m:active,
+  .tool-card-m:hover {
+    transform: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    animation: none;
+  }
 }
 .tool-card-m::before {
   content: "";
@@ -7429,13 +7448,16 @@ label {
   font-weight: 600;
   cursor: pointer;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateZ(0);
   transition:
-    transform 0.15s,
-    box-shadow 0.15s,
-    background 0.15s,
-    color 0.15s,
-    border-color 0.15s;
+    transform 0.32s var(--spring-bounce),
+    box-shadow 0.25s var(--spring),
+    background 0.2s var(--spring),
+    color 0.2s var(--spring),
+    border-color 0.2s var(--spring);
   white-space: nowrap;
+  will-change: transform;
 }
 .ui-btn:disabled,
 .ui-btn.ui-btn--loading {
@@ -7445,9 +7467,25 @@ label {
 .ui-btn:not(:disabled):hover {
   transform: translateY(-1px);
 }
+/* Pointer-down feedback: instant, 1:1, Apple-style scale 0.97 */
+.ui-btn:not(:disabled):active {
+  transform: scale(0.97);
+  transition: transform 90ms ease-out;
+}
 .ui-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(117, 101, 246, 0.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-btn,
+  .ui-btn:not(:disabled):active,
+  .ui-btn:not(:disabled):hover {
+    transform: none;
+    transition:
+      background 0.15s,
+      color 0.15s,
+      border-color 0.15s;
+  }
 }
 
 .ui-btn--sm {
