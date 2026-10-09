@@ -908,7 +908,11 @@ const dict = {
     vi: "Tìm meme theo từ khoá (bỏ trống để lướt trending)...",
     en: "Search memes by keyword (leave blank to browse trending)...",
   },
+  meme_search_ph_short: { vi: "Tìm meme...", en: "Search memes..." },
   meme_refresh: { vi: "Làm mới", en: "Refresh" },
+  meme_load_more: { vi: "Tải thêm", en: "Load more" },
+  meme_loading_more: { vi: "Đang tải...", en: "Loading..." },
+  meme_no_more: { vi: "Đã hết meme", en: "No more memes" },
   meme_results_for: { vi: "Kết quả cho", en: "Results for" },
   meme_error: { vi: "Không tải được", en: "Could not load" },
   meme_empty: {

@@ -88,9 +88,13 @@ export default function MemeTool() {
   const [topRange, setTopRange] = useState<TopRange>("day");
   const [memes, setMemes] = useState<Meme[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<Meme | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
+  // Successive load-more calls that added nothing new. Two in a row ends it.
+  const emptyLoadsRef = useRef(0);
 
   const fetchMemes = useCallback(async () => {
     abortRef.current?.abort();
@@ -98,6 +102,8 @@ export default function MemeTool() {
     abortRef.current = ctl;
     setLoading(true);
     setError(null);
+    setHasMore(true);
+    emptyLoadsRef.current = 0;
     try {
       const params = new URLSearchParams({ sub, sort, t: topRange, limit: "40" });
       if (query) params.set("q", query);
@@ -113,6 +119,37 @@ export default function MemeTool() {
       setLoading(false);
     }
   }, [query, sub, sort, topRange]);
+
+  // meme-api.com has no pagination, so load-more refetches with the same
+  // params and relies on its random sampling to surface new posts. We dedupe
+  // by id client-side. Two consecutive loads that add nothing new end it.
+  const loadMore = useCallback(async () => {
+    if (loadingMore || loading || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ sub, sort, t: topRange, limit: "50" });
+      if (query) params.set("q", query);
+      const res = await fetch(`/api/memes?${params.toString()}`);
+      const data = (await res.json()) as { memes: Meme[]; error?: string };
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const incoming = data.memes || [];
+      setMemes((cur) => {
+        const seen = new Set(cur.map((m) => m.id));
+        const fresh = incoming.filter((m) => !seen.has(m.id));
+        if (fresh.length === 0) {
+          emptyLoadsRef.current += 1;
+          if (emptyLoadsRef.current >= 2) setHasMore(false);
+        } else {
+          emptyLoadsRef.current = 0;
+        }
+        return fresh.length > 0 ? [...cur, ...fresh] : cur;
+      });
+    } catch {
+      // Transient error — allow retry on next click without ending pagination.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, loading, hasMore, sub, sort, topRange, query]);
 
   useEffect(() => {
     fetchMemes();
@@ -237,15 +274,15 @@ export default function MemeTool() {
 
   return (
     <div className="meme-tool">
-      {/* Topbar */}
+      {/* Topbar — one row */}
       <div className="meme-topbar">
         <form className="meme-search" onSubmit={onSearch}>
-          <IconSearch size={16} stroke={1.9} className="meme-search-icon" />
+          <IconSearch size={15} stroke={1.9} className="meme-search-icon" />
           <input
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={t("meme_search_ph")}
+            placeholder={t("meme_search_ph_short")}
             className="meme-search-input"
             spellCheck={false}
           />
@@ -256,68 +293,62 @@ export default function MemeTool() {
               onClick={clearSearch}
               aria-label="clear"
             >
-              <IconX size={14} stroke={2} />
+              <IconX size={13} stroke={2} />
             </button>
           )}
         </form>
 
-        <div className="meme-filters">
+        <div className="meme-select">
+          <select value={sub} onChange={(e) => setSub(e.target.value)} aria-label="subreddit">
+            {subOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="meme-chips" role="tablist">
+          {sortOptions.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              role="tab"
+              aria-selected={sort === o.value}
+              className={`meme-chip ${sort === o.value ? "is-active" : ""}`}
+              onClick={() => setSort(o.value as Sort)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        {sort === "top" && (
           <div className="meme-select">
             <select
-              value={sub}
-              onChange={(e) => setSub(e.target.value)}
-              aria-label="subreddit"
+              value={topRange}
+              onChange={(e) => setTopRange(e.target.value as TopRange)}
+              aria-label="time range"
             >
-              {subOptions.map((o) => (
+              {topOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
               ))}
             </select>
           </div>
+        )}
 
-          <div className="meme-chips" role="tablist">
-            {sortOptions.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                role="tab"
-                aria-selected={sort === o.value}
-                className={`meme-chip ${sort === o.value ? "is-active" : ""}`}
-                onClick={() => setSort(o.value as Sort)}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-
-          {sort === "top" && (
-            <div className="meme-select">
-              <select
-                value={topRange}
-                onChange={(e) => setTopRange(e.target.value as TopRange)}
-                aria-label="time range"
-              >
-                {topOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="meme-icon-btn"
-            onClick={fetchMemes}
-            disabled={loading}
-            aria-label={t("meme_refresh")}
-            title={t("meme_refresh")}
-          >
-            <IconRefresh size={16} stroke={2} className={loading ? "spin" : ""} />
-          </button>
-        </div>
+        <button
+          type="button"
+          className="meme-icon-btn"
+          onClick={fetchMemes}
+          disabled={loading}
+          aria-label={t("meme_refresh")}
+          title={t("meme_refresh")}
+        >
+          <IconRefresh size={15} stroke={2} className={loading ? "spin" : ""} />
+        </button>
       </div>
 
       {query && (
@@ -462,6 +493,31 @@ export default function MemeTool() {
         </div>
       )}
 
+      {/* Load more */}
+      {memes.length > 0 && (
+        <div className="meme-loadmore">
+          {hasMore ? (
+            <button
+              type="button"
+              className="meme-loadmore-btn"
+              onClick={loadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <>
+                  <IconRefresh size={14} stroke={2} className="spin" />
+                  {t("meme_loading_more")}
+                </>
+              ) : (
+                t("meme_load_more")
+              )}
+            </button>
+          ) : (
+            <div className="meme-loadmore-end">{t("meme_no_more")}</div>
+          )}
+        </div>
+      )}
+
       {/* Lightbox */}
       {preview && (
         <div
@@ -570,32 +626,37 @@ export default function MemeTool() {
           gap: 18px;
         }
 
-        /* --- Topbar --- */
+        /* --- Topbar: single row, minimal --- */
         .meme-topbar {
           display: flex;
-          flex-direction: column;
-          gap: 10px;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
         }
         .meme-search {
           position: relative;
           display: flex;
           align-items: center;
+          flex: 1 1 220px;
+          min-width: 180px;
+          max-width: 360px;
         }
         .meme-search-icon {
           position: absolute;
-          left: 14px;
-          opacity: 0.55;
+          left: 12px;
+          opacity: 0.5;
           pointer-events: none;
         }
         .meme-search-input {
           width: 100%;
-          padding: 11px 40px 11px 40px;
+          padding: 7px 32px 7px 34px;
           border: 1px solid var(--border);
           border-radius: 999px;
           background: var(--bg2);
           color: var(--text);
-          font-size: 14px;
+          font-size: 13px;
           outline: none;
+          font-family: inherit;
           transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
         }
         .meme-search-input:hover {
@@ -603,55 +664,50 @@ export default function MemeTool() {
         }
         .meme-search-input:focus {
           border-color: var(--accent);
-          box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 18%, transparent);
+          box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 15%, transparent);
           background: var(--bg);
         }
         .meme-search-clear {
           position: absolute;
-          right: 10px;
+          right: 8px;
           display: grid;
           place-items: center;
-          width: 22px;
-          height: 22px;
+          width: 18px;
+          height: 18px;
           border: none;
           background: var(--border);
           color: var(--text);
           border-radius: 999px;
           cursor: pointer;
-          opacity: 0.75;
+          opacity: 0.7;
           transition: opacity 0.15s;
         }
         .meme-search-clear:hover {
           opacity: 1;
         }
-        .meme-filters {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          align-items: center;
-        }
         .meme-select {
           position: relative;
+          flex-shrink: 0;
         }
         .meme-select::after {
           content: "▾";
           position: absolute;
-          right: 12px;
+          right: 10px;
           top: 50%;
           transform: translateY(-50%);
-          font-size: 10px;
-          opacity: 0.6;
+          font-size: 9px;
+          opacity: 0.5;
           pointer-events: none;
         }
         .meme-select select {
           appearance: none;
           -webkit-appearance: none;
-          padding: 7px 28px 7px 14px;
+          padding: 6px 24px 6px 12px;
           border: 1px solid var(--border);
           border-radius: 999px;
           background: var(--bg2);
           color: var(--text);
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 500;
           cursor: pointer;
           font-family: inherit;
@@ -663,28 +719,29 @@ export default function MemeTool() {
         }
         .meme-chips {
           display: inline-flex;
-          padding: 3px;
+          gap: 1px;
+          flex-shrink: 0;
+          background: var(--bg2);
           border: 1px solid var(--border);
           border-radius: 999px;
-          background: var(--bg2);
-          gap: 2px;
+          padding: 2px;
         }
         .meme-chip {
-          padding: 5px 12px;
+          padding: 4px 11px;
           border: none;
           border-radius: 999px;
           background: transparent;
           color: var(--text);
-          font-size: 12.5px;
+          font-size: 12px;
           font-weight: 500;
           font-family: inherit;
           cursor: pointer;
-          opacity: 0.72;
+          opacity: 0.7;
           transition: opacity 0.15s, background 0.15s, color 0.15s;
+          white-space: nowrap;
         }
         .meme-chip:hover {
           opacity: 1;
-          background: var(--bg);
         }
         .meme-chip.is-active {
           background: var(--accent);
@@ -705,14 +762,15 @@ export default function MemeTool() {
         .meme-icon-btn {
           display: grid;
           place-items: center;
-          width: 34px;
-          height: 34px;
+          width: 30px;
+          height: 30px;
           border: 1px solid var(--border);
           border-radius: 999px;
           background: var(--bg2);
           color: var(--text);
           cursor: pointer;
           margin-left: auto;
+          flex-shrink: 0;
           transition: background 0.15s, border-color 0.15s, transform 0.15s;
         }
         .meme-icon-btn:hover:not(:disabled) {
@@ -733,6 +791,44 @@ export default function MemeTool() {
           to {
             transform: rotate(360deg);
           }
+        }
+
+        /* --- Load more --- */
+        .meme-loadmore {
+          display: flex;
+          justify-content: center;
+          padding: 8px 0 4px;
+        }
+        .meme-loadmore-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 10px 26px;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          background: var(--bg2);
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          transition: background 0.15s, border-color 0.15s, transform 0.15s;
+        }
+        .meme-loadmore-btn:hover:not(:disabled) {
+          background: var(--bg);
+          border-color: var(--accent);
+        }
+        .meme-loadmore-btn:active:not(:disabled) {
+          transform: scale(0.98);
+        }
+        .meme-loadmore-btn:disabled {
+          opacity: 0.75;
+          cursor: wait;
+        }
+        .meme-loadmore-end {
+          font-size: 12px;
+          opacity: 0.5;
+          padding: 10px 0;
         }
 
         /* --- Query info / Error --- */
@@ -1145,28 +1241,19 @@ export default function MemeTool() {
         }
         @media (max-width: 720px) {
           .meme-topbar {
-            gap: 8px;
+            gap: 6px;
+          }
+          .meme-search {
+            flex: 1 1 100%;
+            max-width: none;
+            order: -1;
           }
           .meme-search-input {
             font-size: 15px; /* avoids iOS zoom */
-            padding: 10px 36px;
-          }
-          .meme-filters {
-            overflow-x: auto;
-            flex-wrap: nowrap;
-            scrollbar-width: none;
-            -webkit-overflow-scrolling: touch;
-            margin: 0 -4px;
-            padding: 0 4px 4px;
-          }
-          .meme-filters::-webkit-scrollbar {
-            display: none;
-          }
-          .meme-filters > * {
-            flex-shrink: 0;
+            padding: 9px 32px 9px 34px;
           }
           .meme-icon-btn {
-            margin-left: 0;
+            margin-left: auto;
           }
           .meme-masonry {
             column-count: 2;
