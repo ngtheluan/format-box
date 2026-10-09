@@ -1961,21 +1961,43 @@ label {
     background 0.15s,
     border-color 0.15s;
 }
-.nav-cat-btn:hover,
-.nav-cat.open .nav-cat-btn {
+.nav-cat-btn:hover {
   color: var(--bright);
   background: var(--bg3);
   border-color: var(--border);
+}
+.nav-cat.open .nav-cat-btn {
+  color: var(--bright);
+  background: color-mix(in srgb, var(--bg3) 92%, transparent);
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 5%, transparent) inset;
 }
 .nav-cat-btn.active {
   color: var(--accent);
 }
 .nav-cat-btn .chev {
-  transition: transform 0.2s;
+  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
   opacity: 0.7;
 }
 .nav-cat.open .nav-cat-btn .chev {
   transform: rotate(180deg);
+  opacity: 1;
+}
+/* Trigger carries category tint while its column is focused */
+.nav-cat.open.nav-cat-cat_text .nav-cat-btn {
+  color: var(--c1);
+}
+.nav-cat.open.nav-cat-cat_media .nav-cat-btn {
+  color: var(--c3);
+}
+.nav-cat.open.nav-cat-cat_dev .nav-cat-btn {
+  color: var(--c5);
+}
+.nav-cat.open.nav-cat-cat_life .nav-cat-btn {
+  color: var(--c4);
+}
+.nav-cat.open.nav-cat-cat_game .nav-cat-btn {
+  color: #ef4444;
 }
 
 .nav-cat-cat_text .nav-cat-btn.active {
@@ -13811,62 +13833,98 @@ section {
   --fs: 2.3rem;
 }
 
-/* ===== NAV: MEGA PANEL ===== */
+/* ===== NAV: MEGA PANEL (glass overview) ===== */
 .nav-l,
 .nav-cats {
   position: static;
 }
 .nav-mega {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
   left: 0;
   right: 0;
   margin: 0 auto;
   width: min(1120px, calc(100vw - 32px));
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.55);
-  padding: 12px;
+  background: color-mix(in srgb, var(--bg2) 82%, transparent);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 20px;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 6%, transparent) inset,
+    0 36px 90px -28px rgba(0, 0, 0, 0.55),
+    0 10px 24px -14px rgba(0, 0, 0, 0.35);
+  padding: 14px;
   z-index: 200;
-  animation: menuIn 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transform-origin: top center;
+  animation: megaIn 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 .nav-mega-grid {
   display: grid;
   grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
-  gap: 4px;
+  gap: 6px;
 }
 .nav-mega-col {
-  padding: 8px;
-  border-radius: 12px;
-  transition: background 0.15s;
+  padding: 10px 10px 8px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  transition:
+    background 0.18s cubic-bezier(0.2, 0.9, 0.3, 1),
+    border-color 0.18s,
+    opacity 0.18s;
+  opacity: 0.78;
 }
 .nav-mega-col.is-focus {
-  background: color-mix(in srgb, var(--bg3) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 85%, transparent);
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+  opacity: 1;
 }
 .nav-mega .nav-cat-panel-head {
-  padding: 2px 6px 10px;
+  padding: 2px 4px 10px;
   margin-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
 .nav-mega .nav-cat-list {
-  max-height: none;
-  overflow: visible;
+  max-height: min(420px, calc(100vh - 180px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   gap: 2px;
+  padding-right: 2px;
+  /* Soft scroll edges */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 12px,
+    #000 calc(100% - 12px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 12px,
+    #000 calc(100% - 12px),
+    transparent 100%
+  );
 }
 .nav-mega .nav-cat-item {
-  padding: 7px 8px;
+  padding: 8px 9px;
   gap: 10px;
+  border-radius: 10px;
 }
 .nav-mega .nav-cat-item:hover {
   transform: none;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  border-color: color-mix(in srgb, var(--border) 85%, transparent);
 }
 .nav-mega .nav-cat-item-icon {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 9px;
 }
 .nav-mega .nav-cat-item-text b {
   font-size: 0.86rem;
+  letter-spacing: -0.005em;
 }
 .nav-mega .nav-cat-item-text span {
   font-size: 0.68rem;
@@ -13874,16 +13932,105 @@ section {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Non-focus columns: muted icons so the focused column leads the eye */
+.nav-mega-col:not(.is-focus) .nav-cat-item-icon {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+}
+
 .nav-mega-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
-  padding: 12px 14px 4px;
-  border-top: 1px solid var(--border);
-  font-size: 0.78rem;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 10px 2px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  font-size: 0.74rem;
+  color: var(--dim);
+}
+.nav-mega-foot-count {
   font-family: var(--mono);
   color: var(--dim);
+  letter-spacing: 0.02em;
+}
+.nav-mega-foot-hints {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.nav-mega-foot-hints > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav-mega-foot kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, #000 20%, transparent);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--bright);
+}
+
+/* cat_game color variants (parity with other categories) */
+.nav-cat-cat_game .nav-cat-btn.active {
+  color: #ef4444;
+}
+.nav-cat-cat_game .nav-cat-panel-head span:first-child,
+.nav-cat-cat_game .nav-cat-panel-count {
+  color: #ef4444;
+}
+.nav-cat-cat_game .nav-cat-item-icon {
+  color: #ef4444;
+}
+.nav-cat-cat_game .nav-cat-item:hover .nav-cat-item-icon,
+.nav-cat-cat_game .nav-cat-item.active .nav-cat-item-icon {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+
+@keyframes megaIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-mega {
+    animation: megaFadeIn 0.14s ease;
+  }
+  @keyframes megaFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .nav-mega {
+    background: var(--bg2);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 /* ===== AUDIO STUDIO ===== */
