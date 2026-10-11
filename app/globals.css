@@ -4505,48 +4505,37 @@ label {
 }
 .wheel-pointer {
   position: absolute;
-  top: 4px;
+  top: -2px;
   left: 50%;
   transform: translateX(-50%);
-  width: 28px;
-  height: 40px;
-  background: linear-gradient(180deg, #fef3c7 0%, #fbbf24 45%, #d97706 100%);
+  width: 22px;
+  height: 30px;
+  background: linear-gradient(180deg, #ffffff 0%, #e5e7eb 100%);
   clip-path: polygon(50% 100%, 0 0, 100% 0);
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.22));
   z-index: 5;
-}
-.wheel-pointer::before {
-  content: "";
-  position: absolute;
-  inset: 2px 2px 4px 2px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 60%);
-  clip-path: polygon(50% 100%, 0 0, 100% 0);
-  pointer-events: none;
 }
 .wheel-pointer::after {
   content: "";
   position: absolute;
-  top: -14px;
+  top: -8px;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff 0%, #fbbf24 55%, #b45309 100%);
-  box-shadow:
-    0 4px 10px rgba(0, 0, 0, 0.35),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.25);
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e5e7eb 70%, #9ca3af 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 .wheel-svg {
   width: 100%;
   height: auto;
   transform-origin: 50% 50%;
-  filter: drop-shadow(0 25px 45px rgba(0, 0, 0, 0.45));
-  transition: transform 4s cubic-bezier(0.15, 0.78, 0.28, 1);
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.18)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08));
   border-radius: 50%;
 }
 .wheel-svg.spinning {
-  transition: transform 4s cubic-bezier(0.15, 0.78, 0.28, 1);
+  transition: transform 4.2s cubic-bezier(0.17, 0.67, 0.21, 1);
 }
 
 .wheel-cta {

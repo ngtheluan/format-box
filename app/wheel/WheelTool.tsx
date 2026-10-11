@@ -60,20 +60,18 @@ const CX = SIZE / 2;
 const CY = SIZE / 2;
 
 const WHEEL_COLORS = [
-  "#f43f5e",
-  "#f97316",
-  "#f59e0b",
-  "#eab308",
-  "#84cc16",
-  "#22c55e",
-  "#14b8a6",
-  "#06b6d4",
-  "#3b82f6",
-  "#6366f1",
-  "#8b5cf6",
-  "#a855f7",
-  "#d946ef",
-  "#ec4899",
+  "#FF375F",
+  "#FF9F0A",
+  "#FFD60A",
+  "#30D158",
+  "#64D2FF",
+  "#0A84FF",
+  "#5E5CE6",
+  "#BF5AF2",
+  "#FF2D55",
+  "#AC8E68",
+  "#32ADE6",
+  "#66D4CF",
 ];
 
 function pt(cx: number, cy: number, r: number, deg: number) {
@@ -182,7 +180,6 @@ export default function WheelTool() {
       setRaw(PRESET_DEFAULTS[p].join("\n"));
     }
     setWinner(null);
-    setRotation(0);
   };
 
   const spin = () => {
@@ -320,79 +317,54 @@ export default function WheelTool() {
                 style={{ transform: `rotate(${rotation}deg)` }}
               >
                 <defs>
-                  <radialGradient id="wheel-shine" cx="50%" cy="35%" r="65%">
-                    <stop offset="0%" stopColor="rgba(255,255,255,0.45)" />
-                    <stop offset="55%" stopColor="rgba(255,255,255,0)" />
+                  <radialGradient id="wheel-shine" cx="50%" cy="30%" r="70%">
+                    <stop offset="0%" stopColor="rgba(255,255,255,0.28)" />
+                    <stop offset="60%" stopColor="rgba(255,255,255,0)" />
                   </radialGradient>
-                  <radialGradient id="wheel-vignette" cx="50%" cy="50%" r="52%">
-                    <stop offset="70%" stopColor="rgba(0,0,0,0)" />
-                    <stop offset="100%" stopColor="rgba(0,0,0,0.35)" />
-                  </radialGradient>
-                  <radialGradient id="hub-grad" cx="50%" cy="35%" r="70%">
+                  <radialGradient id="hub-grad" cx="50%" cy="30%" r="75%">
                     <stop offset="0%" stopColor="#ffffff" />
-                    <stop offset="70%" stopColor="#f3f4f6" />
-                    <stop offset="100%" stopColor="#d1d5db" />
+                    <stop offset="60%" stopColor="#fafafa" />
+                    <stop offset="100%" stopColor="#e5e5ea" />
                   </radialGradient>
-                  <radialGradient id="hub-dot" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#fbbf24" />
-                    <stop offset="100%" stopColor="#d97706" />
-                  </radialGradient>
-                  <filter id="wheel-drop" x="-10%" y="-10%" width="120%" height="120%">
-                    <feGaussianBlur in="SourceAlpha" stdDeviation="6" />
-                    <feOffset dx="0" dy="4" result="off" />
-                    <feComponentTransfer>
-                      <feFuncA type="linear" slope="0.35" />
-                    </feComponentTransfer>
-                    <feMerge>
-                      <feMergeNode />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
                 </defs>
 
-                {/* Outer decorative rim */}
-                <circle cx={CX} cy={CY} r={R + 12} fill="#1f2937" />
-                <circle cx={CX} cy={CY} r={R + 12} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                {Array.from({ length: 24 }).map((_, i) => {
-                  const p = pt(CX, CY, R + 6, (i * 360) / 24);
-                  return <circle key={`led-${i}`} cx={p.x} cy={p.y} r="2.4" fill={i % 2 ? "#fbbf24" : "#fff7ed"} />;
+                {/* Outer soft ring */}
+                <circle cx={CX} cy={CY} r={R + 8} fill="rgba(255,255,255,0.6)" />
+                <circle cx={CX} cy={CY} r={R + 8} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="1" />
+
+                {items.map((item, i) => {
+                  const startDeg = i * step;
+                  const endDeg = (i + 1) * step;
+                  const midDeg = startDeg + step / 2;
+                  const textPt = pt(CX, CY, R * 0.64, midDeg);
+                  const color = WHEEL_COLORS[i % WHEEL_COLORS.length];
+                  return (
+                    <g key={i}>
+                      <path d={arcPath(startDeg, endDeg)} fill={color} stroke="rgba(255,255,255,0.55)" strokeWidth="1" />
+                      <text
+                        x={textPt.x}
+                        y={textPt.y}
+                        transform={`rotate(${midDeg}, ${textPt.x}, ${textPt.y})`}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="#fff"
+                        fontSize={n > 12 ? 13 : n > 8 ? 15 : 17}
+                        fontWeight={600}
+                        style={{ letterSpacing: "-0.01em", fontFamily: "system-ui, -apple-system, sans-serif" }}
+                      >
+                        {truncate(item, n > 12 ? 8 : n > 8 ? 12 : 16)}
+                      </text>
+                    </g>
+                  );
                 })}
 
-                <g filter="url(#wheel-drop)">
-                  {items.map((item, i) => {
-                    const startDeg = i * step;
-                    const endDeg = (i + 1) * step;
-                    const midDeg = startDeg + step / 2;
-                    const textPt = pt(CX, CY, R * 0.62, midDeg);
-                    const color = WHEEL_COLORS[i % WHEEL_COLORS.length];
-                    return (
-                      <g key={i}>
-                        <path d={arcPath(startDeg, endDeg)} fill={color} stroke="rgba(255,255,255,0.18)" strokeWidth="1.5" />
-                        <text
-                          x={textPt.x}
-                          y={textPt.y}
-                          transform={`rotate(${midDeg}, ${textPt.x}, ${textPt.y})`}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fill="#fff"
-                          fontSize={n > 12 ? 12 : n > 8 ? 14 : 16}
-                          fontWeight={700}
-                          style={{ textShadow: "0 1px 3px rgba(0,0,0,.55)", letterSpacing: 0.2 }}
-                        >
-                          {truncate(item, n > 12 ? 8 : n > 8 ? 12 : 16)}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </g>
-
-                {/* Shine + vignette overlays */}
+                {/* Subtle top-light shine */}
                 <circle cx={CX} cy={CY} r={R} fill="url(#wheel-shine)" pointerEvents="none" />
-                <circle cx={CX} cy={CY} r={R} fill="url(#wheel-vignette)" pointerEvents="none" />
 
-                {/* Center hub */}
-                <circle cx={CX} cy={CY} r="30" fill="url(#hub-grad)" stroke="rgba(0,0,0,0.15)" strokeWidth="1" />
-                <circle cx={CX} cy={CY} r="10" fill="url(#hub-dot)" />
+                {/* Clean glass hub */}
+                <circle cx={CX} cy={CY} r="34" fill="url(#hub-grad)" stroke="rgba(0,0,0,0.08)" strokeWidth="1" />
+                <circle cx={CX} cy={CY} r="34" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="0.5" strokeDasharray="0" opacity="0.7" />
+                <circle cx={CX} cy={CY} r="6" fill="#1d1d1f" />
               </svg>
             </div>
 
