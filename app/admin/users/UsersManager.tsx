@@ -1,12 +1,13 @@
 "use client";
 import { useToast } from "@/components/Toast";
-import { Button, Input, Modal } from "@/components/ui";
+import { Button, Input, Modal, Textarea } from "@/components/ui";
 import {
   IconDeviceFloppy,
   IconEdit,
   IconKey,
   IconLayoutGrid,
   IconMail,
+  IconNote,
   IconPlus,
   IconRefresh,
   IconTrash,
@@ -26,6 +27,7 @@ type AppUser = {
   firstname: string;
   lastname: string;
   role: Role;
+  note?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -38,6 +40,7 @@ type FormState = {
   lastname: string;
   password: string;
   role: Role;
+  note: string;
 };
 
 const emptyForm: FormState = {
@@ -47,6 +50,7 @@ const emptyForm: FormState = {
   lastname: "",
   password: "",
   role: "user",
+  note: "",
 };
 
 function formatTime(ts: string) {
@@ -100,6 +104,7 @@ export default function UsersManager() {
             email: form.email,
             password: form.password || undefined,
             role: form.role,
+            note: form.note,
           }
         : form;
       const r = await fetch("/api/admin/users", {
@@ -240,6 +245,24 @@ export default function UsersManager() {
                 <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.email}</span>
               </div>
             )}
+            {u.note && (
+              <div
+                style={{
+                  fontSize: 12,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 4,
+                  opacity: 0.85,
+                  background: "var(--bg3)",
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  lineHeight: 1.4,
+                }}
+              >
+                <IconNote size={12} stroke={1.7} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{u.note}</span>
+              </div>
+            )}
             <div style={{ fontSize: 11, opacity: 0.6 }}>Tạo: {formatTime(u.created_at)}</div>
             <div style={{ display: "flex", gap: 6, marginTop: "auto", flexWrap: "wrap" }}>
               <Button
@@ -255,6 +278,7 @@ export default function UsersManager() {
                     lastname: u.lastname,
                     password: "",
                     role: u.role,
+                    note: u.note ?? "",
                   })
                 }
                 style={{ flex: 1 }}
@@ -353,6 +377,12 @@ export default function UsersManager() {
                   : "User: chỉ xem các tool được cho phép, không vào được admin."}
               </div>
             </div>
+            <Textarea
+              placeholder="Ghi chú về user (nội bộ)"
+              value={form.note}
+              onChange={(e) => setForm({ ...form, note: e.target.value })}
+              rows={3}
+            />
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
               <Button variant="ghost" size="sm" leftIcon={<IconX size={14} />} onClick={() => setForm(null)}>
                 Huỷ

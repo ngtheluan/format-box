@@ -1,14 +1,12 @@
 "use client";
 import LiveDemo from "@/components/LiveDemo";
 import { useTools } from "@/components/ToolsProvider";
-import { Button } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import { ToolIcon } from "@/lib/tool-icons";
 import {
   IconArrowRight,
   IconBolt,
   IconCalculator,
-  IconCheck,
   IconClock,
   IconDeviceDesktop,
   IconDeviceMobile,
@@ -303,62 +301,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section>
-        <div className="mx">
-          <div className="cta-wow" data-reveal>
-            <div className="cta-wow-grid" aria-hidden="true" />
-            <div className="cta-wow-orb cta-wow-orb-1" aria-hidden="true" />
-            <div className="cta-wow-orb cta-wow-orb-2" aria-hidden="true" />
-            <div className="cta-wow-ring" aria-hidden="true">
-              {tools.slice(0, 8).map((tool, i) => (
-                <span
-                  key={tool.href}
-                  className={`cta-wow-planet cta-wow-planet-${i + 1}`}
-                  style={{ "--i": i } as CSSProperties}
-                >
-                  <ToolIcon name={tool.iconName} size={20} stroke={1.6} />
-                </span>
-              ))}
-              <span className="cta-wow-core" aria-hidden="true">
-                <IconSparkles size={28} stroke={1.6} />
-              </span>
-            </div>
-            <div className="cta-wow-copy">
-              <span className="cta-wow-eyebrow">
-                <IconBolt size={12} stroke={2} />
-                {t("hero_tag")}
-              </span>
-              <h2 className="cta-wow-h">
-                <span>{t("cta_h")}</span>
-              </h2>
-              <p className="cta-wow-p">{t("cta_p")}</p>
-              <div className="cta-wow-actions">
-                <Button href="#tools" size="lg" rightIcon={<IconArrowRight size={16} stroke={2} />}>
-                  {t("hero_explore")}
-                </Button>
-                <Link href="/base64" className="cta-wow-ghost">
-                  <IconCheck size={16} stroke={2} />
-                  Base64
-                </Link>
-              </div>
-              <ul className="cta-wow-feats">
-                <li>
-                  <IconCheck size={14} stroke={2.4} />
-                  {t("hero_badge_fast")}
-                </li>
-                <li>
-                  <IconCheck size={14} stroke={2.4} />
-                  {t("hero_badge_private")}
-                </li>
-                <li>
-                  <IconCheck size={14} stroke={2.4} />
-                  {t("hero_badge_mobile")}
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
     </>
   );
 }
