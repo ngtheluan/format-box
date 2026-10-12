@@ -78,8 +78,8 @@ const dict = {
   // SECTIONS
   sec_tools_h: { vi: "Công cụ nổi bật", en: "Featured tools" },
   sec_tools_d: {
-    vi: "Không cần cài đặt, không cần đăng ký. Mở tab, làm việc, đóng tab.",
-    en: "No install, no signup. Open a tab, get work done, close it.",
+    vi: "Không cần cài đặt. Mở tab, làm việc, đóng tab.",
+    en: "No install. Open a tab, get work done, close it.",
   },
   sec_why_h_1: { vi: "Tool khác upload dữ liệu.", en: "Other tools upload your data." },
   sec_why_h_2: { vi: "FormatBox thì không.", en: "FormatBox doesn't." },
@@ -131,7 +131,10 @@ const dict = {
 
   // AUDIO STUDIO
   audio_drop_title: { vi: "Kéo thả file audio vào đây", en: "Drop an audio file here" },
-  audio_drop_sub: { vi: "MP3, WAV, M4A, OGG… — xử lý 100% trên trình duyệt.", en: "MP3, WAV, M4A, OGG… — processed fully in browser." },
+  audio_drop_sub: {
+    vi: "MP3, WAV, M4A, OGG… — xử lý 100% trên trình duyệt.",
+    en: "MP3, WAV, M4A, OGG… — processed fully in browser.",
+  },
   audio_choose: { vi: "Chọn file", en: "Choose file" },
   audio_decoding: { vi: "Đang giải mã…", en: "Decoding…" },
   audio_invalid: { vi: "File không phải audio", en: "Not an audio file" },
@@ -155,7 +158,10 @@ const dict = {
   },
   audio_exporting: { vi: "Đang xuất…", en: "Exporting…" },
   audio_exported: { vi: "Đã xuất file WAV", en: "Exported WAV" },
-  audio_hint: { vi: "Kéo vạch dọc để trim, click để seek, Ctrl+scroll để zoom, phím Space để play/pause.", en: "Drag markers to trim, click to seek, Ctrl+scroll to zoom, Space to play/pause." },
+  audio_hint: {
+    vi: "Kéo vạch dọc để trim, click để seek, Ctrl+scroll để zoom, phím Space để play/pause.",
+    en: "Drag markers to trim, click to seek, Ctrl+scroll to zoom, Space to play/pause.",
+  },
   audio_record: { vi: "Thu âm", en: "Record" },
   audio_recording: { vi: "Đang thu âm", en: "Recording" },
   audio_recorded: { vi: "Đã thu xong", en: "Recording ready" },

@@ -65,6 +65,11 @@ export default function SearchPalette() {
     };
   }, []);
 
+  // Broadcast open/close so other UI (e.g. MobileTabBar) can react
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("fb:search-state", { detail: { open } }));
+  }, [open]);
+
   // Reset + focus + lock scroll when opened
   useEffect(() => {
     if (!open) return;

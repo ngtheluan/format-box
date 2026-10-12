@@ -8,6 +8,7 @@ import {
   IconMessageDots,
   IconMicrophone,
   IconPalette,
+  IconUsers,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import AdminBody from "./AdminBody";
@@ -26,7 +27,6 @@ const ADMIN_APPS: AdminApp[] = [
     desc: "Quản lý danh sách tools hiển thị ngoài trang chủ.",
     icon: <IconListDetails size={20} stroke={1.7} />,
   },
-
   {
     href: "/admin/theme",
     title: "Theme",
@@ -34,16 +34,10 @@ const ADMIN_APPS: AdminApp[] = [
     icon: <IconPalette size={20} stroke={1.7} />,
   },
   {
-    href: "/admin/ui",
-    title: "UI Kit",
-    desc: "Bộ component dùng chung — Button, Input, Modal…",
-    icon: <IconComponents size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/feedback",
-    title: "Liên hệ góp ý",
-    desc: "Góp ý từ Google Sheet + file đính kèm Drive.",
-    icon: <IconMessageDots size={20} stroke={1.7} />,
+    href: "/admin/users",
+    title: "Users",
+    desc: "Quản lý tài khoản người dùng — tạo, sửa, đổi mật khẩu, xoá.",
+    icon: <IconUsers size={20} stroke={1.7} />,
   },
   {
     href: "/admin/banners",
@@ -58,10 +52,22 @@ const ADMIN_APPS: AdminApp[] = [
     icon: <IconChartBar size={20} stroke={1.7} />,
   },
   {
+    href: "/admin/feedback",
+    title: "Liên hệ góp ý",
+    desc: "Góp ý từ Google Sheet + file đính kèm Drive.",
+    icon: <IconMessageDots size={20} stroke={1.7} />,
+  },
+  {
     href: "/admin/podcasts",
     title: "Podcasts",
     desc: "MachuTeam podcast — tập podcast + video YouTube.",
     icon: <IconMicrophone size={20} stroke={1.7} />,
+  },
+  {
+    href: "/admin/ui",
+    title: "UI Kit",
+    desc: "Bộ component dùng chung — Button, Input, Modal…",
+    icon: <IconComponents size={20} stroke={1.7} />,
   },
 ];
 

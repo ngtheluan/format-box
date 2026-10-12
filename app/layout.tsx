@@ -1,13 +1,15 @@
 import AppShell from "@/components/AppShell";
 import ScrollTop from "@/components/ScrollTop";
 import SkinScene from "@/components/SkinSceneLazy";
+import { ThemesProvider } from "@/components/ThemesProvider";
 import TitleUpdater from "@/components/TitleUpdater";
 import { ToastProvider } from "@/components/Toast";
 import { ToolsProvider } from "@/components/ToolsProvider";
-import { ThemesProvider } from "@/components/ThemesProvider";
 import { LanguageProvider } from "@/lib/i18n";
 import { SkinProvider } from "@/lib/skin-context";
 import { themeInitScript } from "@/lib/theme";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -32,23 +34,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
+        {/* To start counting visitors and page views, follow these steps. */}
+        <Analytics />
+        {/* To start collecting performance metrics, follow these steps. */}
+        <SpeedInsights />
         <LanguageProvider>
           <ThemesProvider>
-          <SkinProvider>
-            <ToolsProvider>
-              <SkinScene />
-              <TitleUpdater />
-              <ToastProvider>
-                <AppShell>{children}</AppShell>
-              </ToastProvider>
-              <ScrollTop />
-            </ToolsProvider>
-          </SkinProvider>
+            <SkinProvider>
+              <ToolsProvider>
+                <SkinScene />
+                <TitleUpdater />
+                <ToastProvider>
+                  <AppShell>{children}</AppShell>
+                </ToastProvider>
+                <ScrollTop />
+              </ToolsProvider>
+            </SkinProvider>
           </ThemesProvider>
         </LanguageProvider>
       </body>
