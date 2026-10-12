@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-import { IconLoader2, IconLock, IconLogout, IconUser, IconUserCircle } from "@tabler/icons-react";
+import { IconLoader2, IconLock, IconLogout, IconMail, IconUser, IconUserCircle } from "@tabler/icons-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LangToggle from "./LangToggle";
@@ -29,6 +29,7 @@ export default function AccountMenu() {
   const [password, setPassword] = useState("");
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
+  const [email, setEmail] = useState("");
   const [authErr, setAuthErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
@@ -43,6 +44,18 @@ export default function AccountMenu() {
       if (saved === "admin" || saved === "user") setMode(saved);
     } catch {}
   }, []);
+
+  useEffect(() => {
+    const next: AppMode = pathname.startsWith("/admin") ? "admin" : "user";
+    setMode((prev) => {
+      if (prev === next) return prev;
+      try {
+        localStorage.setItem(MODE_KEY, next);
+      } catch {}
+      window.dispatchEvent(new CustomEvent("fb:mode-change", { detail: { mode: next } }));
+      return next;
+    });
+  }, [pathname]);
 
   function switchMode(next: AppMode) {
     setMode(next);
@@ -71,6 +84,7 @@ export default function AccountMenu() {
     setPassword("");
     setFirstname("");
     setLastname("");
+    setEmail("");
     setAuthErr("");
     setBusy(false);
   }
@@ -109,12 +123,16 @@ export default function AccountMenu() {
 
   async function doRegister() {
     setAuthErr("");
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthErr(t("acct_err_email_invalid"));
+      return;
+    }
     setBusy(true);
     try {
       const r = await fetch("/api/user/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstname, lastname, accountname, password }),
+        body: JSON.stringify({ firstname, lastname, accountname, email, password }),
       });
       const d = await r.json();
       if (r.ok && d.ok) {
@@ -258,6 +276,7 @@ export default function AccountMenu() {
                 />
               </label>
               <label className="account-pop-input">
+                ``
                 <IconLock size={16} stroke={1.8} />
                 <input
                   className="fx-input"
@@ -323,6 +342,17 @@ export default function AccountMenu() {
                 />
               </label>
               <label className="account-pop-input">
+                <IconMail size={16} stroke={1.8} />
+                <input
+                  className="fx-input"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t("acct_placeholder_email")}
+                  autoComplete="email"
+                />
+              </label>
+              <label className="account-pop-input">
                 <IconUserCircle size={16} stroke={1.8} />
                 <input
                   className="fx-input"
@@ -346,7 +376,7 @@ export default function AccountMenu() {
               <button
                 type="submit"
                 className="fx-btn fx-btn-primary"
-                disabled={!firstname || !lastname || !accountname || password.length < 6 || busy}
+                disabled={!firstname || !lastname || !accountname || !email || password.length < 6 || busy}
               >
                 {busy ? (
                   <>

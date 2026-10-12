@@ -1041,6 +1041,8 @@ const dict = {
   acct_placeholder_password_min: { vi: "Mật khẩu (tối thiểu 6 ký tự)", en: "Password (at least 6 chars)" },
   acct_placeholder_firstname: { vi: "First name", en: "First name" },
   acct_placeholder_lastname: { vi: "Last name", en: "Last name" },
+  acct_placeholder_email: { vi: "Email", en: "Email" },
+  acct_err_email_invalid: { vi: "Email không hợp lệ", en: "Invalid email" },
   acct_btn_login: { vi: "Đăng nhập", en: "Log in" },
   acct_btn_login_busy: { vi: "Đang đăng nhập…", en: "Logging in…" },
   acct_btn_register: { vi: "Tạo tài khoản", en: "Create account" },

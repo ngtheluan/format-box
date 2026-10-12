@@ -1,8 +1,10 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import {
   IconHome,
   IconLock,
   IconLogout,
+  IconMail,
   IconMenu4,
   IconMessageDots,
   IconSettings,
@@ -18,7 +20,6 @@ import LangToggle from "./LangToggle";
 import SkinPicker from "./SkinPicker";
 import ThemeToggle from "./ThemeToggle";
 import { useToast } from "./Toast";
-import { useI18n } from "@/lib/i18n";
 
 type AccountView = "user-auth" | null;
 type AuthMode = "login" | "register";
@@ -37,6 +38,7 @@ export default function MobileTabBar() {
   const [password, setPassword] = useState("");
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
+  const [email, setEmail] = useState("");
   const [authErr, setAuthErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
@@ -53,6 +55,18 @@ export default function MobileTabBar() {
       if (saved === "admin" || saved === "user") setMode(saved);
     } catch {}
   }, []);
+
+  useEffect(() => {
+    const next: AppMode = pathname.startsWith("/admin") ? "admin" : "user";
+    setMode((prev) => {
+      if (prev === next) return prev;
+      try {
+        localStorage.setItem(MODE_KEY, next);
+      } catch {}
+      window.dispatchEvent(new CustomEvent("fb:mode-change", { detail: { mode: next } }));
+      return next;
+    });
+  }, [pathname]);
 
   function switchMode(next: AppMode) {
     setMode(next);
@@ -93,6 +107,7 @@ export default function MobileTabBar() {
     setPassword("");
     setFirstname("");
     setLastname("");
+    setEmail("");
     setAuthErr("");
     setBusy(false);
   }
@@ -126,12 +141,16 @@ export default function MobileTabBar() {
 
   async function doRegister() {
     setAuthErr("");
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthErr(t("acct_err_email_invalid"));
+      return;
+    }
     setBusy(true);
     try {
       const r = await fetch("/api/user/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstname, lastname, accountname, password }),
+        body: JSON.stringify({ firstname, lastname, accountname, email, password }),
       });
       const d = await r.json();
       if (r.ok && d.ok) {
@@ -175,7 +194,12 @@ export default function MobileTabBar() {
           <span>{t("mtab_menu")}</span>
         </button>
 
-        <button type="button" className="mtab-btn" onClick={() => dispatch("fb:open-feedback")} aria-label={t("mtab_feedback")}>
+        <button
+          type="button"
+          className="mtab-btn"
+          onClick={() => dispatch("fb:open-feedback")}
+          aria-label={t("mtab_feedback")}
+        >
           <IconMessageDots size={22} stroke={1.8} />
           <span>{t("mtab_feedback")}</span>
         </button>
@@ -285,7 +309,9 @@ export default function MobileTabBar() {
             <div className="mtab-sheet">
               <div className="mtab-sheet-head">
                 <span style={{ width: 28 }} />
-                <b>{user ? t("acct_account") : authMode === "login" ? t("acct_title_login") : t("acct_title_register")}</b>
+                <b>
+                  {user ? t("acct_account") : authMode === "login" ? t("acct_title_login") : t("acct_title_register")}
+                </b>
                 <button type="button" className="mtab-sheet-close" onClick={closeAccount} aria-label="Close">
                   <IconX size={18} stroke={2} />
                 </button>
@@ -391,6 +417,17 @@ export default function MobileTabBar() {
                     />
                   </label>
                   <label className="mtab-acct-input">
+                    <IconMail size={16} stroke={1.8} />
+                    <input
+                      className="fx-input"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder={t("acct_placeholder_email")}
+                      autoComplete="email"
+                    />
+                  </label>
+                  <label className="mtab-acct-input">
                     <IconUserCircle size={16} stroke={1.8} />
                     <input
                       className="fx-input"
@@ -414,7 +451,7 @@ export default function MobileTabBar() {
                   <button
                     type="submit"
                     className="fx-btn fx-btn-primary"
-                    disabled={!firstname || !lastname || !accountname || password.length < 6 || busy}
+                    disabled={!firstname || !lastname || !accountname || !email || password.length < 6 || busy}
                   >
                     {busy ? t("acct_busy") : t("acct_btn_register")}
                   </button>
