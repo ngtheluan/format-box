@@ -16,6 +16,7 @@ import {
   IconRuler,
   IconTable,
 } from "@tabler/icons-react";
+import { Analytics } from "@vercel/analytics/next";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, type CSSProperties, type MouseEvent } from "react";
@@ -86,6 +87,7 @@ export default function Home() {
 
   return (
     <>
+      <Analytics />
       <header className="hero-modern">
         <div className="hero-canvas-wrap">
           <HeroCanvas />
