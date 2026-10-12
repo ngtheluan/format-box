@@ -17,6 +17,7 @@ import {
   IconTable,
 } from "@tabler/icons-react";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, type CSSProperties, type MouseEvent } from "react";
@@ -87,7 +88,10 @@ export default function Home() {
 
   return (
     <>
+      {/* To start counting visitors and page views, follow these steps. */}
       <Analytics />
+      {/* To start collecting performance metrics, follow these steps. */}
+      <SpeedInsights />
       <header className="hero-modern">
         <div className="hero-canvas-wrap">
           <HeroCanvas />
