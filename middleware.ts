@@ -105,6 +105,7 @@ export const config = {
     "/lucky-ticket",
     "/markdown",
     "/pacman",
+    "/photobooth",
     "/qr",
     "/responsive",
     "/speed-test",

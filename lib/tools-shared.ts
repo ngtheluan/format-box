@@ -87,6 +87,18 @@ export const SEED_TOOLS: Tool[] = [
     category: "cat_media",
   },
   {
+    href: "/photobooth",
+    iconName: "IconCamera",
+    title: "Photobooth",
+    sub: { vi: "Chụp & Trang trí", en: "Snap & Decorate" },
+    desc: {
+      vi: "Chụp bộ ảnh photobooth bằng camera, chọn filter, sticker, khung — tải về PNG.",
+      en: "Capture a photobooth strip with your camera, pick filters, stickers, frames — export PNG.",
+    },
+    tags: ["camera", "photo", "booth", "sticker", "filter"],
+    category: "cat_media",
+  },
+  {
     href: "/audio-studio",
     iconName: "IconWaveSine",
     title: "Audio Studio",

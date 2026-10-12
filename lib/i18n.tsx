@@ -1067,6 +1067,28 @@ const dict = {
   mtab_home: { vi: "Trang chủ", en: "Home" },
   mtab_account: { vi: "Tài khoản", en: "Account" },
   mtab_setting: { vi: "Cài đặt", en: "Settings" },
+
+  // PHOTOBOOTH
+  pb_allow_camera: { vi: "Cho phép truy cập camera", en: "Allow camera access" },
+  pb_start_camera: { vi: "Bật camera", en: "Start camera" },
+  pb_no_camera: { vi: "Không truy cập được camera", en: "Camera unavailable" },
+  pb_shots: { vi: "Số ảnh", en: "Shots" },
+  pb_timer: { vi: "Hẹn giờ", en: "Timer" },
+  pb_mirror: { vi: "Lật gương", en: "Mirror" },
+  pb_capture: { vi: "Chụp", en: "Capture" },
+  pb_retake: { vi: "Chụp lại", en: "Retake" },
+  pb_next: { vi: "Tiếp tục", en: "Next" },
+  pb_back: { vi: "Quay lại", en: "Back" },
+  pb_filter: { vi: "Bộ lọc", en: "Filter" },
+  pb_sticker: { vi: "Sticker", en: "Sticker" },
+  pb_theme: { vi: "Chủ đề khung", en: "Frame theme" },
+  pb_caption: { vi: "Chú thích", en: "Caption" },
+  pb_remove_sticker: { vi: "Xoá sticker đã chọn", en: "Remove selected sticker" },
+  pb_clear_stickers: { vi: "Xoá hết sticker", en: "Clear stickers" },
+  pb_download: { vi: "Tải ảnh", en: "Download photo" },
+  pb_new_session: { vi: "Chụp bộ mới", en: "New session" },
+  pb_hint_drag: { vi: "Kéo để di chuyển sticker, chạm/click để chọn.", en: "Drag to move stickers, tap/click to select." },
+  pb_countdown_ready: { vi: "Sẵn sàng", en: "Get ready" },
 } as const;
 
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (key: keyof typeof dict) => string };
