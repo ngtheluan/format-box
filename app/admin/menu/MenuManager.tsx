@@ -31,6 +31,8 @@ type Row = {
   category: ToolCategory;
   sort: number | null;
   active: boolean | null;
+  visible_guest: boolean | null;
+  visible_user: boolean | null;
 };
 
 type FilterCat = "all" | ToolCategory;
@@ -66,6 +68,8 @@ function rowToTool(r: Row): Tool {
     category: r.category,
     sort: r.sort ?? 0,
     active: r.active ?? true,
+    visibleGuest: r.visible_guest ?? true,
+    visibleUser: r.visible_user ?? true,
   };
 }
 
@@ -308,6 +312,24 @@ export default function MenuManager() {
       toast("Cập nhật thất bại");
       load();
     } else {
+      reloadPublicTools();
+    }
+  }
+
+  async function toggleVisibility(t: Tool, who: "guest" | "user") {
+    const field = who === "guest" ? "visibleGuest" : "visibleUser";
+    const column = who === "guest" ? "visible_guest" : "visible_user";
+    const next = !(t[field] ?? true);
+    setTools((cur) => cur.map((x) => (x.href === t.href ? { ...x, [field]: next } : x)));
+    const res = await fetch("/api/admin/tools", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ href: t.href, [column]: next }),
+    });
+    if (!res.ok) {
+      toast("Cập nhật thất bại");
+      load();
+    } else {
       toast(next ? `Đã bật ${t.title}` : `Đã ẩn ${t.title}`);
       reloadPublicTools();
     }
@@ -496,6 +518,8 @@ export default function MenuManager() {
             <div>Tool</div>
             <div>Category</div>
             <div>Active</div>
+            <div title="Khách chưa login thấy tool">Guest</div>
+            <div title="User đã login thấy tool">User</div>
             <div style={{ textAlign: "right" }}>Actions</div>
           </div>
           {visible.map((t, i) => {
@@ -550,6 +574,24 @@ export default function MenuManager() {
                     onClick={() => toggleActive(t)}
                     aria-label={active ? "Deactivate" : "Activate"}
                     title={active ? "Đang hiện — bấm để ẩn" : "Đang ẩn — bấm để hiện"}
+                  />
+                </div>
+                <div>
+                  <button
+                    className={`fx-switch${(t.visibleGuest ?? true) ? " on" : ""}`}
+                    onClick={() => toggleVisibility(t, "guest")}
+                    disabled={!active}
+                    aria-label="Toggle guest visibility"
+                    title={(t.visibleGuest ?? true) ? "Guest thấy — bấm để ẩn" : "Guest không thấy — bấm để hiện"}
+                  />
+                </div>
+                <div>
+                  <button
+                    className={`fx-switch${(t.visibleUser ?? true) ? " on" : ""}`}
+                    onClick={() => toggleVisibility(t, "user")}
+                    disabled={!active}
+                    aria-label="Toggle user visibility"
+                    title={(t.visibleUser ?? true) ? "User thấy — bấm để ẩn" : "User không thấy — bấm để hiện"}
                   />
                 </div>
                 <div className="fx-row-actions">

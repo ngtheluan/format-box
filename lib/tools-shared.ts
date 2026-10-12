@@ -14,7 +14,18 @@ export type Tool = {
   category: ToolCategory;
   sort?: number;
   active?: boolean;
+  visibleGuest?: boolean;
+  visibleUser?: boolean;
 };
+
+export type Role = "guest" | "user" | "admin";
+
+export function isToolVisible(t: Pick<Tool, "active" | "visibleGuest" | "visibleUser">, role: Role): boolean {
+  if (role === "admin") return true;
+  if ((t.active ?? true) === false) return false;
+  if (role === "user") return t.visibleUser ?? true;
+  return t.visibleGuest ?? true;
+}
 
 export const CATEGORY_ORDER: ToolCategory[] = ["cat_text", "cat_media", "cat_dev", "cat_life", "cat_game"];
 

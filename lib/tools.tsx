@@ -16,6 +16,8 @@ type DbRow = {
   category: Tool["category"];
   sort: number | null;
   active: boolean | null;
+  visible_guest: boolean | null;
+  visible_user: boolean | null;
 };
 
 function rowToTool(r: DbRow): Tool {
@@ -29,6 +31,8 @@ function rowToTool(r: DbRow): Tool {
     category: r.category,
     sort: r.sort ?? 0,
     active: r.active ?? true,
+    visibleGuest: r.visible_guest ?? true,
+    visibleUser: r.visible_user ?? true,
   };
 }
 
@@ -45,6 +49,8 @@ export function toolToRow(t: Tool): DbRow {
     category: t.category,
     sort: t.sort ?? 0,
     active: t.active ?? true,
+    visible_guest: t.visibleGuest ?? true,
+    visible_user: t.visibleUser ?? true,
   };
 }
 

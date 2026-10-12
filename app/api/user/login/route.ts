@@ -12,17 +12,18 @@ export async function POST(req: Request) {
   const sb = supabaseAdmin();
   const { data: user } = await sb
     .from("app_users")
-    .select("id, accountname, firstname, lastname, password_hash")
+    .select("id, accountname, firstname, lastname, password_hash, role")
     .eq("accountname", accountname)
     .maybeSingle();
   if (!user || !verifyPassword(password, user.password_hash)) {
     return NextResponse.json({ ok: false, error: "Sai tài khoản hoặc mật khẩu", notFound: !user }, { status: 401 });
   }
+  const role: "user" | "admin" = user.role === "admin" ? "admin" : "user";
   const res = NextResponse.json({
     ok: true,
-    user: { id: user.id, accountname: user.accountname, firstname: user.firstname, lastname: user.lastname },
+    user: { id: user.id, accountname: user.accountname, firstname: user.firstname, lastname: user.lastname, role },
   });
-  res.cookies.set(USER_COOKIE, makeUserToken(user.id), {
+  res.cookies.set(USER_COOKIE, makeUserToken(user.id, role), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

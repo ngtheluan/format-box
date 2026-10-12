@@ -4,6 +4,8 @@ import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 export const USER_COOKIE = "fb-user-token";
 export const USER_MAX_AGE = 60 * 60 * 24 * 30;
 
+export type UserRole = "user" | "admin";
+
 function secret(): string {
   const s = process.env.ADMIN_PASSWORD;
   if (!s) throw new Error("ADMIN_PASSWORD not set (used as HMAC secret)");
@@ -26,30 +28,35 @@ export function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(actual, expected);
 }
 
-export function makeUserToken(userId: string): string {
+export function makeUserToken(userId: string, role: UserRole = "user"): string {
   const exp = Math.floor(Date.now() / 1000) + USER_MAX_AGE;
-  const payload = `${userId}.${exp}`;
+  const payload = `${userId}.${role}.${exp}`;
   const sig = createHmac("sha256", secret()).update(payload).digest("hex");
   return `${payload}.${sig}`;
 }
 
-export function verifyUserToken(token: string | undefined): { userId: string } | null {
+export function verifyUserToken(token: string | undefined): { userId: string; role: UserRole } | null {
   if (!token) return null;
   const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [userId, expStr, sig] = parts;
+  if (parts.length !== 4) return null;
+  const [userId, roleRaw, expStr, sig] = parts;
   const exp = Number(expStr);
   if (!userId || !exp || !sig) return null;
   if (Date.now() / 1000 > exp) return null;
-  const expected = createHmac("sha256", secret()).update(`${userId}.${exp}`).digest("hex");
+  const role: UserRole = roleRaw === "admin" ? "admin" : "user";
+  const expected = createHmac("sha256", secret()).update(`${userId}.${role}.${exp}`).digest("hex");
   if (expected !== sig) return null;
-  return { userId };
+  return { userId, role };
 }
 
-export function currentUserId(): string | null {
+export function currentUser(): { userId: string; role: UserRole } | null {
   try {
-    return verifyUserToken(cookies().get(USER_COOKIE)?.value)?.userId ?? null;
+    return verifyUserToken(cookies().get(USER_COOKIE)?.value);
   } catch {
     return null;
   }
+}
+
+export function currentUserId(): string | null {
+  return currentUser()?.userId ?? null;
 }

@@ -6,14 +6,20 @@ import { useI18n } from "@/lib/i18n";
 import { ToolIcon } from "@/lib/tool-icons";
 import {
   IconArrowRight,
+  IconBolt,
   IconCalculator,
   IconCheck,
   IconClock,
+  IconDeviceDesktop,
+  IconDeviceMobile,
+  IconDeviceTablet,
+  IconDevices,
   IconFingerprint,
   IconHash,
   IconLink,
   IconPalette,
   IconRuler,
+  IconSparkles,
   IconTable,
 } from "@tabler/icons-react";
 import dynamic from "next/dynamic";
@@ -99,11 +105,6 @@ export default function Home() {
               <span className="g">{t("hero_h1_2")}</span>
             </h1>
             <p className="hero-sub">{t("hero_sub")}</p>
-            <div className="hero-actions">
-              <Button href="#tools" size="lg" rightIcon={<IconArrowRight size={16} stroke={2} />}>
-                {t("hero_explore")}
-              </Button>
-            </div>
           </div>
 
           <div className="hero-demo-wrap">
@@ -124,6 +125,84 @@ export default function Home() {
               <span>{s.v}</span>
             </div>
           ))}
+        </div>
+
+        <div className="hero-highlights" aria-label={t("hero_quick_label")}>
+          <article className="hl-card hl-speed">
+            <div className="hl-glow" aria-hidden="true" />
+            <div className="hl-head">
+              <span className="hl-ic">
+                <IconBolt size={20} stroke={1.6} />
+              </span>
+              <span className="hl-eyebrow">{t("hl_speed_eyebrow")}</span>
+            </div>
+            <h3 className="hl-h">{t("hl_speed_h")}</h3>
+            <p className="hl-p">{t("hl_speed_p")}</p>
+            <div className="hl-meter" aria-hidden="true">
+              <div className="hl-meter-fill" />
+              <div className="hl-meter-tick" style={{ left: "88%" }} />
+            </div>
+            <div className="hl-foot">
+              <span className="hl-stat">
+                <b>&lt; 1s</b> {t("hl_speed_stat")}
+              </span>
+              <span className="hl-pulse" />
+            </div>
+          </article>
+
+          <article className="hl-card hl-device">
+            <div className="hl-glow" aria-hidden="true" />
+            <div className="hl-head">
+              <span className="hl-ic">
+                <IconDevices size={20} stroke={1.6} />
+              </span>
+              <span className="hl-eyebrow">{t("hl_dev_eyebrow")}</span>
+            </div>
+            <h3 className="hl-h">{t("hl_dev_h")}</h3>
+            <p className="hl-p">{t("hl_dev_p")}</p>
+            <div className="hl-stack hl-stack-device" aria-hidden="true">
+              <span className="hl-stack-item">
+                <IconDeviceDesktop size={14} stroke={1.75} />
+              </span>
+              <span className="hl-stack-item">
+                <IconDeviceTablet size={14} stroke={1.75} />
+              </span>
+              <span className="hl-stack-item">
+                <IconDeviceMobile size={14} stroke={1.75} />
+              </span>
+              <span className="hl-stack-item hl-stack-more hl-stack-device-tag">PWA</span>
+            </div>
+            <div className="hl-foot">
+              <span className="hl-stat hl-stat-mono">RESPONSIVE · PWA</span>
+            </div>
+          </article>
+
+          <article className="hl-card hl-scale">
+            <div className="hl-glow" aria-hidden="true" />
+            <div className="hl-head">
+              <span className="hl-ic">
+                <IconSparkles size={20} stroke={1.6} />
+              </span>
+              <span className="hl-eyebrow">{t("hl_scale_eyebrow")}</span>
+            </div>
+            <h3 className="hl-h">
+              {tools.length} {t("hl_scale_h")}
+            </h3>
+            <p className="hl-p">{t("hl_scale_p")}</p>
+            <div className="hl-stack" aria-hidden="true">
+              {tools.slice(0, 5).map((tool) => (
+                <span key={tool.href} className="hl-stack-item">
+                  <ToolIcon name={tool.iconName} size={14} stroke={1.8} />
+                </span>
+              ))}
+              <span className="hl-stack-item hl-stack-more">+{Math.max(tools.length - 5, 0)}</span>
+            </div>
+            <div className="hl-foot">
+              <Link href="#tools" className="hl-link">
+                {t("hl_scale_cta")} <IconArrowRight size={13} stroke={2} />
+              </Link>
+            </div>
+          </article>
         </div>
       </header>
 
@@ -226,16 +305,57 @@ export default function Home() {
 
       <section>
         <div className="mx">
-          <div className="cta cta-split" data-reveal>
-            <div className="cta-copy">
-              <h2 className="fit-h" style={fit(t("cta_h"))}>
-                {t("cta_h")}
-              </h2>
-              <p>{t("cta_p")}</p>
+          <div className="cta-wow" data-reveal>
+            <div className="cta-wow-grid" aria-hidden="true" />
+            <div className="cta-wow-orb cta-wow-orb-1" aria-hidden="true" />
+            <div className="cta-wow-orb cta-wow-orb-2" aria-hidden="true" />
+            <div className="cta-wow-ring" aria-hidden="true">
+              {tools.slice(0, 8).map((tool, i) => (
+                <span
+                  key={tool.href}
+                  className={`cta-wow-planet cta-wow-planet-${i + 1}`}
+                  style={{ "--i": i } as CSSProperties}
+                >
+                  <ToolIcon name={tool.iconName} size={20} stroke={1.6} />
+                </span>
+              ))}
+              <span className="cta-wow-core" aria-hidden="true">
+                <IconSparkles size={28} stroke={1.6} />
+              </span>
             </div>
-            <Button href="#tools" size="lg" rightIcon={<IconArrowRight size={16} stroke={2} />}>
-              {t("hero_explore")}
-            </Button>
+            <div className="cta-wow-copy">
+              <span className="cta-wow-eyebrow">
+                <IconBolt size={12} stroke={2} />
+                {t("hero_tag")}
+              </span>
+              <h2 className="cta-wow-h">
+                <span>{t("cta_h")}</span>
+              </h2>
+              <p className="cta-wow-p">{t("cta_p")}</p>
+              <div className="cta-wow-actions">
+                <Button href="#tools" size="lg" rightIcon={<IconArrowRight size={16} stroke={2} />}>
+                  {t("hero_explore")}
+                </Button>
+                <Link href="/base64" className="cta-wow-ghost">
+                  <IconCheck size={16} stroke={2} />
+                  Base64
+                </Link>
+              </div>
+              <ul className="cta-wow-feats">
+                <li>
+                  <IconCheck size={14} stroke={2.4} />
+                  {t("hero_badge_fast")}
+                </li>
+                <li>
+                  <IconCheck size={14} stroke={2.4} />
+                  {t("hero_badge_private")}
+                </li>
+                <li>
+                  <IconCheck size={14} stroke={2.4} />
+                  {t("hero_badge_mobile")}
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>

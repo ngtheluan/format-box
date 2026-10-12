@@ -1,9 +1,7 @@
-import LangToggle from "./LangToggle";
+import AccountMenu from "./AccountMenu";
 import Logo from "./Logo";
 import MobileMenu from "./MobileMenu";
 import SearchPalette from "./SearchPalette";
-import SkinPicker from "./SkinPicker";
-import ThemeToggle from "./ThemeToggle";
 import ToolsMenu from "./ToolsMenu";
 
 export default function Nav() {
@@ -16,9 +14,7 @@ export default function Nav() {
       </div>
       <div className="nav-r">
         <SearchPalette />
-        <LangToggle />
-        <SkinPicker />
-        <ThemeToggle />
+        <AccountMenu />
       </div>
     </nav>
   );

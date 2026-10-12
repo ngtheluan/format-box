@@ -1,81 +1,77 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
-import { verifyAdminTokenEdge, ADMIN_COOKIE } from "@/lib/admin-auth-edge";
-import { getActiveToolHrefs } from "@/lib/edge-config";
 import { SEED_TOOLS } from "@/lib/tools-shared";
+import { USER_COOKIE, verifyUserTokenEdge, type UserRole } from "@/lib/user-auth-edge";
 
 const TOOL_HREFS = new Set(SEED_TOOLS.map((t) => t.href));
 
-// Edge isolates stay warm between requests, so keep the active set in memory
-// and serve it stale-while-revalidate: navigation never waits on a network read
-// once the isolate has seen one request.
-const ACTIVE_TTL_MS = 60_000;
-let activeCache: { set: Set<string> | null; at: number } | null = null;
-let activeInflight: Promise<Set<string> | null> | null = null;
+type Visibility = { active: Set<string>; guest: Set<string>; user: Set<string> };
 
-/**
- * Read the set of active tool hrefs. Prefers Vercel Edge Config (near-zero
- * latency at the edge); falls back to the cached /api/tools route when Edge
- * Config is unavailable. Returns null if neither source can be read, so the
- * caller allows the request rather than locking users out.
- */
-async function fetchActiveSet(req: NextRequest): Promise<Set<string> | null> {
-  const fromEdge = await getActiveToolHrefs();
-  if (fromEdge) return new Set(fromEdge);
+const VIS_TTL_MS = 60_000;
+let visCache: { v: Visibility | null; at: number } | null = null;
+let visInflight: Promise<Visibility | null> | null = null;
+
+async function fetchVisibility(req: NextRequest): Promise<Visibility | null> {
   try {
-    const res = await fetch(new URL("/api/tools", req.url), {
+    const res = await fetch(new URL("/api/tools/visibility", req.url), {
       next: { revalidate: 60, tags: ["tools"] },
     });
-    if (res.ok) {
-      const { tools } = (await res.json()) as { tools: { href: string }[] };
-      return new Set(tools.map((t) => t.href));
-    }
+    if (!res.ok) return null;
+    const j = (await res.json()) as { active: string[]; guest: string[]; user: string[] };
+    return {
+      active: new Set(j.active),
+      guest: new Set(j.guest),
+      user: new Set(j.user),
+    };
   } catch {
-    /* fall through */
+    return null;
   }
-  return null;
 }
 
-function refreshActiveSet(req: NextRequest): Promise<Set<string> | null> {
-  if (!activeInflight) {
-    activeInflight = fetchActiveSet(req)
-      .then((set) => {
-        // Keep the last good set when a refresh fails.
-        if (set || !activeCache) activeCache = { set, at: Date.now() };
-        else activeCache.at = Date.now();
-        return activeCache.set;
+function refreshVisibility(req: NextRequest): Promise<Visibility | null> {
+  if (!visInflight) {
+    visInflight = fetchVisibility(req)
+      .then((v) => {
+        if (v || !visCache) visCache = { v, at: Date.now() };
+        else visCache.at = Date.now();
+        return visCache.v;
       })
       .finally(() => {
-        activeInflight = null;
+        visInflight = null;
       });
   }
-  return activeInflight;
+  return visInflight;
 }
 
-async function getActiveSet(req: NextRequest, event: NextFetchEvent): Promise<Set<string> | null> {
-  if (!activeCache) return refreshActiveSet(req);
-  if (Date.now() - activeCache.at > ACTIVE_TTL_MS) event.waitUntil(refreshActiveSet(req));
-  return activeCache.set;
+async function getVisibility(req: NextRequest, event: NextFetchEvent): Promise<Visibility | null> {
+  if (!visCache) return refreshVisibility(req);
+  if (Date.now() - visCache.at > VIS_TTL_MS) event.waitUntil(refreshVisibility(req));
+  return visCache.v;
 }
 
 export async function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl;
+  const token = req.cookies.get(USER_COOKIE)?.value;
+  const session = await verifyUserTokenEdge(token, process.env.ADMIN_PASSWORD);
+  const role: UserRole | "guest" = session?.role ?? "guest";
 
+  // Admin area: must be logged in with role=admin.
   if (pathname.startsWith("/admin")) {
+    // /admin itself is the login page — let it render.
     if (pathname === "/admin") return NextResponse.next();
-    const token = req.cookies.get(ADMIN_COOKIE)?.value;
-    const ok = await verifyAdminTokenEdge(token, process.env.ADMIN_PASSWORD);
-    if (ok) return NextResponse.next();
+    if (role === "admin") return NextResponse.next();
     const url = req.nextUrl.clone();
     url.pathname = "/admin";
     return NextResponse.redirect(url);
   }
 
-  // Block access to tool pages that are toggled inactive in admin.
+  // Tool pages: block when the viewer's role cannot see this tool.
   if (TOOL_HREFS.has(pathname)) {
-    const active = await getActiveSet(req, event);
-    // Only rewrite when we positively know the tool is inactive. On read
-    // failure (active === null) fall through and allow — don't lock users out.
-    if (active && !active.has(pathname)) {
+    if (role === "admin") return NextResponse.next();
+    const vis = await getVisibility(req, event);
+    // On read failure, fall through — don't lock users out.
+    if (!vis) return NextResponse.next();
+    const allowed = role === "user" ? vis.user : vis.guest;
+    if (!allowed.has(pathname)) {
       const url = req.nextUrl.clone();
       url.pathname = "/forbidden";
       url.searchParams.set("from", pathname);

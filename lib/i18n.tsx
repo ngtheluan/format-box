@@ -68,6 +68,37 @@ const dict = {
     en: "This is an online toolkit for developers and data teams to format, convert and validate data right in the browser — fast, private, and nothing to install.",
   },
   hero_explore: { vi: "Khám phá tool", en: "Explore tools" },
+  hero_badge_fast: { vi: "Nhanh tức thì", en: "Instant" },
+  hero_badge_private: { vi: "Riêng tư 100%", en: "Fully private" },
+  hero_badge_mobile: { vi: "Chạy mượt mobile", en: "Mobile ready" },
+  hero_badge_shortcut: { vi: "Phím tắt bàn phím", en: "Keyboard shortcuts" },
+  hero_quick_label: { vi: "Điểm nổi bật", en: "Highlights" },
+  hero_pill_label: { vi: "Khám phá tool", en: "Explore tools" },
+  hero_pill_tag: { vi: "LIVE", en: "LIVE" },
+  hero_pill_ready: { vi: "tool sẵn sàng dùng ngay", en: "tools ready to use" },
+  hl_speed_eyebrow: { vi: "TỐC ĐỘ", en: "SPEED" },
+  hl_speed_h: { vi: "Mở tool dưới 1 giây", en: "Tools open in under 1s" },
+  hl_speed_p: {
+    vi: "Không chờ server, không loading. Mở tab là chạy ngay.",
+    en: "No server wait, no loading. Open the tab, work instantly.",
+  },
+  hl_speed_stat: { vi: "trung bình", en: "avg time to interactive" },
+  hl_dev_eyebrow: { vi: "ĐA NỀN TẢNG", en: "MULTI-DEVICE" },
+  hl_dev_h: { vi: "Chạy trên mọi thiết bị", en: "Runs on every device" },
+  hl_dev_p: {
+    vi: "Desktop, tablet hay mobile — cùng trải nghiệm, không cần cài app.",
+    en: "Desktop, tablet or mobile — same experience, no app install.",
+  },
+  hl_dev_desktop: { vi: "Desktop", en: "Desktop" },
+  hl_dev_tablet: { vi: "Tablet", en: "Tablet" },
+  hl_dev_mobile: { vi: "Mobile", en: "Mobile" },
+  hl_scale_eyebrow: { vi: "QUY MÔ", en: "SCALE" },
+  hl_scale_h: { vi: "công cụ chuyên nghiệp", en: "pro-grade tools" },
+  hl_scale_p: {
+    vi: "Format, chuyển đổi, kiểm tra — mọi loại dữ liệu bạn làm việc hằng ngày.",
+    en: "Format, convert, validate — every data type you touch daily.",
+  },
+  hl_scale_cta: { vi: "Xem tất cả", en: "Browse all" },
 
   // STATS
   stat_ads: { vi: "quảng cáo", en: "ads" },
@@ -108,7 +139,7 @@ const dict = {
   },
 
   // CTA
-  cta_h: { vi: "Bắt đầu ngay, không cần đăng ký.", en: "Get started — no signup needed." },
+  cta_h: { vi: "Bắt đầu ngay.", en: "Get started" },
   cta_p: {
     vi: "Chọn một tool ở trên hoặc bắt đầu với Base64.",
     en: "Pick a tool above or start with Base64.",
@@ -994,6 +1025,46 @@ const dict = {
   typing_best: { vi: "Kỷ lục", en: "Best" },
   typing_finished: { vi: "Hết giờ!", en: "Time's up!" },
   typing_input_placeholder: { vi: "Gõ ở đây…", en: "Type here…" },
+
+  // ACCOUNT / AUTH / SETTINGS
+  acct_label: { vi: "Tài khoản", en: "Account" },
+  acct_account: { vi: "Account", en: "Account" },
+  acct_login_subtitle: { vi: "Đăng nhập / đăng ký", en: "Log in / sign up" },
+  acct_title_login: { vi: "Đăng nhập", en: "Log in" },
+  acct_title_register: { vi: "Đăng ký", en: "Sign up" },
+  acct_logout: { vi: "Đăng xuất", en: "Log out" },
+  acct_hello: { vi: "Xin chào", en: "Hello" },
+  acct_logged_out: { vi: "Đã đăng xuất", en: "Logged out" },
+  acct_created_hello: { vi: "Tạo tài khoản thành công, xin chào", en: "Account created, hello" },
+  acct_placeholder_username: { vi: "Tên tài khoản", en: "Username" },
+  acct_placeholder_password: { vi: "Mật khẩu", en: "Password" },
+  acct_placeholder_password_min: { vi: "Mật khẩu (tối thiểu 6 ký tự)", en: "Password (at least 6 chars)" },
+  acct_placeholder_firstname: { vi: "First name", en: "First name" },
+  acct_placeholder_lastname: { vi: "Last name", en: "Last name" },
+  acct_btn_login: { vi: "Đăng nhập", en: "Log in" },
+  acct_btn_login_busy: { vi: "Đang đăng nhập…", en: "Logging in…" },
+  acct_btn_register: { vi: "Tạo tài khoản", en: "Create account" },
+  acct_btn_register_busy: { vi: "Đang tạo tài khoản…", en: "Creating account…" },
+  acct_switch_to_register: { vi: "Chưa có tài khoản? Đăng ký", en: "No account? Sign up" },
+  acct_switch_to_login: { vi: "Đã có tài khoản? Đăng nhập", en: "Have an account? Log in" },
+  acct_err_missing: { vi: "Thiếu tài khoản hoặc mật khẩu", en: "Missing username or password" },
+  acct_err_notfound: { vi: "Tài khoản chưa tồn tại — vui lòng đăng ký", en: "Account does not exist — please sign up" },
+  acct_err_login_failed: { vi: "Đăng nhập thất bại", en: "Login failed" },
+  acct_err_register_failed: { vi: "Đăng ký thất bại", en: "Sign up failed" },
+  acct_err_network: { vi: "Lỗi kết nối", en: "Network error" },
+  acct_busy: { vi: "Đang xử lý...", en: "Processing..." },
+
+  settings_setting: { vi: "Setting", en: "Setting" },
+  settings_theme: { vi: "Giao diện", en: "Theme" },
+  settings_skin: { vi: "Chủ đề", en: "Skin" },
+  settings_language: { vi: "Ngôn ngữ", en: "Language" },
+  settings_mode: { vi: "Chế độ", en: "Mode" },
+
+  mtab_menu: { vi: "Menu", en: "Menu" },
+  mtab_feedback: { vi: "Phản hồi", en: "Feedback" },
+  mtab_home: { vi: "Trang chủ", en: "Home" },
+  mtab_account: { vi: "Tài khoản", en: "Account" },
+  mtab_setting: { vi: "Cài đặt", en: "Settings" },
 } as const;
 
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (key: keyof typeof dict) => string };

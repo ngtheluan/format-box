@@ -17,12 +17,15 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminBody from "../AdminBody";
 
+type Role = "user" | "admin";
+
 type AppUser = {
   id: string;
   accountname: string;
   email: string | null;
   firstname: string;
   lastname: string;
+  role: Role;
   created_at: string;
   updated_at: string;
 };
@@ -34,9 +37,17 @@ type FormState = {
   firstname: string;
   lastname: string;
   password: string;
+  role: Role;
 };
 
-const emptyForm: FormState = { accountname: "", email: "", firstname: "", lastname: "", password: "" };
+const emptyForm: FormState = {
+  accountname: "",
+  email: "",
+  firstname: "",
+  lastname: "",
+  password: "",
+  role: "user",
+};
 
 function formatTime(ts: string) {
   if (!ts) return "";
@@ -88,6 +99,7 @@ export default function UsersManager() {
             lastname: form.lastname,
             email: form.email,
             password: form.password || undefined,
+            role: form.role,
           }
         : form;
       const r = await fetch("/api/admin/users", {
@@ -206,6 +218,21 @@ export default function UsersManager() {
                 </div>
                 <div style={{ fontSize: 12, opacity: 0.7, fontFamily: "var(--font-mono, monospace)" }}>@{u.accountname}</div>
               </div>
+              <span
+                style={{
+                  fontSize: 10,
+                  padding: "2px 6px",
+                  borderRadius: 999,
+                  background: u.role === "admin" ? "var(--accent)" : "var(--bg3)",
+                  color: u.role === "admin" ? "#fff" : "var(--text)",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.3,
+                  flexShrink: 0,
+                }}
+              >
+                {u.role}
+              </span>
             </div>
             {u.email && (
               <div style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4, opacity: 0.8, overflow: "hidden" }}>
@@ -227,6 +254,7 @@ export default function UsersManager() {
                     firstname: u.firstname,
                     lastname: u.lastname,
                     password: "",
+                    role: u.role,
                   })
                 }
                 style={{ flex: 1 }}
@@ -293,6 +321,38 @@ export default function UsersManager() {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
+            <div style={{ display: "grid", gap: 4 }}>
+              <label style={{ fontSize: 12, opacity: 0.75 }}>Vai trò</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {(["user", "admin"] as Role[]).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setForm({ ...form, role: r })}
+                    className="fx-btn"
+                    style={{
+                      flex: 1,
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      background: form.role === r ? "var(--accent)" : "var(--bg3)",
+                      color: form.role === r ? "#fff" : "var(--text)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, opacity: 0.65 }}>
+                {form.role === "admin"
+                  ? "Admin: toàn quyền vào mọi trang và panel quản trị."
+                  : "User: chỉ xem các tool được cho phép, không vào được admin."}
+              </div>
+            </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
               <Button variant="ghost" size="sm" leftIcon={<IconX size={14} />} onClick={() => setForm(null)}>
                 Huỷ

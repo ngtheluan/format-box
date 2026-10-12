@@ -10,11 +10,11 @@ export async function GET() {
   try {
     const { data } = await supabaseAdmin()
       .from("app_users")
-      .select("id, accountname, firstname, lastname")
+      .select("id, accountname, firstname, lastname, role")
       .eq("id", id)
       .maybeSingle();
     if (!data) return NextResponse.json({ ok: false, user: null });
-    return NextResponse.json({ ok: true, user: data });
+    return NextResponse.json({ ok: true, user: { ...data, role: data.role === "admin" ? "admin" : "user" } });
   } catch {
     return NextResponse.json({ ok: false, user: null });
   }

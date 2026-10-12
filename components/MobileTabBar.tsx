@@ -1,13 +1,11 @@
 "use client";
 import {
-  IconArrowLeft,
   IconHome,
   IconLock,
   IconLogout,
   IconMenu4,
   IconMessageDots,
   IconSettings,
-  IconShieldLock,
   IconUser,
   IconUserCircle,
   IconX,
@@ -20,10 +18,14 @@ import LangToggle from "./LangToggle";
 import SkinPicker from "./SkinPicker";
 import ThemeToggle from "./ThemeToggle";
 import { useToast } from "./Toast";
+import { useI18n } from "@/lib/i18n";
 
-type AccountView = "pick" | "user-auth" | null;
+type AccountView = "user-auth" | null;
 type AuthMode = "login" | "register";
-type AppUser = { id: string; accountname: string; firstname: string; lastname: string };
+type AppRole = "user" | "admin";
+type AppUser = { id: string; accountname: string; firstname: string; lastname: string; role?: AppRole };
+type AppMode = "user" | "admin";
+const MODE_KEY = "fb-mode";
 
 export default function MobileTabBar() {
   const pathname = usePathname();
@@ -40,9 +42,31 @@ export default function MobileTabBar() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mode, setMode] = useState<AppMode>("user");
   const toast = useToast();
+  const { t } = useI18n();
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(MODE_KEY) as AppMode | null;
+      if (saved === "admin" || saved === "user") setMode(saved);
+    } catch {}
+  }, []);
+
+  function switchMode(next: AppMode) {
+    setMode(next);
+    try {
+      localStorage.setItem(MODE_KEY, next);
+    } catch {}
+    window.dispatchEvent(new CustomEvent("fb:mode-change", { detail: { mode: next } }));
+    setSettingsOpen(false);
+    if (next === "admin") {
+      router.push("/admin");
+    } else if (pathname.startsWith("/admin")) {
+      router.push("/");
+    }
+  }
   useEffect(() => {
     fetch("/api/user/me")
       .then((r) => r.json())
@@ -86,15 +110,15 @@ export default function MobileTabBar() {
       if (r.ok && d.ok) {
         setUser(d.user);
         closeAccount();
-        toast(`Xin chào ${d.user.firstname || d.user.accountname}!`);
+        toast(`${t("acct_hello")} ${d.user.firstname || d.user.accountname}!`);
       } else if (d.notFound) {
         setAuthMode("register");
-        setAuthErr("Tài khoản chưa tồn tại — vui lòng đăng ký");
+        setAuthErr(t("acct_err_notfound"));
       } else {
-        setAuthErr(d.error || "Đăng nhập thất bại");
+        setAuthErr(d.error || t("acct_err_login_failed"));
       }
     } catch {
-      setAuthErr("Lỗi kết nối");
+      setAuthErr(t("acct_err_network"));
     } finally {
       setBusy(false);
     }
@@ -113,12 +137,12 @@ export default function MobileTabBar() {
       if (r.ok && d.ok) {
         setUser(d.user);
         closeAccount();
-        toast(`Tạo tài khoản thành công, xin chào ${d.user.firstname || d.user.accountname}!`);
+        toast(`${t("acct_created_hello")} ${d.user.firstname || d.user.accountname}!`);
       } else {
-        setAuthErr(d.error || "Đăng ký thất bại");
+        setAuthErr(d.error || t("acct_err_register_failed"));
       }
     } catch {
-      setAuthErr("Lỗi kết nối");
+      setAuthErr(t("acct_err_network"));
     } finally {
       setBusy(false);
     }
@@ -130,7 +154,7 @@ export default function MobileTabBar() {
     } catch {}
     setUser(null);
     closeAccount();
-    toast("Đã đăng xuất");
+    toast(t("acct_logged_out"));
   }
 
   const dispatch = (name: string) => window.dispatchEvent(new CustomEvent(name));
@@ -148,39 +172,39 @@ export default function MobileTabBar() {
           aria-expanded={menuOpen}
         >
           <IconMenu4 size={22} stroke={1.8} />
-          <span>Menu</span>
+          <span>{t("mtab_menu")}</span>
         </button>
 
-        <button type="button" className="mtab-btn" onClick={() => dispatch("fb:open-feedback")} aria-label="Feedback">
+        <button type="button" className="mtab-btn" onClick={() => dispatch("fb:open-feedback")} aria-label={t("mtab_feedback")}>
           <IconMessageDots size={22} stroke={1.8} />
-          <span>Feedback</span>
+          <span>{t("mtab_feedback")}</span>
         </button>
 
-        <Link href="/" className={`mtab-btn${isHome ? " active" : ""}`} aria-label="Home">
+        <Link href="/" className={`mtab-btn${isHome ? " active" : ""}`} aria-label={t("mtab_home")}>
           <IconHome size={22} stroke={1.8} />
-          <span>Home</span>
+          <span>{t("mtab_home")}</span>
         </Link>
 
         <button
           type="button"
           className={`mtab-btn${accountView ? " active" : ""}`}
-          onClick={() => setAccountView("pick")}
-          aria-label="Account"
+          onClick={() => setAccountView("user-auth")}
+          aria-label={t("mtab_account")}
           aria-expanded={!!accountView}
         >
           <IconUser size={22} stroke={1.8} />
-          <span>Account</span>
+          <span>{t("mtab_account")}</span>
         </button>
 
         <button
           type="button"
           className={`mtab-btn${settingsOpen ? " active" : ""}`}
           onClick={() => setSettingsOpen(true)}
-          aria-label="Setting"
+          aria-label={t("mtab_setting")}
           aria-expanded={settingsOpen}
         >
           <IconSettings size={22} stroke={1.8} />
-          <span>Setting</span>
+          <span>{t("mtab_setting")}</span>
         </button>
       </nav>
 
@@ -197,7 +221,7 @@ export default function MobileTabBar() {
           >
             <div className="mtab-sheet">
               <div className="mtab-sheet-head">
-                <b>Setting</b>
+                <b>{t("settings_setting")}</b>
                 <button
                   type="button"
                   className="mtab-sheet-close"
@@ -208,17 +232,40 @@ export default function MobileTabBar() {
                 </button>
               </div>
               <div className="mtab-sheet-row">
-                <span>Theme</span>
+                <span>{t("settings_theme")}</span>
                 <ThemeToggle />
               </div>
               <div className="mtab-sheet-row">
-                <span>Skin</span>
+                <span>{t("settings_skin")}</span>
                 <SkinPicker />
               </div>
               <div className="mtab-sheet-row">
-                <span>Language</span>
+                <span>{t("settings_language")}</span>
                 <LangToggle />
               </div>
+              {user?.role === "admin" && (
+                <div className="mtab-sheet-row">
+                  <span>{t("settings_mode")}</span>
+                  <div className="lang-toggle" role="group" aria-label="Mode">
+                    <button
+                      type="button"
+                      className={mode === "user" ? "on" : ""}
+                      onClick={() => switchMode("user")}
+                      aria-pressed={mode === "user"}
+                    >
+                      USER
+                    </button>
+                    <button
+                      type="button"
+                      className={mode === "admin" ? "on" : ""}
+                      onClick={() => switchMode("admin")}
+                      aria-pressed={mode === "admin"}
+                    >
+                      ADMIN
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>,
           document.body,
@@ -237,85 +284,38 @@ export default function MobileTabBar() {
           >
             <div className="mtab-sheet">
               <div className="mtab-sheet-head">
-                {accountView === "user-auth" ? (
-                  <button
-                    type="button"
-                    className="mtab-sheet-close"
-                    onClick={() => setAccountView("pick")}
-                    aria-label="Back"
-                  >
-                    <IconArrowLeft size={18} stroke={2} />
-                  </button>
-                ) : (
-                  <span style={{ width: 28 }} />
-                )}
-                <b>{accountView === "pick" ? "Account" : authMode === "login" ? "Đăng nhập" : "Đăng ký"}</b>
+                <span style={{ width: 28 }} />
+                <b>{user ? t("acct_account") : authMode === "login" ? t("acct_title_login") : t("acct_title_register")}</b>
                 <button type="button" className="mtab-sheet-close" onClick={closeAccount} aria-label="Close">
                   <IconX size={18} stroke={2} />
                 </button>
               </div>
 
-              {accountView === "pick" && (
+              {user && (
                 <div className="mtab-acct-list">
-                  {user ? (
-                    <>
-                      <div className="mtab-sheet-row">
-                        <span className="mtab-sheet-row-ico">
-                          <IconUserCircle size={20} stroke={1.8} />
-                        </span>
-                        <span className="mtab-acct-body">
-                          <b>
-                            {user.firstname} {user.lastname}
-                          </b>
-                          <small>@{user.accountname}</small>
-                        </span>
-                      </div>
-                      <button type="button" className="mtab-sheet-row mtab-sheet-row-btn" onClick={doLogout}>
-                        <span className="mtab-sheet-row-ico">
-                          <IconLogout size={20} stroke={1.8} />
-                        </span>
-                        <span className="mtab-acct-body">
-                          <b>Đăng xuất</b>
-                        </span>
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="mtab-sheet-row mtab-sheet-row-btn"
-                      onClick={() => setAccountView("user-auth")}
-                    >
-                      <span className="mtab-sheet-row-ico">
-                        <IconUserCircle size={20} stroke={1.8} />
-                      </span>
-                      <span className="mtab-acct-body">
-                        <b>User</b>
-                        <small>Đăng nhập / đăng ký bằng tài khoản & mật khẩu</small>
-                      </span>
-                    </button>
-                  )}
-                  {!user && (
-                    <button
-                      type="button"
-                      className="mtab-sheet-row mtab-sheet-row-btn"
-                      onClick={() => {
-                        closeAccount();
-                        router.push("/admin");
-                      }}
-                    >
-                      <span className="mtab-sheet-row-ico">
-                        <IconShieldLock size={20} stroke={1.8} />
-                      </span>
-                      <span className="mtab-acct-body">
-                        <b>Manager</b>
-                        <small>Vào khu vực quản trị</small>
-                      </span>
-                    </button>
-                  )}
+                  <div className="mtab-sheet-row">
+                    <span className="mtab-sheet-row-ico">
+                      <IconUserCircle size={20} stroke={1.8} />
+                    </span>
+                    <span className="mtab-acct-body">
+                      <b>
+                        {user.firstname} {user.lastname}
+                      </b>
+                      <small>@{user.accountname}</small>
+                    </span>
+                  </div>
+                  <button type="button" className="mtab-sheet-row mtab-sheet-row-btn" onClick={doLogout}>
+                    <span className="mtab-sheet-row-ico">
+                      <IconLogout size={20} stroke={1.8} />
+                    </span>
+                    <span className="mtab-acct-body">
+                      <b>{t("acct_logout")}</b>
+                    </span>
+                  </button>
                 </div>
               )}
 
-              {accountView === "user-auth" && authMode === "login" && (
+              {!user && authMode === "login" && (
                 <form
                   className="mtab-acct-form"
                   onSubmit={(e) => {
@@ -330,7 +330,7 @@ export default function MobileTabBar() {
                       type="text"
                       value={accountname}
                       onChange={(e) => setAccountname(e.target.value)}
-                      placeholder="Tên tài khoản"
+                      placeholder={t("acct_placeholder_username")}
                       autoFocus
                     />
                   </label>
@@ -341,12 +341,12 @@ export default function MobileTabBar() {
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Mật khẩu"
+                      placeholder={t("acct_placeholder_password")}
                     />
                   </label>
                   {authErr && <small className="mtab-acct-err">{authErr}</small>}
                   <button type="submit" className="fx-btn fx-btn-primary" disabled={!accountname || !password || busy}>
-                    {busy ? "Đang xử lý..." : "Đăng nhập"}
+                    {busy ? t("acct_busy") : t("acct_btn_login")}
                   </button>
                   <button
                     type="button"
@@ -356,12 +356,12 @@ export default function MobileTabBar() {
                       setAuthErr("");
                     }}
                   >
-                    Chưa có tài khoản? Đăng ký
+                    {t("acct_switch_to_register")}
                   </button>
                 </form>
               )}
 
-              {accountView === "user-auth" && authMode === "register" && (
+              {!user && authMode === "register" && (
                 <form
                   className="mtab-acct-form"
                   onSubmit={(e) => {
@@ -376,7 +376,7 @@ export default function MobileTabBar() {
                       type="text"
                       value={firstname}
                       onChange={(e) => setFirstname(e.target.value)}
-                      placeholder="First name"
+                      placeholder={t("acct_placeholder_firstname")}
                       autoFocus
                     />
                   </label>
@@ -387,7 +387,7 @@ export default function MobileTabBar() {
                       type="text"
                       value={lastname}
                       onChange={(e) => setLastname(e.target.value)}
-                      placeholder="Last name"
+                      placeholder={t("acct_placeholder_lastname")}
                     />
                   </label>
                   <label className="mtab-acct-input">
@@ -397,7 +397,7 @@ export default function MobileTabBar() {
                       type="text"
                       value={accountname}
                       onChange={(e) => setAccountname(e.target.value)}
-                      placeholder="Tên tài khoản"
+                      placeholder={t("acct_placeholder_username")}
                     />
                   </label>
                   <label className="mtab-acct-input">
@@ -407,7 +407,7 @@ export default function MobileTabBar() {
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Mật khẩu (tối thiểu 6 ký tự)"
+                      placeholder={t("acct_placeholder_password_min")}
                     />
                   </label>
                   {authErr && <small className="mtab-acct-err">{authErr}</small>}
@@ -416,7 +416,7 @@ export default function MobileTabBar() {
                     className="fx-btn fx-btn-primary"
                     disabled={!firstname || !lastname || !accountname || password.length < 6 || busy}
                   >
-                    {busy ? "Đang xử lý..." : "Tạo tài khoản"}
+                    {busy ? t("acct_busy") : t("acct_btn_register")}
                   </button>
                   <button
                     type="button"
@@ -426,7 +426,7 @@ export default function MobileTabBar() {
                       setAuthErr("");
                     }}
                   >
-                    Đã có tài khoản? Đăng nhập
+                    {t("acct_switch_to_login")}
                   </button>
                 </form>
               )}
