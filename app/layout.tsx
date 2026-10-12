@@ -8,6 +8,7 @@ import { ThemesProvider } from "@/components/ThemesProvider";
 import { LanguageProvider } from "@/lib/i18n";
 import { SkinProvider } from "@/lib/skin-context";
 import { themeInitScript } from "@/lib/theme";
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </SkinProvider>
           </ThemesProvider>
         </LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );
