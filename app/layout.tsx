@@ -8,6 +8,9 @@ import { ToolsProvider } from "@/components/ToolsProvider";
 import { LanguageProvider } from "@/lib/i18n";
 import { SkinProvider } from "@/lib/skin-context";
 import { themeInitScript } from "@/lib/theme";
+import { getTools } from "@/lib/tools";
+import { isToolVisible, type Role } from "@/lib/tools-shared";
+import { currentUser } from "@/lib/user-auth";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata, Viewport } from "next";
@@ -26,7 +29,10 @@ export const viewport: Viewport = {
   themeColor: "#0a0e15",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const role: Role = currentUser()?.role ?? "guest";
+  const allTools = await getTools();
+  const initialTools = allTools.filter((t) => isToolVisible(t, role));
   return (
     <html lang="vi" data-theme="dark" suppressHydrationWarning>
       <head>
@@ -50,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LanguageProvider>
           <ThemesProvider>
             <SkinProvider>
-              <ToolsProvider>
+              <ToolsProvider initialTools={initialTools}>
                 <SkinScene />
                 <TitleUpdater />
                 <ToastProvider>

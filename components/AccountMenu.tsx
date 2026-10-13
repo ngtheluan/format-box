@@ -94,7 +94,16 @@ export default function AccountMenu() {
     reset();
   }
 
+  function afterAuth() {
+    if (pathname === "/forbidden") {
+      const from = new URLSearchParams(window.location.search).get("from");
+      router.replace(from || "/");
+    }
+    router.refresh();
+  }
+
   async function doLogin() {
+    if (busy || !accountname || !password) return;
     setAuthErr("");
     setBusy(true);
     try {
@@ -108,6 +117,7 @@ export default function AccountMenu() {
         setUser(d.user);
         close();
         toast(`${t("acct_hello")} ${d.user.firstname || d.user.accountname}!`);
+        afterAuth();
       } else if (d.notFound) {
         setAuthMode("register");
         setAuthErr(t("acct_err_notfound"));
@@ -122,6 +132,7 @@ export default function AccountMenu() {
   }
 
   async function doRegister() {
+    if (busy || !firstname || !lastname || !accountname || !email || password.length < 6) return;
     setAuthErr("");
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setAuthErr(t("acct_err_email_invalid"));
@@ -139,6 +150,7 @@ export default function AccountMenu() {
         setUser(d.user);
         close();
         toast(`${t("acct_created_hello")} ${d.user.firstname || d.user.accountname}!`);
+        afterAuth();
       } else {
         setAuthErr(d.error || t("acct_err_register_failed"));
       }
@@ -156,9 +168,9 @@ export default function AccountMenu() {
     setUser(null);
     close();
     toast(t("acct_logged_out"));
+    if (pathname.startsWith("/admin")) router.replace("/");
+    router.refresh();
   }
-
-  //   const title = view === "menu" ? "Menu" : user ? "Account" : authMode === "login" ? "Đăng nhập" : "Đăng ký";
 
   return (
     <div className="account-menu" ref={ref}>
@@ -276,7 +288,6 @@ export default function AccountMenu() {
                 />
               </label>
               <label className="account-pop-input">
-                ``
                 <IconLock size={16} stroke={1.8} />
                 <input
                   className="fx-input"
