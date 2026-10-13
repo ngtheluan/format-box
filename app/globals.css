@@ -2066,7 +2066,7 @@ label {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-flow: column;
   grid-template-rows: repeat(var(--nav-cat-rows, 6), auto);
-  gap: 4px 8px;
+  gap: 10px;
 }
 .nav-cat-item {
   display: flex;
