@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";
   let query = supabaseAdmin()
     .from("app_users")
-    .select("id, accountname, email, firstname, lastname, role, created_at, updated_at")
+    .select("id, accountname, email, firstname, lastname, role, note, created_at, updated_at")
     .order("created_at", { ascending: false })
     .limit(500);
   if (q) {
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   if (!isAdmin()) return unauth();
-  const { accountname, firstname, lastname, password, email, role } = await req.json().catch(() => ({}));
+  const { accountname, firstname, lastname, password, email, role, note } = await req.json().catch(() => ({}));
   if (!accountname || !firstname || !lastname || !password) {
     return NextResponse.json({ ok: false, error: "Thiếu thông tin" }, { status: 400 });
   }
@@ -53,8 +53,9 @@ export async function POST(req: Request) {
       email: email || null,
       password_hash: hashPassword(password),
       role: safeRole,
+      note: typeof note === "string" && note.trim() ? note : null,
     })
-    .select("id, accountname, email, firstname, lastname, role, created_at, updated_at")
+    .select("id, accountname, email, firstname, lastname, role, note, created_at, updated_at")
     .single();
   if (error || !data) return NextResponse.json({ ok: false, error: error?.message || "Lỗi tạo" }, { status: 500 });
   return NextResponse.json({ ok: true, user: data });
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   if (!isAdmin()) return unauth();
-  const { id, firstname, lastname, password, email, role } = await req.json().catch(() => ({}));
+  const { id, firstname, lastname, password, email, role, note } = await req.json().catch(() => ({}));
   if (!id) return NextResponse.json({ ok: false, error: "Thiếu id" }, { status: 400 });
   const patch: Record<string, string | null> = {};
   if (role === "user" || role === "admin") patch.role = role;
@@ -78,12 +79,15 @@ export async function PATCH(req: Request) {
     if (password.length < 6) return NextResponse.json({ ok: false, error: "Mật khẩu tối thiểu 6 ký tự" }, { status: 400 });
     patch.password_hash = hashPassword(password);
   }
+  if (typeof note === "string") {
+    patch.note = note.trim() ? note : null;
+  }
   if (!Object.keys(patch).length) return NextResponse.json({ ok: false, error: "Không có thay đổi" }, { status: 400 });
   const { data, error } = await supabaseAdmin()
     .from("app_users")
     .update(patch)
     .eq("id", id)
-    .select("id, accountname, email, firstname, lastname, role, created_at, updated_at")
+    .select("id, accountname, email, firstname, lastname, role, note, created_at, updated_at")
     .single();
   if (error || !data) return NextResponse.json({ ok: false, error: error?.message || "Lỗi cập nhật" }, { status: 500 });
   return NextResponse.json({ ok: true, user: data });

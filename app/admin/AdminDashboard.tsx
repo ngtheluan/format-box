@@ -3,6 +3,7 @@ import {
   IconBroadcast,
   IconChartBar,
   IconComponents,
+  IconLanguage,
   IconLayoutGrid,
   IconListDetails,
   IconMessageDots,
@@ -26,6 +27,12 @@ const ADMIN_APPS: AdminApp[] = [
     title: "Menu",
     desc: "Quản lý danh sách tools hiển thị ngoài trang chủ.",
     icon: <IconListDetails size={20} stroke={1.7} />,
+  },
+  {
+    href: "/admin/translations",
+    title: "Ngôn ngữ",
+    desc: "Quản lý đa ngôn ngữ VI/EN — thêm, sửa, seed từ source dict.",
+    icon: <IconLanguage size={20} stroke={1.7} />,
   },
   {
     href: "/admin/theme",
