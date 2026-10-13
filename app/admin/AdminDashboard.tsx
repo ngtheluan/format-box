@@ -1,6 +1,7 @@
 "use client";
 import {
   IconBroadcast,
+  IconCamera,
   IconChartBar,
   IconComponents,
   IconLanguage,
@@ -69,6 +70,12 @@ const ADMIN_APPS: AdminApp[] = [
     title: "Podcasts",
     desc: "MachuTeam podcast — tập podcast + video YouTube.",
     icon: <IconMicrophone size={20} stroke={1.7} />,
+  },
+  {
+    href: "/admin/photobooth",
+    title: "Photobooth",
+    desc: "Ảnh user chụp lưu trên Vercel Blob — tự xoá sau 24h.",
+    icon: <IconCamera size={20} stroke={1.7} />,
   },
   {
     href: "/admin/ui",

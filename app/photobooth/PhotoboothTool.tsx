@@ -7,17 +7,21 @@ import {
   IconCamera,
   IconCameraOff,
   IconCheck,
+  IconCopy,
   IconDownload,
   IconFlipHorizontal,
   IconMoodSmile,
   IconPalette,
   IconPhotoFilled,
+  IconQrcode,
   IconRefresh,
   IconSparkles,
   IconTrash,
   IconTypography,
   IconWand,
+  IconX,
 } from "@tabler/icons-react";
+import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Step = "setup" | "capture" | "edit";
@@ -432,6 +436,7 @@ export default function PhotoboothTool() {
   const dragStateRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
   // Dragging from the palette (sticker/text picker) → drop onto strip
   const paletteDragRef = useRef<{ stickerId: string; isText: boolean; sx: number; sy: number; moved: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
   const [ghost, setGhost] = useState<{ stickerId: string; x: number; y: number; isText: boolean } | null>(null);
   const [dropHot, setDropHot] = useState(false);
 
@@ -647,6 +652,10 @@ export default function PhotoboothTool() {
       const pd = paletteDragRef.current;
       if (pd) {
         if (pd.moved) {
+          suppressClickRef.current = true;
+          setTimeout(() => {
+            suppressClickRef.current = false;
+          }, 300);
           const r = isOverStrip(e.clientX, e.clientY);
           if (r) {
             const xPct = Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100));
@@ -654,10 +663,8 @@ export default function PhotoboothTool() {
             addPlaced(pd.stickerId, xPct, yPct);
           }
           // dragged but not released over strip → cancelled, nothing to do
-        } else {
-          // No movement — treat as a tap/click: add at default position
-          addPlaced(pd.stickerId, null, null);
         }
+        // Tap without movement → let the button's onClick handle add (avoids double-add).
         paletteDragRef.current = null;
         setGhost(null);
         setDropHot(false);
@@ -675,9 +682,11 @@ export default function PhotoboothTool() {
   }, []);
 
   const startPaletteDrag = (e: React.PointerEvent, stickerId: string) => {
-    e.preventDefault();
     const isText = stickerId.startsWith("txt-");
     paletteDragRef.current = { stickerId, isText, sx: e.clientX, sy: e.clientY, moved: false };
+    try {
+      (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
+    } catch {}
   };
 
   const onPointerDownSticker = (e: React.PointerEvent, p: Placed) => {
@@ -731,6 +740,11 @@ export default function PhotoboothTool() {
 
   // --- Export ---
   const [exporting, setExporting] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success" | "error">("idle");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const downloadPhoto = useCallback(async () => {
     if (!captures.length) return;
     setExporting(true);
@@ -761,6 +775,17 @@ export default function PhotoboothTool() {
         ctx.fillStyle = theme.background;
       }
       ctx.fillRect(0, 0, w, h);
+
+      if (theme.decoration) {
+        try {
+          const decoSvg = theme.decoration.replace(
+            /viewBox="[^"]*"/,
+            `viewBox="0 0 ${STRIP_W} ${stripHeight(captures.length)}" preserveAspectRatio="none"`,
+          );
+          const decoImg = await loadImage(svgToDataURL(decoSvg));
+          ctx.drawImage(decoImg, 0, 0, w, h);
+        } catch {}
+      }
 
       if (theme.border) {
         ctx.strokeStyle = theme.border;
@@ -818,6 +843,33 @@ export default function PhotoboothTool() {
       document.body.appendChild(a);
       a.click();
       a.remove();
+
+      // Upload to Vercel Blob → open QR modal with share link
+      setUploadState("uploading");
+      setUploadError(null);
+      setShareUrl(null);
+      setQrDataUrl(null);
+      try {
+        const r = await fetch("/api/photobooth/upload", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ dataUrl: url }),
+        });
+        const json = (await r.json().catch(() => ({}))) as { url?: string; error?: string };
+        if (!r.ok || !json.url) throw new Error(json.error || `HTTP ${r.status}`);
+        const qr = await QRCode.toDataURL(json.url, {
+          width: 480,
+          margin: 1,
+          errorCorrectionLevel: "M",
+          color: { dark: "#111111", light: "#ffffff" },
+        });
+        setShareUrl(json.url);
+        setQrDataUrl(qr);
+        setUploadState("success");
+      } catch (err) {
+        setUploadState("error");
+        setUploadError(err instanceof Error ? err.message : "upload failed");
+      }
     } finally {
       setExporting(false);
     }
@@ -837,6 +889,14 @@ export default function PhotoboothTool() {
       }}
       onClick={interactive ? () => setSelectedId(null) : undefined}
     >
+      {theme.decoration && (
+        <div
+          className="pb-strip-deco"
+          style={{
+            backgroundImage: `url("${svgToDataURL(theme.decoration)}")`,
+          }}
+        />
+      )}
       <div className="pb-strip-inner">
         {captures.filter(Boolean).map((src, i) => (
           <img
@@ -1135,7 +1195,10 @@ export default function PhotoboothTool() {
                       }}
                     >
                       {th.decoration && (
-                        <div className="pb-theme-mini-deco" dangerouslySetInnerHTML={{ __html: th.decoration }} />
+                        <div
+                          className="pb-theme-mini-deco"
+                          style={{ backgroundImage: `url("${svgToDataURL(th.decoration)}")` }}
+                        />
                       )}
                       <div className="pb-theme-mini-inner">
                         <div className="pb-theme-mini-ph" style={{ background: g1 }} />
@@ -1168,8 +1231,13 @@ export default function PhotoboothTool() {
                   {STICKERS.map((s) => (
                     <button
                       key={s.id}
+                      type="button"
                       className="pb-sticker-btn"
                       onPointerDown={(e) => startPaletteDrag(e, s.id)}
+                      onClick={() => {
+                        if (suppressClickRef.current) return;
+                        addSticker(s.id);
+                      }}
                       title={s.label}
                       dangerouslySetInnerHTML={{ __html: s.svg }}
                     />
@@ -1217,8 +1285,13 @@ export default function PhotoboothTool() {
                     {TEXT_STICKERS_DEFS.map((s) => (
                       <button
                         key={s.id}
+                        type="button"
                         className="pb-text-btn"
                         onPointerDown={(e) => startPaletteDrag(e, s.id)}
+                        onClick={() => {
+                          if (suppressClickRef.current) return;
+                          addSticker(s.id);
+                        }}
                         dangerouslySetInnerHTML={{ __html: s.svg }}
                       />
                     ))}
@@ -1243,6 +1316,86 @@ export default function PhotoboothTool() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {(uploadState !== "idle" || shareUrl) && (
+        <div
+          className="pb-qr-overlay"
+          onClick={() => {
+            setUploadState("idle");
+            setShareUrl(null);
+            setQrDataUrl(null);
+            setUploadError(null);
+            setCopied(false);
+          }}
+        >
+          <div className="pb-qr-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="pb-qr-close"
+              onClick={() => {
+                setUploadState("idle");
+                setShareUrl(null);
+                setQrDataUrl(null);
+                setUploadError(null);
+                setCopied(false);
+              }}
+              aria-label="Close"
+            >
+              <IconX size={16} stroke={2} />
+            </button>
+
+            {uploadState === "uploading" && (
+              <div className="pb-qr-loading">
+                <div className="pb-qr-spin" />
+                <h3>Đang upload ảnh…</h3>
+                <p>Chuẩn bị QR code để chia sẻ</p>
+              </div>
+            )}
+
+            {uploadState === "error" && (
+              <div className="pb-qr-err">
+                <h3>Không upload được</h3>
+                <p>{uploadError}</p>
+                <p className="pb-qr-err-sub">Ảnh vẫn đã được tải về máy. Bạn có thể thử lại.</p>
+              </div>
+            )}
+
+            {uploadState === "success" && shareUrl && qrDataUrl && (
+              <>
+                <div className="pb-qr-head">
+                  <div className="pb-qr-head-ic">
+                    <IconQrcode size={18} stroke={1.8} />
+                  </div>
+                  <div>
+                    <h3>Chia sẻ ảnh</h3>
+                    <p>Quét QR hoặc copy link — ảnh tự xoá sau 24 giờ</p>
+                  </div>
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qrDataUrl} alt="QR code" className="pb-qr-img" />
+                <div className="pb-qr-link">
+                  <input readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
+                  <button
+                    className="pb-qr-copy"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(shareUrl);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1600);
+                      } catch {}
+                    }}
+                  >
+                    {copied ? <IconCheck size={14} stroke={2.2} /> : <IconCopy size={14} stroke={1.8} />}
+                    {copied ? "Đã copy" : "Copy"}
+                  </button>
+                </div>
+                <a className="pb-qr-open" href={shareUrl} target="_blank" rel="noreferrer">
+                  Mở trong tab mới ↗
+                </a>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2030,10 +2183,9 @@ export default function PhotoboothTool() {
           inset: 0;
           pointer-events: none;
           z-index: 0;
-        }
-        .pb-strip-deco :global(svg) {
-          width: 100%;
-          height: 100%;
+          background-repeat: no-repeat;
+          background-position: center;
+          background-size: 100% 100%;
         }
         .pb-strip-inner {
           position: relative;
@@ -2206,10 +2358,9 @@ export default function PhotoboothTool() {
           inset: 0;
           pointer-events: none;
           z-index: 0;
-        }
-        .pb-theme-mini-deco :global(svg) {
-          width: 100%;
-          height: 100%;
+          background-repeat: no-repeat;
+          background-position: center;
+          background-size: 100% 100%;
         }
         .pb-theme-mini-inner {
           position: relative;
@@ -2388,6 +2539,150 @@ export default function PhotoboothTool() {
           padding-top: 8px;
           border-top: 1px dashed var(--border);
         }
+        .pb-qr-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(6px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10000;
+          padding: 20px;
+          animation: pbQrFade 0.2s ease-out;
+        }
+        @keyframes pbQrFade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .pb-qr-modal {
+          position: relative;
+          background: var(--panel);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          padding: 24px;
+          max-width: 360px;
+          width: 100%;
+          box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.5);
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          animation: pbQrIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes pbQrIn {
+          from { opacity: 0; transform: scale(0.92) translateY(10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .pb-qr-close {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          color: var(--text);
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          opacity: 0.75;
+        }
+        .pb-qr-close:hover { opacity: 1; border-color: var(--accent); }
+        .pb-qr-head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .pb-qr-head-ic {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #9b5de5, #4cc9f0);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .pb-qr-head h3 { margin: 0; font-size: 15px; color: var(--text); }
+        .pb-qr-head p { margin: 2px 0 0; font-size: 12px; color: var(--text); opacity: 0.6; }
+        .pb-qr-img {
+          width: 100%;
+          max-width: 280px;
+          aspect-ratio: 1;
+          margin: 0 auto;
+          border-radius: 12px;
+          background: #fff;
+          padding: 10px;
+          box-sizing: border-box;
+          display: block;
+        }
+        .pb-qr-link {
+          display: flex;
+          gap: 6px;
+          align-items: stretch;
+        }
+        .pb-qr-link input {
+          flex: 1;
+          min-width: 0;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          color: var(--text);
+          border-radius: 8px;
+          padding: 8px 10px;
+          font-size: 12px;
+          font-family: ui-monospace, monospace;
+        }
+        .pb-qr-copy {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 8px 12px;
+          background: linear-gradient(135deg, #9b5de5, #4cc9f0);
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .pb-qr-open {
+          text-align: center;
+          font-size: 12px;
+          color: var(--text);
+          opacity: 0.65;
+          text-decoration: none;
+        }
+        .pb-qr-open:hover { opacity: 1; color: var(--accent); }
+        .pb-qr-loading, .pb-qr-err {
+          text-align: center;
+          padding: 20px 0;
+        }
+        .pb-qr-loading h3, .pb-qr-err h3 {
+          margin: 10px 0 4px;
+          font-size: 15px;
+          color: var(--text);
+        }
+        .pb-qr-loading p, .pb-qr-err p {
+          margin: 0;
+          font-size: 12px;
+          color: var(--text);
+          opacity: 0.65;
+        }
+        .pb-qr-err-sub { margin-top: 8px !important; }
+        .pb-qr-spin {
+          width: 36px;
+          height: 36px;
+          border: 3px solid var(--border);
+          border-top-color: var(--accent);
+          border-radius: 50%;
+          margin: 0 auto;
+          animation: pbQrSpin 0.8s linear infinite;
+        }
+        @keyframes pbQrSpin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );

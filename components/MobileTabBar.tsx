@@ -45,6 +45,7 @@ export default function MobileTabBar() {
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mode, setMode] = useState<AppMode>("user");
+  const [kbInset, setKbInset] = useState(0);
   const toast = useToast();
   const { t } = useI18n();
 
@@ -91,6 +92,26 @@ export default function MobileTabBar() {
     setSettingsOpen(false);
     closeAccount();
   }, [pathname]);
+  useEffect(() => {
+    if (!accountView) {
+      setKbInset(0);
+      return;
+    }
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKbInset(inset);
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [accountView]);
+
   useEffect(() => {
     const onSearchState = (e: Event) => {
       const detail = (e as CustomEvent<{ open: boolean }>).detail;
@@ -319,6 +340,7 @@ export default function MobileTabBar() {
             }}
             role="dialog"
             aria-modal="true"
+            style={kbInset > 0 ? { paddingBottom: kbInset } : undefined}
           >
             <div className="mtab-sheet">
               <div className="mtab-sheet-head">
