@@ -104,11 +104,19 @@ export default function MobileTabBar() {
       setKbInset(inset);
     };
     update();
+    const t1 = window.setTimeout(update, 150);
+    const t2 = window.setTimeout(update, 400);
+    const t3 = window.setTimeout(update, 800);
     vv.addEventListener("resize", update);
     vv.addEventListener("scroll", update);
+    document.addEventListener("focusin", update);
     return () => {
       vv.removeEventListener("resize", update);
       vv.removeEventListener("scroll", update);
+      document.removeEventListener("focusin", update);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
     };
   }, [accountView]);
 
@@ -340,9 +348,15 @@ export default function MobileTabBar() {
             }}
             role="dialog"
             aria-modal="true"
-            style={kbInset > 0 ? { paddingBottom: kbInset } : undefined}
           >
-            <div className="mtab-sheet">
+            <div
+              className="mtab-sheet"
+              style={
+                kbInset > 0
+                  ? { marginBottom: kbInset, maxHeight: `calc(100vh - ${kbInset}px - 24px)` }
+                  : undefined
+              }
+            >
               <div className="mtab-sheet-head">
                 <span style={{ width: 28 }} />
                 <b>

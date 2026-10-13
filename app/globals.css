@@ -15333,6 +15333,16 @@ section {
     background: transparent;
     box-shadow: none;
   }
+  .mtab-acct-input .fx-input:-webkit-autofill,
+  .mtab-acct-input .fx-input:-webkit-autofill:hover,
+  .mtab-acct-input .fx-input:-webkit-autofill:focus,
+  .mtab-acct-input .fx-input:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--bright);
+    -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+    box-shadow: 0 0 0 1000px var(--bg) inset;
+    caret-color: var(--bright);
+    transition: background-color 9999s ease-in-out 0s;
+  }
   .mtab-acct-code {
     text-align: center;
     letter-spacing: 10px;
