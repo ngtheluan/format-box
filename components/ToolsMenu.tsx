@@ -1,14 +1,15 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useTools } from "@/components/ToolsProvider";
+import { useI18n } from "@/lib/i18n";
+import { ToolIcon } from "@/lib/tool-icons";
+import { CATEGORY_ORDER, type ToolCategory } from "@/lib/tools-shared";
+import { IconChevronDown } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { IconChevronDown } from "@tabler/icons-react";
-import { CATEGORY_ORDER, type ToolCategory } from "@/lib/tools-shared";
-import { useTools } from "@/components/ToolsProvider";
-import { ToolIcon } from "@/lib/tool-icons";
-import { useI18n } from "@/lib/i18n";
+import { useEffect, useRef, useState } from "react";
 
 const catKey = (c: ToolCategory) => c;
+const COL_THRESHOLD = 6;
 
 export default function ToolsMenu() {
   const { t, lang } = useI18n();
@@ -57,6 +58,7 @@ export default function ToolsMenu() {
         if (items.length === 0) return null;
         const isOpen = openCat === cat;
         const catActive = items.some((it) => it.href === pathname);
+        const multiCol = items.length >= COL_THRESHOLD;
         return (
           <div key={cat} className={`nav-cat nav-cat-${cat}${isOpen ? " open" : ""}`}>
             <button
@@ -73,12 +75,15 @@ export default function ToolsMenu() {
             </button>
 
             {isOpen && (
-              <div className="nav-cat-panel" role="menu">
-                <div className="nav-cat-panel-head">
-                  <span>{t(catKey(cat))}</span>
-                  <span className="nav-cat-panel-count">{items.length}</span>
-                </div>
-                <div className="nav-cat-list">
+              <div className={`nav-cat-panel${multiCol ? " multi" : ""}`} role="menu">
+                <div
+                  className={`nav-cat-list${multiCol ? " multi" : ""}`}
+                  style={
+                    multiCol
+                      ? ({ ["--nav-cat-rows" as string]: Math.ceil(items.length / 2) } as React.CSSProperties)
+                      : undefined
+                  }
+                >
                   {items.map((tool) => {
                     const active = pathname === tool.href;
                     return (

@@ -2003,14 +2003,17 @@ label {
   position: absolute;
   top: calc(100% + 10px);
   left: 0;
-  width: min(380px, 92vw);
+  width: min(300px, 92vw);
   background: var(--bg2);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.5);
-  padding: 12px;
+  padding: 8px;
   z-index: 200;
   animation: menuIn 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.nav-cat-panel.multi {
+  width: min(540px, 94vw);
 }
 .nav-cat-panel-head {
   display: flex;
@@ -2057,51 +2060,40 @@ label {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* Show ~6 items, then scroll (each item ≈ 62px + 4px gap) */
-  max-height: 392px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
 }
-.nav-cat-list::-webkit-scrollbar {
-  width: 8px;
-}
-.nav-cat-list::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 8px;
-}
-.nav-cat-list::-webkit-scrollbar-track {
-  background: transparent;
+.nav-cat-list.multi {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--nav-cat-rows, 6), auto);
+  gap: 4px 8px;
 }
 .nav-cat-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
   border: 1px solid transparent;
   color: var(--text);
+  min-width: 0;
   transition:
     background 0.15s,
-    border-color 0.15s,
-    transform 0.15s;
+    border-color 0.15s;
 }
 .nav-cat-item:hover {
   background: var(--bg3);
   border-color: var(--border);
-  transform: translateX(2px);
 }
 .nav-cat-item.active {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .nav-cat-item-icon {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  border-radius: 9px;
+  border-radius: 7px;
   background: var(--bg3);
   border: 1px solid var(--border);
   color: var(--accent);
@@ -2110,7 +2102,8 @@ label {
   justify-content: center;
   transition:
     background 0.15s,
-    color 0.15s;
+    color 0.15s,
+    border-color 0.15s;
 }
 .nav-cat-item:hover .nav-cat-item-icon,
 .nav-cat-item.active .nav-cat-item-icon {
@@ -2123,17 +2116,23 @@ label {
   min-width: 0;
 }
 .nav-cat-item-text b {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--bright);
   letter-spacing: -0.01em;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .nav-cat-item-text span {
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   color: var(--dim);
   font-family: var(--mono);
-  margin-top: 2px;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Per-category color for panel */
@@ -2198,9 +2197,15 @@ label {
   .nav-cat-btn .chev {
     display: none;
   }
-  .nav-cat-panel {
+  .nav-cat-panel,
+  .nav-cat-panel.multi {
     width: calc(100vw - 24px);
     left: -8px;
+  }
+  .nav-cat-list.multi {
+    grid-template-columns: 1fr;
+    grid-auto-flow: row;
+    grid-template-rows: none;
   }
   /* Right-most category anchors panel to the right so it stays on screen */
   .nav-cat:last-child .nav-cat-panel {
