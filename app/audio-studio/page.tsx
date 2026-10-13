@@ -1,6 +1,8 @@
 "use client";
 import { ToolHeader } from "@/components/ToolHeader";
-import AudioStudioTool from "./AudioStudioTool";
+import dynamic from "next/dynamic";
+
+const AudioStudioTool = dynamic(() => import("./AudioStudioTool"), { ssr: false });
 
 export default function Page() {
   return (

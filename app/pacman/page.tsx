@@ -1,6 +1,8 @@
 "use client";
 import { ToolHeader } from "@/components/ToolHeader";
-import PacmanTool from "./PacmanTool";
+import dynamic from "next/dynamic";
+
+const PacmanTool = dynamic(() => import("./PacmanTool"), { ssr: false });
 
 export default function Page() {
   return (

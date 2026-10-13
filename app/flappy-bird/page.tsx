@@ -1,6 +1,8 @@
 "use client";
 import { ToolHeader } from "@/components/ToolHeader";
-import FlappyBirdTool from "./FlappyBirdTool";
+import dynamic from "next/dynamic";
+
+const FlappyBirdTool = dynamic(() => import("./FlappyBirdTool"), { ssr: false });
 
 export default function Page() {
   return (
