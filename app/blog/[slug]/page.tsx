@@ -6,9 +6,7 @@ import {
   BLOG_CATEGORIES,
   formatDateVi,
   getPublicPost,
-  getPublishedFromDb,
   listPublicPosts,
-  readPostMarkdown,
   renderMarkdown,
 } from "@/lib/blog";
 import { BlogCover } from "@/components/BlogCover";
@@ -30,14 +28,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
   const post = await getPublicPost(params.slug);
   if (!post) notFound();
 
-  // Markdown source: Supabase row for published-DB posts, .md file for seed posts.
-  let md: string | null = null;
-  const fromDb = await getPublishedFromDb(params.slug);
-  if (fromDb) md = fromDb.markdown;
-  else md = await readPostMarkdown(params.slug);
-  if (!md) notFound();
-
-  const { html, toc } = renderMarkdown(md);
+  const { html, toc } = renderMarkdown(post.markdown);
 
   const related = (await listPublicPosts())
     .filter((p) => p.slug !== post.slug && p.category === post.category)

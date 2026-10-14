@@ -1,8 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { marked } from "marked";
 import {
   IconArticle,
+  IconCalendar,
   IconCheck,
   IconCircleDashedCheck,
   IconClock,
@@ -13,13 +15,19 @@ import {
   IconLayoutGrid,
   IconLoader2,
   IconPlus,
+  IconRotateClockwise,
   IconSparkles,
   IconTrash,
+  IconUser,
   IconX,
 } from "@tabler/icons-react";
 import AdminBody from "../AdminBody";
 import { useToast } from "@/components/Toast";
+import { BlogCover } from "@/components/BlogCover";
 import type { BlogCategory, BlogPost, BlogStatus } from "@/lib/blog";
+import "@/app/blog/blog.css";
+
+marked.setOptions({ gfm: true, breaks: false });
 
 type Props = { initialPosts: BlogPost[] };
 type StatusFilter = "all" | BlogStatus;
@@ -27,7 +35,7 @@ type StatusFilter = "all" | BlogStatus;
 const STATUS_LABEL: Record<BlogStatus, string> = {
   draft: "Nháp",
   rejected: "Từ chối",
-  published: "Đã duyệt",
+  published: "Phát hành",
 };
 const CAT_LABEL: Record<BlogCategory, string> = {
   tech: "Công nghệ",
@@ -46,6 +54,8 @@ export default function BlogAdminTool({ initialPosts }: Props) {
 
   // Generate modal
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [genMode, setGenMode] = useState<"topic" | "random" | "category">("topic");
+  const [genCategory, setGenCategory] = useState<BlogCategory>("tech");
   const [topic, setTopic] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [genErr, setGenErr] = useState("");
@@ -63,6 +73,10 @@ export default function BlogAdminTool({ initialPosts }: Props) {
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [editErr, setEditErr] = useState("");
+
+  // Preview drawer (for drafts/rejected)
+  const [preview, setPreview] = useState<{ post: BlogPost; html: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const counts = useMemo(() => {
     const c = { all: posts.length, draft: 0, rejected: 0, published: 0 };
@@ -88,14 +102,18 @@ export default function BlogAdminTool({ initialPosts }: Props) {
 
   async function generate() {
     const t = topic.trim();
-    if (!t) return;
+    if (genMode === "topic" && !t) return;
     setGenLoading(true);
     setGenErr("");
     try {
       const r = await fetch("/api/blog/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: t }),
+        body: JSON.stringify({
+          mode: genMode,
+          topic: genMode === "topic" ? t : undefined,
+          category: genMode === "category" ? genCategory : undefined,
+        }),
       });
       const j = await r.json();
       if (!r.ok) {
@@ -123,6 +141,18 @@ export default function BlogAdminTool({ initialPosts }: Props) {
     if (!r.ok) return toast(j?.error || "Duyệt thất bại");
     setPosts((prev) => prev.map((x) => (x.slug === p.slug ? { ...x, status: "published" } : x)));
     toast(`Đã duyệt: ${p.title}`);
+  }
+
+  async function unpublish(p: BlogPost) {
+    const r = await fetch("/api/blog/unpublish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: p.slug }),
+    });
+    const j = await r.json();
+    if (!r.ok) return toast(j?.error || "Chuyển về nháp thất bại");
+    setPosts((prev) => prev.map((x) => (x.slug === p.slug ? { ...x, status: "draft" } : x)));
+    toast(`Đã chuyển về nháp: ${p.title}`);
   }
 
   async function reject(p: BlogPost) {
@@ -217,6 +247,24 @@ export default function BlogAdminTool({ initialPosts }: Props) {
     }
   }
 
+  async function openPreview(p: BlogPost) {
+    setPreviewLoading(true);
+    try {
+      const r = await fetch(`/api/blog/update?slug=${encodeURIComponent(p.slug)}`);
+      const j = await r.json();
+      if (!r.ok) {
+        toast(j?.error || "Lỗi");
+        return;
+      }
+      const html = (await marked.parse(j.markdown || "")) as string;
+      setPreview({ post: j.post, html });
+    } catch (e: any) {
+      toast(e?.message || "Lỗi");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   async function logout() {
     await fetch("/api/admin/login", { method: "DELETE" });
     window.location.href = "/admin";
@@ -289,7 +337,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
             </span>
             <span className="fx-stat-txt">
               <span className="fx-stat-val">{counts.published}</span>
-              <span className="fx-stat-lbl">Đã duyệt</span>
+              <span className="fx-stat-lbl">Phát hành</span>
             </span>
           </div>
         </>
@@ -369,12 +417,36 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                       <IconX size={14} stroke={2} />
                     </button>
                   )}
-                  <Link href={`/blog/${p.slug}`} target="_blank" className="fx-btn fx-btn-icon" title="Xem">
-                    <IconEye size={14} stroke={1.9} />
-                  </Link>
-                  <button className="fx-btn fx-btn-icon" onClick={() => startEdit(p)} title="Sửa">
-                    <IconEdit size={14} stroke={1.9} />
-                  </button>
+                  {status === "published" ? (
+                    <>
+                      <Link href={`/blog/${p.slug}`} target="_blank" className="fx-btn fx-btn-icon" title="Xem">
+                        <IconEye size={14} stroke={1.9} />
+                      </Link>
+                      <button
+                        className="fx-btn fx-btn-icon"
+                        onClick={() => unpublish(p)}
+                        title="Về nháp để sửa"
+                        style={{ color: "var(--info, #3b82f6)" }}
+                      >
+                        <IconRotateClockwise size={14} stroke={1.9} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="fx-btn fx-btn-icon"
+                        onClick={() => openPreview(p)}
+                        title="Xem thử (nháp)"
+                        disabled={previewLoading}
+                      >
+                        {previewLoading ? <IconLoader2 size={14} className="spin" /> : <IconEye size={14} stroke={1.9} />}
+                      </button>
+                      <button className="fx-btn fx-btn-icon" onClick={() => startEdit(p)} title="Sửa">
+                        <IconEdit size={14} stroke={1.9} />
+                      </button>
+                    </>
+                  )}
                   <button className="fx-btn fx-btn-icon fx-btn-danger" onClick={() => remove(p)} title="Xoá">
                     <IconTrash size={14} stroke={1.9} />
                   </button>
@@ -407,18 +479,67 @@ export default function BlogAdminTool({ initialPosts }: Props) {
             </div>
             <div className="fx-modal-body">
               <div className="fx-field">
-                <label>Chủ đề *</label>
-                <input
-                  autoFocus
-                  value={topic}
-                  disabled={genLoading}
-                  onChange={(e) => setTopic(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && generate()}
-                  placeholder="VD: WebGPU cho người mới 2026, Rust vs Go…"
-                />
+                <label>Chế độ</label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                  {(
+                    [
+                      ["topic", "Tự nhập"],
+                      ["category", "Theo danh mục"],
+                      ["random", "Ngẫu nhiên"],
+                    ] as const
+                  ).map(([k, label]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      disabled={genLoading}
+                      onClick={() => setGenMode(k)}
+                      className={`fx-btn${genMode === k ? " fx-btn-primary" : ""}`}
+                      style={{ justifyContent: "center" }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {genMode === "topic" && (
+                <div className="fx-field">
+                  <label>Chủ đề *</label>
+                  <input
+                    autoFocus
+                    value={topic}
+                    disabled={genLoading}
+                    onChange={(e) => setTopic(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && generate()}
+                    placeholder="VD: WebGPU cho người mới 2026, Rust vs Go…"
+                  />
+                </div>
+              )}
+
+              {genMode === "category" && (
+                <div className="fx-field">
+                  <label>Danh mục</label>
+                  <select
+                    value={genCategory}
+                    disabled={genLoading}
+                    onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
+                  >
+                    {CAT_ORDER.map((c) => (
+                      <option key={c} value={c}>
+                        {CAT_LABEL[c]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <p style={{ fontSize: 12, color: "var(--fg-muted, #888)", marginTop: 4 }}>
-                AI sẽ sinh Markdown + 2-3 ảnh minh hoạ. Bài vào trạng thái <b>Nháp</b>, bạn duyệt sau.
+                {genMode === "topic"
+                  ? "AI sinh Markdown + 2-3 ảnh minh hoạ + có thể nhúng YouTube."
+                  : genMode === "category"
+                    ? "AI tự chọn 1 chủ đề hot trong danh mục rồi viết bài."
+                    : "AI tự chọn ngẫu nhiên 1 chủ đề và danh mục rồi viết bài."}{" "}
+                Bài vào trạng thái <b>Nháp</b>, bạn duyệt sau.
               </p>
               {genErr && <div className="fx-err">{genErr}</div>}
             </div>
@@ -429,7 +550,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
               <button
                 className="fx-btn fx-btn-primary"
                 onClick={generate}
-                disabled={!topic.trim() || genLoading}
+                disabled={(genMode === "topic" && !topic.trim()) || genLoading}
               >
                 {genLoading ? (
                   <>
@@ -574,6 +695,106 @@ export default function BlogAdminTool({ initialPosts }: Props) {
         </div>
       )}
 
+      {/* PREVIEW DRAWER (drafts/rejected) */}
+      {preview && (
+        <>
+          <div
+            onClick={() => setPreview(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.5)",
+              backdropFilter: "blur(4px)",
+              zIndex: 180,
+              animation: "fade-in 0.2s ease",
+            }}
+          />
+          <aside
+            style={{
+              position: "fixed",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: "min(560px, 100vw)",
+              background: "var(--bg)",
+              borderLeft: "1px solid var(--border)",
+              zIndex: 190,
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "-20px 0 60px -10px rgba(0,0,0,0.5)",
+              animation: "drawer-in 0.25s ease",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 16px",
+                borderBottom: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                background: "color-mix(in srgb, var(--bg) 92%, transparent)",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <span
+                className="fx-badge"
+                data-tone={preview.post.status === "rejected" ? "mute" : "info"}
+              >
+                {preview.post.status === "rejected" ? "Từ chối" : "Nháp"}
+              </span>
+              <b style={{ flex: 1, fontSize: 14, color: "var(--bright)" }}>Xem thử</b>
+              <button
+                type="button"
+                className="fx-btn fx-btn-icon fx-btn-ghost"
+                onClick={() => setPreview(null)}
+                title="Đóng"
+              >
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px 40px" }}>
+              <div
+                style={{
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  marginBottom: 16,
+                  border: "1px solid var(--border)",
+                  aspectRatio: "16 / 9",
+                }}
+              >
+                <BlogCover post={preview.post} />
+              </div>
+              <h1 style={{ fontSize: "1.3rem", lineHeight: 1.3, color: "var(--bright)", marginBottom: 10 }}>
+                {preview.post.title}
+              </h1>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  fontSize: 12,
+                  color: "var(--dim)",
+                  paddingBottom: 14,
+                  borderBottom: "1px dashed var(--border)",
+                  marginBottom: 16,
+                }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <IconUser size={12} stroke={1.8} /> {preview.post.author}
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <IconCalendar size={12} stroke={1.8} /> {preview.post.date}
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <IconClock size={12} stroke={1.8} /> {preview.post.readMin} phút đọc
+                </span>
+              </div>
+              <div className="blog-body" dangerouslySetInnerHTML={{ __html: preview.html }} />
+            </div>
+          </aside>
+        </>
+      )}
+
       <style jsx global>{`
         .spin {
           animation: fx-spin 1s linear infinite;
@@ -581,6 +802,22 @@ export default function BlogAdminTool({ initialPosts }: Props) {
         @keyframes fx-spin {
           to {
             transform: rotate(360deg);
+          }
+        }
+        @keyframes drawer-in {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
           }
         }
       `}</style>

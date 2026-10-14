@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { isAdmin } from "@/lib/admin-auth";
-import {
-  appendLocalPost,
-  slugify,
-  writePostMarkdown,
-  type BlogPost,
-  type BlogCategory,
-} from "@/lib/blog";
+import { insertPost, slugify, type BlogPost, type BlogCategory } from "@/lib/blog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +21,10 @@ QUY ĐỊNH NỘI DUNG MARKDOWN:
 - Có ít nhất 1 blockquote và 1 danh sách.
 - Nếu chủ đề là code/dev: thêm 1-2 code block \`\`\`lang ... \`\`\`.
 - Chèn 2-3 ảnh minh hoạ bằng cú pháp đặc biệt: \`![alt tiếng Việt](IMG::prompt tiếng Anh mô tả ảnh, digital art, minimalist)\`. Đặt sau heading quan trọng. Server sẽ tự fetch ảnh và thay URL — bạn CHỈ cần viết đúng format này, KHÔNG dùng URL thật, KHÔNG chèn \`<img>\`.
+- Có thể nhúng video bằng 1 trong 2 cú pháp, mỗi cái trên dòng riêng (bao quanh bằng dòng trống):
+  + \`@youtube[VIDEO_ID]\` (11 ký tự ID YouTube — chỉ dùng khi CHẮC CHẮN ID có thật, không bịa).
+  + \`@video[https://...mp4]\` cho file mp4/webm công khai.
+  Tối đa 1 video/bài. Nếu không chắc URL/ID → BỎ QUA, dùng ảnh thay.
 - 800-1200 từ. Giọng văn thân thiện, chuyên nghiệp, Việt Nam.
 - Không chèn link ngoài.
 - "from" và "to" là 2 màu hex gradient phù hợp chủ đề (vd AI: #7565f6→#22c5e8; web: #0ea5e9→#8b5cf6).`;
@@ -45,7 +41,59 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  const topic = body?.topic?.toString().trim();
+  const mode = (body?.mode as "topic" | "random" | "category") || "topic";
+  const inputCategory = body?.category as BlogCategory | undefined;
+  let topic = body?.topic?.toString().trim() || "";
+
+  const RANDOM_TOPICS: Record<BlogCategory, string[]> = {
+    tech: [
+      "Chip M5 Pro: Apple silicon đang đi về đâu 2026",
+      "USB-C 2.1: tốc độ, sạc và những hiểu lầm phổ biến",
+      "Vì sao SSD 2026 vẫn chưa thay thế hoàn toàn HDD",
+      "Mini PC thay desktop: trào lưu hay giải pháp lâu dài",
+      "E-ink màu 2026: đọc sách, ghi chú và giới hạn thực tế",
+    ],
+    ai: [
+      "RAG vs fine-tuning: khi nào chọn cái nào năm 2026",
+      "Local LLM trên MacBook: Ollama, LM Studio và thực tế dùng",
+      "AI agent coding: Claude Code, Cursor, Windsurf khác nhau ở đâu",
+      "Prompt caching giảm 90% chi phí API — làm thế nào",
+      "Multimodal 2026: khi AI nhìn, nghe và thao tác máy tính",
+    ],
+    web: [
+      "React Server Components 2026: khi nào thực sự đáng dùng",
+      "Tailwind v4 với CSS variables: thay đổi lớn nhất là gì",
+      "View Transitions API: chuyển trang mượt như native app",
+      "Edge rendering vs Node runtime: chọn đúng cho Next.js",
+      "Partial Prerendering: tương lai của SSR trên Next.js",
+    ],
+    mobile: [
+      "SwiftUI 2026: Observation framework và những pattern mới",
+      "Jetpack Compose Multiplatform đã sẵn sàng production chưa",
+      "Expo Router v4: file-based routing cho React Native",
+      "iOS 19 Live Activities: UX pattern cho app realtime",
+      "Flutter 4: Impeller mặc định và hiệu năng thực tế",
+    ],
+    devops: [
+      "Kubernetes 1.32: điểm mới quan trọng cho SRE",
+      "Bun vs Node 22 trên production: benchmark thực tế",
+      "GitHub Actions caching: giảm 70% thời gian CI thế nào",
+      "Observability 2026: OpenTelemetry đã thắng chưa",
+      "Zero-downtime migration PostgreSQL quy mô lớn",
+    ],
+  };
+
+  if (mode === "random") {
+    const cats = Object.keys(RANDOM_TOPICS) as BlogCategory[];
+    const cat = cats[Math.floor(Math.random() * cats.length)];
+    const pool = RANDOM_TOPICS[cat];
+    topic = pool[Math.floor(Math.random() * pool.length)];
+  } else if (mode === "category") {
+    const cat = (inputCategory && RANDOM_TOPICS[inputCategory] ? inputCategory : "tech") as BlogCategory;
+    const pool = RANDOM_TOPICS[cat];
+    topic = pool[Math.floor(Math.random() * pool.length)];
+  }
+
   if (!topic) return NextResponse.json({ error: "Thiếu topic" }, { status: 400 });
 
   const useGroq = !!process.env.GROQ_API_KEY;
@@ -118,7 +166,10 @@ export async function POST(req: Request) {
     slug,
     title: meta.title,
     excerpt: meta.excerpt || "",
-    category: (meta.category as BlogCategory) || "tech",
+    category:
+      mode === "category" && inputCategory
+        ? inputCategory
+        : (meta.category as BlogCategory) || "tech",
     tags: Array.isArray(meta.tags) ? meta.tags.slice(0, 8) : [],
     author: "FormatBox",
     date: today,
@@ -128,48 +179,37 @@ export async function POST(req: Request) {
       to: meta.to || "#22c5e8",
       label: meta.label || meta.title.split(/\s+/)[0],
     },
+    status: "draft",
   };
 
-  // Fetch inline images: ![alt](IMG::prompt) → saved to /blog-covers/<slug>-N.jpg
-  const inlineDir = path.join(process.cwd(), "public", "blog-covers");
-  await fs.mkdir(inlineDir, { recursive: true });
-  const markers = [...md.matchAll(/!\[([^\]]*)\]\(IMG::([^)]+)\)/g)];
-  for (let i = 0; i < markers.length; i++) {
-    const [whole, alt, prompt] = markers[i];
-    const name = `${slug}-${i + 1}.jpg`;
-    try {
-      const seed = Math.floor(Math.random() * 1_000_000);
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.trim())}?width=1024&height=576&nologo=true&seed=${seed}&model=flux`;
-      const r = await fetch(url);
-      if (r.ok) {
-        await fs.writeFile(path.join(inlineDir, name), Buffer.from(await r.arrayBuffer()));
-        md = md.replace(whole, `![${alt}](/blog-covers/${name})`);
-      } else {
-        md = md.replace(whole, "");
-      }
-    } catch {
-      md = md.replace(whole, "");
-    }
+  // Inline images: ![alt](IMG::prompt) → Pollinations URL thẳng vào markdown.
+  // Dùng Flux + seed cố định theo (slug, index) để URL ổn định, ảnh không đổi khi request lại.
+  function pollinationsUrl(prompt: string, w: number, h: number, seed: number) {
+    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.trim())}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
   }
-
-  await writePostMarkdown(slug, md);
-
-  // Cover image via Pollinations (best-effort).
-  const imgPrompt = meta.imagePrompt || `${meta.title}, digital art, minimalist, modern`;
-  const coverDir = path.join(process.cwd(), "public", "blog-covers");
-  await fs.mkdir(coverDir, { recursive: true });
-  try {
-    const seed = Math.floor(Math.random() * 1_000_000);
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(imgPrompt)}?width=1200&height=630&nologo=true&seed=${seed}&model=flux`;
-    const imgResp = await fetch(url);
-    if (imgResp.ok) {
-      const buf = Buffer.from(await imgResp.arrayBuffer());
-      await fs.writeFile(path.join(coverDir, `${slug}.jpg`), buf);
-      post.coverImage = `/blog-covers/${slug}.jpg`;
+  function hashSeed(s: string): number {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
     }
-  } catch {}
+    return h >>> 0;
+  }
+  const baseSeed = hashSeed(slug);
+  md = md.replace(/!\[([^\]]*)\]\(IMG::([^)]+)\)/g, (_m, alt, prompt, offset: number) => {
+    const idx = md.slice(0, offset).match(/!\[[^\]]*\]\(IMG::[^)]+\)/g)?.length ?? 0;
+    return `![${alt}](${pollinationsUrl(prompt, 1024, 576, (baseSeed + idx + 1) >>> 0)})`;
+  });
 
-  await appendLocalPost(post, "draft");
+  // Cover image: cũng dùng Pollinations URL thẳng.
+  const imgPrompt = meta.imagePrompt || `${meta.title}, digital art, minimalist, modern`;
+  post.coverImage = pollinationsUrl(imgPrompt, 1200, 630, baseSeed);
+
+  try {
+    await insertPost(post, md);
+  } catch (e: any) {
+    return NextResponse.json({ error: `DB lỗi: ${e.message}` }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, slug, post });
 }
