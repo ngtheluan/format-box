@@ -68,9 +68,9 @@ export default function AdminTabBar() {
   return (
     <>
       <nav className="atab" aria-label="Admin">
-        <Link href="/admin" className={`atab-btn${isHome ? " active" : ""}`} aria-label="Trang chủ">
+        <Link href="/admin" className={`atab-btn${isHome ? " active" : ""}`} aria-label="Home">
           <IconHome size={22} stroke={1.8} />
-          <span>Trang chủ</span>
+          <span>Home</span>
         </Link>
         <button
           type="button"
