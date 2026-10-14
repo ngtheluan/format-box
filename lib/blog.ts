@@ -44,6 +44,20 @@ export { slugify };
 
 marked.setOptions({ gfm: true, breaks: false });
 
+// Rewrite legacy pollinations URLs → our /api/img proxy (handles 500s with seed retry).
+export function rewriteImgUrl(url: string): string {
+  const m = url.match(
+    /^https?:\/\/image\.pollinations\.ai\/prompt\/([^?]+)\?(.+)$/,
+  );
+  if (!m) return url;
+  const prompt = decodeURIComponent(m[1]).replace(/[‐-―]/g, "-");
+  const qs = new URLSearchParams(m[2]);
+  const w = qs.get("width") || "1024";
+  const h = qs.get("height") || "576";
+  const seed = qs.get("seed") || "1";
+  return `/api/img?prompt=${encodeURIComponent(prompt)}&w=${w}&h=${h}&seed=${seed}`;
+}
+
 function extractYouTubeId(s: string): string | null {
   const t = s.trim();
   if (/^[A-Za-z0-9_-]{11}$/.test(t)) return t;
@@ -95,7 +109,11 @@ function preEmbed(md: string): { md: string; map: Map<string, string> } {
 }
 
 export function renderMarkdown(md: string): { html: string; toc: TocItem[] } {
-  const { md: prepared, map } = preEmbed(md);
+  const rewritten = md.replace(
+    /https?:\/\/image\.pollinations\.ai\/prompt\/[^\s)"']+/g,
+    (u) => rewriteImgUrl(u),
+  );
+  const { md: prepared, map } = preEmbed(rewritten);
   let raw = marked.parse(prepared) as string;
   map.forEach((html, key) => {
     raw = raw.replace(new RegExp(`<p>\\s*${key}\\s*</p>`, "g"), html).replace(key, html);

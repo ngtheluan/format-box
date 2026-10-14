@@ -185,7 +185,8 @@ export async function POST(req: Request) {
   // Inline images: ![alt](IMG::prompt) → Pollinations URL thẳng vào markdown.
   // Dùng Flux + seed cố định theo (slug, index) để URL ổn định, ảnh không đổi khi request lại.
   function pollinationsUrl(prompt: string, w: number, h: number, seed: number) {
-    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.trim())}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
+    const p = prompt.trim().replace(/[‐-―]/g, "-");
+    return `/api/img?prompt=${encodeURIComponent(p)}&w=${w}&h=${h}&seed=${seed}`;
   }
   function hashSeed(s: string): number {
     let h = 2166136261 >>> 0;

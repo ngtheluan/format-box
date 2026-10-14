@@ -1,4 +1,4 @@
-import type { BlogPost } from "@/lib/blog";
+import { rewriteImgUrl, type BlogPost } from "@/lib/blog";
 
 type Props = {
   post: BlogPost;
@@ -10,7 +10,7 @@ type Props = {
 export function BlogCover({ post, variant = "card" }: Props) {
   if (post.coverImage) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={post.coverImage} alt={post.title} className="blog-cover-img" />;
+    return <img src={rewriteImgUrl(post.coverImage)} alt={post.title} className="blog-cover-img" />;
   }
   const w = variant === "hero" ? 1200 : 640;
   const h = variant === "hero" ? 540 : 360;
