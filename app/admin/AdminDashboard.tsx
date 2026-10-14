@@ -1,5 +1,6 @@
 "use client";
 import {
+  IconArticle,
   IconBroadcast,
   IconCamera,
   IconChartBar,
@@ -25,6 +26,12 @@ type AdminApp = {
 
 const ADMIN_APPS: AdminApp[] = [
   {
+    href: "/admin/analytics",
+    title: "Thống kê",
+    desc: "Lượt sử dụng từng tool theo ngày, top tool hot.",
+    icon: <IconChartBar size={20} stroke={1.7} />,
+  },
+  {
     href: "/admin/menu",
     title: "Menu",
     desc: "Quản lý danh sách tools hiển thị ngoài trang chủ.",
@@ -37,10 +44,10 @@ const ADMIN_APPS: AdminApp[] = [
     icon: <IconLanguage size={20} stroke={1.7} />,
   },
   {
-    href: "/admin/theme",
-    title: "Theme",
-    desc: "Chọn theme cho toàn site và bật/tắt.",
-    icon: <IconPalette size={20} stroke={1.7} />,
+    href: "/admin/blog",
+    title: "Blog",
+    desc: "Sinh bài AI, duyệt/từ chối, chỉnh sửa Markdown.",
+    icon: <IconArticle size={20} stroke={1.7} />,
   },
   {
     href: "/admin/users",
@@ -49,16 +56,16 @@ const ADMIN_APPS: AdminApp[] = [
     icon: <IconUsers size={20} stroke={1.7} />,
   },
   {
+    href: "/admin/theme",
+    title: "Theme",
+    desc: "Chọn theme cho toàn site và bật/tắt.",
+    icon: <IconPalette size={20} stroke={1.7} />,
+  },
+  {
     href: "/admin/banners",
     title: "Thông báo",
     desc: "Banner đẩy ra trang chủ — có lịch bật/tắt, cho đóng.",
     icon: <IconBroadcast size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/analytics",
-    title: "Thống kê",
-    desc: "Lượt sử dụng từng tool theo ngày, top tool hot.",
-    icon: <IconChartBar size={20} stroke={1.7} />,
   },
   {
     href: "/admin/feedback",
