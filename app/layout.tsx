@@ -48,6 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         />
+        <meta name="google-site-verification" content="D8R9qU3Bhqzd1ac3m68dlRnoPFpstzoG9VNMkTAvymI" />
       </head>
       <body>
         {/* To start counting visitors and page views, follow these steps. */}
