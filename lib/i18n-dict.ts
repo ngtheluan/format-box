@@ -961,6 +961,11 @@ export const DICT = {
     vi: "Lưu ý: hệ thống biển số VN hiện tại chỉ mã hoá tỉnh/thành ở 2 số đầu — quận/huyện/phường không được mã hoá chính thức trên biển dân sự.",
     en: "Note: current VN plates only encode the province (first 2 digits). District/ward is not officially encoded on civilian plates.",
   },
+  lp_view_detail: { vi: "Xem chi tiết", en: "View details" },
+  lp_wiki_loading: { vi: "Đang tải từ Wikipedia…", en: "Loading from Wikipedia…" },
+  lp_wiki_error: { vi: "Không tải được dữ liệu Wikipedia.", en: "Could not load Wikipedia data." },
+  lp_wiki_open: { vi: "Mở trên Wikipedia", en: "Open on Wikipedia" },
+  lp_wiki_source: { vi: "Nguồn: Wikipedia tiếng Việt", en: "Source: Vietnamese Wikipedia" },
 
   // MEME
   meme_search_ph: {

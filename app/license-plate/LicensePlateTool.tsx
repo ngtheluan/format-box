@@ -1,6 +1,14 @@
 "use client";
-import { useMemo, useState } from "react";
-import { IconSearch, IconMapPin, IconX, IconInfoCircle } from "@tabler/icons-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  IconSearch,
+  IconMapPin,
+  IconX,
+  IconInfoCircle,
+  IconExternalLink,
+  IconBook,
+} from "@tabler/icons-react";
+import Modal from "@/components/ui/Modal";
 import { useI18n } from "@/lib/i18n";
 import {
   PLATES,
@@ -21,26 +29,28 @@ const CSS = `
 .lp-search { position: relative; }
 .lp-search input {
   width: 100%; padding: 11px 36px 11px 38px;
-  border-radius: 10px; border: 1px solid var(--line, #e5e7eb);
-  background: var(--surface, #fff); color: inherit; font-size: 14px;
+  border-radius: 10px; border: 1px solid var(--border);
+  background: var(--bg2); color: var(--text); font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
-.lp-search input:focus { outline: 2px solid var(--accent, #6366f1); outline-offset: -1px; }
+.lp-search input::-webkit-search-cancel-button,
+.lp-search input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.lp-search input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .lp-ic-l, .lp-ic-r {
   position: absolute; top: 50%; transform: translateY(-50%);
-  display: inline-flex; opacity: .55;
+  display: inline-flex; opacity: .55; color: var(--text);
 }
 .lp-ic-l { left: 12px; pointer-events: none; }
 .lp-ic-r {
   right: 10px; background: transparent; border: 0; cursor: pointer; padding: 4px; border-radius: 6px;
 }
-.lp-ic-r:hover { background: var(--surface-2, rgba(0,0,0,.04)); opacity: 1; }
+.lp-ic-r:hover { background: var(--bg3); opacity: 1; }
 
 .lp-hit {
   display: flex; align-items: center; gap: 12px;
   padding: 14px; border-radius: 12px;
-  border: 1px solid var(--line, #e5e7eb);
-  background: linear-gradient(135deg, rgba(99,102,241,.08), rgba(99,102,241,.02));
+  border: 1px solid var(--border);
+  background: var(--bg2);
 }
 .lp-badge {
   display: inline-flex; align-items: center; justify-content: center;
@@ -76,15 +86,15 @@ const CSS = `
 .lp-chip {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 5px 10px; border-radius: 999px;
-  border: 1px solid var(--line, #e5e7eb); background: transparent;
-  cursor: pointer; font-size: 12px; color: inherit;
+  border: 1px solid var(--border); background: transparent;
+  cursor: pointer; font-size: 12px; color: var(--text);
   transition: background .15s, border-color .15s;
 }
-.lp-chip:hover { background: var(--surface-2, rgba(0,0,0,.04)); }
+.lp-chip:hover { background: var(--bg3); }
 .lp-chip-dot { width: 8px; height: 8px; border-radius: 50%; }
 .lp-chip-on,
-.lp-chip-on:hover { background: var(--text, #111); color: var(--bg, #fff); border-color: var(--text, #111); }
-.lp-chip-on .lp-chip-dot { outline: 2px solid var(--bg, #fff); outline-offset: 1px; }
+.lp-chip-on:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.lp-chip-on .lp-chip-dot { outline: 2px solid #fff; outline-offset: 1px; }
 
 .lp-grid {
   display: grid;
@@ -94,12 +104,45 @@ const CSS = `
 .lp-card {
   display: flex; flex-direction: column; gap: 6px;
   padding: 10px 12px; border-radius: 10px;
-  border: 1px solid var(--line, #e5e7eb);
-  background: var(--surface, #fff);
-  text-align: left; cursor: pointer; color: inherit;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  text-align: left; cursor: pointer; color: var(--text);
   transition: transform .12s, border-color .12s, background .12s;
 }
-.lp-card:hover { transform: translateY(-1px); border-color: var(--accent, #6366f1); }
+.lp-card:hover { transform: translateY(-1px); border-color: var(--border-h); }
+.lp-card-detail {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 2px; padding: 4px 8px; border-radius: 6px;
+  background: transparent; border: 1px solid var(--border);
+  cursor: pointer; color: var(--text); font-size: 11px;
+  transition: background .12s, border-color .12s;
+}
+.lp-card-detail:hover { background: var(--bg3); border-color: var(--border-h); }
+.lp-hit-detail {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 8px; padding: 6px 10px; border-radius: 7px;
+  background: var(--accent); border: 0;
+  cursor: pointer; color: #fff; font-size: 12px; font-weight: 600;
+  width: fit-content;
+}
+.lp-hit-detail:hover { opacity: .9; }
+
+.lp-wiki { font-size: 13.5px; line-height: 1.6; color: var(--text); }
+.lp-wiki-img {
+  display: block; max-width: 100%; max-height: 320px;
+  margin: 0 auto 10px; border-radius: 8px;
+  object-fit: contain;
+}
+.lp-wiki-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; font-size: 12px; }
+.lp-wiki-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 6px;
+  background: var(--bg3); color: var(--text); text-decoration: none;
+  font-weight: 600;
+}
+.lp-wiki-link:hover { background: var(--bg4); }
+.lp-wiki-src { opacity: .55; }
+.lp-wiki-state { padding: 24px; text-align: center; opacity: .7; font-size: 13px; }
 .lp-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .lp-card-codes {
   font-family: ui-monospace, Menlo, Consolas, monospace;
@@ -111,11 +154,12 @@ const CSS = `
   background: #fde68a; color: #111;
   border: 1px solid rgba(0,0,0,.15); font-size: 12px;
 }
-.lp-card-prov { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
-.lp-card-reg { font-size: 11px; opacity: .55; display: flex; align-items: center; gap: 5px; }
+.lp-card-prov { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+.lp-card-reg { font-size: 11px; opacity: .65; display: flex; align-items: center; gap: 5px; color: var(--text); }
 
-.lp-empty { text-align: center; padding: 24px; opacity: .6; font-size: 13px; }
-.lp-count { font-size: 12px; opacity: .55; }
+.lp-empty { text-align: center; padding: 24px; opacity: .7; font-size: 13px; color: var(--text); }
+.lp-count { font-size: 12px; opacity: .65; color: var(--text); }
+.lp-hit-prov, .lp-hit-meta { color: var(--text); }
 `;
 
 function formatSerial(s: string): string {
@@ -125,10 +169,77 @@ function formatSerial(s: string): string {
   return s;
 }
 
+type WikiData = {
+  title: string;
+  extract: string;
+  thumbnail?: string;
+  url: string;
+};
+
+const WIKI_TITLE_OVERRIDE: Record<string, { vi: string; en: string }> = {
+  "Cơ quan Trung ương": {
+    vi: "Biển số xe Việt Nam",
+    en: "Vehicle registration plates of Vietnam",
+  },
+  "Ngoại giao / Nước ngoài / Quốc tế": {
+    vi: "Biển số xe ngoại giao",
+    en: "Diplomatic license plate",
+  },
+  "Doanh nghiệp Quân đội": {
+    vi: "Quân đội nhân dân Việt Nam",
+    en: "People's Army of Vietnam",
+  },
+  "Xe liên doanh": {
+    vi: "Biển số xe Việt Nam",
+    en: "Vehicle registration plates of Vietnam",
+  },
+  "Rơ-moóc": { vi: "Rơ-moóc", en: "Trailer (vehicle)" },
+};
+
+function wikiTitleFor(province: string, lang: "vi" | "en"): string {
+  const o = WIKI_TITLE_OVERRIDE[province];
+  if (o) return o[lang];
+  if (/^TP\.?\s/i.test(province)) return province.replace(/^TP\.?\s*/i, "Thành phố ");
+  return province;
+}
+
 export default function LicensePlateTool() {
   const { t, lang } = useI18n();
   const [q, setQ] = useState("");
   const [region, setRegion] = useState<Region | "all">("all");
+  const [detail, setDetail] = useState<PlateEntry | null>(null);
+  const [wiki, setWiki] = useState<WikiData | null>(null);
+  const [wikiLoading, setWikiLoading] = useState(false);
+  const [wikiError, setWikiError] = useState(false);
+
+  useEffect(() => {
+    if (!detail) return;
+    const ctl = new AbortController();
+    const wikiLang: "vi" | "en" = lang === "en" ? "en" : "vi";
+    const title = wikiTitleFor(detail.province, wikiLang);
+    setWiki(null);
+    setWikiError(false);
+    setWikiLoading(true);
+    fetch(`https://${wikiLang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`, {
+      signal: ctl.signal,
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((data) => {
+        setWiki({
+          title: data.title ?? title,
+          extract: data.extract ?? "",
+          thumbnail: data.originalimage?.source ?? data.thumbnail?.source,
+          url:
+            data.content_urls?.desktop?.page ??
+            `https://${wikiLang}.wikipedia.org/wiki/${encodeURIComponent(title)}`,
+        });
+      })
+      .catch((err) => {
+        if (err?.name !== "AbortError") setWikiError(true);
+      })
+      .finally(() => setWikiLoading(false));
+    return () => ctl.abort();
+  }, [detail, lang]);
 
   const parsed = useMemo(() => parsePlate(q), [q]);
   const hit: PlateEntry | null = useMemo(() => {
@@ -161,7 +272,7 @@ export default function LicensePlateTool() {
       <div className="lp-search">
         <IconSearch size={16} stroke={1.8} className="lp-ic-l" />
         <input
-          type="search"
+          type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("lp_search_ph")}
@@ -249,6 +360,10 @@ export default function LicensePlateTool() {
                 <div className="lp-note-body">{t("lp_note_district")}</div>
               </div>
             )}
+            <button type="button" className="lp-hit-detail" onClick={() => setDetail(hit)}>
+              <IconBook size={14} stroke={2} />
+              {t("lp_view_detail")}
+            </button>
           </div>
         </div>
       )}
@@ -286,7 +401,7 @@ export default function LicensePlateTool() {
                 key={p.codes[0]}
                 type="button"
                 className={`lp-card ${isHit ? "lp-card-match" : ""}`}
-                onClick={() => setQ(p.codes[0])}
+                onClick={() => setDetail(p)}
               >
                 <div className="lp-card-top">
                   <span className="lp-card-codes">
@@ -306,6 +421,32 @@ export default function LicensePlateTool() {
           })}
         </div>
       )}
+
+      <Modal
+        open={!!detail}
+        onClose={() => setDetail(null)}
+        title={detail?.province}
+        description={detail ? REGION_LABEL[detail.region][lang] : undefined}
+        size="md"
+      >
+        {wikiLoading && <div className="lp-wiki-state">{t("lp_wiki_loading")}</div>}
+        {wikiError && !wikiLoading && <div className="lp-wiki-state">{t("lp_wiki_error")}</div>}
+        {wiki && !wikiLoading && (
+          <div className="lp-wiki">
+            {wiki.thumbnail && (
+              <img src={wiki.thumbnail} alt={wiki.title} className="lp-wiki-img" />
+            )}
+            <div>{wiki.extract}</div>
+            <div className="lp-wiki-foot">
+              <span className="lp-wiki-src">{t("lp_wiki_source")}</span>
+              <a className="lp-wiki-link" href={wiki.url} target="_blank" rel="noopener noreferrer">
+                <IconExternalLink size={13} stroke={2} />
+                {t("lp_wiki_open")}
+              </a>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

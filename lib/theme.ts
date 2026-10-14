@@ -3,7 +3,7 @@
 // admin panel writes to `fb-skin-default`.
 export const themeInitScript = `
 (function(){try{
-  var t=localStorage.getItem('fb-theme');if(t){document.documentElement.dataset.theme=t;}
+  var t=localStorage.getItem('fb-theme')||'light';document.documentElement.dataset.theme=t;
   var s=localStorage.getItem('fb-skin')||localStorage.getItem('fb-skin-default');
   if(s&&s!=='modern'){document.documentElement.dataset.skin=s;}
 }catch(e){}})();
