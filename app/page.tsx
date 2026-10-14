@@ -26,6 +26,7 @@ import { useEffect, type CSSProperties, type MouseEvent } from "react";
 
 // three.js stays out of the home page chunk; the hero paints first.
 const HeroCanvas = dynamic(() => import("@/components/HeroCanvas"), { ssr: false });
+const HomeBlogSection = dynamic(() => import("@/components/HomeBlogSection"), { ssr: false });
 
 const coming = [
   { Icon: IconLink, label: "URL Encode" },
@@ -301,6 +302,7 @@ export default function Home() {
         </div>
       </section>
 
+      <HomeBlogSection />
     </>
   );
 }

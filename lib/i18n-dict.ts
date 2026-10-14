@@ -109,6 +109,13 @@ export const DICT = {
   sec_why_h_1: { vi: "Tool khác upload dữ liệu.", en: "Other tools upload your data." },
   sec_why_h_2: { vi: "FormatBox thì không.", en: "FormatBox doesn't." },
   sec_coming_h: { vi: "Sắp có thêm", en: "Coming soon" },
+  sec_blog_h: { vi: "Bài viết mới", en: "From the blog" },
+  sec_blog_d: {
+    vi: "Góc đọc chậm — công nghệ, AI, web và mọi thứ xung quanh.",
+    en: "Slow reads on tech, AI, web and everything around.",
+  },
+  sec_blog_cta: { vi: "Xem tất cả bài viết", en: "Browse all posts" },
+  blog_read_min: { vi: "phút đọc", en: "min read" },
 
   // WHY
   why_01_h: { vi: "Chạy trên trình duyệt", en: "Runs in your browser" },
