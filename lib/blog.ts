@@ -1,7 +1,7 @@
 import { marked } from "marked";
 import { supabase, supabaseAdmin } from "./supabase";
 
-export type BlogCategory = "tech" | "ai" | "web" | "mobile" | "devops";
+export type BlogCategory = "tech" | "ai" | "web" | "devops" | "food";
 export type BlogStatus = "draft" | "rejected" | "published";
 
 export type BlogPost = {
@@ -22,8 +22,8 @@ export const BLOG_CATEGORIES: Record<BlogCategory, string> = {
   tech: "Công nghệ",
   ai: "AI",
   web: "Web",
-  mobile: "Mobile",
   devops: "DevOps",
+  food: "Món ăn",
 };
 
 // Markdown rendering
@@ -46,9 +46,7 @@ marked.setOptions({ gfm: true, breaks: false });
 
 // Rewrite legacy pollinations URLs → our /api/img proxy (handles 500s with seed retry).
 export function rewriteImgUrl(url: string): string {
-  const m = url.match(
-    /^https?:\/\/image\.pollinations\.ai\/prompt\/([^?]+)\?(.+)$/,
-  );
+  const m = url.match(/^https?:\/\/image\.pollinations\.ai\/prompt\/([^?]+)\?(.+)$/);
   if (!m) return url;
   const prompt = decodeURIComponent(m[1]).replace(/[‐-―]/g, "-");
   const qs = new URLSearchParams(m[2]);
@@ -61,9 +59,7 @@ export function rewriteImgUrl(url: string): string {
 function extractYouTubeId(s: string): string | null {
   const t = s.trim();
   if (/^[A-Za-z0-9_-]{11}$/.test(t)) return t;
-  const m = t.match(
-    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/,
-  );
+  const m = t.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 }
 
@@ -89,9 +85,7 @@ function preEmbed(md: string): { md: string; map: Map<string, string> } {
   out = out.replace(/@video\[([^\]]+)\]/g, (_m, url) => {
     const u = url.trim();
     if (!/^https?:\/\//.test(u)) return _m;
-    return token(
-      `<div class="blog-video"><video src="${u}" controls preload="metadata" playsinline></video></div>`,
-    );
+    return token(`<div class="blog-video"><video src="${u}" controls preload="metadata" playsinline></video></div>`);
   });
 
   out = out.replace(
@@ -109,10 +103,7 @@ function preEmbed(md: string): { md: string; map: Map<string, string> } {
 }
 
 export function renderMarkdown(md: string): { html: string; toc: TocItem[] } {
-  const rewritten = md.replace(
-    /https?:\/\/image\.pollinations\.ai\/prompt\/[^\s)"']+/g,
-    (u) => rewriteImgUrl(u),
-  );
+  const rewritten = md.replace(/https?:\/\/image\.pollinations\.ai\/prompt\/[^\s)"']+/g, (u) => rewriteImgUrl(u));
   const { md: prepared, map } = preEmbed(rewritten);
   let raw = marked.parse(prepared) as string;
   map.forEach((html, key) => {
@@ -210,9 +201,7 @@ export async function listAdminPosts(): Promise<BlogPost[]> {
   return (data as DbRow[] | null)?.map(fromRow) ?? [];
 }
 
-export async function getAdminPost(
-  slug: string,
-): Promise<(BlogPost & { markdown: string }) | null> {
+export async function getAdminPost(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
   const sb = supabaseAdmin();
   const { data } = await sb.from("blog_posts").select("*").eq("slug", slug).maybeSingle();
   if (!data) return null;
