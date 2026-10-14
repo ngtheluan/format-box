@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
-import { insertPost, slugify, type BlogPost, type BlogCategory } from "@/lib/blog";
+import { insertPost, slugify, type BlogCategory, type BlogPost } from "@/lib/blog";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,10 +34,7 @@ export async function POST(req: Request) {
 
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "GROQ_API_KEY (hoặc OPENAI_API_KEY) chưa cấu hình" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "GROQ_API_KEY (hoặc OPENAI_API_KEY) chưa cấu hình" }, { status: 500 });
   }
 
   const body = await req.json().catch(() => null);
@@ -67,13 +64,7 @@ export async function POST(req: Request) {
       "Edge rendering vs Node runtime: chọn đúng cho Next.js",
       "Partial Prerendering: tương lai của SSR trên Next.js",
     ],
-    mobile: [
-      "SwiftUI 2026: Observation framework và những pattern mới",
-      "Jetpack Compose Multiplatform đã sẵn sàng production chưa",
-      "Expo Router v4: file-based routing cho React Native",
-      "iOS 19 Live Activities: UX pattern cho app realtime",
-      "Flutter 4: Impeller mặc định và hiệu năng thực tế",
-    ],
+    food: [],
     devops: [
       "Kubernetes 1.32: điểm mới quan trọng cho SRE",
       "Bun vs Node 22 trên production: benchmark thực tế",
@@ -128,7 +119,10 @@ export async function POST(req: Request) {
   const text: string = data?.choices?.[0]?.message?.content ?? "";
   if (!text) return NextResponse.json({ error: "LLM trả về rỗng" }, { status: 502 });
 
-  const trimmed = text.replace(/^```[a-z]*\s*/i, "").replace(/```\s*$/, "").trim();
+  const trimmed = text
+    .replace(/^```[a-z]*\s*/i, "")
+    .replace(/```\s*$/, "")
+    .trim();
   const metaMatch = trimmed.match(/^META=(\{[\s\S]*?\})\s*\n/);
   if (!metaMatch) {
     return NextResponse.json(
@@ -166,10 +160,7 @@ export async function POST(req: Request) {
     slug,
     title: meta.title,
     excerpt: meta.excerpt || "",
-    category:
-      mode === "category" && inputCategory
-        ? inputCategory
-        : (meta.category as BlogCategory) || "tech",
+    category: mode === "category" && inputCategory ? inputCategory : (meta.category as BlogCategory) || "tech",
     tags: Array.isArray(meta.tags) ? meta.tags.slice(0, 8) : [],
     author: "FormatBox",
     date: today,
