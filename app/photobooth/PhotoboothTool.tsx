@@ -1848,16 +1848,13 @@ export default function PhotoboothTool() {
                 )}
               </div>
 
-              <div className="pb-chip-row">
-                <button className="pb-chip" onClick={() => navStep("edit", true)}>
-                  <IconArrowLeft size={14} stroke={1.8} />
-                  Chỉnh sửa tiếp
-                </button>
-                <button className="pb-chip" onClick={resetAll}>
-                  <IconRefresh size={14} stroke={1.8} />
-                  {t("pb_new_session")}
-                </button>
-              </div>
+              <button className="pb-new-session" onClick={resetAll}>
+                <span className="pb-new-session-ic">
+                  <IconCamera size={18} stroke={2} />
+                </span>
+                <span className="pb-new-session-label">{t("pb_new_session")}</span>
+                <IconSparkles size={14} stroke={1.8} className="pb-new-session-spk" />
+              </button>
             </div>
           </div>
         </div>
@@ -2225,6 +2222,53 @@ export default function PhotoboothTool() {
           gap: 4px;
           padding-top: 4px;
         }
+        .pb-new-session {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          width: 100%;
+          padding: 14px 20px;
+          margin-top: 2px;
+          border-radius: 14px;
+          border: none;
+          color: #fff;
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 0.3px;
+          cursor: pointer;
+          background: linear-gradient(135deg, #9b5de5 0%, #f15bb5 50%, #ff8c42 100%);
+          background-size: 200% 200%;
+          box-shadow: 0 10px 26px -10px rgba(241, 91, 181, 0.65), 0 4px 12px -4px rgba(155, 93, 229, 0.4);
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background-position 0.4s ease;
+          overflow: hidden;
+        }
+        .pb-new-session::before {
+          content: "";
+          position: absolute; inset: 0;
+          background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+          transform: translateX(-100%);
+          transition: transform 0.6s ease;
+        }
+        .pb-new-session:hover {
+          transform: translateY(-2px);
+          background-position: 100% 0;
+          box-shadow: 0 14px 32px -10px rgba(241, 91, 181, 0.75), 0 6px 16px -4px rgba(155, 93, 229, 0.5);
+        }
+        .pb-new-session:hover::before { transform: translateX(100%); }
+        .pb-new-session:active { transform: translateY(0); }
+        .pb-new-session-ic {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px; height: 30px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.22);
+          backdrop-filter: blur(6px);
+        }
+        .pb-new-session-label { position: relative; z-index: 1; }
+        .pb-new-session-spk { opacity: 0.9; position: relative; z-index: 1; }
         .pb-chip {
           display: inline-flex;
           align-items: center;

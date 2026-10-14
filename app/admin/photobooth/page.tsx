@@ -99,6 +99,7 @@ export default function AdminPhotoboothPage() {
 
   const deleteSelected = async () => {
     if (!selected.size) return;
+    if (!window.confirm(`Xoá ${selected.size} ảnh đã chọn?`)) return;
     setBusy(true);
     try {
       const res = await fetch("/api/admin/photobooth", {
@@ -230,6 +231,7 @@ export default function AdminPhotoboothPage() {
                       <button
                         className="pbadm-icbtn danger"
                         onClick={async () => {
+                          if (!window.confirm(`Xoá ảnh "${it.pathname.replace(/^photobooth\//, "")}"?`)) return;
                           setBusy(true);
                           try {
                             await fetch("/api/admin/photobooth", {
