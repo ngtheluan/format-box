@@ -667,6 +667,29 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+// The downloaded file stays the full-quality PNG from composeStrip(). For the SHARE
+// upload we build a smaller, web-appropriate JPEG: capping the width keeps the request
+// body small (avoids the serverless 413) and gives a link that loads fast on phones.
+function pngDataUrlToJpegBlob(pngUrl: string, quality = 0.85, maxW = 720): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = img.width > maxW ? maxW / img.width : 1;
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * scale));
+      c.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = c.getContext("2d");
+      if (!ctx) return reject(new Error("no canvas context"));
+      ctx.fillStyle = "#ffffff"; // JPEG has no alpha — flatten onto white
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/jpeg", quality);
+    };
+    img.onerror = () => reject(new Error("image decode failed"));
+    img.src = pngUrl;
+  });
+}
+
 function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
@@ -1223,10 +1246,11 @@ export default function PhotoboothTool() {
     setShareUrl(null);
     setQrDataUrl(null);
     try {
+      const blob = await pngDataUrlToJpegBlob(dataUrl);
       const r = await fetch("/api/photobooth/upload", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ dataUrl }),
+        headers: { "content-type": blob.type || "image/jpeg" },
+        body: blob,
       });
       const json = (await r.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!r.ok || !json.url) throw new Error(json.error || `HTTP ${r.status}`);
