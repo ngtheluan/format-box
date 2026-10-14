@@ -7,7 +7,6 @@ import { ToastProvider } from "@/components/Toast";
 import { ToolsProvider } from "@/components/ToolsProvider";
 import { LanguageProvider } from "@/lib/i18n";
 import { SkinProvider } from "@/lib/skin-context";
-import { themeInitScript } from "@/lib/theme";
 import { getTools } from "@/lib/tools";
 import { isToolVisible, type Role } from "@/lib/tools-shared";
 import { currentUser } from "@/lib/user-auth";
@@ -37,7 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const allTools = await getTools();
   const initialTools = allTools.filter((t) => isToolVisible(t, role));
   return (
-    <html lang="vi" data-theme="dark" suppressHydrationWarning>
+    <html lang="vi" data-theme="light" suppressHydrationWarning>
       <head>
         <meta
           name="viewport"
@@ -49,7 +48,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         />
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
         {/* To start counting visitors and page views, follow these steps. */}
