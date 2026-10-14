@@ -1,7 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import { marked } from "marked";
+import "@/app/blog/blog.css";
+import { BlogCover } from "@/components/BlogCover";
+import { useToast } from "@/components/Toast";
+import type { BlogCategory, BlogPost, BlogStatus } from "@/lib/blog";
 import {
   IconArticle,
   IconCalendar,
@@ -14,18 +15,16 @@ import {
   IconEye,
   IconLayoutGrid,
   IconLoader2,
-  IconPlus,
   IconRotateClockwise,
   IconSparkles,
   IconTrash,
   IconUser,
   IconX,
 } from "@tabler/icons-react";
+import { marked } from "marked";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import AdminBody from "../AdminBody";
-import { useToast } from "@/components/Toast";
-import { BlogCover } from "@/components/BlogCover";
-import type { BlogCategory, BlogPost, BlogStatus } from "@/lib/blog";
-import "@/app/blog/blog.css";
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -41,10 +40,10 @@ const CAT_LABEL: Record<BlogCategory, string> = {
   tech: "Công nghệ",
   ai: "AI",
   web: "Web",
-  mobile: "Mobile",
   devops: "DevOps",
+  food: "Món ăn",
 };
-const CAT_ORDER: BlogCategory[] = ["tech", "ai", "web", "mobile", "devops"];
+const CAT_ORDER: BlogCategory[] = ["tech", "ai", "web", "devops", "food"];
 
 export default function BlogAdminTool({ initialPosts }: Props) {
   const toast = useToast();
@@ -214,7 +213,10 @@ export default function BlogAdminTool({ initialPosts }: Props) {
           title: editing.title,
           excerpt: editing.excerpt,
           category: editing.category,
-          tags: editing.tags.split(",").map((s) => s.trim()).filter(Boolean),
+          tags: editing.tags
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
           readMin: Number(editing.readMin) || 10,
           markdown: editing.markdown,
         }),
@@ -232,7 +234,10 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                 title: editing.title,
                 excerpt: editing.excerpt,
                 category: editing.category,
-                tags: editing.tags.split(",").map((s) => s.trim()).filter(Boolean),
+                tags: editing.tags
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
                 readMin: Number(editing.readMin) || 10,
               }
             : x,
@@ -348,9 +353,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
           <div className="fx-empty-ico">
             <IconArticle size={22} stroke={1.7} />
           </div>
-          {posts.length === 0
-            ? 'Chưa có bài. Bấm "Sinh bài" để tạo bài AI đầu tiên.'
-            : "Không có kết quả phù hợp."}
+          {posts.length === 0 ? 'Chưa có bài. Bấm "Sinh bài" để tạo bài AI đầu tiên.' : "Không có kết quả phù hợp."}
         </div>
       ) : (
         <div className="fx-table">
@@ -365,11 +368,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
           {visible.map((p) => {
             const status = (p.status || "published") as BlogStatus;
             return (
-              <div
-                key={p.slug}
-                className="fx-row"
-                style={{ gridTemplateColumns: "32px 1fr 100px 110px 100px 160px" }}
-              >
+              <div key={p.slug} className="fx-row" style={{ gridTemplateColumns: "32px 1fr 100px 110px 100px 160px" }}>
                 <div className="fx-icon-cell">
                   <IconArticle size={18} stroke={1.7} />
                 </div>
@@ -388,9 +387,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                 <div>
                   <span
                     className="fx-badge"
-                    data-tone={
-                      status === "published" ? "ok" : status === "rejected" ? "mute" : "info"
-                    }
+                    data-tone={status === "published" ? "ok" : status === "rejected" ? "mute" : "info"}
                   >
                     {STATUS_LABEL[status]}
                   </span>
@@ -440,7 +437,11 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                         title="Xem thử (nháp)"
                         disabled={previewLoading}
                       >
-                        {previewLoading ? <IconLoader2 size={14} className="spin" /> : <IconEye size={14} stroke={1.9} />}
+                        {previewLoading ? (
+                          <IconLoader2 size={14} className="spin" />
+                        ) : (
+                          <IconEye size={14} stroke={1.9} />
+                        )}
                       </button>
                       <button className="fx-btn fx-btn-icon" onClick={() => startEdit(p)} title="Sửa">
                         <IconEdit size={14} stroke={1.9} />
@@ -470,10 +471,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                 <IconSparkles size={16} stroke={2} /> Sinh bài blog
                 <span className="fx-badge">AI</span>
               </h2>
-              <button
-                className="fx-btn fx-btn-icon fx-btn-ghost"
-                onClick={() => !genLoading && setGenerateOpen(false)}
-              >
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => !genLoading && setGenerateOpen(false)}>
                 <IconX size={16} stroke={2} />
               </button>
             </div>
@@ -578,14 +576,9 @@ export default function BlogAdminTool({ initialPosts }: Props) {
             <div className="fx-modal-head">
               <h2>
                 <IconEdit size={16} stroke={2} /> Sửa: {editing.title}
-                <span className="fx-badge">
-                  {editing.status ? STATUS_LABEL[editing.status] : "EDIT"}
-                </span>
+                <span className="fx-badge">{editing.status ? STATUS_LABEL[editing.status] : "EDIT"}</span>
               </h2>
-              <button
-                className="fx-btn fx-btn-icon fx-btn-ghost"
-                onClick={() => !saving && setEditing(null)}
-              >
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => !saving && setEditing(null)}>
                 <IconX size={16} stroke={2} />
               </button>
             </div>
@@ -600,9 +593,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                   <select
                     value={editing.category}
                     onChange={(e) =>
-                      setEditing((cur) =>
-                        cur ? { ...cur, category: e.target.value as BlogCategory } : cur,
-                      )
+                      setEditing((cur) => (cur ? { ...cur, category: e.target.value as BlogCategory } : cur))
                     }
                   >
                     {CAT_ORDER.map((c) => (
@@ -617,9 +608,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                 <label>Title *</label>
                 <input
                   value={editing.title}
-                  onChange={(e) =>
-                    setEditing((cur) => (cur ? { ...cur, title: e.target.value } : cur))
-                  }
+                  onChange={(e) => setEditing((cur) => (cur ? { ...cur, title: e.target.value } : cur))}
                 />
               </div>
               <div className="fx-field">
@@ -628,9 +617,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                   rows={2}
                   style={{ resize: "none" }}
                   value={editing.excerpt}
-                  onChange={(e) =>
-                    setEditing((cur) => (cur ? { ...cur, excerpt: e.target.value } : cur))
-                  }
+                  onChange={(e) => setEditing((cur) => (cur ? { ...cur, excerpt: e.target.value } : cur))}
                 />
               </div>
               <div className="fx-grid2">
@@ -638,9 +625,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                   <label>Tags (phẩy phân cách)</label>
                   <input
                     value={editing.tags}
-                    onChange={(e) =>
-                      setEditing((cur) => (cur ? { ...cur, tags: e.target.value } : cur))
-                    }
+                    onChange={(e) => setEditing((cur) => (cur ? { ...cur, tags: e.target.value } : cur))}
                   />
                 </div>
                 <div className="fx-field">
@@ -648,9 +633,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                   <input
                     type="number"
                     value={editing.readMin}
-                    onChange={(e) =>
-                      setEditing((cur) => (cur ? { ...cur, readMin: Number(e.target.value) } : cur))
-                    }
+                    onChange={(e) => setEditing((cur) => (cur ? { ...cur, readMin: Number(e.target.value) } : cur))}
                   />
                 </div>
               </div>
@@ -659,21 +642,14 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                 <textarea
                   rows={8}
                   value={editing.markdown}
-                  onChange={(e) =>
-                    setEditing((cur) => (cur ? { ...cur, markdown: e.target.value } : cur))
-                  }
+                  onChange={(e) => setEditing((cur) => (cur ? { ...cur, markdown: e.target.value } : cur))}
                   style={{ fontFamily: "var(--mono)", fontSize: 13, lineHeight: 1.6 }}
                 />
               </div>
               {editErr && <div className="fx-err">{editErr}</div>}
             </div>
             <div className="fx-modal-foot">
-              <Link
-                href={`/blog/${editing.slug}`}
-                target="_blank"
-                className="fx-btn"
-                style={{ marginRight: "auto" }}
-              >
+              <Link href={`/blog/${editing.slug}`} target="_blank" className="fx-btn" style={{ marginRight: "auto" }}>
                 <IconExternalLink size={14} /> Xem bài
               </Link>
               <button className="fx-btn" onClick={() => setEditing(null)} disabled={saving}>
@@ -736,10 +712,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                 backdropFilter: "blur(10px)",
               }}
             >
-              <span
-                className="fx-badge"
-                data-tone={preview.post.status === "rejected" ? "mute" : "info"}
-              >
+              <span className="fx-badge" data-tone={preview.post.status === "rejected" ? "mute" : "info"}>
                 {preview.post.status === "rejected" ? "Từ chối" : "Nháp"}
               </span>
               <b style={{ flex: 1, fontSize: 14, color: "var(--bright)" }}>Xem thử</b>
