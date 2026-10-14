@@ -14,7 +14,7 @@ function generatePassword(len = 10): string {
 }
 
 export async function POST(req: Request) {
-  if (!isAdmin()) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdmin())) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
   const { id } = await req.json().catch(() => ({}));
   if (!id) return NextResponse.json({ ok: false, error: "Thiếu id" }, { status: 400 });

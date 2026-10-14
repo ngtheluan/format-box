@@ -1,8 +1,13 @@
 "use client";
 import { LogoMark } from "@/components/Logo";
-import { IconChevronRight, IconLogout, IconSearch } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import RoleBadge from "@/components/RoleBadge";
+import { IconChevronRight, IconLogout, IconSearch, IconUserCircle } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 import "./admin.css";
+
+type Role = "user" | "admin";
+type Me = { firstname: string; lastname: string; accountname: string; role?: Role };
 
 export type AdminCrumb = {
   label: string;
@@ -30,7 +35,33 @@ async function defaultLogout() {
   window.location.href = "/admin";
 }
 
+const MODE_KEY = "fb-mode";
+
 export default function AdminHeader({ crumbs, search, actions, showLogout = true, onLogout }: AdminHeaderProps) {
+  const router = useRouter();
+  const [me, setMe] = useState<Me | null>(null);
+
+  function switchMode(next: "user" | "admin") {
+    try {
+      localStorage.setItem(MODE_KEY, next);
+    } catch {}
+    window.dispatchEvent(new CustomEvent("fb:mode-change", { detail: { mode: next } }));
+    if (next === "user") router.push("/");
+    else router.push("/admin");
+  }
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/user/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (alive) setMe(d?.user ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   return (
     <>
       <div className="fx-stripe" />
@@ -89,6 +120,36 @@ export default function AdminHeader({ crumbs, search, actions, showLogout = true
                 );
               })}
             </div>
+          )}
+
+          {me?.role === "admin" && (
+            <div className="lang-toggle fx-mode-toggle" role="group" aria-label="Mode">
+              <button
+                type="button"
+                onClick={() => switchMode("user")}
+                aria-pressed={false}
+                title="Chuyển sang chế độ User"
+              >
+                USER
+              </button>
+              <button type="button" className="on" aria-pressed={true} title="Đang ở chế độ Admin">
+                ADMIN
+              </button>
+            </div>
+          )}
+
+          {me && (
+            <span
+              className="fx-me"
+              title={`@${me.accountname}`}
+              aria-label={`${me.firstname} ${me.lastname}${me.role === "admin" ? " (Admin)" : ""}`}
+            >
+              <IconUserCircle size={16} stroke={1.8} />
+              <span className="fx-me-name">
+                {me.firstname} {me.lastname}
+              </span>
+              <RoleBadge role={me.role ?? "user"} size="xs" />
+            </span>
           )}
 
           {showLogout && (

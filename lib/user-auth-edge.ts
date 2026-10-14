@@ -1,9 +1,17 @@
 // Edge-runtime safe verify for the user cookie. Mirrors makeUserToken in
 // lib/user-auth.ts: payload is `${userId}.${role}.${exp}`, signed via HMAC-SHA256
-// with ADMIN_PASSWORD as the secret.
+// with the token-signing secret (AUTH_SECRET for back-compat).
 export const USER_COOKIE = "fb-user-token";
 
 export type UserRole = "user" | "admin";
+
+/**
+ * Token-signing secret. Prefer a dedicated, high-entropy AUTH_SECRET; fall back
+ * one with `openssl rand -base64 32`. Reading env here keeps this edge-safe.
+ */
+export function authSecret(): string | undefined {
+  return process.env.AUTH_SECRET;
+}
 
 export async function verifyUserTokenEdge(
   token: string | undefined,
@@ -18,13 +26,9 @@ export async function verifyUserTokenEdge(
   if (Date.now() / 1000 > exp) return null;
   const role: UserRole = roleRaw === "admin" ? "admin" : "user";
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [
+    "sign",
+  ]);
   const buf = await crypto.subtle.sign("HMAC", key, enc.encode(`${userId}.${role}.${exp}`));
   const bytes = new Uint8Array(buf);
   let hex = "";

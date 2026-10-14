@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-export default function AdminAnalyticsPage() {
-  if (!isAdmin()) redirect("/admin");
+export default async function AdminAnalyticsPage() {
+  if (!(await isAdmin())) redirect("/admin");
   return <AnalyticsClient />;
 }

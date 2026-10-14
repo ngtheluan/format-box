@@ -4,7 +4,7 @@ import TranslationsManager from "./TranslationsManager";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminTranslationsPage() {
-  if (!isAdmin()) redirect("/admin");
+export default async function AdminTranslationsPage() {
+  if (!(await isAdmin())) redirect("/admin");
   return <TranslationsManager />;
 }

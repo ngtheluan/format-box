@@ -4,7 +4,7 @@ import ThemeManager from "./ThemeManager";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminThemePage() {
-  if (!isAdmin()) redirect("/admin");
+export default async function AdminThemePage() {
+  if (!(await isAdmin())) redirect("/admin");
   return <ThemeManager />;
 }

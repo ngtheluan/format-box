@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { authSecret } from "./user-auth-edge";
 
 export const USER_COOKIE = "fb-user-token";
 export const USER_MAX_AGE = 60 * 60 * 24 * 30;
@@ -7,8 +8,8 @@ export const USER_MAX_AGE = 60 * 60 * 24 * 30;
 export type UserRole = "user" | "admin";
 
 function secret(): string {
-  const s = process.env.ADMIN_PASSWORD;
-  if (!s) throw new Error("ADMIN_PASSWORD not set (used as HMAC secret)");
+  const s = authSecret();
+  if (!s) throw new Error("AUTH_SECRET not set — required to sign session tokens");
   return s;
 }
 

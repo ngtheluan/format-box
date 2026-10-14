@@ -26,7 +26,7 @@ async function refresh() {
 }
 
 export async function GET() {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { data, error } = await supabaseAdmin()
     .from("tools")
     .select("*")
@@ -37,7 +37,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const tool = (await req.json()) as Tool;
   const { error } = await supabaseAdmin().from("tools").insert(toolToRow(tool));
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const tool = (await req.json()) as Tool;
   const row = toolToRow(tool);
   const { error } = await supabaseAdmin().from("tools").upsert(row, { onConflict: "href" });
@@ -56,7 +56,7 @@ export async function PUT(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { href, ...patch } = await req.json();
   if (!href) return NextResponse.json({ ok: false, error: "missing href" }, { status: 400 });
   const { error } = await supabaseAdmin().from("tools").update(patch).eq("href", href);
@@ -66,7 +66,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { href } = await req.json();
   if (!href) return NextResponse.json({ ok: false, error: "missing href" }, { status: 400 });
   const { error } = await supabaseAdmin().from("tools").delete().eq("href", href);

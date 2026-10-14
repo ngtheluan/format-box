@@ -4,7 +4,7 @@ import UsersManager from "./UsersManager";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminUsersPage() {
-  if (!isAdmin()) redirect("/admin");
+export default async function AdminUsersPage() {
+  if (!(await isAdmin())) redirect("/admin");
   return <UsersManager />;
 }

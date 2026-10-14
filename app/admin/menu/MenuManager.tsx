@@ -54,7 +54,6 @@ const catLabels: Record<ToolCategory, string> = {
   cat_media: "Media",
   cat_dev: "Dev",
   cat_life: "Life",
-  cat_game: "Game",
 };
 
 function rowToTool(r: Row): Tool {
@@ -237,7 +236,7 @@ export default function MenuManager() {
   }, []);
 
   const counts = useMemo(() => {
-    const c: Record<ToolCategory, number> = { cat_text: 0, cat_media: 0, cat_dev: 0, cat_life: 0, cat_game: 0 };
+    const c: Record<ToolCategory, number> = { cat_text: 0, cat_media: 0, cat_dev: 0, cat_life: 0 };
     for (const t of tools) c[t.category]++;
     return c;
   }, [tools]);

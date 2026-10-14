@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST() {
-  if (!isAdmin()) {
+  if (!(await isAdmin())) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
   const rows = SEED_TOOLS.map((t, i) => ({

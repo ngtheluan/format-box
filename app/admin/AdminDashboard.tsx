@@ -4,6 +4,7 @@ import {
   IconCamera,
   IconChartBar,
   IconComponents,
+  IconDeviceGamepad2,
   IconLanguage,
   IconLayoutGrid,
   IconListDetails,
@@ -76,6 +77,12 @@ const ADMIN_APPS: AdminApp[] = [
     title: "Photobooth",
     desc: "Ảnh user chụp lưu trên Vercel Blob — tự xoá sau 24h.",
     icon: <IconCamera size={20} stroke={1.7} />,
+  },
+  {
+    href: "/admin/gameplay",
+    title: "Gameplay",
+    desc: "Chọn game để chơi — Pac-Man, Flappy Bird.",
+    icon: <IconDeviceGamepad2 size={20} stroke={1.7} />,
   },
   {
     href: "/admin/ui",

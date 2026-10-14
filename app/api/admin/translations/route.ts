@@ -16,7 +16,7 @@ function sectionOf(key: string): string {
 }
 
 export async function GET() {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { data, error } = await supabaseAdmin()
     .from("translations")
     .select("key, vi, en, section, updated_at")
@@ -27,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { key, vi = "", en = "", section } = (await req.json().catch(() => ({}))) as Partial<Row>;
   if (!key) return NextResponse.json({ ok: false, error: "Thiếu key" }, { status: 400 });
   const row: Row = { key, vi, en, section: section || sectionOf(key) };
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { key, ...patch } = (await req.json().catch(() => ({}))) as Partial<Row> & { key?: string };
   if (!key) return NextResponse.json({ ok: false, error: "Thiếu key" }, { status: 400 });
   const { error } = await supabaseAdmin().from("translations").update(patch).eq("key", key);
@@ -48,7 +48,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { key } = await req.json().catch(() => ({}));
   if (!key) return NextResponse.json({ ok: false, error: "Thiếu key" }, { status: 400 });
   const { error } = await supabaseAdmin().from("translations").delete().eq("key", key);

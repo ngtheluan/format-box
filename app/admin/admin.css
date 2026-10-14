@@ -1433,3 +1433,53 @@
 }
 }
 
+
+/* Signed-in viewer indicator in admin header */
+.fx-me {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid var(--fx-border, var(--border));
+  border-radius: 999px;
+  background: var(--fx-surface, var(--card));
+  color: var(--fx-text, var(--text));
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.fx-me + .fx-logout {
+  margin-left: 8px;
+}
+.fx-me-name {
+  font-weight: 600;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .fx-me-name {
+    display: none;
+  }
+}
+
+/* Admin↔User mode toggle in header */
+.fx-mode-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.fx-mode-toggle + .fx-me {
+  margin-left: 8px;
+}
+
+/* On mobile, AdminTabBar owns the mode/account/logout controls — hide the
+   duplicates in the header. */
+@media (max-width: 640px) {
+  .fx-top-inner .fx-mode-toggle,
+  .fx-top-inner .fx-me,
+  .fx-top-inner .fx-logout {
+    display: none !important;
+  }
+}

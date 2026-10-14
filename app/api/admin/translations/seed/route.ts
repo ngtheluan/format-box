@@ -13,7 +13,7 @@ function sectionOf(key: string): string {
 }
 
 export async function POST() {
-  if (!isAdmin()) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdmin())) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   const rows = Object.entries(DICT).map(([key, v]) => ({
     key,
     vi: (v as { vi: string }).vi ?? "",

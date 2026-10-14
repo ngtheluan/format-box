@@ -4,7 +4,7 @@ import MenuManager from "./MenuManager";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminMenuPage() {
-  if (!isAdmin()) redirect("/admin");
+export default async function AdminMenuPage() {
+  if (!(await isAdmin())) redirect("/admin");
   return <MenuManager />;
 }

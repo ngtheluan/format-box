@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 import {
   IconHome,
   IconLock,
@@ -17,6 +18,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import LangToggle from "./LangToggle";
+import RoleBadge from "./RoleBadge";
 import SkinPicker from "./SkinPicker";
 import ThemeToggle from "./ThemeToggle";
 import { useToast } from "./Toast";
@@ -179,7 +181,7 @@ export default function MobileTabBar() {
   }
 
   async function doRegister() {
-    if (busy || !firstname || !lastname || !accountname || !email || password.length < 6) return;
+    if (busy || !firstname || !lastname || !accountname || !email || password.length < MIN_PASSWORD_LENGTH) return;
     setAuthErr("");
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setAuthErr(t("acct_err_email_invalid"));
@@ -374,8 +376,11 @@ export default function MobileTabBar() {
                       <IconUserCircle size={20} stroke={1.8} />
                     </span>
                     <span className="mtab-acct-body">
-                      <b>
-                        {user.firstname} {user.lastname}
+                      <b style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span>
+                          {user.firstname} {user.lastname}
+                        </span>
+                        <RoleBadge role={user.role ?? "user"} />
                       </b>
                       <small>@{user.accountname}</small>
                     </span>
@@ -501,7 +506,7 @@ export default function MobileTabBar() {
                   <button
                     type="submit"
                     className="fx-btn fx-btn-primary"
-                    disabled={!firstname || !lastname || !accountname || !email || password.length < 6 || busy}
+                    disabled={!firstname || !lastname || !accountname || !email || password.length < MIN_PASSWORD_LENGTH || busy}
                   >
                     {busy ? t("acct_busy") : t("acct_btn_register")}
                   </button>

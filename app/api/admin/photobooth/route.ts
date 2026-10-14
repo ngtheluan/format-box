@@ -12,7 +12,7 @@ function unauth() {
 const TTL_MS = 24 * 60 * 60 * 1000;
 
 export async function GET() {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json({ ok: false, error: "blob token missing" }, { status: 500 });
   }
@@ -39,7 +39,7 @@ export async function GET() {
 }
 
 export async function DELETE(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const body = (await req.json().catch(() => ({}))) as { urls?: string[]; all?: boolean };
   if (body.all) {
     let cursor: string | undefined;

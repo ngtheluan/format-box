@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 type StatRow = { href: string; day: string; count: number };
 
 export async function GET(req: Request) {
-  if (!isAdmin()) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdmin())) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
   const url = new URL(req.url);
   const days = Math.min(Math.max(Number(url.searchParams.get("days")) || 30, 1), 365);

@@ -2,7 +2,7 @@ import type { Lang } from "./i18n";
 
 type Bilingual = { vi: string; en: string };
 
-export type ToolCategory = "cat_text" | "cat_media" | "cat_dev" | "cat_life" | "cat_game";
+export type ToolCategory = "cat_text" | "cat_media" | "cat_dev" | "cat_life";
 
 export type Tool = {
   href: string;
@@ -27,7 +27,7 @@ export function isToolVisible(t: Pick<Tool, "active" | "visibleGuest" | "visible
   return t.visibleGuest ?? true;
 }
 
-export const CATEGORY_ORDER: ToolCategory[] = ["cat_text", "cat_media", "cat_dev", "cat_life", "cat_game"];
+export const CATEGORY_ORDER: ToolCategory[] = ["cat_text", "cat_media", "cat_dev", "cat_life"];
 
 export const toolSub = (t: Tool, lang: Lang) => t.sub[lang];
 export const toolDesc = (t: Tool, lang: Lang) => t.desc[lang];
@@ -339,18 +339,6 @@ export const SEED_TOOLS: Tool[] = [
     category: "cat_dev",
   },
   {
-    href: "/flappy-bird",
-    iconName: "IconFeather",
-    title: "Flappy Bird",
-    sub: { vi: "Chơi & Ghi điểm", en: "Play & Score" },
-    desc: {
-      vi: "Game Flappy Bird cổ điển — chạm/space để bay qua ống. Lưu điểm cao ngay trên trình duyệt.",
-      en: "Classic Flappy Bird — tap/space to flap through pipes. High score saved in your browser.",
-    },
-    tags: ["game", "flappy", "bird", "arcade", "play"],
-    category: "cat_game",
-  },
-  {
     href: "/typing-test",
     iconName: "IconKeyboard",
     title: "Typing Test",
@@ -361,18 +349,6 @@ export const SEED_TOOLS: Tool[] = [
     },
     tags: ["typing", "wpm", "keyboard", "speed", "test", "text"],
     category: "cat_text",
-  },
-  {
-    href: "/pacman",
-    iconName: "IconGhost2",
-    title: "Pac-Man",
-    sub: { vi: "Chơi & Ăn điểm", en: "Play & Score" },
-    desc: {
-      vi: "Game Pac-Man cổ điển — mũi tên/WASD điều khiển, né ma, ăn hết chấm. Lưu kỷ lục ngay trong trình duyệt.",
-      en: "Classic Pac-Man — arrow keys/WASD to move, dodge ghosts, eat all dots. High score saved locally.",
-    },
-    tags: ["game", "pacman", "arcade", "maze", "ghost"],
-    category: "cat_game",
   },
   {
     href: "/regex",
@@ -409,6 +385,18 @@ export const SEED_TOOLS: Tool[] = [
     },
     tags: ["meme", "funny", "reddit", "image", "gif", "viral"],
     category: "cat_media",
+  },
+  {
+    href: "/travel-plan",
+    iconName: "IconRoute",
+    title: "Lộ trình",
+    sub: { vi: "Lên lịch trình du lịch", en: "Travel planner" },
+    desc: {
+      vi: "Dựng lộ trình du lịch theo ngày — chọn tông màu, địa điểm kèm hình tự tìm, tải ảnh hoặc tạo link chia sẻ.",
+      en: "Build a day-by-day travel itinerary — pick a colour tone, add places with auto-fetched photos, download or share a link.",
+    },
+    tags: ["travel", "trip", "itinerary", "du-lich", "lo-trinh", "plan", "map"],
+    category: "cat_life",
   },
   {
     href: "/license-plate",

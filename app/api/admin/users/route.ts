@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { hashPassword } from "@/lib/user-auth";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const unauth = () => NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
 export async function GET(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";
   let query = supabaseAdmin()
     .from("app_users")
@@ -29,13 +30,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { accountname, firstname, lastname, password, email, role, note } = await req.json().catch(() => ({}));
   if (!accountname || !firstname || !lastname || !password) {
     return NextResponse.json({ ok: false, error: "Thiếu thông tin" }, { status: 400 });
   }
-  if (String(password).length < 6) {
-    return NextResponse.json({ ok: false, error: "Mật khẩu tối thiểu 6 ký tự" }, { status: 400 });
+  if (String(password).length < MIN_PASSWORD_LENGTH) {
+    return NextResponse.json({ ok: false, error: `Mật khẩu tối thiểu ${MIN_PASSWORD_LENGTH} ký tự` }, { status: 400 });
   }
   if (email && !EMAIL_RE.test(email)) {
     return NextResponse.json({ ok: false, error: "Email không hợp lệ" }, { status: 400 });
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { id, firstname, lastname, password, email, role, note } = await req.json().catch(() => ({}));
   if (!id) return NextResponse.json({ ok: false, error: "Thiếu id" }, { status: 400 });
   const patch: Record<string, string | null> = {};
@@ -76,7 +77,7 @@ export async function PATCH(req: Request) {
     patch.email = email || null;
   }
   if (typeof password === "string" && password) {
-    if (password.length < 6) return NextResponse.json({ ok: false, error: "Mật khẩu tối thiểu 6 ký tự" }, { status: 400 });
+    if (password.length < MIN_PASSWORD_LENGTH) return NextResponse.json({ ok: false, error: `Mật khẩu tối thiểu ${MIN_PASSWORD_LENGTH} ký tự` }, { status: 400 });
     patch.password_hash = hashPassword(password);
   }
   if (typeof note === "string") {
@@ -94,7 +95,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ ok: false, error: "Thiếu id" }, { status: 400 });
   const { error } = await supabaseAdmin().from("app_users").delete().eq("id", id);

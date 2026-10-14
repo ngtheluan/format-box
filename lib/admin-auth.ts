@@ -1,8 +1,20 @@
-// Admin access is now granted to any user with role='admin'. The old
-// password-cookie flow (ADMIN_COOKIE / makeAdminToken) is retired — all admin
-// APIs and the /admin area check the user session instead.
-import { currentUser } from "./user-auth";
+// Admin access = the user's CURRENT role in the DB is 'admin'. The role baked
+// into the session cookie is intentionally NOT trusted here, so promoting or
+// demoting a user takes effect on the next request without forcing a re-login.
+import { supabaseAdmin } from "./supabase";
+import { currentUserId } from "./user-auth";
 
-export function isAdmin(): boolean {
-  return currentUser()?.role === "admin";
+export async function isAdmin(): Promise<boolean> {
+  const id = currentUserId();
+  if (!id) return false;
+  try {
+    const { data } = await supabaseAdmin()
+      .from("app_users")
+      .select("role")
+      .eq("id", id)
+      .maybeSingle();
+    return data?.role === "admin";
+  } catch {
+    return false;
+  }
 }

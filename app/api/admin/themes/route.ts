@@ -12,7 +12,7 @@ function unauth() {
 }
 
 export async function GET() {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { data, error } = await supabaseAdmin()
     .from("themes")
     .select("*")
@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const theme = (await req.json()) as Theme;
   if (!theme.id || !/^[a-z0-9-]+$/.test(theme.id)) {
     return NextResponse.json({ ok: false, error: "id phải viết thường, chỉ chữ/số/dấu -" }, { status: 400 });
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const theme = (await req.json()) as Theme;
   const { error } = await supabaseAdmin().from("themes").upsert(themeToRow(theme), { onConflict: "id" });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
@@ -44,7 +44,7 @@ export async function PUT(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { id, ...patch } = await req.json();
   if (!id) return NextResponse.json({ ok: false, error: "missing id" }, { status: 400 });
   const { error } = await supabaseAdmin().from("themes").update(patch).eq("id", id);
@@ -54,7 +54,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!isAdmin()) return unauth();
+  if (!(await isAdmin())) return unauth();
   const { id } = await req.json();
   if (!id) return NextResponse.json({ ok: false, error: "missing id" }, { status: 400 });
   if (id === "modern") {

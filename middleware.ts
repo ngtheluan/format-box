@@ -1,6 +1,6 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { SEED_TOOLS } from "@/lib/tools-shared";
-import { USER_COOKIE, verifyUserTokenEdge, type UserRole } from "@/lib/user-auth-edge";
+import { USER_COOKIE, authSecret, verifyUserTokenEdge, type UserRole } from "@/lib/user-auth-edge";
 
 const TOOL_HREFS = new Set(SEED_TOOLS.map((t) => t.href));
 
@@ -51,18 +51,13 @@ async function getVisibility(req: NextRequest, event: NextFetchEvent): Promise<V
 export async function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get(USER_COOKIE)?.value;
-  const session = await verifyUserTokenEdge(token, process.env.ADMIN_PASSWORD);
+  const session = await verifyUserTokenEdge(token, authSecret());
   const role: UserRole | "guest" = session?.role ?? "guest";
 
-  // Admin area: must be logged in with role=admin.
-  if (pathname.startsWith("/admin")) {
-    // /admin itself is the login page — let it render.
-    if (pathname === "/admin") return NextResponse.next();
-    if (role === "admin") return NextResponse.next();
-    const url = req.nextUrl.clone();
-    url.pathname = "/admin";
-    return NextResponse.redirect(url);
-  }
+  // Admin area is gated server-side in app/admin/layout.tsx, which reads the
+  // live DB role (not the cookie role), so promoting/demoting a user takes
+  // effect on the next request without a re-login. Middleware below only
+  // decides tool visibility, which intentionally still uses the cookie role.
 
   // Tool pages: block when the viewer's role cannot see this tool.
   if (TOOL_HREFS.has(pathname)) {
@@ -94,7 +89,6 @@ export const config = {
     "/curl",
     "/exchange-currency",
     "/favicon-export",
-    "/flappy-bird",
     "/fuel",
     "/gold",
     "/graph",
@@ -104,13 +98,13 @@ export const config = {
     "/license-plate",
     "/lucky-ticket",
     "/markdown",
-    "/pacman",
     "/photobooth",
     "/qr",
     "/responsive",
     "/speed-test",
     "/text-case",
     "/timestamp",
+    "/travel-plan",
     "/typing-test",
     "/uuid",
     "/weather",

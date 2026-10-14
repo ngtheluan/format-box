@@ -1,9 +1,11 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 import { IconLoader2, IconLock, IconLogout, IconMail, IconUser, IconUserCircle } from "@tabler/icons-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LangToggle from "./LangToggle";
+import RoleBadge from "./RoleBadge";
 import SkinPicker from "./SkinPicker";
 import ThemeToggle from "./ThemeToggle";
 import { useToast } from "./Toast";
@@ -132,7 +134,7 @@ export default function AccountMenu() {
   }
 
   async function doRegister() {
-    if (busy || !firstname || !lastname || !accountname || !email || password.length < 6) return;
+    if (busy || !firstname || !lastname || !accountname || !email || password.length < MIN_PASSWORD_LENGTH) return;
     setAuthErr("");
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setAuthErr(t("acct_err_email_invalid"));
@@ -176,11 +178,11 @@ export default function AccountMenu() {
     <div className="account-menu" ref={ref}>
       <button
         type="button"
-        className="theme-btn"
+        className={`theme-btn${user?.role === "admin" ? " is-admin" : ""}`}
         onClick={() => setOpen((v) => !v)}
         aria-label="Account"
         aria-expanded={open}
-        title={user ? `@${user.accountname}` : t("acct_label")}
+        title={user ? `@${user.accountname}${user.role === "admin" ? " · Admin" : ""}` : t("acct_label")}
       >
         <IconUserCircle size={18} stroke={1.8} />
       </button>
@@ -196,8 +198,11 @@ export default function AccountMenu() {
                       <IconUser size={18} stroke={2} />
                     </span>
                     <span className="account-pop-body">
-                      <b>
-                        {user.firstname} {user.lastname}
+                      <b style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span>
+                          {user.firstname} {user.lastname}
+                        </span>
+                        <RoleBadge role={user.role ?? "user"} />
                       </b>
                       <small>@{user.accountname}</small>
                     </span>
@@ -387,7 +392,7 @@ export default function AccountMenu() {
               <button
                 type="submit"
                 className="fx-btn fx-btn-primary"
-                disabled={!firstname || !lastname || !accountname || !email || password.length < 6 || busy}
+                disabled={!firstname || !lastname || !accountname || !email || password.length < MIN_PASSWORD_LENGTH || busy}
               >
                 {busy ? (
                   <>
