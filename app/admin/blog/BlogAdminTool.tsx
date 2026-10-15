@@ -69,7 +69,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
 
   // Generate modal
   const [generateOpen, setGenerateOpen] = useState(false);
-  const [genMode, setGenMode] = useState<"topic" | "random" | "category">("topic");
+  const [genMode, setGenMode] = useState<"topic" | "random">("topic");
   const [genCategory, setGenCategory] = useState<BlogCategory>("tech");
   const [topic, setTopic] = useState("");
   const [genLoading, setGenLoading] = useState(false);
@@ -127,7 +127,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
         body: JSON.stringify({
           mode: genMode,
           topic: genMode === "topic" ? t : undefined,
-          category: genMode === "category" ? genCategory : undefined,
+          category: genMode === "topic" ? genCategory : undefined,
         }),
       });
       const j = await r.json();
@@ -669,11 +669,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
 
       {/* GENERATE MODAL */}
       {generateOpen && (
-        <div
-          className="fx-modal-bg"
-          style={{ zIndex: 200 }}
-          onClick={(e) => e.target === e.currentTarget && !genLoading && setGenerateOpen(false)}
-        >
+        <div className="fx-modal-bg" style={{ zIndex: 200 }}>
           <div className="fx-modal" style={{ maxWidth: 560 }}>
             <div className="fx-modal-head">
               <h2>
@@ -687,11 +683,10 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
             <div className="fx-modal-body">
               <div className="fx-field">
                 <label>Chế độ</label>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6 }}>
                   {(
                     [
                       ["topic", "Tự nhập"],
-                      ["category", "Theo danh mục"],
                       ["random", "Ngẫu nhiên"],
                     ] as const
                   ).map(([k, label]) => (
@@ -710,42 +705,39 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
               </div>
 
               {genMode === "topic" && (
-                <div className="fx-field">
-                  <label>Chủ đề *</label>
-                  <input
-                    autoFocus
-                    value={topic}
-                    disabled={genLoading}
-                    onChange={(e) => setTopic(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && generate()}
-                    placeholder="VD: WebGPU cho người mới 2026, Rust vs Go…"
-                  />
-                </div>
-              )}
-
-              {genMode === "category" && (
-                <div className="fx-field">
-                  <label>Danh mục</label>
-                  <select
-                    value={genCategory}
-                    disabled={genLoading}
-                    onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
-                  >
-                    {CAT_ORDER.map((c) => (
-                      <option key={c} value={c}>
-                        {CAT_LABEL[c]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <div className="fx-field">
+                    <label>Danh mục</label>
+                    <select
+                      value={genCategory}
+                      disabled={genLoading}
+                      onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
+                    >
+                      {CAT_ORDER.map((c) => (
+                        <option key={c} value={c}>
+                          {CAT_LABEL[c]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="fx-field">
+                    <label>Chủ đề *</label>
+                    <input
+                      autoFocus
+                      value={topic}
+                      disabled={genLoading}
+                      onChange={(e) => setTopic(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && generate()}
+                      placeholder="VD: WebGPU cho người mới 2026, Rust vs Go…"
+                    />
+                  </div>
+                </>
               )}
 
               <p style={{ fontSize: 12, color: "var(--fg-muted, #888)", marginTop: 4 }}>
                 {genMode === "topic"
-                  ? "AI sinh Markdown + 2-3 ảnh minh hoạ + có thể nhúng YouTube."
-                  : genMode === "category"
-                    ? "AI tự chọn 1 chủ đề hot trong danh mục rồi viết bài."
-                    : "AI tự chọn ngẫu nhiên 1 chủ đề và danh mục rồi viết bài."}{" "}
+                  ? "AI viết bài theo chủ đề và danh mục bạn chọn + 2-3 ảnh minh hoạ + có thể nhúng YouTube."
+                  : "AI tự chọn ngẫu nhiên 1 chủ đề và danh mục rồi viết bài."}{" "}
                 Bài vào trạng thái <b>Nháp</b>, bạn duyệt sau.
               </p>
               {genErr && <div className="fx-err">{genErr}</div>}
@@ -776,12 +768,8 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
 
       {/* EDIT MODAL */}
       {editing && (
-        <div
-          className="fx-modal-bg"
-          style={{ zIndex: 200 }}
-          onClick={(e) => e.target === e.currentTarget && !saving && setEditing(null)}
-        >
-          <div className="fx-modal" style={{ maxWidth: 920, maxHeight: "78vh" }}>
+        <div className="fx-modal-bg" style={{ zIndex: 200 }}>
+          <div className="fx-modal" style={{ maxWidth: 1100, width: "95vw", maxHeight: "92vh" }}>
             <div className="fx-modal-head">
               <h2>
                 <IconEdit size={16} stroke={2} /> Sửa: {editing.title}
@@ -849,10 +837,18 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
               <div className="fx-field">
                 <label>Markdown</label>
                 <textarea
-                  rows={8}
                   value={editing.markdown}
                   onChange={(e) => setEditing((cur) => (cur ? { ...cur, markdown: e.target.value } : cur))}
-                  style={{ fontFamily: "var(--mono)", fontSize: 13, lineHeight: 1.6 }}
+                  style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    minHeight: "48vh",
+                    maxHeight: "60vh",
+                    resize: "vertical",
+                    overflowY: "auto",
+                    width: "100%",
+                  }}
                 />
               </div>
               {editErr && <div className="fx-err">{editErr}</div>}
@@ -979,11 +975,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
 
       {/* CATEGORY EDIT MODAL */}
       {catEditing && (
-        <div
-          className="fx-modal-bg"
-          style={{ zIndex: 200 }}
-          onClick={(e) => e.target === e.currentTarget && !catSaving && setCatEditing(null)}
-        >
+        <div className="fx-modal-bg" style={{ zIndex: 200 }}>
           <div className="fx-modal" style={{ maxWidth: 480 }}>
             <div className="fx-modal-head">
               <h2>
@@ -1064,6 +1056,12 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
       )}
 
       <style jsx global>{`
+        body:has(.fx-modal-bg) .fx-stripe,
+        body:has(.fx-modal-bg) .fx-top,
+        body:has(.fx-modal-bg) .fx-stats,
+        body:has(.fx-modal-bg) .fx-tabs {
+          display: none !important;
+        }
         .spin {
           animation: fx-spin 1s linear infinite;
         }
