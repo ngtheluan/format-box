@@ -396,7 +396,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
             <button
               type="button"
               onClick={() => setTab("posts")}
-              className={`fx-btn ${tab === "posts" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+              className={`fx-btn fx-btn-ghost${tab === "posts" ? " fx-btn-primary" : ""}`}
               style={{ padding: "4px 10px", fontSize: 12 }}
             >
               <IconArticle size={13} stroke={1.9} /> Bài viết
@@ -404,7 +404,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
             <button
               type="button"
               onClick={() => setTab("categories")}
-              className={`fx-btn ${tab === "categories" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+              className={`fx-btn fx-btn-ghost${tab === "categories" ? " fx-btn-primary" : ""}`}
               style={{ padding: "4px 10px", fontSize: 12 }}
             >
               <IconCategory size={13} stroke={1.9} /> Danh mục
