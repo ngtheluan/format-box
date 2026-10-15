@@ -139,7 +139,6 @@ Quy tắc:
 - Encode đúng ký tự tiếng Việt, dấu câu và ký tự đặc biệt.
 - Mọi lần nhắc đến cùng một địa điểm đều phải có link.
 - Không tạo địa điểm hoặc địa chỉ giả.
-- Không sử dụng link ngoài queolua.vn.
 Sau "Kết luận", bắt buộc thêm:
 ==================================================
 6. ĐỘ CHÍNH XÁC
@@ -180,7 +179,6 @@ Tự kiểm tra, không hiển thị checklist:
 - Code block hợp lệ nếu cần.
 - Không bịa dữ kiện, nguồn, video hoặc địa chỉ.
 - Category có phong cách riêng.
-- Food có link queolua.vn cho mọi tên quán và địa chỉ, cùng section Nguồn tham khảo.
 - Không có nội dung ngoài META và bài viết.
 Ưu tiên độ chính xác hơn việc cố đáp ứng một quy tắc hình thức bằng thông tin bịa đặt.
 ĐẦU VÀO:
