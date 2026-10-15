@@ -12,9 +12,9 @@ import {
   IconClock,
   IconDeviceFloppy,
   IconEdit,
+  IconExternalLink,
   IconEye,
   IconEyeOff,
-  IconExternalLink,
   IconLayoutGrid,
   IconLoader2,
   IconPlus,
@@ -392,11 +392,20 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
       onLogout={logout}
       headerActions={
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 4,
+              padding: 3,
+              background: "var(--bg2)",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+            }}
+          >
             <button
               type="button"
               onClick={() => setTab("posts")}
-              className={`fx-btn fx-btn-ghost${tab === "posts" ? " fx-btn-primary" : ""}`}
+              className={`fx-btn ${tab === "posts" ? "fx-btn-primary" : "fx-btn-ghost"}`}
               style={{ padding: "4px 10px", fontSize: 12 }}
             >
               <IconArticle size={13} stroke={1.9} /> Bài viết
@@ -404,7 +413,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
             <button
               type="button"
               onClick={() => setTab("categories")}
-              className={`fx-btn fx-btn-ghost${tab === "categories" ? " fx-btn-primary" : ""}`}
+              className={`fx-btn ${tab === "categories" ? "fx-btn-primary" : "fx-btn-ghost"}`}
               style={{ padding: "4px 10px", fontSize: 12 }}
             >
               <IconCategory size={13} stroke={1.9} /> Danh mục
@@ -513,7 +522,11 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
                   <div className="fx-title-cell">
                     <div className="fx-t-row">
                       <b>{c.label}</b>
-                      {!c.active && <span className="fx-badge" data-tone="mute">Tắt</span>}
+                      {!c.active && (
+                        <span className="fx-badge" data-tone="mute">
+                          Tắt
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--dim)" }}>{c.slug}</div>
@@ -976,10 +989,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
               <h2>
                 <IconCategory size={16} stroke={2} /> {catEditing.isNew ? "Thêm danh mục" : "Sửa danh mục"}
               </h2>
-              <button
-                className="fx-btn fx-btn-icon fx-btn-ghost"
-                onClick={() => !catSaving && setCatEditing(null)}
-              >
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => !catSaving && setCatEditing(null)}>
                 <IconX size={16} stroke={2} />
               </button>
             </div>
@@ -1010,7 +1020,9 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
                     type="number"
                     value={catEditing.sort}
                     disabled={catSaving}
-                    onChange={(e) => setCatEditing((cur) => (cur ? { ...cur, sort: Number(e.target.value) || 0 } : cur))}
+                    onChange={(e) =>
+                      setCatEditing((cur) => (cur ? { ...cur, sort: Number(e.target.value) || 0 } : cur))
+                    }
                   />
                 </div>
               </div>
@@ -1031,7 +1043,11 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
               <button className="fx-btn" onClick={() => setCatEditing(null)} disabled={catSaving}>
                 Huỷ
               </button>
-              <button className="fx-btn fx-btn-primary" onClick={saveCategory} disabled={catSaving || !catEditing.label.trim()}>
+              <button
+                className="fx-btn fx-btn-primary"
+                onClick={saveCategory}
+                disabled={catSaving || !catEditing.label.trim()}
+              >
                 {catSaving ? (
                   <>
                     <IconLoader2 size={14} className="spin" /> Đang lưu…
