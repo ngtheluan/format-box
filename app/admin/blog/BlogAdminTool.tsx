@@ -496,7 +496,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
             <div className="fx-empty-ico">
               <IconCategory size={22} stroke={1.7} />
             </div>
-            Chưa có danh mục. Bấm "Thêm danh mục" để tạo mới.
+            Chưa có danh mục. Bấm &quot;Thêm danh mục&quot; để tạo mới.
           </div>
         ) : (
           <div className="fx-table">

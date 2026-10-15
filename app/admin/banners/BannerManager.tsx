@@ -220,7 +220,7 @@ export default function BannerManager() {
       {banners.length === 0 ? (
         <div className="fx-card" style={{ padding: 32, textAlign: "center", color: "var(--dim)" }}>
           <IconBellOff size={28} stroke={1.6} style={{ opacity: 0.6 }} />
-          <p style={{ margin: "10px 0 0" }}>Chưa có banner nào. Bấm "Tạo banner" để thêm.</p>
+          <p style={{ margin: "10px 0 0" }}>Chưa có banner nào. Bấm &quot;Tạo banner&quot; để thêm.</p>
         </div>
       ) : (
         <div className="fx-list">
