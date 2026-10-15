@@ -1056,6 +1056,12 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
       )}
 
       <style jsx global>{`
+        body:has(.fx-modal-bg) .fx-stripe,
+        body:has(.fx-modal-bg) .fx-top,
+        body:has(.fx-modal-bg) .fx-stats,
+        body:has(.fx-modal-bg) .fx-tabs {
+          display: none !important;
+        }
         .spin {
           animation: fx-spin 1s linear infinite;
         }
