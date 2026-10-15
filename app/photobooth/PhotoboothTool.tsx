@@ -1128,6 +1128,8 @@ export default function PhotoboothTool() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [shareEnabled, setShareEnabled] = useState<boolean>(false);
+  const [shareAskOpen, setShareAskOpen] = useState<boolean>(false);
   const [copied, setCopied] = useState(false);
   const composeStrip = useCallback(async (): Promise<string | null> => {
     if (!captures.length) return null;
@@ -1270,20 +1272,35 @@ export default function PhotoboothTool() {
   }, []);
 
   // "Hoàn tất": build the final image, open the result/detail view, kick off the share upload.
-  const finishEdit = useCallback(async () => {
+  const finishEdit = useCallback(() => {
     if (!captures.length) return;
-    setExporting(true);
-    try {
-      const url = await composeStrip();
-      if (!url) return;
-      setResultUrl(url);
-      setSelectedId(null);
-      navStep("result");
-      startShareUpload(url);
-    } finally {
-      setExporting(false);
-    }
-  }, [captures.length, composeStrip, navStep, startShareUpload]);
+    setShareAskOpen(true);
+  }, [captures.length]);
+
+  const proceedFinish = useCallback(
+    async (wantShare: boolean) => {
+      setShareAskOpen(false);
+      setShareEnabled(wantShare);
+      setExporting(true);
+      try {
+        const url = await composeStrip();
+        if (!url) return;
+        setResultUrl(url);
+        setSelectedId(null);
+        navStep("result");
+        if (wantShare) {
+          startShareUpload(url);
+        } else {
+          setUploadState("idle");
+          setShareUrl(null);
+          setQrDataUrl(null);
+        }
+      } finally {
+        setExporting(false);
+      }
+    },
+    [composeStrip, navStep, startShareUpload],
+  );
 
   const downloadResult = useCallback(() => {
     if (!resultUrl) return;
@@ -1828,6 +1845,7 @@ export default function PhotoboothTool() {
                 {t("pb_download")}
               </Button>
 
+              {shareEnabled && (
               <div className="pb-share-card">
                 <div className="pb-share-head">
                   <IconQrcode size={16} stroke={1.8} />
@@ -1871,6 +1889,7 @@ export default function PhotoboothTool() {
                   </>
                 )}
               </div>
+              )}
 
               <button className="pb-new-session" onClick={resetAll}>
                 <span className="pb-new-session-ic">
@@ -1879,6 +1898,78 @@ export default function PhotoboothTool() {
                 <span className="pb-new-session-label">{t("pb_new_session")}</span>
                 <IconSparkles size={14} stroke={1.8} className="pb-new-session-spk" />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shareAskOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(4px)",
+            zIndex: 300,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: "var(--bg, #fff)",
+              color: "var(--text, #111)",
+              border: "1px solid var(--border, #e5e7eb)",
+              borderRadius: 16,
+              maxWidth: 440,
+              width: "100%",
+              padding: "20px 22px 18px",
+              boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4)",
+              position: "relative",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setShareAskOpen(false)}
+              aria-label="Đóng"
+              style={{
+                position: "absolute",
+                top: 10,
+                right: 10,
+                width: 32,
+                height: 32,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "none",
+                background: "transparent",
+                color: "var(--text, #111)",
+                cursor: "pointer",
+                borderRadius: 8,
+              }}
+            >
+              <IconX size={18} stroke={2} />
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <IconQrcode size={20} stroke={1.9} />
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>Tạo link chia sẻ cho bộ ảnh?</h3>
+            </div>
+            <p style={{ margin: "0 0 16px", fontSize: 14, lineHeight: 1.55, color: "var(--dim, #666)" }}>
+              Ảnh sẽ được tải lên máy chủ và tạo mã QR cùng link truy cập. Link có hiệu lực trong{" "}
+              <b>24 giờ</b> rồi tự động xoá vĩnh viễn.
+              <br />
+              Nếu bạn chỉ muốn giữ ảnh riêng tư, hãy chọn tải trực tiếp về máy — không có bản sao nào được lưu
+              lại trên máy chủ.
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <Button variant="ghost" onClick={() => proceedFinish(false)}>
+                <IconDownload size={16} stroke={1.9} /> Chỉ tải về máy
+              </Button>
+              <Button onClick={() => proceedFinish(true)}>
+                <IconQrcode size={16} stroke={1.9} /> Tạo link chia sẻ
+              </Button>
             </div>
           </div>
         </div>
