@@ -34,7 +34,7 @@ export default function HeroCanvas() {
         color: accent,
         transparent: true,
         opacity: 0.35,
-      })
+      }),
     );
     scene.add(wire);
 
@@ -45,7 +45,7 @@ export default function HeroCanvas() {
         color: accent2,
         transparent: true,
         opacity: 0.04,
-      })
+      }),
     );
     scene.add(solid);
 
@@ -76,7 +76,7 @@ export default function HeroCanvas() {
         transparent: true,
         opacity: 0.75,
         sizeAttenuation: true,
-      })
+      }),
     );
     scene.add(particles);
 
@@ -103,9 +103,11 @@ export default function HeroCanvas() {
     ro.observe(mount);
 
     let raf = 0;
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
+    timer.connect(document);
     const render = () => {
-      const t = clock.getElapsedTime();
+      timer.update();
+      const t = timer.getElapsed();
 
       current.x += (target.x - current.x) * 0.04;
       current.y += (target.y - current.y) * 0.04;
@@ -132,6 +134,7 @@ export default function HeroCanvas() {
 
     return () => {
       cancelAnimationFrame(raf);
+      timer.dispose();
       window.removeEventListener("pointermove", onMove);
       ro.disconnect();
       geom.dispose();

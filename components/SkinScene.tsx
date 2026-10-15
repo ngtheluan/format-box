@@ -83,7 +83,15 @@ export default function SkinScene() {
       scene.add(spr);
       return spr;
     };
-    const blob = (ctx: CanvasRenderingContext2D, x: number, y: number, r: number, inner: string, outer: string, squash = 1) => {
+    const blob = (
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      r: number,
+      inner: string,
+      outer: string,
+      squash = 1,
+    ) => {
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(1, squash);
@@ -199,7 +207,8 @@ export default function SkinScene() {
           [0.62, 0.76, 0.11],
           [0.46, 0.2, 0.07],
         ];
-        for (const [u, v, r] of maria) blob(ctx, u * s, v * s, r * s, "rgba(196, 150, 86, 0.34)", "rgba(196, 150, 86, 0)");
+        for (const [u, v, r] of maria)
+          blob(ctx, u * s, v * s, r * s, "rgba(196, 150, 86, 0.34)", "rgba(196, 150, 86, 0)");
         // Small craters: shadowed rim + lit rim
         for (let i = 0; i < 46; i++) {
           const a = rnd() * TAU;
@@ -249,8 +258,10 @@ export default function SkinScene() {
         );
 
       // Mountain ridgelines shared by the texture and the pagoda placement (v = fraction from the top)
-      const ridgeFar = (u: number) => 0.46 + 0.09 * Math.sin(u * 7 + 1) + 0.055 * Math.sin(u * 17 + 2) + 0.025 * Math.sin(u * 37);
-      const ridgeNear = (u: number) => 0.6 + 0.07 * Math.sin(u * 5 + 3) + 0.05 * Math.sin(u * 13 + 1) + 0.02 * Math.sin(u * 31);
+      const ridgeFar = (u: number) =>
+        0.46 + 0.09 * Math.sin(u * 7 + 1) + 0.055 * Math.sin(u * 17 + 2) + 0.025 * Math.sin(u * 37);
+      const ridgeNear = (u: number) =>
+        0.6 + 0.07 * Math.sin(u * 5 + 3) + 0.05 * Math.sin(u * 13 + 1) + 0.02 * Math.sin(u * 31);
       const mountainTex = (ridge: (u: number) => number, top: string, bottom: string, forest: boolean) =>
         makeTex(
           2048,
@@ -343,7 +354,16 @@ export default function SkinScene() {
         512,
         (ctx, w, h) => {
           ctx.clearRect(0, 0, w, h);
-          for (let i = 0; i <= 10; i++) blob(ctx, (i / 10) * w, h / 2 + (rnd() - 0.5) * 20, 50 + rnd() * 34, "rgba(255, 224, 200, 0.24)", "rgba(255, 224, 200, 0)", 0.5);
+          for (let i = 0; i <= 10; i++)
+            blob(
+              ctx,
+              (i / 10) * w,
+              h / 2 + (rnd() - 0.5) * 20,
+              50 + rnd() * 34,
+              "rgba(255, 224, 200, 0.24)",
+              "rgba(255, 224, 200, 0)",
+              0.5,
+            );
         },
         128,
       );
@@ -541,7 +561,14 @@ export default function SkinScene() {
         ctx.fill();
         for (let k = 0; k < 20; k++) {
           const a = (k / 20) * TAU;
-          blob(ctx, cx + Math.cos(a) * 104, cx + Math.sin(a) * 104, 12, "rgba(90, 45, 15, 0.55)", "rgba(90, 45, 15, 0)");
+          blob(
+            ctx,
+            cx + Math.cos(a) * 104,
+            cx + Math.sin(a) * 104,
+            12,
+            "rgba(90, 45, 15, 0.55)",
+            "rgba(90, 45, 15, 0)",
+          );
         }
         const top = ctx.createRadialGradient(cx - 18, cx - 22, 8, cx, cx, 92);
         top.addColorStop(0, "#f2c47a");
@@ -609,7 +636,14 @@ export default function SkinScene() {
         }
         const geo = new THREE.BufferGeometry();
         geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(cfg.n * 3), 3));
-        const mat = new THREE.PointsMaterial({ map: dotTex, size: cfg.size, color: cfg.color, transparent: true, opacity: 0.8, depthWrite: false });
+        const mat = new THREE.PointsMaterial({
+          map: dotTex,
+          size: cfg.size,
+          color: cfg.color,
+          transparent: true,
+          opacity: 0.8,
+          depthWrite: false,
+        });
         const pts = new THREE.Points(geo, mat);
         pts.position.z = -16;
         pts.frustumCulled = false;
@@ -671,7 +705,14 @@ export default function SkinScene() {
       const FN = 24;
       const fairyGeo = new THREE.BufferGeometry();
       fairyGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(FN * 3), 3));
-      const fairyMat = new THREE.PointsMaterial({ map: fireTex, size: 0.42, color: 0xffe2a0, transparent: true, opacity: 0.85, depthWrite: false });
+      const fairyMat = new THREE.PointsMaterial({
+        map: fireTex,
+        size: 0.42,
+        color: 0xffe2a0,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+      });
       const fairy = new THREE.Points(fairyGeo, fairyMat);
       fairy.position.z = -2;
       fairy.frustumCulled = false;
@@ -881,15 +922,20 @@ export default function SkinScene() {
         for (const l of skyLanterns) {
           const h = half(l.z);
           const range = h.h * 2 + 3;
-          const p = (((t * l.speed) / range + l.off) % 1 + 1) % 1;
+          const p = ((((t * l.speed) / range + l.off) % 1) + 1) % 1;
           l.spr.position.set(l.u * h.w + Math.sin(t * 0.35 + l.ph) * 0.6, -h.h - 1.5 + p * range, l.z);
           l.spr.scale.set(l.size, l.size * 1.25, 1);
-          l.spr.material.opacity = clamp(Math.min(p / 0.1, (1 - p) / 0.15), 0, 1) * (0.85 + 0.15 * Math.sin(t * 6 + l.ph * 3)) * 0.95;
+          l.spr.material.opacity =
+            clamp(Math.min(p / 0.1, (1 - p) / 0.15), 0, 1) * (0.85 + 0.15 * Math.sin(t * 6 + l.ph * 3)) * 0.95;
           l.spr.material.rotation = Math.sin(t * 0.5 + l.ph) * 0.06;
         }
         for (const f of fireflies) {
           const h = half(f.z);
-          f.spr.position.set(f.u * h.w + Math.sin(t * 0.5 + f.ph) * 1.2 + Math.sin(t * 1.1 + f.ph * 2) * 0.3, f.v * h.h + Math.cos(t * 0.4 + f.ph * 1.3) * 0.9, f.z);
+          f.spr.position.set(
+            f.u * h.w + Math.sin(t * 0.5 + f.ph) * 1.2 + Math.sin(t * 1.1 + f.ph * 2) * 0.3,
+            f.v * h.h + Math.cos(t * 0.4 + f.ph * 1.3) * 0.9,
+            f.z,
+          );
           const k = 0.5 + 0.5 * Math.sin(t * 1.4 + f.ph * 2);
           f.spr.material.opacity = 0.15 + 0.85 * k * k;
           f.spr.scale.setScalar(f.size * (0.8 + 0.4 * k));
@@ -932,8 +978,10 @@ export default function SkinScene() {
         });
       });
 
-      const ridgeFar = (u: number) => 0.5 + 0.07 * Math.sin(u * 4 + 1) + 0.045 * Math.sin(u * 11 + 2) + 0.02 * Math.sin(u * 23);
-      const ridgeNear = (u: number) => 0.5 + 0.09 * Math.sin(u * 3 + 4) + 0.04 * Math.sin(u * 8) + 0.015 * Math.sin(u * 21);
+      const ridgeFar = (u: number) =>
+        0.5 + 0.07 * Math.sin(u * 4 + 1) + 0.045 * Math.sin(u * 11 + 2) + 0.02 * Math.sin(u * 23);
+      const ridgeNear = (u: number) =>
+        0.5 + 0.09 * Math.sin(u * 3 + 4) + 0.04 * Math.sin(u * 8) + 0.015 * Math.sin(u * 21);
       const hillTex = (ridge: (u: number) => number, top: string, bottom: string, pines: boolean) =>
         makeTex(
           2048,
@@ -1202,7 +1250,14 @@ export default function SkinScene() {
         { u: 0.8, len: 1.5, size: 1.5, tex: 4 },
         { u: 0.93, len: 2.5, size: 1.7, tex: 0 },
       ];
-      const hangs = hangSpecs.map((h) => ({ ...h, spr: sprite(baubleSets[h.tex]), ph: rnd() * TAU, ax: 0, ay: 0, sc: 1 }));
+      const hangs = hangSpecs.map((h) => ({
+        ...h,
+        spr: sprite(baubleSets[h.tex]),
+        ph: rnd() * TAU,
+        ax: 0,
+        ay: 0,
+        sc: 1,
+      }));
       const hangGeo = new THREE.BufferGeometry();
       hangGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(hangs.length * 6), 3));
       const hangMat = new THREE.LineBasicMaterial({ color: 0xffe0a0, transparent: true, opacity: 0.55 });
@@ -1395,9 +1450,12 @@ export default function SkinScene() {
               flowers.push({ x: x2, y: y2, r: 13 + rnd() * 8 });
               return;
             }
-            if (d <= 2) for (const k of [0.5, 0.8]) if (rnd() < 0.6) flowers.push({ x: x + (x2 - x) * k, y: y + (y2 - y) * k, r: 11 + rnd() * 7 });
+            if (d <= 2)
+              for (const k of [0.5, 0.8])
+                if (rnd() < 0.6) flowers.push({ x: x + (x2 - x) * k, y: y + (y2 - y) * k, r: 11 + rnd() * 7 });
             const kids = d >= 3 ? 2 : rnd() < 0.4 ? 3 : 2;
-            for (let i = 0; i < kids; i++) grow(x2, y2, a + (rnd() - 0.5) * 1.3 + (i - 0.5) * 0.5, len * (0.62 + rnd() * 0.15), wd * 0.62, d - 1);
+            for (let i = 0; i < kids; i++)
+              grow(x2, y2, a + (rnd() - 0.5) * 1.3 + (i - 0.5) * 0.5, len * (0.62 + rnd() * 0.15), wd * 0.62, d - 1);
             if (d >= 3) grow(mx, my, a + (rnd() < 0.5 ? -1 : 1) * 0.8, len * 0.5, wd * 0.55, d - 2);
           };
           grow(-10, -10, 0.78, 250, 15, 4);
@@ -1592,7 +1650,14 @@ export default function SkinScene() {
         { u: 0.7, len: 5.4, size: 3.3 },
         { u: 0.88, len: 3.6, size: 3.0 },
       ];
-      const lanterns = lanternSpecs.map((l) => ({ ...l, spr: sprite(redLanternTex), ph: rnd() * TAU, ax: 0, ay: 0, sc: 1 }));
+      const lanterns = lanternSpecs.map((l) => ({
+        ...l,
+        spr: sprite(redLanternTex),
+        ph: rnd() * TAU,
+        ax: 0,
+        ay: 0,
+        sc: 1,
+      }));
       const lanternGeo = new THREE.BufferGeometry();
       lanternGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(lanterns.length * 6), 3));
       const lanternMat = new THREE.LineBasicMaterial({ color: 0xffd76a, transparent: true, opacity: 0.6 });
@@ -1827,8 +1892,10 @@ export default function SkinScene() {
         ctx.restore();
       });
 
-      const ridgeFar = (u: number) => 0.46 + 0.09 * Math.sin(u * 6 + 2) + 0.05 * Math.sin(u * 15 + 1) + 0.025 * Math.sin(u * 33);
-      const ridgeNear = (u: number) => 0.55 + 0.06 * Math.sin(u * 4 + 1) + 0.035 * Math.sin(u * 11 + 3) + 0.015 * Math.sin(u * 27);
+      const ridgeFar = (u: number) =>
+        0.46 + 0.09 * Math.sin(u * 6 + 2) + 0.05 * Math.sin(u * 15 + 1) + 0.025 * Math.sin(u * 33);
+      const ridgeNear = (u: number) =>
+        0.55 + 0.06 * Math.sin(u * 4 + 1) + 0.035 * Math.sin(u * 11 + 3) + 0.015 * Math.sin(u * 27);
       const hillTex = (ridge: (u: number) => number, top: string, bottom: string, rim: string, graves: boolean) =>
         makeTex(
           2048,
@@ -1911,8 +1978,20 @@ export default function SkinScene() {
           },
           512,
         );
-      const farTex = hillTex(ridgeFar, "rgba(74, 34, 92, 0.72)", "rgba(28, 12, 44, 0.92)", "rgba(255, 150, 70, 0.3)", false);
-      const nearTex = hillTex(ridgeNear, "rgba(26, 12, 38, 0.95)", "rgba(10, 5, 18, 1)", "rgba(255, 130, 50, 0.22)", true);
+      const farTex = hillTex(
+        ridgeFar,
+        "rgba(74, 34, 92, 0.72)",
+        "rgba(28, 12, 44, 0.92)",
+        "rgba(255, 150, 70, 0.3)",
+        false,
+      );
+      const nearTex = hillTex(
+        ridgeNear,
+        "rgba(26, 12, 38, 0.95)",
+        "rgba(10, 5, 18, 1)",
+        "rgba(255, 130, 50, 0.22)",
+        true,
+      );
 
       // Haunted mansion with glowing windows
       const houseTex = makeTex(512, (ctx) => {
@@ -1995,8 +2074,17 @@ export default function SkinScene() {
             ctx.stroke();
             if (d === 0) return;
             const kids = rnd() < 0.35 ? 3 : 2;
-            for (let i = 0; i < kids; i++) grow(x2, y2, a + (rnd() - 0.5) * 1.1 + (i - (kids - 1) / 2) * 0.55, len * (0.7 + rnd() * 0.12), wd * 0.68, d - 1);
-            if (d >= 2 && rnd() < 0.6) grow(mx, my, a + (rnd() < 0.5 ? -1 : 1) * (0.7 + rnd() * 0.4), len * 0.55, wd * 0.55, d - 2);
+            for (let i = 0; i < kids; i++)
+              grow(
+                x2,
+                y2,
+                a + (rnd() - 0.5) * 1.1 + (i - (kids - 1) / 2) * 0.55,
+                len * (0.7 + rnd() * 0.12),
+                wd * 0.68,
+                d - 1,
+              );
+            if (d >= 2 && rnd() < 0.6)
+              grow(mx, my, a + (rnd() < 0.5 ? -1 : 1) * (0.7 + rnd() * 0.4), len * 0.55, wd * 0.55, d - 2);
           };
           grow(w * 0.5, h + 10, -Math.PI / 2, 230, 34, 5);
           ctx.fillStyle = INK;
@@ -2267,7 +2355,16 @@ export default function SkinScene() {
         512,
         (ctx, w, h) => {
           ctx.clearRect(0, 0, w, h);
-          for (let i = 0; i <= 10; i++) blob(ctx, (i / 10) * w, h / 2 + (rnd() - 0.5) * 20, 50 + rnd() * 34, "rgba(255, 255, 255, 0.24)", "rgba(255, 255, 255, 0)", 0.5);
+          for (let i = 0; i <= 10; i++)
+            blob(
+              ctx,
+              (i / 10) * w,
+              h / 2 + (rnd() - 0.5) * 20,
+              50 + rnd() * 34,
+              "rgba(255, 255, 255, 0.24)",
+              "rgba(255, 255, 255, 0)",
+              0.5,
+            );
         },
         128,
       );
@@ -2344,7 +2441,14 @@ export default function SkinScene() {
       const wisps = Array.from({ length: 16 }, (_, i) => {
         const spr = sprite(dot, 0);
         spr.material.color.setHex(i % 2 ? 0x8dff6a : 0xb388ff);
-        return { spr, u: rnd() * 2 - 1, v: -0.9 + rnd() * 1.2, z: -6 + rnd() * 4, size: 0.4 + rnd() * 0.5, ph: rnd() * TAU };
+        return {
+          spr,
+          u: rnd() * 2 - 1,
+          v: -0.9 + rnd() * 1.2,
+          z: -6 + rnd() * 4,
+          size: 0.4 + rnd() * 0.5,
+          ph: rnd() * TAU,
+        };
       });
       const web = sprite(webTex, 0.6);
       const spiders = [
@@ -2451,7 +2555,10 @@ export default function SkinScene() {
         // Occasional lightning flash: one slot in 11s, only some slots fire
         const slot = Math.floor(t / 11);
         const local = t - slot * 11;
-        flash.material.opacity = hash(slot + 5) > 0.4 && local < 0.4 ? (local < 0.08 ? local / 0.08 : Math.exp(-(local - 0.08) * 9)) * (0.6 + 0.4 * Math.sin(local * 70)) * 0.22 : 0;
+        flash.material.opacity =
+          hash(slot + 5) > 0.4 && local < 0.4
+            ? (local < 0.08 ? local / 0.08 : Math.exp(-(local - 0.08) * 9)) * (0.6 + 0.4 * Math.sin(local * 70)) * 0.22
+            : 0;
 
         const breath = Math.sin(t * 0.5);
         moon.position.y = moonY + Math.sin(t * 0.2) * 0.1;
@@ -2490,7 +2597,11 @@ export default function SkinScene() {
 
         for (const w of wisps) {
           const h = half(w.z);
-          w.spr.position.set(w.u * h.w + Math.sin(t * 0.5 + w.ph) * 1.2 + Math.sin(t * 1.1 + w.ph * 2) * 0.3, w.v * h.h + Math.cos(t * 0.4 + w.ph * 1.3) * 0.9, w.z);
+          w.spr.position.set(
+            w.u * h.w + Math.sin(t * 0.5 + w.ph) * 1.2 + Math.sin(t * 1.1 + w.ph * 2) * 0.3,
+            w.v * h.h + Math.cos(t * 0.4 + w.ph * 1.3) * 0.9,
+            w.z,
+          );
           const k = 0.5 + 0.5 * Math.sin(t * 1.3 + w.ph * 2);
           w.spr.material.opacity = 0.15 + 0.85 * k * k;
           w.spr.scale.setScalar(w.size * (0.8 + 0.4 * k));
@@ -2545,9 +2656,11 @@ export default function SkinScene() {
     ro.observe(mount);
 
     let raf = 0;
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
+    timer.connect(document);
     const render = () => {
-      const t = clock.getElapsedTime();
+      timer.update();
+      const t = timer.getElapsed();
       if (!reduce && tick) tick(t);
       renderer.render(scene, camera);
       raf = requestAnimationFrame(render);
@@ -2556,6 +2669,7 @@ export default function SkinScene() {
 
     return () => {
       cancelAnimationFrame(raf);
+      timer.dispose();
       ro.disconnect();
       disposables.forEach((d) => {
         try {
