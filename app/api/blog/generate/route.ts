@@ -26,8 +26,12 @@ QUY ĐỊNH NỘI DUNG MARKDOWN:
   + \`@video[https://...mp4]\` cho file mp4/webm công khai.
   Tối đa 1 video/bài. Nếu không chắc URL/ID → BỎ QUA, dùng ảnh thay.
 - 800-1200 từ. Giọng văn thân thiện, chuyên nghiệp, Việt Nam.
-- Không chèn link ngoài.
-- "from" và "to" là 2 màu hex gradient phù hợp chủ đề (vd AI: #7565f6→#22c5e8; web: #0ea5e9→#8b5cf6).`;
+- Không chèn link ngoài — TRỪ các link queolua.vn được quy định bên dưới cho bài category "food".
+- "from" và "to" là 2 màu hex gradient phù hợp chủ đề (vd AI: #7565f6→#22c5e8; web: #0ea5e9→#8b5cf6).
+
+QUY ĐỊNH RIÊNG CHO CATEGORY "food" (Món ăn):
+- Mỗi khi nhắc đến TÊN QUÁN hoặc ĐỊA CHỈ quán (nhà hàng, tiệm, địa điểm ăn uống), bọc trong link markdown trỏ đến \`https://queolua.vn/tim-kiem?q=<tên quán hoặc địa chỉ URL-encoded, dấu cách thành dấu +>\`. Ví dụ: \`[Bánh Canh Cua "Hải Đăng"](https://queolua.vn/tim-kiem?q=B%C3%A1nh+Canh+Cua+%22H%E1%BA%A3i+%C4%90%C4%83ng%22)\`.
+- Section cuối ("Kết luận") xong, thêm một section \`## Nguồn tham khảo\` với nội dung: \`Bài viết tham khảo từ [queolua.vn](https://queolua.vn).\``;
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
