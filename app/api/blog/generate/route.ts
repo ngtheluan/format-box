@@ -326,7 +326,7 @@ export async function POST(req: Request) {
     slug,
     title: meta.title,
     excerpt: meta.excerpt || "",
-    category: mode === "category" && inputCategory ? inputCategory : (meta.category as BlogCategory) || "tech",
+    category: inputCategory && validCats.includes(inputCategory) ? inputCategory : (meta.category as BlogCategory) || "tech",
     tags: Array.isArray(meta.tags) ? meta.tags.slice(0, 8) : [],
     author: "Admin",
     date: today,
