@@ -3,9 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconArrowLeft, IconCalendar, IconClock, IconUser } from "@tabler/icons-react";
 import {
-  BLOG_CATEGORIES,
+  categoriesToMap,
   formatDateVi,
   getPublicPost,
+  listPublicCategories,
   listPublicPosts,
   renderMarkdown,
 } from "@/lib/blog";
@@ -30,9 +31,14 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
 
   const { html, toc } = renderMarkdown(post.markdown);
 
-  const related = (await listPublicPosts())
-    .filter((p) => p.slug !== post.slug && p.category === post.category)
-    .slice(0, 3);
+  const [related, cats] = await Promise.all([
+    listPublicPosts().then((all) =>
+      all.filter((p) => p.slug !== post.slug && p.category === post.category).slice(0, 3),
+    ),
+    listPublicCategories(),
+  ]);
+  const BLOG_CATEGORIES = categoriesToMap(cats);
+  const catLabel = (slug: string) => BLOG_CATEGORIES[slug] || slug;
 
   return (
     <div className="blog-wrap">
@@ -41,7 +47,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
         <span>/</span>
         <Link href="/blog">Blog</Link>
         <span>/</span>
-        <span style={{ color: "var(--text)" }}>{BLOG_CATEGORIES[post.category]}</span>
+        <span style={{ color: "var(--text)" }}>{catLabel(post.category)}</span>
       </nav>
 
       <div className="blog-detail">
@@ -52,7 +58,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
 
           <h1 className="blog-title">{post.title}</h1>
           <div className="blog-meta">
-            <span className="blog-chip">{BLOG_CATEGORIES[post.category]}</span>
+            <span className="blog-chip">{catLabel(post.category)}</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
               <IconUser size={14} stroke={1.8} /> <strong>{post.author}</strong>
             </span>
@@ -101,7 +107,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
                     </div>
                     <div className="blog-card-body">
                       <div className="blog-card-meta">
-                        <span className="blog-chip">{BLOG_CATEGORIES[p.category]}</span>
+                        <span className="blog-chip">{catLabel(p.category)}</span>
                         <span>{formatDateVi(p.date)}</span>
                       </div>
                       <h3>{p.title}</h3>

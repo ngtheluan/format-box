@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { listPublicPosts } from "@/lib/blog";
+import { categoriesToMap, listPublicCategories, listPublicPosts } from "@/lib/blog";
 import { BlogList } from "./BlogList";
 import "./blog.css";
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function BlogIndex() {
-  const posts = await listPublicPosts();
+  const [posts, cats] = await Promise.all([listPublicPosts(), listPublicCategories()]);
 
   return (
     <div className="blog-wrap">
@@ -24,7 +24,7 @@ export default async function BlogIndex() {
         </p>
       </header>
 
-      <BlogList posts={posts} />
+      <BlogList posts={posts} categories={categoriesToMap(cats)} />
     </div>
   );
 }

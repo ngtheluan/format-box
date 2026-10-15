@@ -3,11 +3,18 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { IconClock, IconCalendar } from "@tabler/icons-react";
-import { BLOG_CATEGORIES, formatDateVi, type BlogCategory, type BlogPost } from "@/lib/blog";
+import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost } from "@/lib/blog";
 import { BlogCover } from "@/components/BlogCover";
 
-export function BlogList({ posts: all }: { posts: BlogPost[] }) {
-  const [active, setActive] = useState<BlogCategory | null>(null);
+export function BlogList({
+  posts: all,
+  categories,
+}: {
+  posts: BlogPost[];
+  categories?: BlogCategoryMap;
+}) {
+  const [active, setActive] = useState<string | null>(null);
+  const catMap = categories && Object.keys(categories).length ? categories : DEFAULT_CATEGORIES;
 
   const counts = useMemo(
     () =>
@@ -33,16 +40,18 @@ export function BlogList({ posts: all }: { posts: BlogPost[] }) {
         >
           Tất cả <span className="blog-cat-count">{all.length}</span>
         </button>
-        {(Object.entries(BLOG_CATEGORIES) as [BlogCategory, string][]).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActive(key)}
-            className={`blog-cat${active === key ? " is-active" : ""}`}
-          >
-            {label} <span className="blog-cat-count">{counts[key] || 0}</span>
-          </button>
-        ))}
+        {Object.entries(catMap)
+          .filter(([key]) => (counts[key] || 0) > 0)
+          .map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActive(key)}
+              className={`blog-cat${active === key ? " is-active" : ""}`}
+            >
+              {label} <span className="blog-cat-count">{counts[key] || 0}</span>
+            </button>
+          ))}
       </div>
 
       {posts.length === 0 ? (
@@ -67,7 +76,7 @@ export function BlogList({ posts: all }: { posts: BlogPost[] }) {
               </div>
               <div className="blog-card-body">
                 <div className="blog-card-meta">
-                  <span className="blog-chip">{BLOG_CATEGORIES[p.category]}</span>
+                  <span className="blog-chip">{catMap[p.category] || p.category}</span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                     <IconCalendar size={13} stroke={1.8} /> {formatDateVi(p.date)}
                   </span>

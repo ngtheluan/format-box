@@ -1,5 +1,5 @@
 import { isAdmin } from "@/lib/admin-auth";
-import { insertPost, slugify, type BlogCategory, type BlogPost } from "@/lib/blog";
+import { insertPost, listAdminCategories, slugify, type BlogCategory, type BlogPost } from "@/lib/blog";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   const inputCategory = body?.category as BlogCategory | undefined;
   let topic = body?.topic?.toString().trim() || "";
 
-  const RANDOM_TOPICS: Record<BlogCategory, string[]> = {
+  const RANDOM_TOPICS: Record<string, string[]> = {
     tech: [
       "Chip M5 Pro: Apple silicon đang đi về đâu 2026",
       "USB-C 2.1: tốc độ, sạc và những hiểu lầm phổ biến",
@@ -64,7 +64,13 @@ export async function POST(req: Request) {
       "Edge rendering vs Node runtime: chọn đúng cho Next.js",
       "Partial Prerendering: tương lai của SSR trên Next.js",
     ],
-    food: [],
+    food: [
+      "Phở Hà Nội vs phở Sài Gòn: khác nhau ở đâu",
+      "Bún chả: bí quyết nước chấm chuẩn vị Hà Nội",
+      "5 món ăn sáng Việt dễ làm trong 15 phút",
+      "Bánh mì Sài Gòn: lịch sử và biến tấu hiện đại",
+      "Cơm tấm: từ món bình dân đến đặc sản quốc dân",
+    ],
     devops: [
       "Kubernetes 1.32: điểm mới quan trọng cho SRE",
       "Bun vs Node 22 trên production: benchmark thực tế",
@@ -74,15 +80,18 @@ export async function POST(req: Request) {
     ],
   };
 
+  // Danh sách category hợp lệ lấy từ DB (fallback: keys của RANDOM_TOPICS).
+  const dbCats = await listAdminCategories();
+  const validCats = dbCats.length ? dbCats.map((c) => c.slug) : Object.keys(RANDOM_TOPICS);
+
   if (mode === "random") {
-    const cats = Object.keys(RANDOM_TOPICS) as BlogCategory[];
-    const cat = cats[Math.floor(Math.random() * cats.length)];
-    const pool = RANDOM_TOPICS[cat];
+    const cat = validCats[Math.floor(Math.random() * validCats.length)];
+    const pool = RANDOM_TOPICS[cat] || RANDOM_TOPICS.tech;
     topic = pool[Math.floor(Math.random() * pool.length)];
   } else if (mode === "category") {
-    const cat = (inputCategory && RANDOM_TOPICS[inputCategory] ? inputCategory : "tech") as BlogCategory;
-    const pool = RANDOM_TOPICS[cat];
-    topic = pool[Math.floor(Math.random() * pool.length)];
+    const cat = inputCategory && validCats.includes(inputCategory) ? inputCategory : validCats[0] || "tech";
+    const pool = RANDOM_TOPICS[cat] || RANDOM_TOPICS.tech || [];
+    topic = pool.length ? pool[Math.floor(Math.random() * pool.length)] : `Chủ đề hot về ${cat}`;
   }
 
   if (!topic) return NextResponse.json({ error: "Thiếu topic" }, { status: 400 });
@@ -162,7 +171,7 @@ export async function POST(req: Request) {
     excerpt: meta.excerpt || "",
     category: mode === "category" && inputCategory ? inputCategory : (meta.category as BlogCategory) || "tech",
     tags: Array.isArray(meta.tags) ? meta.tags.slice(0, 8) : [],
-    author: "FormatBox",
+    author: "Admin",
     date: today,
     readMin: Number.isFinite(meta.readMin) ? Number(meta.readMin) : 10,
     cover: {

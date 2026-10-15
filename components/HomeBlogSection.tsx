@@ -3,20 +3,30 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { IconArrowRight, IconArticle, IconCalendar, IconClock } from "@tabler/icons-react";
 import { BlogCover } from "@/components/BlogCover";
-import { BLOG_CATEGORIES, formatDateVi, type BlogPost } from "@/lib/blog";
+import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
 
 export default function HomeBlogSection() {
   const { t } = useI18n();
   const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [cats, setCats] = useState<BlogCategoryMap>(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/blog/latest?limit=3")
-      .then((r) => r.json())
-      .then((j) => {
-        if (alive) setPosts(j.posts || []);
+    Promise.all([
+      fetch("/api/blog/latest?limit=3").then((r) => r.json()),
+      fetch("/api/blog/categories").then((r) => r.json()),
+    ])
+      .then(([latestJ, catsJ]) => {
+        if (!alive) return;
+        setPosts(latestJ.posts || []);
+        const rows: Array<{ slug: string; label: string }> = catsJ.categories || [];
+        if (rows.length) {
+          const m: BlogCategoryMap = {};
+          for (const r of rows) m[r.slug] = r.label;
+          setCats(m);
+        }
       })
       .catch(() => {})
       .finally(() => alive && setLoading(false));
@@ -60,7 +70,7 @@ export default function HomeBlogSection() {
               >
                 <div className="home-blog-media">
                   <BlogCover post={p} />
-                  <span className="home-blog-chip">{BLOG_CATEGORIES[p.category]}</span>
+                  <span className="home-blog-chip">{cats[p.category] || p.category}</span>
                 </div>
                 <div className="home-blog-body">
                   <h3>{p.title}</h3>

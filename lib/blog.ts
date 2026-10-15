@@ -1,7 +1,7 @@
 import { marked } from "marked";
 import { supabase, supabaseAdmin } from "./supabase";
 
-export type BlogCategory = "tech" | "ai" | "web" | "devops" | "food";
+export type BlogCategory = string;
 export type BlogStatus = "draft" | "rejected" | "published";
 
 export type BlogPost = {
@@ -18,13 +18,101 @@ export type BlogPost = {
   status: BlogStatus;
 };
 
-export const BLOG_CATEGORIES: Record<BlogCategory, string> = {
+export type BlogCategoryRow = {
+  slug: string;
+  label: string;
+  sort: number;
+  active: boolean;
+};
+
+export type BlogCategoryMap = Record<string, string>;
+
+// Fallback dùng khi Supabase chưa seed hoặc không tải được.
+export const DEFAULT_CATEGORIES: BlogCategoryMap = {
   tech: "Công nghệ",
   ai: "AI",
   web: "Web",
   devops: "DevOps",
   food: "Món ăn",
 };
+
+// Giữ tên cũ cho tương thích.
+export const BLOG_CATEGORIES: BlogCategoryMap = DEFAULT_CATEGORIES;
+
+type DbCat = { slug: string; label: string; sort: number; active: boolean };
+
+function defaultCatRows(): BlogCategoryRow[] {
+  return Object.entries(DEFAULT_CATEGORIES).map(([slug, label], i) => ({ slug, label, sort: (i + 1) * 10, active: true }));
+}
+
+export async function listPublicCategories(): Promise<BlogCategoryRow[]> {
+  const sb = supabase();
+  if (!sb) return defaultCatRows();
+  const data = await withRetry(async () => {
+    const { data, error } = await sb
+      .from("blog_categories")
+      .select("slug, label, sort, active")
+      .eq("active", true)
+      .order("sort", { ascending: true });
+    if (error) throw error;
+    return data as DbCat[] | null;
+  });
+  const rows = data ?? [];
+  if (!rows.length) return defaultCatRows();
+  return rows;
+}
+
+export async function listAdminCategories(): Promise<BlogCategoryRow[]> {
+  const sb = supabaseAdmin();
+  const { data } = await sb
+    .from("blog_categories")
+    .select("slug, label, sort, active")
+    .order("sort", { ascending: true });
+  const rows = (data as DbCat[] | null) ?? [];
+  if (!rows.length) return Object.entries(DEFAULT_CATEGORIES).map(([slug, label], i) => ({ slug, label, sort: (i + 1) * 10, active: true }));
+  return rows;
+}
+
+export function categoriesToMap(rows: BlogCategoryRow[]): BlogCategoryMap {
+  const m: BlogCategoryMap = {};
+  for (const r of rows) m[r.slug] = r.label;
+  return m;
+}
+
+export async function upsertCategory(input: { slug: string; label: string; sort?: number; active?: boolean }): Promise<void> {
+  const sb = supabaseAdmin();
+  await sb
+    .from("blog_categories")
+    .upsert(
+      {
+        slug: input.slug,
+        label: input.label,
+        sort: input.sort ?? 0,
+        active: input.active ?? true,
+      },
+      { onConflict: "slug" },
+    )
+    .throwOnError();
+}
+
+export async function updateCategory(slug: string, patch: Partial<Omit<BlogCategoryRow, "slug">>): Promise<void> {
+  const sb = supabaseAdmin();
+  await sb.from("blog_categories").update(patch).eq("slug", slug).throwOnError();
+}
+
+export async function deleteCategory(slug: string): Promise<void> {
+  const sb = supabaseAdmin();
+  await sb.from("blog_categories").delete().eq("slug", slug).throwOnError();
+}
+
+export async function countPostsInCategory(slug: string): Promise<number> {
+  const sb = supabaseAdmin();
+  const { count } = await sb
+    .from("blog_posts")
+    .select("slug", { count: "exact", head: true })
+    .eq("category", slug);
+  return count ?? 0;
+}
 
 // Markdown rendering
 
@@ -177,20 +265,41 @@ function toRow(post: BlogPost, markdown: string): DbRow {
 
 // Public (anon, RLS filters to published)
 
+async function withRetry<T>(fn: () => Promise<T>, tries = 3, delayMs = 150): Promise<T | null> {
+  let lastErr: unknown = null;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  console.error("[blog] query failed after retries:", lastErr);
+  return null;
+}
+
 export async function listPublicPosts(): Promise<BlogPost[]> {
   const sb = supabase();
   if (!sb) return [];
-  const { data } = await sb.from("blog_posts").select("*").order("date", { ascending: false });
-  return (data as DbRow[] | null)?.map(fromRow) ?? [];
+  const data = await withRetry(async () => {
+    const { data, error } = await sb.from("blog_posts").select("*").order("date", { ascending: false });
+    if (error) throw error;
+    return data as DbRow[] | null;
+  });
+  return data?.map(fromRow) ?? [];
 }
 
 export async function getPublicPost(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
   const sb = supabase();
   if (!sb) return null;
-  const { data } = await sb.from("blog_posts").select("*").eq("slug", slug).maybeSingle();
+  const data = await withRetry(async () => {
+    const { data, error } = await sb.from("blog_posts").select("*").eq("slug", slug).maybeSingle();
+    if (error) throw error;
+    return data as DbRow | null;
+  });
   if (!data) return null;
-  const row = data as DbRow;
-  return { ...fromRow(row), markdown: row.markdown };
+  return { ...fromRow(data), markdown: data.markdown };
 }
 
 // Admin (service role, all statuses)

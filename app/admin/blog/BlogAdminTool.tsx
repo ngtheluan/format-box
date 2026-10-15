@@ -2,19 +2,22 @@
 import "@/app/blog/blog.css";
 import { BlogCover } from "@/components/BlogCover";
 import { useToast } from "@/components/Toast";
-import type { BlogCategory, BlogPost, BlogStatus } from "@/lib/blog";
+import type { BlogCategory, BlogCategoryRow, BlogPost, BlogStatus } from "@/lib/blog";
 import {
   IconArticle,
   IconCalendar,
+  IconCategory,
   IconCheck,
   IconCircleDashedCheck,
   IconClock,
   IconDeviceFloppy,
   IconEdit,
-  IconExternalLink,
   IconEye,
+  IconEyeOff,
+  IconExternalLink,
   IconLayoutGrid,
   IconLoader2,
+  IconPlus,
   IconRotateClockwise,
   IconSparkles,
   IconTrash,
@@ -28,7 +31,7 @@ import AdminBody from "../AdminBody";
 
 marked.setOptions({ gfm: true, breaks: false });
 
-type Props = { initialPosts: BlogPost[] };
+type Props = { initialPosts: BlogPost[]; initialCategories: BlogCategoryRow[] };
 type StatusFilter = "all" | BlogStatus;
 
 const STATUS_LABEL: Record<BlogStatus, string> = {
@@ -36,20 +39,33 @@ const STATUS_LABEL: Record<BlogStatus, string> = {
   rejected: "Từ chối",
   published: "Phát hành",
 };
-const CAT_LABEL: Record<BlogCategory, string> = {
-  tech: "Công nghệ",
-  ai: "AI",
-  web: "Web",
-  devops: "DevOps",
-  food: "Món ăn",
-};
-const CAT_ORDER: BlogCategory[] = ["tech", "ai", "web", "devops", "food"];
 
-export default function BlogAdminTool({ initialPosts }: Props) {
+export default function BlogAdminTool({ initialPosts, initialCategories }: Props) {
   const toast = useToast();
   const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
+  const [cats, setCats] = useState<BlogCategoryRow[]>(initialCategories);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [tab, setTab] = useState<"posts" | "categories">("posts");
+
+  const CAT_LABEL = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of cats) m[c.slug] = c.label;
+    return m;
+  }, [cats]);
+  const CAT_ORDER = useMemo(() => cats.map((c) => c.slug), [cats]);
+
+  // Category CRUD state
+  const [catEditing, setCatEditing] = useState<{
+    original?: string;
+    slug: string;
+    label: string;
+    sort: number;
+    active: boolean;
+    isNew: boolean;
+  } | null>(null);
+  const [catSaving, setCatSaving] = useState(false);
+  const [catErr, setCatErr] = useState("");
 
   // Generate modal
   const [generateOpen, setGenerateOpen] = useState(false);
@@ -275,6 +291,97 @@ export default function BlogAdminTool({ initialPosts }: Props) {
     window.location.href = "/admin";
   }
 
+  async function reloadCategories() {
+    try {
+      const r = await fetch("/api/blog/categories");
+      const j = await r.json();
+      if (r.ok && Array.isArray(j.categories)) setCats(j.categories);
+    } catch {}
+  }
+
+  function openNewCategory() {
+    setCatEditing({ slug: "", label: "", sort: (cats.at(-1)?.sort ?? 0) + 10, active: true, isNew: true });
+    setCatErr("");
+  }
+  function openEditCategory(c: BlogCategoryRow) {
+    setCatEditing({ original: c.slug, slug: c.slug, label: c.label, sort: c.sort, active: c.active, isNew: false });
+    setCatErr("");
+  }
+
+  async function saveCategory() {
+    if (!catEditing) return;
+    const label = catEditing.label.trim();
+    if (!label) {
+      setCatErr("Thiếu tên danh mục");
+      return;
+    }
+    setCatSaving(true);
+    setCatErr("");
+    try {
+      if (catEditing.isNew) {
+        const r = await fetch("/api/blog/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slug: catEditing.slug || label,
+            label,
+            sort: catEditing.sort,
+            active: catEditing.active,
+          }),
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          setCatErr(j?.error || `Lỗi ${r.status}`);
+          return;
+        }
+      } else {
+        const r = await fetch("/api/blog/categories", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slug: catEditing.original,
+            label,
+            sort: catEditing.sort,
+            active: catEditing.active,
+          }),
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          setCatErr(j?.error || `Lỗi ${r.status}`);
+          return;
+        }
+      }
+      await reloadCategories();
+      toast(`Đã lưu danh mục: ${label}`);
+      setCatEditing(null);
+    } catch (e: any) {
+      setCatErr(e?.message || "Lỗi");
+    } finally {
+      setCatSaving(false);
+    }
+  }
+
+  async function toggleCategoryActive(c: BlogCategoryRow) {
+    const r = await fetch("/api/blog/categories", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: c.slug, active: !c.active }),
+    });
+    const j = await r.json();
+    if (!r.ok) return toast(j?.error || "Lỗi");
+    setCats((prev) => prev.map((x) => (x.slug === c.slug ? { ...x, active: !c.active } : x)));
+    toast(`${!c.active ? "Bật" : "Tắt"}: ${c.label}`);
+  }
+
+  async function removeCategory(c: BlogCategoryRow) {
+    if (!confirm(`Xoá danh mục "${c.label}"?`)) return;
+    const r = await fetch(`/api/blog/categories?slug=${encodeURIComponent(c.slug)}`, { method: "DELETE" });
+    const j = await r.json();
+    if (!r.ok) return toast(j?.error || "Xoá thất bại");
+    setCats((prev) => prev.filter((x) => x.slug !== c.slug));
+    toast(`Đã xoá: ${c.label}`);
+  }
+
   return (
     <AdminBody
       crumbs={[
@@ -284,9 +391,35 @@ export default function BlogAdminTool({ initialPosts }: Props) {
       search={{ value: q, onChange: setQ, placeholder: "Tìm theo tiêu đề, slug, tag…" }}
       onLogout={logout}
       headerActions={
-        <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
-          <IconSparkles size={14} stroke={2.2} /> Sinh bài
-        </button>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <button
+              type="button"
+              onClick={() => setTab("posts")}
+              className={`fx-btn ${tab === "posts" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+              style={{ padding: "4px 10px", fontSize: 12 }}
+            >
+              <IconArticle size={13} stroke={1.9} /> Bài viết
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("categories")}
+              className={`fx-btn ${tab === "categories" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+              style={{ padding: "4px 10px", fontSize: 12 }}
+            >
+              <IconCategory size={13} stroke={1.9} /> Danh mục
+            </button>
+          </div>
+          {tab === "posts" ? (
+            <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
+              <IconSparkles size={14} stroke={2.2} /> Sinh bài
+            </button>
+          ) : (
+            <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
+              <IconPlus size={14} stroke={2.2} /> Thêm danh mục
+            </button>
+          )}
+        </div>
       }
       stats={
         <>
@@ -348,7 +481,70 @@ export default function BlogAdminTool({ initialPosts }: Props) {
         </>
       }
     >
-      {visible.length === 0 ? (
+      {tab === "categories" ? (
+        cats.length === 0 ? (
+          <div className="fx-empty">
+            <div className="fx-empty-ico">
+              <IconCategory size={22} stroke={1.7} />
+            </div>
+            Chưa có danh mục. Bấm "Thêm danh mục" để tạo mới.
+          </div>
+        ) : (
+          <div className="fx-table">
+            <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "32px 1fr 160px 80px 80px 140px" }}>
+              <div />
+              <div>Danh mục</div>
+              <div>Slug</div>
+              <div style={{ textAlign: "center" }}>Thứ tự</div>
+              <div style={{ textAlign: "center" }}>Bài</div>
+              <div style={{ textAlign: "right" }}>Actions</div>
+            </div>
+            {cats.map((c) => {
+              const n = posts.filter((p) => p.category === c.slug).length;
+              return (
+                <div
+                  key={c.slug}
+                  className="fx-row"
+                  style={{ gridTemplateColumns: "32px 1fr 160px 80px 80px 140px", opacity: c.active ? 1 : 0.55 }}
+                >
+                  <div className="fx-icon-cell">
+                    <IconCategory size={18} stroke={1.7} />
+                  </div>
+                  <div className="fx-title-cell">
+                    <div className="fx-t-row">
+                      <b>{c.label}</b>
+                      {!c.active && <span className="fx-badge" data-tone="mute">Tắt</span>}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--dim)" }}>{c.slug}</div>
+                  <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{c.sort}</div>
+                  <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{n}</div>
+                  <div className="fx-row-actions">
+                    <button
+                      className="fx-btn fx-btn-icon"
+                      onClick={() => toggleCategoryActive(c)}
+                      title={c.active ? "Tắt" : "Bật"}
+                    >
+                      {c.active ? <IconEye size={14} stroke={1.9} /> : <IconEyeOff size={14} stroke={1.9} />}
+                    </button>
+                    <button className="fx-btn fx-btn-icon" onClick={() => openEditCategory(c)} title="Sửa">
+                      <IconEdit size={14} stroke={1.9} />
+                    </button>
+                    <button
+                      className="fx-btn fx-btn-icon fx-btn-danger"
+                      onClick={() => removeCategory(c)}
+                      title="Xoá"
+                      disabled={n > 0}
+                    >
+                      <IconTrash size={14} stroke={1.9} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : visible.length === 0 ? (
         <div className="fx-empty">
           <div className="fx-empty-ico">
             <IconArticle size={22} stroke={1.7} />
@@ -381,7 +577,7 @@ export default function BlogAdminTool({ initialPosts }: Props) {
                 </div>
                 <div>
                   <span className="fx-cat-cell" data-cat={p.category}>
-                    {CAT_LABEL[p.category]}
+                    {CAT_LABEL[p.category] || p.category}
                   </span>
                 </div>
                 <div>
@@ -766,6 +962,89 @@ export default function BlogAdminTool({ initialPosts }: Props) {
             </div>
           </aside>
         </>
+      )}
+
+      {/* CATEGORY EDIT MODAL */}
+      {catEditing && (
+        <div
+          className="fx-modal-bg"
+          style={{ zIndex: 200 }}
+          onClick={(e) => e.target === e.currentTarget && !catSaving && setCatEditing(null)}
+        >
+          <div className="fx-modal" style={{ maxWidth: 480 }}>
+            <div className="fx-modal-head">
+              <h2>
+                <IconCategory size={16} stroke={2} /> {catEditing.isNew ? "Thêm danh mục" : "Sửa danh mục"}
+              </h2>
+              <button
+                className="fx-btn fx-btn-icon fx-btn-ghost"
+                onClick={() => !catSaving && setCatEditing(null)}
+              >
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body">
+              <div className="fx-field">
+                <label>Tên hiển thị *</label>
+                <input
+                  autoFocus
+                  value={catEditing.label}
+                  disabled={catSaving}
+                  onChange={(e) => setCatEditing((cur) => (cur ? { ...cur, label: e.target.value } : cur))}
+                  placeholder="VD: Món ăn Việt"
+                />
+              </div>
+              <div className="fx-grid2">
+                <div className="fx-field">
+                  <label>Slug {catEditing.isNew ? "" : "(cố định)"}</label>
+                  <input
+                    value={catEditing.slug}
+                    disabled={catSaving || !catEditing.isNew}
+                    onChange={(e) => setCatEditing((cur) => (cur ? { ...cur, slug: e.target.value } : cur))}
+                    placeholder="auto từ tên"
+                  />
+                </div>
+                <div className="fx-field">
+                  <label>Thứ tự</label>
+                  <input
+                    type="number"
+                    value={catEditing.sort}
+                    disabled={catSaving}
+                    onChange={(e) => setCatEditing((cur) => (cur ? { ...cur, sort: Number(e.target.value) || 0 } : cur))}
+                  />
+                </div>
+              </div>
+              <div className="fx-field">
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={catEditing.active}
+                    disabled={catSaving}
+                    onChange={(e) => setCatEditing((cur) => (cur ? { ...cur, active: e.target.checked } : cur))}
+                  />
+                  Hiển thị công khai
+                </label>
+              </div>
+              {catErr && <div className="fx-err">{catErr}</div>}
+            </div>
+            <div className="fx-modal-foot">
+              <button className="fx-btn" onClick={() => setCatEditing(null)} disabled={catSaving}>
+                Huỷ
+              </button>
+              <button className="fx-btn fx-btn-primary" onClick={saveCategory} disabled={catSaving || !catEditing.label.trim()}>
+                {catSaving ? (
+                  <>
+                    <IconLoader2 size={14} className="spin" /> Đang lưu…
+                  </>
+                ) : (
+                  <>
+                    <IconDeviceFloppy size={14} /> Lưu
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style jsx global>{`
