@@ -70,6 +70,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
   // Generate modal
   const [generateOpen, setGenerateOpen] = useState(false);
   const [genMode, setGenMode] = useState<"topic" | "random">("topic");
+  const [genProvider, setGenProvider] = useState<"groq" | "gemini">("groq");
   const [genCategory, setGenCategory] = useState<BlogCategory>("tech");
   const [topic, setTopic] = useState("");
   const [genLoading, setGenLoading] = useState(false);
@@ -126,6 +127,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: genMode,
+          provider: genProvider,
           topic: genMode === "topic" ? t : undefined,
           category: genMode === "topic" ? genCategory : undefined,
         }),
@@ -702,6 +704,18 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="fx-field">
+                <label>Model</label>
+                <select
+                  value={genProvider}
+                  disabled={genLoading}
+                  onChange={(e) => setGenProvider(e.target.value as "groq" | "gemini")}
+                >
+                  <option value="groq">Groq</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
               </div>
 
               {genMode === "topic" && (

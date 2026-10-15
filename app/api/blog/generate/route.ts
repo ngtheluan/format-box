@@ -189,12 +189,19 @@ Chỉ trả về META JSON và nội dung Markdown hoàn chỉnh.`;
 export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+  const body = await req.json().catch(() => null);
+  const provider = ((body?.provider as string) || "").toLowerCase() === "gemini" ? "gemini" : "groq";
+
+  const apiKey = provider === "gemini" ? process.env.GEMINI_API_KEY : process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "GROQ_API_KEY (hoặc OPENAI_API_KEY) chưa cấu hình" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: provider === "gemini" ? "GEMINI_API_KEY chưa cấu hình" : "GROQ_API_KEY chưa cấu hình",
+      },
+      { status: 500 },
+    );
   }
 
-  const body = await req.json().catch(() => null);
   const mode = (body?.mode as "topic" | "random" | "category") || "topic";
   const inputCategory = body?.category as BlogCategory | undefined;
   let topic = body?.topic?.toString().trim() || "";
@@ -253,36 +260,61 @@ export async function POST(req: Request) {
 
   if (!topic) return NextResponse.json({ error: "Thiếu topic" }, { status: 400 });
 
-  const useGroq = !!process.env.GROQ_API_KEY;
-  const endpoint = useGroq
-    ? "https://api.groq.com/openai/v1/chat/completions"
-    : "https://api.openai.com/v1/chat/completions";
-  const defaultModel = useGroq ? "openai/gpt-oss-120b" : "gpt-4o-mini";
-  const model = (process.env.OPENAI_BLOG_MODEL || defaultModel).trim();
-
-  const resp = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
+  let text = "";
+  if (provider === "gemini") {
+    const model = (process.env.GEMINI_BLOG_MODEL || "gemini-3.8-flash").trim();
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       model,
-      temperature: 0.8,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: `Chủ đề: ${topic}` },
-      ],
-    }),
-  });
+    )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { role: "system", parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ role: "user", parts: [{ text: `Chủ đề: ${topic}` }] }],
+        generationConfig: { temperature: 0.8 },
+      }),
+    });
+    if (!resp.ok) {
+      const errTxt = await resp.text();
+      return NextResponse.json({ error: `Gemini API lỗi (${resp.status}): ${errTxt.slice(0, 400)}` }, { status: 502 });
+    }
+    const data = await resp.json();
+    const parts = data?.candidates?.[0]?.content?.parts;
+    text = Array.isArray(parts) ? parts.map((p: any) => p?.text || "").join("") : "";
+  } else {
+    const useGroq = !!process.env.GROQ_API_KEY;
+    const endpoint = useGroq
+      ? "https://api.groq.com/openai/v1/chat/completions"
+      : "https://api.openai.com/v1/chat/completions";
+    const defaultModel = useGroq ? "openai/gpt-oss-120b" : "gpt-4o-mini";
+    const model = (process.env.OPENAI_BLOG_MODEL || defaultModel).trim();
 
-  if (!resp.ok) {
-    const errTxt = await resp.text();
-    return NextResponse.json(
-      { error: `${useGroq ? "Groq" : "OpenAI"} API lỗi (${resp.status}): ${errTxt.slice(0, 400)}` },
-      { status: 502 },
-    );
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        temperature: 0.8,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Chủ đề: ${topic}` },
+        ],
+      }),
+    });
+
+    if (!resp.ok) {
+      const errTxt = await resp.text();
+      return NextResponse.json(
+        { error: `${useGroq ? "Groq" : "OpenAI"} API lỗi (${resp.status}): ${errTxt.slice(0, 400)}` },
+        { status: 502 },
+      );
+    }
+
+    const data = await resp.json();
+    text = data?.choices?.[0]?.message?.content ?? "";
   }
 
-  const data = await resp.json();
-  const text: string = data?.choices?.[0]?.message?.content ?? "";
   if (!text) return NextResponse.json({ error: "LLM trả về rỗng" }, { status: 502 });
 
   const trimmed = text
@@ -326,7 +358,8 @@ export async function POST(req: Request) {
     slug,
     title: meta.title,
     excerpt: meta.excerpt || "",
-    category: inputCategory && validCats.includes(inputCategory) ? inputCategory : (meta.category as BlogCategory) || "tech",
+    category:
+      inputCategory && validCats.includes(inputCategory) ? inputCategory : (meta.category as BlogCategory) || "tech",
     tags: Array.isArray(meta.tags) ? meta.tags.slice(0, 8) : [],
     author: "Admin",
     date: today,
