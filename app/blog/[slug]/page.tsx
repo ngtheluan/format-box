@@ -12,6 +12,7 @@ import {
   rewriteImgUrl,
 } from "@/lib/blog";
 import { BlogCover } from "@/components/BlogCover";
+import { BlogAudioPlayer } from "@/components/BlogAudioPlayer";
 import "../blog.css";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +90,8 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
               <IconClock size={14} stroke={1.8} /> {post.readMin} phút đọc
             </span>
           </div>
+
+          <BlogAudioPlayer slug={post.slug} />
 
           <div className="blog-body" dangerouslySetInnerHTML={{ __html: html }} />
 

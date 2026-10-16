@@ -793,6 +793,11 @@ export default function PhotoboothTool() {
   const [timer, setTimer] = useState(3);
   const [mirror, setMirror] = useState(true);
   const [layout, setLayout] = useState<Layout>("strip");
+  const [captureMode, setCaptureMode] = useState<"auto" | "manual">("auto");
+  const [retakeQueue, setRetakeQueue] = useState<number[]>([]);
+  const shutterResolveRef = useRef<(() => void) | null>(null);
+  const [awaitingShutter, setAwaitingShutter] = useState(false);
+  const captureRootRef = useRef<HTMLDivElement | null>(null);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -983,18 +988,39 @@ export default function PhotoboothTool() {
     return null;
   }, [mirror]);
 
+  const pressShutter = useCallback(() => {
+    const r = shutterResolveRef.current;
+    if (r) {
+      shutterResolveRef.current = null;
+      setAwaitingShutter(false);
+      r();
+    }
+  }, []);
+
   const runCaptureSequence = useCallback(async () => {
     if (capturingRef.current) return;
     capturingRef.current = true;
-    setCaptures([]);
-    const taken: string[] = [];
+
+    // Decide which slots to fill. Retake queue = partial refill of specific indexes.
+    const isRetake = retakeQueue.length > 0;
+    const indexes = isRetake ? [...retakeQueue] : Array.from({ length: shots }, (_, i) => i);
+    const working: (string | null)[] = isRetake
+      ? captures.map((c, i) => (retakeQueue.includes(i) ? null : c))
+      : Array.from({ length: shots }, () => null);
+    setCaptures(working.map((c) => c ?? "") as string[]);
 
     // Make sure video has frames.
     const v = videoRef.current;
     if (v) await waitForVideo(v);
 
-    for (let i = 0; i < shots; i++) {
-      if (timer > 0) {
+    for (const idx of indexes) {
+      if (captureMode === "manual") {
+        setAwaitingShutter(true);
+        await new Promise<void>((resolve) => {
+          shutterResolveRef.current = resolve;
+        });
+        setAwaitingShutter(false);
+      } else if (timer > 0) {
         for (let s = timer; s > 0; s--) {
           setCountdown(s);
           await new Promise((r) => setTimeout(r, 1000));
@@ -1004,16 +1030,19 @@ export default function PhotoboothTool() {
       setFlashKey((k) => k + 1);
       const frame = await grabFrame();
       if (frame) {
-        taken.push(frame);
-        setCaptures([...taken]);
+        working[idx] = frame;
+        setCaptures(working.map((c) => c ?? "") as string[]);
       }
-      await new Promise((r) => setTimeout(r, 600));
+      await new Promise((r) => setTimeout(r, captureMode === "manual" ? 250 : 600));
     }
 
     capturingRef.current = false;
+    setRetakeQueue([]);
+    // Filter out any empty slots just in case
+    setCaptures(working.filter((c): c is string => !!c));
     navStep("edit");
     stopCamera();
-  }, [shots, timer, grabFrame, stopCamera, navStep]);
+  }, [shots, timer, grabFrame, stopCamera, navStep, captureMode, retakeQueue, captures]);
 
   const beginCapture = useCallback(async () => {
     if (!stream) {
@@ -1040,6 +1069,18 @@ export default function PhotoboothTool() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
+
+  const retakePhotos = useCallback(
+    async (indexes: number[]) => {
+      if (!indexes.length) return;
+      capturingRef.current = false;
+      setRetakeQueue(indexes);
+      setCountdown(null);
+      navStep("capture");
+      if (!stream) await startCamera();
+    },
+    [stream, startCamera, navStep],
+  );
 
   const backToSetup = useCallback(async () => {
     capturingRef.current = false;
@@ -1636,20 +1677,42 @@ export default function PhotoboothTool() {
 
             <div className="pb-section">
               <label className="pb-label">
-                <IconMoodSmile size={12} stroke={1.8} /> {t("pb_timer")}
+                <IconCamera size={12} stroke={1.8} /> Chế độ chụp
               </label>
               <div className="pb-chip-row">
-                {[0, 3, 5].map((n) => (
-                  <button
-                    key={n}
-                    className={`pb-chip pill flex ${timer === n ? "on" : ""}`}
-                    onClick={() => setTimer(n)}
-                  >
-                    {n === 0 ? "Tắt" : `${n} giây`}
-                  </button>
-                ))}
+                <button
+                  className={`pb-chip pill flex ${captureMode === "auto" ? "on" : ""}`}
+                  onClick={() => setCaptureMode("auto")}
+                >
+                  Tự động
+                </button>
+                <button
+                  className={`pb-chip pill flex ${captureMode === "manual" ? "on" : ""}`}
+                  onClick={() => setCaptureMode("manual")}
+                >
+                  Nhấn nút
+                </button>
               </div>
             </div>
+
+            {captureMode === "auto" && (
+              <div className="pb-section">
+                <label className="pb-label">
+                  <IconMoodSmile size={12} stroke={1.8} /> {t("pb_timer")}
+                </label>
+                <div className="pb-chip-row">
+                  {[0, 3, 5].map((n) => (
+                    <button
+                      key={n}
+                      className={`pb-chip pill flex ${timer === n ? "on" : ""}`}
+                      onClick={() => setTimer(n)}
+                    >
+                      {n === 0 ? "Tắt" : `${n} giây`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="pb-section">
               <label className="pb-label">
@@ -1689,7 +1752,7 @@ export default function PhotoboothTool() {
       )}
 
       {step === "capture" && (
-        <div className="pb-capture">
+        <div className="pb-capture immersive" ref={captureRootRef}>
           <div className="pb-preview big">
             <video
               ref={videoRef}
@@ -1705,8 +1768,34 @@ export default function PhotoboothTool() {
             )}
             <div key={flashKey} className="pb-flash" />
             <div className="pb-progress">
-              {captures.length} / {shots}
+              {captures.filter(Boolean).length} / {shots}
             </div>
+            <button
+              type="button"
+              className="pb-cap-close"
+              aria-label="Thoát"
+              onClick={() => {
+                capturingRef.current = false;
+                shutterResolveRef.current = null;
+                setAwaitingShutter(false);
+                setCountdown(null);
+                setRetakeQueue([]);
+                navStep("setup", true);
+              }}
+            >
+              <IconX size={20} stroke={2.2} />
+            </button>
+            {captureMode === "manual" && (
+              <button
+                type="button"
+                className="pb-shutter"
+                aria-label="Chụp ảnh"
+                disabled={!awaitingShutter}
+                onClick={pressShutter}
+              >
+                <span className="pb-shutter-inner" />
+              </button>
+            )}
           </div>
           <div className="pb-thumbs">
             {Array.from({ length: shots }).map((_, i) => (
@@ -1748,21 +1837,41 @@ export default function PhotoboothTool() {
                   .filter(Boolean)
                   .slice(0, isGridLayout(layout) ? GRID_SHOTS : captures.length)
                   .map((src, i) => (
-                    <img
+                    <div
                       key={i}
-                      src={src}
-                      alt={`shot ${i + 1}`}
-                      className="pb-strip-photo"
+                      className="pb-strip-photo-wrap"
                       style={{
                         aspectRatio: isGridLayout(layout) ? undefined : `${PHOTO_W} / ${PHOTO_H}`,
-                        filter: filter.css,
                         borderRadius: frame.radius,
-                        boxShadow: frame.border
-                          ? `inset 0 0 0 ${frame.border}px ${frame.borderColor}`
-                          : undefined,
                       }}
-                      draggable={false}
-                    />
+                    >
+                      <img
+                        src={src}
+                        alt={`shot ${i + 1}`}
+                        className="pb-strip-photo"
+                        style={{
+                          aspectRatio: isGridLayout(layout) ? undefined : `${PHOTO_W} / ${PHOTO_H}`,
+                          filter: filter.css,
+                          borderRadius: frame.radius,
+                          boxShadow: frame.border
+                            ? `inset 0 0 0 ${frame.border}px ${frame.borderColor}`
+                            : undefined,
+                        }}
+                        draggable={false}
+                      />
+                      <button
+                        type="button"
+                        className="pb-photo-retake"
+                        aria-label="Xoá & chụp lại ảnh này"
+                        title="Xoá & chụp lại"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          retakePhotos([i]);
+                        }}
+                      >
+                        <IconRefresh size={14} stroke={2.2} />
+                      </button>
+                    </div>
                   ))}
                 <div className="pb-strip-caption">
                   <div className="pb-caption-main" style={{ fontFamily: theme.captionFont }}>
@@ -3216,6 +3325,120 @@ export default function PhotoboothTool() {
           gap: 14px;
           align-items: center;
         }
+        .pb-capture.immersive {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background: #000;
+          padding: 10px;
+          gap: 10px;
+          justify-content: center;
+        }
+        .pb-capture.immersive .pb-preview.big {
+          width: 100%;
+          max-width: min(100vw, calc((100dvh - 160px) * 4 / 3));
+          max-height: calc(100dvh - 160px);
+          aspect-ratio: 4 / 3;
+          margin: 0 auto;
+          border-radius: 18px;
+        }
+        .pb-cap-close {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          width: 40px;
+          height: 40px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.55);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          color: #fff;
+          cursor: pointer;
+          z-index: 5;
+        }
+        .pb-shutter {
+          position: absolute;
+          bottom: 24px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 78px;
+          height: 78px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.18);
+          border: 3px solid #fff;
+          cursor: pointer;
+          z-index: 5;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          transition: transform 0.15s ease, opacity 0.2s ease;
+        }
+        .pb-shutter:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+        .pb-shutter:not(:disabled):active {
+          transform: translateX(-50%) scale(0.92);
+        }
+        .pb-shutter-inner {
+          width: 58px;
+          height: 58px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #ff5c8a, #ff8c42);
+          box-shadow: 0 6px 20px -6px rgba(241, 91, 181, 0.8);
+        }
+        .pb-shutter:not(:disabled) {
+          animation: pbShutterPulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pbShutterPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); }
+          50% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); }
+        }
+        .pb-strip-photo-wrap {
+          position: relative;
+          width: 100%;
+          display: block;
+        }
+        .pb-strip-photo-wrap .pb-strip-photo {
+          width: 100%;
+          display: block;
+        }
+        .pb-photo-retake {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          width: 28px;
+          height: 28px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          color: #fff;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 0.15s ease, transform 0.15s ease;
+          z-index: 2;
+        }
+        .pb-strip-photo-wrap:hover .pb-photo-retake,
+        .pb-photo-retake:focus-visible {
+          opacity: 1;
+        }
+        .pb-photo-retake:active {
+          transform: scale(0.9);
+        }
+        @media (hover: none) {
+          .pb-photo-retake { opacity: 0.85; }
+        }
         .pb-countdown {
           position: absolute;
           inset: 0;
@@ -3393,10 +3616,15 @@ export default function PhotoboothTool() {
         .pb-strip-inner.grid .pb-strip-caption {
           grid-column: 1 / -1;
         }
-        .pb-strip-inner.grid .pb-strip-photo {
+        .pb-strip-inner.grid .pb-strip-photo,
+        .pb-strip-inner.grid .pb-strip-photo-wrap {
           width: 100%;
           height: 100%;
           min-height: 0;
+        }
+        .pb-strip-inner.grid .pb-strip-photo-wrap .pb-strip-photo {
+          height: 100%;
+          object-fit: cover;
         }
         .pb-strip-photo {
           display: block;
@@ -4244,6 +4472,69 @@ export default function PhotoboothTool() {
           }
           .pb-grid-setup {
             gap: 12px;
+          }
+          .pb-preview.setup {
+            max-height: none;
+          }
+          .pb-cam-info {
+            font-size: 10px;
+            padding: 3px 8px;
+          }
+          .pb-cam-flip {
+            width: 38px;
+            height: 38px;
+            top: 8px;
+            right: 8px;
+          }
+          .pb-cam-fx-bar {
+            bottom: 8px;
+            padding: 4px 4px;
+          }
+          .pb-cam-fx-arr {
+            width: 36px;
+            height: 36px;
+          }
+          .pb-cam-fx-name {
+            font-size: 11px;
+            min-width: 78px;
+            padding: 0 6px;
+          }
+          .pb-thumbs {
+            gap: 6px;
+          }
+          .pb-thumb {
+            width: 64px;
+          }
+          .pb-shutter {
+            width: 72px;
+            height: 72px;
+            bottom: 16px;
+          }
+          .pb-shutter-inner {
+            width: 52px;
+            height: 52px;
+          }
+          .pb-cap-close {
+            width: 36px;
+            height: 36px;
+            top: 8px;
+            left: 8px;
+          }
+          .pb-photo-retake {
+            opacity: 0.9;
+            width: 30px;
+            height: 30px;
+          }
+        }
+        @media (max-width: 420px) {
+          .pb-countdown span {
+            font-size: 96px;
+          }
+          .pb-thumb {
+            width: 54px;
+          }
+          .pb-capture.immersive {
+            padding: 6px;
           }
         }
       `}</style>
