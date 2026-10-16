@@ -9,6 +9,7 @@ import {
   listPublicCategories,
   listPublicPosts,
   renderMarkdown,
+  rewriteImgUrl,
 } from "@/lib/blog";
 import { BlogCover } from "@/components/BlogCover";
 import "../blog.css";
@@ -18,11 +19,30 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const post = await getPublicPost(params.slug);
   if (!post) return { title: "Không tìm thấy bài viết · FormatBox" };
-  return {
+  const explicit = post.coverImage
+    ? /^https?:\/\//.test(post.coverImage)
+      ? post.coverImage
+      : rewriteImgUrl(post.coverImage)
+    : null;
+  const url = `/blog/${post.slug}`;
+  const meta: Metadata = {
     title: `${post.title} · FormatBox Blog`,
     description: post.excerpt,
-    openGraph: { title: post.title, description: post.excerpt, type: "article" },
+    openGraph: {
+      title: post.title,
+      description: post.excerpt,
+      type: "article",
+      url,
+      ...(explicit ? { images: [{ url: explicit, width: 1200, height: 630, alt: post.title }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.excerpt,
+      ...(explicit ? { images: [explicit] } : {}),
+    },
   };
+  return meta;
 }
 
 export default async function BlogDetail({ params }: { params: { slug: string } }) {

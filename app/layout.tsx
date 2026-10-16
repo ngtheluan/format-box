@@ -15,7 +15,10 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://formatbox.site").replace(/\/$/, "");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "FormatBox — Chuyển đổi dữ liệu ngay trên trình duyệt",
   description: "FormatBox — Base64, JSON, hình ảnh và nhiều hơn. Miễn phí, xử lý 100% client-side.",
   openGraph: {

@@ -8,10 +8,14 @@ import {
   IconBorderCorners,
   IconCamera,
   IconCameraOff,
+  IconCameraRotate,
   IconCheck,
+  IconChevronLeft,
+  IconChevronRight,
   IconCopy,
   IconDownload,
   IconFlipHorizontal,
+  IconLayoutGrid,
   IconMoodSmile,
   IconPalette,
   IconPhotoFilled,
@@ -649,8 +653,53 @@ const STRIP_PAD = 20;
 const CAPTION_H = 70;
 const SHOT_OPTIONS = [1, 2, 3, 4, 5, 6] as const;
 
+// Grid layouts: 2x2 photos, overall aspect tuned per social-media target.
+type GridLayout = "story" | "square" | "portrait" | "landscape";
+type Layout = "strip" | GridLayout;
+const GRID_PAD = 24;
+const GRID_GAP = 10;
+const GRID_CAPTION_H = 70;
+const GRID_SHOTS = 4;
+
+type GridLayoutDef = {
+  id: GridLayout;
+  label: string; // chip text
+  hint: string; // short platform hint
+  ratio: string; // "9:16", "1:1", ...
+  w: number;
+  h: number;
+};
+const GRID_LAYOUTS: GridLayoutDef[] = [
+  { id: "story", label: "Story", hint: "IG / TikTok", ratio: "9:16", w: 540, h: 960 },
+  { id: "square", label: "Vuông", hint: "IG Post", ratio: "1:1", w: 720, h: 720 },
+  { id: "portrait", label: "Dọc", hint: "IG Portrait", ratio: "4:5", w: 720, h: 900 },
+  { id: "landscape", label: "Ngang", hint: "FB / Twitter", ratio: "16:9", w: 960, h: 540 },
+];
+
+const isGridLayout = (l: Layout): l is GridLayout => l !== "strip";
+const gridDef = (l: Layout): GridLayoutDef | null =>
+  GRID_LAYOUTS.find((g) => g.id === l) ?? null;
+
 function stripHeight(shots: number) {
   return STRIP_PAD + shots * PHOTO_H + (shots - 1) * PHOTO_GAP + CAPTION_H + STRIP_PAD;
+}
+
+function layoutDims(shots: number, layout: Layout) {
+  const def = gridDef(layout);
+  if (def) return { w: def.w, h: def.h };
+  return { w: STRIP_W, h: stripHeight(shots) };
+}
+
+function gridCellRect(index: number, layout: Layout) {
+  const def = gridDef(layout);
+  if (!def) return { x: 0, y: 0, w: 0, h: 0 };
+  const col = index % 2;
+  const row = Math.floor(index / 2);
+  const cellW = (def.w - 2 * GRID_PAD - GRID_GAP) / 2;
+  const cellH = (def.h - 2 * GRID_PAD - GRID_GAP - GRID_CAPTION_H) / 2;
+  const x = GRID_PAD + col * (cellW + GRID_GAP);
+  const y = GRID_PAD + row * (cellH + GRID_GAP);
+  return { x, y, w: cellW, h: cellH };
 }
 
 function svgToDataURL(svg: string) {
@@ -743,10 +792,30 @@ export default function PhotoboothTool() {
   const [shots, setShots] = useState(4);
   const [timer, setTimer] = useState(3);
   const [mirror, setMirror] = useState(true);
+  const [layout, setLayout] = useState<Layout>("strip");
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facing, setFacing] = useState<"user" | "environment">("user");
+  const [camInfo, setCamInfo] = useState<{ w: number; h: number; label?: string } | null>(null);
+  // Count physical video inputs so phones (front+back) show the flip button but a laptop
+  // with a single webcam does not. Labels appear only after camera permission is granted,
+  // but the device count itself is accurate before that too.
+  const [videoDeviceCount, setVideoDeviceCount] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const md = navigator.mediaDevices;
+    if (!md?.enumerateDevices) return;
+    const refresh = () => {
+      md.enumerateDevices()
+        .then((devs) => setVideoDeviceCount(devs.filter((d) => d.kind === "videoinput").length))
+        .catch(() => {});
+    };
+    refresh();
+    md.addEventListener?.("devicechange", refresh);
+    return () => md.removeEventListener?.("devicechange", refresh);
+  }, [stream]);
 
   const [captures, setCaptures] = useState<string[]>([]);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -774,39 +843,91 @@ export default function PhotoboothTool() {
   const theme = useMemo(() => THEMES.find((th) => th.id === themeId) ?? THEMES[0], [themeId]);
   const frame = useMemo(() => FRAMES.find((fr) => fr.id === frameId) ?? FRAMES[0], [frameId]);
 
+  // `cameraReady` = the stream object exists. `videoLive` = the <video> is actually
+  // producing frames (playing + has decoded data). The capture button needs both so the
+  // user can't click before the preview has pixels — otherwise grabFrame runs on a blank
+  // video and the first shot is empty.
+  const [videoLive, setVideoLive] = useState(false);
   const cameraReady = !!stream;
+  const canCapture = cameraReady && videoLive;
 
   // Attach stream to video element whenever either changes.
   useEffect(() => {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v) {
+      setVideoLive(false);
+      return;
+    }
     if (stream && v.srcObject !== stream) {
       v.srcObject = stream;
     } else if (!stream) {
       v.srcObject = null;
+      setVideoLive(false);
+      return;
     }
+    setVideoLive(v.readyState >= 2 && !v.paused && v.videoWidth > 0);
+    const onReady = () => {
+      if (v.videoWidth > 0 && v.readyState >= 2 && !v.paused) setVideoLive(true);
+    };
+    const onDown = () => setVideoLive(false);
+    v.addEventListener("playing", onReady);
+    v.addEventListener("loadeddata", onReady);
+    v.addEventListener("canplay", onReady);
+    v.addEventListener("pause", onDown);
+    v.addEventListener("emptied", onDown);
     if (stream) {
       v.play().catch(() => {});
     }
+    return () => {
+      v.removeEventListener("playing", onReady);
+      v.removeEventListener("loadeddata", onReady);
+      v.removeEventListener("canplay", onReady);
+      v.removeEventListener("pause", onDown);
+      v.removeEventListener("emptied", onDown);
+    };
   }, [stream, step]);
 
-  const startCamera = useCallback(async () => {
-    try {
-      setCameraError(null);
-      const s = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } },
-        audio: false,
-      });
-      setStream(s);
-    } catch (e) {
-      setStream(null);
-      setCameraError(e instanceof Error ? e.message : "camera error");
-    }
-  }, []);
+  const startCamera = useCallback(
+    async (which?: "user" | "environment") => {
+      const target = which ?? facing;
+      try {
+        setCameraError(null);
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: target, width: { ideal: 1280 }, height: { ideal: 960 } },
+          audio: false,
+        });
+        // Replace existing stream — stop old tracks first so the hardware is released
+        // (two concurrent getUserMedia calls on the same device fail on iOS).
+        setStream((prev) => {
+          prev?.getTracks().forEach((tr) => tr.stop());
+          return s;
+        });
+        const track = s.getVideoTracks()[0];
+        if (track) {
+          const settings = track.getSettings();
+          setCamInfo({
+            w: settings.width ?? 0,
+            h: settings.height ?? 0,
+            label: track.label || undefined,
+          });
+        }
+        setFacing(target);
+      } catch (e) {
+        setStream(null);
+        setCameraError(e instanceof Error ? e.message : "camera error");
+      }
+    },
+    [facing],
+  );
+
+  const switchCamera = useCallback(() => {
+    startCamera(facing === "user" ? "environment" : "user");
+  }, [facing, startCamera]);
 
   const stopCamera = useCallback(() => {
     stream?.getTracks().forEach((tr) => tr.stop());
     setStream(null);
+    setCamInfo(null);
   }, [stream]);
 
   useEffect(() => {
@@ -959,6 +1080,20 @@ export default function PhotoboothTool() {
     navStep("setup", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Warn before closing/reloading the tab while a capture sequence is running — losing
+  // the countdown mid-shoot is the kind of thing a user never does on purpose.
+  useEffect(() => {
+    if (step !== "capture") return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers show their generic prompt; the string is required for legacy support.
+      e.returnValue = "Đang chụp ảnh, bạn có chắc muốn rời khỏi?";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [step]);
 
   // --- Sticker drag (window-level listeners for robustness) ---
   useEffect(() => {
@@ -1135,8 +1270,9 @@ export default function PhotoboothTool() {
     if (!captures.length) return null;
     {
       const scale = 2;
-      const w = STRIP_W * scale;
-      const h = stripHeight(captures.length) * scale;
+      const dims = layoutDims(captures.length, layout);
+      const w = dims.w * scale;
+      const h = dims.h * scale;
       const canvas = document.createElement("canvas");
       canvas.width = w;
       canvas.height = h;
@@ -1165,7 +1301,7 @@ export default function PhotoboothTool() {
         try {
           const decoSvg = theme.decoration.replace(
             /viewBox="[^"]*"/,
-            `viewBox="0 0 ${STRIP_W} ${stripHeight(captures.length)}" preserveAspectRatio="none"`,
+            `viewBox="0 0 ${dims.w} ${dims.h}" preserveAspectRatio="none"`,
           );
           const decoImg = await loadImage(svgToDataURL(decoSvg));
           ctx.drawImage(decoImg, 0, 0, w, h);
@@ -1179,28 +1315,69 @@ export default function PhotoboothTool() {
       }
 
       // Photos
-      const photoX = ((STRIP_W - PHOTO_W) / 2) * scale;
-      const pw = PHOTO_W * scale;
-      const ph = PHOTO_H * scale;
       const rad = frame.radius * scale;
-      for (let i = 0; i < captures.length; i++) {
-        const img = await loadImage(captures[i]);
-        const y = (STRIP_PAD + i * (PHOTO_H + PHOTO_GAP)) * scale;
-        ctx.save();
-        roundRectPath(ctx, photoX, y, pw, ph, rad);
-        ctx.clip();
-        ctx.filter = filter.css;
-        ctx.drawImage(img, photoX, y, pw, ph);
-        ctx.filter = "none";
-        ctx.restore();
-        if (frame.border) {
-          const bw = frame.border * scale;
+      if (isGridLayout(layout)) {
+        const take = Math.min(captures.length, GRID_SHOTS);
+        for (let i = 0; i < take; i++) {
+          const img = await loadImage(captures[i]);
+          const cell = gridCellRect(i, layout);
+          const cx = cell.x * scale;
+          const cy = cell.y * scale;
+          const cw = cell.w * scale;
+          const ch = cell.h * scale;
+          // center-crop source (likely 4:3) into portrait cell
+          const srcW = img.naturalWidth;
+          const srcH = img.naturalHeight;
+          const cellAspect = cw / ch;
+          let sWidth = srcW;
+          let sHeight = srcH;
+          if (srcW / srcH > cellAspect) {
+            sWidth = srcH * cellAspect;
+          } else {
+            sHeight = srcW / cellAspect;
+          }
+          const sx = (srcW - sWidth) / 2;
+          const sy = (srcH - sHeight) / 2;
           ctx.save();
-          ctx.strokeStyle = frame.borderColor;
-          ctx.lineWidth = bw;
-          roundRectPath(ctx, photoX + bw / 2, y + bw / 2, pw - bw, ph - bw, Math.max(0, rad - bw / 2));
-          ctx.stroke();
+          roundRectPath(ctx, cx, cy, cw, ch, rad);
+          ctx.clip();
+          ctx.filter = filter.css;
+          ctx.drawImage(img, sx, sy, sWidth, sHeight, cx, cy, cw, ch);
+          ctx.filter = "none";
           ctx.restore();
+          if (frame.border) {
+            const bw = frame.border * scale;
+            ctx.save();
+            ctx.strokeStyle = frame.borderColor;
+            ctx.lineWidth = bw;
+            roundRectPath(ctx, cx + bw / 2, cy + bw / 2, cw - bw, ch - bw, Math.max(0, rad - bw / 2));
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      } else {
+        const photoX = ((STRIP_W - PHOTO_W) / 2) * scale;
+        const pw = PHOTO_W * scale;
+        const ph = PHOTO_H * scale;
+        for (let i = 0; i < captures.length; i++) {
+          const img = await loadImage(captures[i]);
+          const y = (STRIP_PAD + i * (PHOTO_H + PHOTO_GAP)) * scale;
+          ctx.save();
+          roundRectPath(ctx, photoX, y, pw, ph, rad);
+          ctx.clip();
+          ctx.filter = filter.css;
+          ctx.drawImage(img, photoX, y, pw, ph);
+          ctx.filter = "none";
+          ctx.restore();
+          if (frame.border) {
+            const bw = frame.border * scale;
+            ctx.save();
+            ctx.strokeStyle = frame.borderColor;
+            ctx.lineWidth = bw;
+            roundRectPath(ctx, photoX + bw / 2, y + bw / 2, pw - bw, ph - bw, Math.max(0, rad - bw / 2));
+            ctx.stroke();
+            ctx.restore();
+          }
         }
       }
 
@@ -1209,7 +1386,9 @@ export default function PhotoboothTool() {
       ctx.fillStyle = theme.text;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const captionY = h - (STRIP_PAD + CAPTION_H / 2) * scale;
+      const capPad = isGridLayout(layout) ? GRID_PAD : STRIP_PAD;
+      const capH = isGridLayout(layout) ? GRID_CAPTION_H : CAPTION_H;
+      const captionY = h - (capPad + capH / 2) * scale;
       const captionText = caption.trim() || theme.defaultCaption;
       ctx.font = `700 ${26 * scale}px ${theme.captionFont}`;
       ctx.fillText(captionText, w / 2, captionY - 8 * scale);
@@ -1238,7 +1417,7 @@ export default function PhotoboothTool() {
 
       return canvas.toDataURL("image/png");
     }
-  }, [captures, filter, theme, frame, caption, placed]);
+  }, [captures, filter, theme, frame, caption, placed, layout]);
 
   // Upload the finished strip in the background so the result view can show a QR / share link
   // once it's ready — without blocking the user from viewing or downloading the image.
@@ -1328,6 +1507,7 @@ export default function PhotoboothTool() {
                   transform: mirror ? "scaleX(-1)" : "none",
                   opacity: cameraReady ? 1 : 0,
                   pointerEvents: cameraReady ? "auto" : "none",
+                  filter: filter.css,
                 }}
               />
               {!cameraReady && (
@@ -1340,7 +1520,7 @@ export default function PhotoboothTool() {
                   </div>
                   <h3 className="pb-empty-title">{cameraError ? t("pb_no_camera") : "Say cheese!"}</h3>
                   <p className="pb-empty-sub">{cameraError ? cameraError : t("pb_allow_camera")}</p>
-                  <Button onClick={startCamera} size="lg">
+                  <Button onClick={() => startCamera()} size="lg">
                     <IconCamera size={16} stroke={1.8} />
                     {t("pb_start_camera")}
                   </Button>
@@ -1356,16 +1536,76 @@ export default function PhotoboothTool() {
                   <span className="pb-live-dot" /> LIVE
                 </div>
               )}
+              {cameraReady && camInfo && camInfo.w > 0 && (
+                <div className="pb-cam-info" title={camInfo.label}>
+                  <span className="pb-cam-info-chip">
+                    {videoDeviceCount > 1 ? (facing === "user" ? "Cam trước" : "Cam sau") : "Camera"}
+                  </span>
+                  <span className="pb-cam-info-dot">·</span>
+                  <span>
+                    {camInfo.w}×{camInfo.h}
+                  </span>
+                  <span className="pb-cam-info-dot">·</span>
+                  <span>{((camInfo.w * camInfo.h) / 1_000_000).toFixed(1)}MP</span>
+                </div>
+              )}
+              {cameraReady && videoDeviceCount > 1 && (
+                <button
+                  type="button"
+                  className="pb-cam-flip"
+                  aria-label={facing === "user" ? "Chuyển sang cam sau" : "Chuyển sang cam trước"}
+                  title={facing === "user" ? "Chuyển sang cam sau" : "Chuyển sang cam trước"}
+                  onClick={switchCamera}
+                >
+                  <IconCameraRotate size={18} stroke={2} />
+                </button>
+              )}
               {cameraReady && <div className="pb-cam-corner tl" />}
               {cameraReady && <div className="pb-cam-corner tr" />}
               {cameraReady && <div className="pb-cam-corner bl" />}
               {cameraReady && <div className="pb-cam-corner br" />}
+              {cameraReady && (
+                <div className="pb-cam-fx-bar" role="group" aria-label="Chọn hiệu ứng">
+                  <button
+                    type="button"
+                    className="pb-cam-fx-arr"
+                    aria-label="Hiệu ứng trước"
+                    onClick={() => {
+                      const i = FILTERS.findIndex((f) => f.id === filterId);
+                      const prev = FILTERS[(i - 1 + FILTERS.length) % FILTERS.length];
+                      setFilterId(prev.id);
+                    }}
+                  >
+                    <IconChevronLeft size={18} stroke={2} />
+                  </button>
+                  <div className="pb-cam-fx-name">
+                    <IconSparkles size={12} stroke={1.8} />
+                    <span>{filter.label}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="pb-cam-fx-arr"
+                    aria-label="Hiệu ứng kế"
+                    onClick={() => {
+                      const i = FILTERS.findIndex((f) => f.id === filterId);
+                      const next = FILTERS[(i + 1) % FILTERS.length];
+                      setFilterId(next.id);
+                    }}
+                  >
+                    <IconChevronRight size={18} stroke={2} />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="pb-cta">
-              <Button onClick={beginCapture} disabled={!cameraReady} block size="lg">
+              <Button onClick={beginCapture} disabled={!canCapture} block size="lg">
                 <IconCamera size={18} stroke={1.8} />
-                {cameraReady ? t("pb_capture") : "Bật camera để bắt đầu"}
+                {!cameraReady
+                  ? "Bật camera để bắt đầu"
+                  : !videoLive
+                    ? "Đang khởi động camera…"
+                    : t("pb_capture")}
               </Button>
             </div>
           </div>
@@ -1428,7 +1668,6 @@ export default function PhotoboothTool() {
                 <div
                   className="pb-mini-strip"
                   style={{
-                    // scale cell so total strip height stays compact regardless of shot count
                     ["--mini-cell-h" as string]: `${Math.max(14, Math.min(44, 150 / shots))}px`,
                   }}
                 >
@@ -1441,7 +1680,7 @@ export default function PhotoboothTool() {
                 </div>
                 <div className="pb-mini-meta">
                   <span className="pb-mini-badge">{shots} ảnh</span>
-                  <span className="pb-mini-meta-sub">tỉ lệ 4:3</span>
+                  <span className="pb-mini-meta-sub">chọn khung ở bước tiếp theo</span>
                 </div>
               </div>
             </div>
@@ -1452,7 +1691,13 @@ export default function PhotoboothTool() {
       {step === "capture" && (
         <div className="pb-capture">
           <div className="pb-preview big">
-            <video ref={videoRef} playsInline muted autoPlay style={{ transform: mirror ? "scaleX(-1)" : "none" }} />
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              autoPlay
+              style={{ transform: mirror ? "scaleX(-1)" : "none", filter: filter.css }}
+            />
             {countdown !== null && (
               <div className="pb-countdown">
                 <span>{countdown}</span>
@@ -1478,10 +1723,13 @@ export default function PhotoboothTool() {
           <div className="pb-strip-wrap">
             <div
               ref={stripRef}
-              className={`pb-strip ${dropHot ? "drop-hot" : ""}`}
+              className={`pb-strip ${dropHot ? "drop-hot" : ""} ${isGridLayout(layout) ? "grid" : ""}`}
               style={{
                 width: "100%",
-                maxWidth: STRIP_W,
+                maxWidth: gridDef(layout)?.w ?? STRIP_W,
+                aspectRatio: gridDef(layout)
+                  ? `${gridDef(layout)!.w} / ${gridDef(layout)!.h}`
+                  : undefined,
                 background: theme.background,
                 color: theme.text,
                 border: theme.border ? `1px solid ${theme.border}` : "none",
@@ -1495,24 +1743,27 @@ export default function PhotoboothTool() {
                   style={{ backgroundImage: `url("${svgToDataURL(theme.decoration)}")` }}
                 />
               )}
-              <div className="pb-strip-inner">
-                {captures.filter(Boolean).map((src, i) => (
-                  <img
-                    key={i}
-                    src={src}
-                    alt={`shot ${i + 1}`}
-                    className="pb-strip-photo"
-                    style={{
-                      aspectRatio: `${PHOTO_W} / ${PHOTO_H}`,
-                      filter: filter.css,
-                      borderRadius: frame.radius,
-                      boxShadow: frame.border
-                        ? `inset 0 0 0 ${frame.border}px ${frame.borderColor}`
-                        : undefined,
-                    }}
-                    draggable={false}
-                  />
-                ))}
+              <div className={`pb-strip-inner ${isGridLayout(layout) ? "grid" : ""}`}>
+                {captures
+                  .filter(Boolean)
+                  .slice(0, isGridLayout(layout) ? GRID_SHOTS : captures.length)
+                  .map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`shot ${i + 1}`}
+                      className="pb-strip-photo"
+                      style={{
+                        aspectRatio: isGridLayout(layout) ? undefined : `${PHOTO_W} / ${PHOTO_H}`,
+                        filter: filter.css,
+                        borderRadius: frame.radius,
+                        boxShadow: frame.border
+                          ? `inset 0 0 0 ${frame.border}px ${frame.borderColor}`
+                          : undefined,
+                      }}
+                      draggable={false}
+                    />
+                  ))}
                 <div className="pb-strip-caption">
                   <div className="pb-caption-main" style={{ fontFamily: theme.captionFont }}>
                     {caption.trim() || theme.defaultCaption}
@@ -1579,7 +1830,59 @@ export default function PhotoboothTool() {
               </div>
               <div>
                 <div className="pb-edit-hero-title">Trang trí bộ ảnh</div>
-                <div className="pb-edit-hero-sub">Filter · Theme · Khung · Sticker · Text</div>
+                <div className="pb-edit-hero-sub">Khung · Filter · Theme · Sticker · Text</div>
+              </div>
+            </div>
+
+            <div className="pb-section">
+              <label className="pb-label">
+                <IconLayoutGrid size={12} stroke={1.8} /> Khung ảnh · định dạng xuất
+              </label>
+              <div className="pb-layout-grid">
+                <button
+                  type="button"
+                  className={`pb-layout-chip ${layout === "strip" ? "on" : ""}`}
+                  onClick={() => setLayout("strip")}
+                >
+                  <span className="pb-layout-chip-prev strip">
+                    {Array.from({ length: Math.min(4, Math.max(1, captures.length)) }).map((_, i) => (
+                      <span key={i} className="pb-lp-cell" />
+                    ))}
+                  </span>
+                  <span className="pb-layout-chip-meta">
+                    <span className="pb-layout-chip-title">Dải dọc</span>
+                    <span className="pb-layout-chip-sub">{captures.length} ảnh · bộ truyền thống</span>
+                  </span>
+                </button>
+                {GRID_LAYOUTS.map((g) => {
+                  const disabled = captures.length < GRID_SHOTS;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      className={`pb-layout-chip ${layout === g.id ? "on" : ""}`}
+                      onClick={() => setLayout(g.id)}
+                      disabled={disabled}
+                      title={disabled ? `Cần ít nhất ${GRID_SHOTS} ảnh` : `${g.label} ${g.ratio}`}
+                    >
+                      <span
+                        className="pb-layout-chip-prev grid"
+                        style={{ aspectRatio: `${g.w} / ${g.h}` }}
+                      >
+                        <span className="pb-lp-cell" />
+                        <span className="pb-lp-cell" />
+                        <span className="pb-lp-cell" />
+                        <span className="pb-lp-cell" />
+                      </span>
+                      <span className="pb-layout-chip-meta">
+                        <span className="pb-layout-chip-title">
+                          {g.label} <span className="pb-layout-chip-ratio">{g.ratio}</span>
+                        </span>
+                        <span className="pb-layout-chip-sub">{g.hint}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -1806,14 +2109,24 @@ export default function PhotoboothTool() {
                 <IconCheck size={18} stroke={2} />
                 {exporting ? "Đang tạo ảnh..." : "Hoàn tất"}
               </Button>
-              <div className="pb-chip-row">
-                <button className="pb-chip" onClick={backToSetup}>
-                  <IconArrowLeft size={14} stroke={1.8} />
-                  {t("pb_retake")}
+              <div className="pb-actions-sec">
+                <button type="button" className="pb-sec-btn retake" onClick={backToSetup}>
+                  <span className="pb-sec-btn-ic">
+                    <IconArrowLeft size={16} stroke={2.2} />
+                  </span>
+                  <span className="pb-sec-btn-text">
+                    <span className="pb-sec-btn-title">{t("pb_retake")}</span>
+                    <span className="pb-sec-btn-sub">Giữ cài đặt hiện tại</span>
+                  </span>
                 </button>
-                <button className="pb-chip" onClick={resetAll}>
-                  <IconRefresh size={14} stroke={1.8} />
-                  {t("pb_new_session")}
+                <button type="button" className="pb-sec-btn fresh" onClick={resetAll}>
+                  <span className="pb-sec-btn-ic">
+                    <IconRefresh size={16} stroke={2.2} />
+                  </span>
+                  <span className="pb-sec-btn-text">
+                    <span className="pb-sec-btn-title">{t("pb_new_session")}</span>
+                    <span className="pb-sec-btn-sub">Bắt đầu lại từ đầu</span>
+                  </span>
                 </button>
               </div>
             </div>
@@ -2227,6 +2540,67 @@ export default function PhotoboothTool() {
           box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.3);
           animation: pbPulse 1.4s ease-in-out infinite;
         }
+        .pb-cam-info {
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          background: rgba(10, 10, 14, 0.55);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          border-radius: 999px;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.03em;
+          z-index: 3;
+          font-variant-numeric: tabular-nums;
+          max-width: calc(100% - 24px);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .pb-cam-info-chip {
+          background: linear-gradient(135deg, #9b5de5, #4cc9f0);
+          padding: 2px 7px;
+          border-radius: 999px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+        }
+        .pb-cam-info-dot {
+          opacity: 0.45;
+        }
+        .pb-cam-flip {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 34px;
+          height: 34px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: rgba(10, 10, 14, 0.55);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          cursor: pointer;
+          z-index: 3;
+          transition: background 0.15s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .pb-cam-flip:hover {
+          background: rgba(10, 10, 14, 0.75);
+          box-shadow: 0 8px 22px -8px rgba(155, 93, 229, 0.5);
+        }
+        .pb-cam-flip:active {
+          transform: scale(0.92) rotate(180deg);
+        }
         @keyframes pbPulse {
           0%,
           100% {
@@ -2344,9 +2718,9 @@ export default function PhotoboothTool() {
           justify-content: center;
           gap: 10px;
           width: 100%;
-          padding: 14px 20px;
-          margin-top: 2px;
-          border-radius: 14px;
+          padding: 10px 16px;
+          margin-top: 0;
+          border-radius: 12px;
           border: none;
           color: #fff;
           font-size: 14px;
@@ -2502,6 +2876,190 @@ export default function PhotoboothTool() {
           box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.2);
           width: 92px;
           flex-shrink: 0;
+        }
+        .pb-mini-grid {
+          background: linear-gradient(145deg, #faf7f1, #f0e8d5);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.2);
+          width: 86px;
+          aspect-ratio: 9 / 16;
+          flex-shrink: 0;
+        }
+        .pb-mini-grid-cells {
+          flex: 1;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: 1fr 1fr;
+          gap: 4px;
+        }
+        .pb-mini-grid .pb-mini-cell {
+          height: 100%;
+        }
+        .pb-cam-fx-bar {
+          position: absolute;
+          left: 50%;
+          bottom: 14px;
+          transform: translateX(-50%);
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 6px;
+          background: rgba(10, 10, 14, 0.55);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          border-radius: 999px;
+          box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+          z-index: 3;
+          user-select: none;
+        }
+        .pb-cam-fx-arr {
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.08);
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          cursor: pointer;
+          transition: background 0.15s, transform 0.1s;
+        }
+        .pb-cam-fx-arr:hover {
+          background: rgba(255, 255, 255, 0.18);
+        }
+        .pb-cam-fx-arr:active {
+          transform: scale(0.92);
+        }
+        .pb-cam-fx-name {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          padding: 0 10px;
+          min-width: 92px;
+          justify-content: center;
+          text-transform: uppercase;
+        }
+        .pb-chip.pill:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .pb-layout-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+        @media (max-width: 480px) {
+          .pb-layout-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .pb-layout-chip {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--bg) 85%, transparent);
+          color: var(--text);
+          cursor: pointer;
+          text-align: left;
+          font-family: inherit;
+          transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease,
+            background 0.2s ease;
+          overflow: hidden;
+          min-width: 0;
+        }
+        .pb-layout-chip:hover:not(:disabled) {
+          transform: translateY(-1px);
+          border-color: color-mix(in srgb, #9b5de5 50%, var(--border));
+          box-shadow: 0 10px 22px -12px rgba(155, 93, 229, 0.45);
+        }
+        .pb-layout-chip:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .pb-layout-chip.on {
+          border-color: transparent;
+          background: linear-gradient(135deg,
+            color-mix(in srgb, #9b5de5 18%, var(--bg)),
+            color-mix(in srgb, #4cc9f0 14%, var(--bg)));
+          box-shadow: 0 10px 26px -14px rgba(155, 93, 229, 0.5),
+            inset 0 0 0 1px rgba(155, 93, 229, 0.5);
+        }
+        .pb-layout-chip-prev {
+          flex-shrink: 0;
+          width: 36px;
+          aspect-ratio: 1;
+          border-radius: 6px;
+          background: color-mix(in srgb, var(--text) 6%, transparent);
+          border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+          padding: 3px;
+          display: grid;
+          gap: 2px;
+        }
+        .pb-layout-chip-prev.strip {
+          grid-template-columns: 1fr;
+          grid-auto-rows: 1fr;
+        }
+        .pb-layout-chip-prev.grid {
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: 1fr 1fr;
+          width: 32px;
+          aspect-ratio: unset;
+        }
+        .pb-lp-cell {
+          background: linear-gradient(135deg, #9b5de5, #4cc9f0);
+          border-radius: 2px;
+          opacity: 0.75;
+          min-width: 0;
+          min-height: 0;
+        }
+        .pb-layout-chip.on .pb-lp-cell {
+          opacity: 1;
+        }
+        .pb-layout-chip-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          min-width: 0;
+        }
+        .pb-layout-chip-title {
+          font-size: 12.5px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: inline-flex;
+          align-items: baseline;
+          gap: 5px;
+        }
+        .pb-layout-chip-ratio {
+          font-size: 10px;
+          font-weight: 600;
+          opacity: 0.55;
+          letter-spacing: 0.03em;
+        }
+        .pb-layout-chip-sub {
+          font-size: 10px;
+          opacity: 0.6;
+          letter-spacing: 0.02em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .pb-mini-cell {
           position: relative;
@@ -2823,6 +3381,22 @@ export default function PhotoboothTool() {
           padding: 20px;
           box-sizing: border-box;
           width: 100%;
+        }
+        .pb-strip-inner.grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: 1fr 1fr auto;
+          gap: ${GRID_GAP}px;
+          padding: ${GRID_PAD}px;
+          height: 100%;
+        }
+        .pb-strip-inner.grid .pb-strip-caption {
+          grid-column: 1 / -1;
+        }
+        .pb-strip-inner.grid .pb-strip-photo {
+          width: 100%;
+          height: 100%;
+          min-height: 0;
         }
         .pb-strip-photo {
           display: block;
@@ -3263,6 +3837,107 @@ export default function PhotoboothTool() {
           padding-top: 8px;
           border-top: 1px dashed var(--border);
         }
+        .pb-actions-sec {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+        @media (max-width: 480px) {
+          .pb-actions-sec {
+            grid-template-columns: 1fr;
+          }
+        }
+        .pb-sec-btn {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 14px;
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--bg) 85%, transparent);
+          cursor: pointer;
+          text-align: left;
+          color: var(--text);
+          overflow: hidden;
+          transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+          font-family: inherit;
+        }
+        .pb-sec-btn::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          opacity: 0;
+          background: radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.6), transparent 60%);
+          transition: opacity 0.2s ease;
+          pointer-events: none;
+        }
+        .pb-sec-btn:hover {
+          transform: translateY(-1px);
+        }
+        .pb-sec-btn:hover::before {
+          opacity: 0.08;
+        }
+        .pb-sec-btn:active {
+          transform: translateY(0);
+        }
+        .pb-sec-btn.retake:hover {
+          border-color: color-mix(in srgb, #4cc9f0 55%, var(--border));
+          box-shadow: 0 10px 24px -12px rgba(76, 201, 240, 0.55);
+        }
+        .pb-sec-btn.fresh:hover {
+          border-color: color-mix(in srgb, #ff6b9d 55%, var(--border));
+          box-shadow: 0 10px 24px -12px rgba(255, 107, 157, 0.55);
+        }
+        .pb-sec-btn-ic {
+          flex-shrink: 0;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          transition: transform 0.2s ease;
+        }
+        .pb-sec-btn:hover .pb-sec-btn-ic {
+          transform: scale(1.06);
+        }
+        .pb-sec-btn.retake .pb-sec-btn-ic {
+          background: linear-gradient(135deg, #4cc9f0, #4361ee);
+          box-shadow: 0 6px 14px -6px rgba(67, 97, 238, 0.55),
+            inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
+        .pb-sec-btn.fresh .pb-sec-btn-ic {
+          background: linear-gradient(135deg, #ff6b9d, #c44569);
+          box-shadow: 0 6px 14px -6px rgba(255, 107, 157, 0.55),
+            inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
+        .pb-sec-btn-text {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          min-width: 0;
+          position: relative;
+          z-index: 1;
+        }
+        .pb-sec-btn-title {
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .pb-sec-btn-sub {
+          font-size: 10.5px;
+          opacity: 0.6;
+          letter-spacing: 0.01em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
         .pb-qr-overlay {
           position: fixed;
           inset: 0;
@@ -3418,12 +4093,12 @@ export default function PhotoboothTool() {
         .pb-result {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 10px;
           background: radial-gradient(ellipse at top, color-mix(in srgb, var(--accent) 6%, transparent), transparent 70%),
                       linear-gradient(145deg, var(--panel), color-mix(in srgb, var(--panel) 92%, #000));
           border: 1px solid var(--border);
-          border-radius: 20px;
-          padding: 20px;
+          border-radius: 18px;
+          padding: 14px;
           box-shadow: 0 10px 40px -20px rgba(0, 0, 0, 0.25);
         }
         .pb-result-head {
@@ -3432,9 +4107,9 @@ export default function PhotoboothTool() {
           gap: 10px;
         }
         .pb-result-head-ic {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
+          width: 30px;
+          height: 30px;
+          border-radius: 9px;
           background: linear-gradient(135deg, #f72585, #9b5de5, #4cc9f0);
           display: flex;
           align-items: center;
@@ -3444,21 +4119,21 @@ export default function PhotoboothTool() {
           flex-shrink: 0;
         }
         .pb-result-title {
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 700;
           color: var(--text);
           line-height: 1.2;
         }
         .pb-result-sub {
-          font-size: 12px;
+          font-size: 11.5px;
           color: var(--text);
           opacity: 0.6;
-          margin-top: 2px;
+          margin-top: 1px;
         }
         .pb-result-grid {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-          gap: 18px;
+          grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+          gap: 12px;
           align-items: start;
         }
         @media (max-width: 760px) {
@@ -3472,15 +4147,15 @@ export default function PhotoboothTool() {
           align-items: flex-start;
           background: color-mix(in srgb, var(--bg) 55%, transparent);
           border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 16px;
-          max-height: 70vh;
+          border-radius: 14px;
+          padding: 10px;
+          max-height: calc(100dvh - 200px);
           overflow: auto;
         }
         .pb-result-photo img {
           width: auto;
           max-width: 100%;
-          max-height: calc(70vh - 32px);
+          max-height: calc(100dvh - 220px);
           border-radius: 10px;
           box-shadow: 0 20px 50px -18px rgba(0, 0, 0, 0.4);
           display: block;
@@ -3488,25 +4163,35 @@ export default function PhotoboothTool() {
         .pb-result-side {
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 10px;
           position: sticky;
-          top: 12px;
+          top: 10px;
+          max-height: calc(100dvh - 200px);
+          overflow: auto;
+          padding-right: 2px;
+        }
+        .pb-result-side::-webkit-scrollbar {
+          width: 6px;
+        }
+        .pb-result-side::-webkit-scrollbar-thumb {
+          background: color-mix(in srgb, var(--text) 15%, transparent);
+          border-radius: 999px;
         }
         .pb-share-card {
           display: flex;
           flex-direction: column;
-          gap: 10px;
-          padding: 14px;
+          gap: 8px;
+          padding: 10px;
           background: var(--panel);
           border: 1px solid var(--border);
-          border-radius: 14px;
+          border-radius: 12px;
           box-shadow: 0 8px 24px -14px rgba(0, 0, 0, 0.25);
         }
         .pb-share-head {
           display: inline-flex;
           align-items: center;
           gap: 7px;
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 700;
           color: var(--text);
         }
@@ -3517,7 +4202,7 @@ export default function PhotoboothTool() {
           font-size: 12px;
           color: var(--text);
           opacity: 0.7;
-          padding: 6px 2px;
+          padding: 4px 2px;
         }
         .pb-share-err {
           margin: 0;
@@ -3528,19 +4213,19 @@ export default function PhotoboothTool() {
         }
         .pb-share-qr {
           width: 100%;
-          max-width: 220px;
+          max-width: 160px;
           aspect-ratio: 1;
           margin: 0 auto;
-          border-radius: 12px;
+          border-radius: 10px;
           background: #fff;
-          padding: 10px;
+          padding: 6px;
           box-sizing: border-box;
           display: block;
         }
         .pb-share-note {
           margin: 0;
           text-align: center;
-          font-size: 11px;
+          font-size: 10.5px;
           color: var(--text);
           opacity: 0.6;
         }
