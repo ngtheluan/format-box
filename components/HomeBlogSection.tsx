@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { IconArrowRight, IconArticle, IconCalendar, IconClock } from "@tabler/icons-react";
 import { BlogCover } from "@/components/BlogCover";
 import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
+import { IconArrowRight, IconArticle, IconCalendar, IconClock } from "@tabler/icons-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function HomeBlogSection() {
   const { t } = useI18n();
@@ -91,11 +91,11 @@ export default function HomeBlogSection() {
         )}
 
         <div className="home-blog-cta" data-reveal>
-          <Link href="/blog" prefetch={false} className="home-blog-btn">
+          <a href="/blog" target="_blank" className="home-blog-btn">
             <IconArticle size={16} stroke={1.9} />
             {t("sec_blog_cta")}
             <IconArrowRight size={14} stroke={2} />
-          </Link>
+          </a>
         </div>
       </div>
     </section>
