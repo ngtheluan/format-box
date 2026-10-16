@@ -579,11 +579,20 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
           {visible.map((p) => {
             const status = (p.status || "published") as BlogStatus;
             return (
-              <div key={p.slug} className="fx-row" style={{ gridTemplateColumns: "32px 1fr 100px 110px 100px 160px" }}>
+              <div
+                key={p.slug}
+                className="fx-row blog-row"
+                style={{ gridTemplateColumns: "32px 1fr 100px 110px 100px 160px" }}
+              >
                 <div className="fx-icon-cell">
                   <IconArticle size={18} stroke={1.7} />
                 </div>
-                <div className="fx-title-cell">
+                <div
+                  className="fx-title-cell blog-title-click"
+                  onClick={() => (status === "published" ? openPreview(p) : startEdit(p))}
+                  style={{ cursor: "pointer" }}
+                  title={status === "published" ? "Xem thử" : "Sửa"}
+                >
                   <div className="fx-t-row">
                     <b>{p.title}</b>
                     <span className="fx-t-href">/blog/{p.slug}</span>
@@ -1098,6 +1107,89 @@ export default function BlogAdminTool({ initialPosts, initialCategories }: Props
           }
           to {
             opacity: 1;
+          }
+        }
+        .blog-title-click:hover b {
+          color: var(--accent, #f97316);
+        }
+        @media (max-width: 760px) {
+          .fx-row-head {
+            display: none !important;
+          }
+          .fx-table:has(.blog-row) {
+            overflow: visible !important;
+          }
+          .blog-row {
+            min-width: 0 !important;
+            width: 100% !important;
+            display: grid !important;
+            grid-template-columns: 40px auto auto 1fr !important;
+            grid-template-areas:
+              "ico title title title"
+              "ico cat   stat  date"
+              "act act   act   act" !important;
+            gap: 8px 10px !important;
+            padding: 12px !important;
+            align-items: center !important;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+            background: var(--bg2, transparent);
+          }
+          .blog-row .fx-icon-cell {
+            grid-area: ico;
+            align-self: start;
+          }
+          .blog-row .fx-title-cell {
+            grid-area: title;
+            min-width: 0;
+          }
+          .blog-row .fx-title-cell b {
+            font-size: 15px !important;
+            line-height: 1.35 !important;
+            display: block;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+          }
+          .blog-row .fx-title-cell .fx-t-href {
+            display: none;
+          }
+          .blog-row .fx-title-cell .fx-t-sub {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            font-size: 12px;
+            margin-top: 2px;
+          }
+          .blog-row > div:nth-child(3) {
+            grid-area: cat;
+            justify-self: start;
+          }
+          .blog-row > div:nth-child(4) {
+            grid-area: stat;
+            justify-self: start;
+          }
+          .blog-row > div:nth-child(5) {
+            grid-area: date;
+            justify-self: end;
+            font-size: 11px !important;
+            white-space: nowrap;
+          }
+          .blog-row .fx-row-actions {
+            grid-area: act;
+            display: flex !important;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border);
+            margin-top: 4px;
+          }
+          .blog-row .fx-row-actions .fx-btn-icon {
+            min-width: 38px;
+            min-height: 36px;
           }
         }
       `}</style>
