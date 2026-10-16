@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { listPublicPosts } from "@/lib/blog";
 
 export const runtime = "nodejs";
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   const u = new URL(req.url);

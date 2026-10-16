@@ -70,7 +70,7 @@ export function BlogList({
       ) : (
         <div className="blog-grid">
           {posts.map((p) => (
-            <Link key={p.slug} href={`/blog/${p.slug}`} className="blog-card">
+            <Link key={p.slug} href={`/blog/${p.slug}`} prefetch={false} className="blog-card">
               <div className="blog-card-media">
                 <BlogCover post={p} />
               </div>

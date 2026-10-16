@@ -65,6 +65,7 @@ export default function HomeBlogSection() {
               <Link
                 key={p.slug}
                 href={`/blog/${p.slug}`}
+                prefetch={false}
                 className="home-blog-card"
                 style={{ animationDelay: `${i * 90}ms` }}
               >
@@ -90,7 +91,7 @@ export default function HomeBlogSection() {
         )}
 
         <div className="home-blog-cta" data-reveal>
-          <Link href="/blog" className="home-blog-btn">
+          <Link href="/blog" prefetch={false} className="home-blog-btn">
             <IconArticle size={16} stroke={1.9} />
             {t("sec_blog_cta")}
             <IconArrowRight size={14} stroke={2} />
