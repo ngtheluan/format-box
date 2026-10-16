@@ -19,6 +19,12 @@ const nextConfig = {
     NEXT_PUBLIC_APP_VERSION: `v${pkg.version}`,
     NEXT_PUBLIC_APP_COMMIT: shortSha,
   },
+  experimental: {
+    staleTimes: {
+      dynamic: 0,
+      static: 0,
+    },
+  },
   modularizeImports: {
     "@tabler/icons-react": {
       transform: "@tabler/icons-react/dist/esm/icons/{{member}}.mjs",
