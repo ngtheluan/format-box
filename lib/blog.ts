@@ -16,6 +16,7 @@ export type BlogPost = {
   cover: { from: string; to: string; emoji?: string; label: string };
   coverImage?: string;
   status: BlogStatus;
+  pinned?: boolean;
 };
 
 export type BlogCategoryRow = {
@@ -144,6 +145,44 @@ export function rewriteImgUrl(url: string): string {
   return `/api/img?prompt=${encodeURIComponent(prompt)}&w=${w}&h=${h}&seed=${seed}`;
 }
 
+// Cover image may carry photo credit in its URL fragment: `<url>#credit=<json>`.
+// Fragments never reach the image host, so the stored value stays a valid image URL.
+export type CoverCredit = { name: string; url: string; source: string };
+
+export function withCoverCredit(url: string, credit?: CoverCredit | null): string {
+  const base = url.split("#")[0];
+  return credit ? `${base}#credit=${encodeURIComponent(JSON.stringify(credit))}` : base;
+}
+
+export function parseCoverImage(raw?: string | null): { src: string; credit: CoverCredit | null } | null {
+  if (!raw) return null;
+  const [src, frag] = raw.split("#");
+  let credit: CoverCredit | null = null;
+  const m = frag?.match(/^credit=(.+)$/);
+  if (m) {
+    try {
+      credit = JSON.parse(decodeURIComponent(m[1]));
+    } catch {}
+  }
+  return { src: rewriteImgUrl(src), credit };
+}
+
+// Resize Unsplash URLs (imgix params) for smaller placements such as cards.
+export function sizedImg(url: string, w: number, h: number): string {
+  if (!/images\.unsplash\.com/.test(url)) return url;
+  const u = url.replace(/([?&])w=\d+/, `$1w=${w}`).replace(/([?&])h=\d+/, `$1h=${h}`);
+  return /[?&]w=/.test(u) ? u : `${u}&w=${w}&h=${h}&fit=crop`;
+}
+
+export function wordCount(md: string): number {
+  return md
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/[#>*_`|\-\[\]()]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
 function extractYouTubeId(s: string): string | null {
   const t = s.trim();
   if (/^[A-Za-z0-9_-]{11}$/.test(t)) return t;
@@ -206,7 +245,7 @@ export function renderMarkdown(md: string): { html: string; toc: TocItem[] } {
     toc.push({ id, text });
     return `<h2 id="${id}"${attrs ?? ""}>${inner}</h2>`;
   });
-  return { html, toc };
+  return { html: html.replace(/<table>([\s\S]*?)<\/table>/g, '<div class="bd-table"><table>$1</table></div>'), toc };
 }
 
 // DB mapping
@@ -226,6 +265,9 @@ type DbRow = {
   cover_image: string | null;
   markdown: string;
   status: BlogStatus;
+  // `pinned` is only present when the column exists in the DB (see supabase/blog.sql).
+  // Treat it as optional when reading so unmigrated environments keep working.
+  pinned?: boolean;
 };
 
 function fromRow(r: DbRow): BlogPost {
@@ -241,6 +283,7 @@ function fromRow(r: DbRow): BlogPost {
     cover: { from: r.cover_from, to: r.cover_to, label: r.cover_label },
     coverImage: r.cover_image || undefined,
     status: r.status,
+    pinned: !!r.pinned,
   };
 }
 
@@ -260,6 +303,10 @@ function toRow(post: BlogPost, markdown: string): DbRow {
     cover_image: post.coverImage ?? null,
     markdown,
     status: post.status,
+    // `pinned` is omitted on insert so the row stays compatible with legacy schemas
+    // that haven't run the migration in supabase/blog.sql yet. Pinning is applied
+    // afterward via /api/blog/pin, which surfaces a clear error if the column is
+    // missing.
   };
 }
 

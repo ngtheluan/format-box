@@ -16,14 +16,6 @@ export default async function BlogIndex() {
 
   return (
     <div className="blog-wrap">
-      <header className="blog-head">
-        <h1>Blog FormatBox</h1>
-        <p>
-          Góc đọc chậm về công nghệ, AI, web và mọi thứ xung quanh — những bài viết được chọn lọc để
-          bạn hiểu nhanh và áp dụng được ngay.
-        </p>
-      </header>
-
       <BlogList posts={posts} categories={categoriesToMap(cats)} />
     </div>
   );

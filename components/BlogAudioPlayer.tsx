@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IconVolume, IconLoader2, IconAlertTriangle } from "@tabler/icons-react";
 
 type Props = {
@@ -35,89 +35,114 @@ export function BlogAudioPlayer({ slug }: Props) {
 
   const onVoiceChange = (v: string) => {
     setVoice(v);
-    if (url) {
-      setUrl(null);
-      load(v);
-    }
+    setUrl(null);
+    load(v);
   };
+
+  // Auto-generate on mount so the user can press play without first clicking a button.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load(voice);
+  }, [slug]);
 
   return (
     <div
+      className="bd-audio"
       style={{
-        display: "flex",
+        display: "inline-flex",
         alignItems: "center",
         gap: 10,
-        padding: "10px 12px",
-        margin: "16px 0 20px",
-        border: "1px solid var(--border)",
-        borderRadius: 10,
-        background: "var(--bg2)",
-        flexWrap: "wrap",
+        margin: 0,
+        fontSize: "0.78rem",
+        color: "var(--text)",
       }}
     >
-      <IconVolume size={18} stroke={1.8} style={{ color: "var(--accent)" }} />
-      <strong style={{ fontSize: "0.85rem" }}>Nghe bài viết (AI)</strong>
-
-      <select
-        value={voice}
-        onChange={(e) => onVoiceChange(e.target.value)}
+      <span
         style={{
-          padding: "4px 8px",
-          fontSize: "0.8rem",
-          borderRadius: 6,
-          border: "1px solid var(--border)",
-          background: "var(--bg)",
-          color: "var(--text)",
+          display: "grid",
+          placeItems: "center",
+          width: 32,
+          height: 32,
+          borderRadius: "50%",
+          background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+          color: "#fff",
+          flexShrink: 0,
         }}
-        aria-label="Giọng đọc"
       >
-        {VOICES.map((v) => (
-          <option key={v.key} value={v.key}>
-            {v.label}
-          </option>
-        ))}
-      </select>
-
-      {!url && !loading && (
-        <button
-          type="button"
-          onClick={() => load(voice)}
+        <IconVolume size={15} stroke={2} />
+      </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, lineHeight: 1.15 }}>
+        <strong style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--bright)" }}>Nghe bài viết</strong>
+        <span
           style={{
-            padding: "5px 12px",
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            borderRadius: 6,
-            border: "1px solid var(--accent)",
-            background: "var(--accent)",
-            color: "#fff",
-            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: "0.72rem",
+            color: "var(--dim)",
           }}
         >
-          Tạo audio
-        </button>
-      )}
-
-      {loading && (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.8rem", color: "var(--dim)" }}>
-          <IconLoader2 size={14} className="spin" /> Đang tổng hợp giọng…
+          <select
+            value={voice}
+            onChange={(e) => onVoiceChange(e.target.value)}
+            style={{
+              padding: 0,
+              fontSize: "0.72rem",
+              borderRadius: 0,
+              border: 0,
+              background: "transparent",
+              color: "var(--dim)",
+              cursor: "pointer",
+            }}
+            aria-label="Giọng đọc"
+          >
+            {VOICES.map((v) => (
+              <option key={v.key} value={v.key}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+          {loading && (
+            <>
+              <span>·</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <IconLoader2 size={11} className="spin" /> Đang tạo…
+              </span>
+            </>
+          )}
+          {error && (
+            <>
+              <span>·</span>
+              <button
+                type="button"
+                onClick={() => load(voice)}
+                style={{
+                  padding: 0,
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  border: 0,
+                  background: "transparent",
+                  color: "var(--err)",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  textUnderlineOffset: 2,
+                }}
+                title={error}
+              >
+                <IconAlertTriangle size={11} style={{ verticalAlign: "middle" }} /> Thử lại
+              </button>
+            </>
+          )}
         </span>
-      )}
-
-      {error && (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.8rem", color: "var(--err)" }}>
-          <IconAlertTriangle size={14} /> {error}
-        </span>
-      )}
-
+      </div>
       {url && (
         <audio
           controls
           src={url}
-          preload="none"
-          style={{ flex: 1, minWidth: 220, height: 36 }}
+          preload="metadata"
+          style={{ height: 32, maxWidth: 220 }}
         />
       )}
-
       <style jsx>{`
         .spin {
           animation: spin 0.8s linear infinite;

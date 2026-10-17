@@ -1,16 +1,28 @@
-import { rewriteImgUrl, type BlogPost } from "@/lib/blog";
+import { parseCoverImage, sizedImg, type BlogPost } from "@/lib/blog";
 
 type Props = {
   post: BlogPost;
   variant?: "card" | "hero";
+  // Rendered width/height for Unsplash covers (smaller for cards).
+  size?: [number, number];
 };
 
 // Auto-generated SVG cover — gradient + initials/label + decorative shapes.
 // Deterministic from slug, so each post has a stable, unique visual.
-export function BlogCover({ post, variant = "card" }: Props) {
-  if (post.coverImage) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={rewriteImgUrl(post.coverImage)} alt={post.title} className="blog-cover-img" />;
+export function BlogCover({ post, variant = "card", size }: Props) {
+  const img = parseCoverImage(post.coverImage);
+  if (img) {
+    const src = size ? sizedImg(img.src, size[0], size[1]) : img.src;
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={post.title}
+        className="blog-cover-img"
+        loading={variant === "hero" ? "eager" : "lazy"}
+        decoding="async"
+      />
+    );
   }
   const w = variant === "hero" ? 1200 : 640;
   const h = variant === "hero" ? 540 : 360;

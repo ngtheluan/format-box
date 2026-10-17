@@ -12,6 +12,8 @@ type Patch = {
   tags?: string[];
   readMin?: number;
   markdown?: string;
+  coverImage?: string | null;
+  pinned?: boolean;
 };
 
 export async function POST(req: Request) {
@@ -27,6 +29,8 @@ export async function POST(req: Request) {
   if (patch.tags !== undefined) dbPatch.tags = patch.tags;
   if (patch.readMin !== undefined) dbPatch.read_min = patch.readMin;
   if (patch.markdown !== undefined) dbPatch.markdown = patch.markdown;
+  if (patch.coverImage !== undefined) dbPatch.cover_image = patch.coverImage || null;
+  if (patch.pinned !== undefined) dbPatch.pinned = !!patch.pinned;
 
   if (!Object.keys(dbPatch).length) return NextResponse.json({ ok: true });
 

@@ -54,7 +54,8 @@ async function unsplash(query: string, seed: number, w: number, h: number): Prom
     const j: any = await r.json();
     const items: any[] = j?.results || [];
     if (!items.length) return null;
-    const pick = items[seed % items.length];
+    // Stay within the top results — deeper picks drift away from the query.
+    const pick = items[seed % Math.min(3, items.length)];
     const raw: string | undefined = pick?.urls?.raw;
     if (!raw) return null;
     cache.set(cacheKey, { url: raw, at: Date.now() });
