@@ -1,6 +1,16 @@
 "use client";
 
-import { IconFlower, IconHeart, IconHeartFilled, IconMusic, IconMusicOff, IconSparkles } from "@tabler/icons-react";
+import {
+  IconFlower,
+  IconGift,
+  IconHeart,
+  IconHeartFilled,
+  IconMusic,
+  IconMusicOff,
+  IconRefresh,
+  IconSparkles,
+  IconX,
+} from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Scene = "intro" | "card" | "garden";
@@ -115,10 +125,27 @@ function Stem({ hue, height, size }: { hue: Rose["hue"]; height: number; size: n
   );
 }
 
-function RoseWithStem({ r, blooming }: { r: Rose; blooming: boolean }) {
+function RoseWithStem({
+  r,
+  blooming,
+  picked,
+  onPick,
+}: {
+  r: Rose;
+  blooming: boolean;
+  picked?: boolean;
+  onPick?: (id: number, x: number, y: number) => void;
+}) {
+  const clickable = !!onPick && !picked && blooming;
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!clickable) return;
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    onPick?.(r.id, rect.left + rect.width / 2, rect.top + rect.height / 2);
+  };
   return (
     <div
-      className="g-rose"
+      className={`g-rose ${picked ? "picked" : ""} ${clickable ? "clickable" : ""}`}
       style={{
         left: `${r.left}%`,
         bottom: 0,
@@ -129,7 +156,12 @@ function RoseWithStem({ r, blooming }: { r: Rose; blooming: boolean }) {
         ["--bloom-delay" as string]: `${r.delay}s`,
       }}
     >
-      <div className={`g-rose-inner ${blooming ? "bloom" : "seed"}`}>
+      <div
+        className={`g-rose-inner ${blooming ? "bloom" : "seed"}`}
+        onClick={handleClick}
+        role={clickable ? "button" : undefined}
+        aria-label={clickable ? "Hái bông hoa này" : undefined}
+      >
         <Rose hue={r.hue} size={r.size} blooming={blooming} />
       </div>
       <Stem hue={r.hue} height={r.stemH} size={r.size} />
@@ -240,6 +272,101 @@ function makePetals(n: number): Petal[] {
   }));
 }
 
+// --- Surprise messages for BuBu ---
+const SURPRISE: Record<"vi" | "en", string[]> = {
+  vi: [
+    "BuBu là người xinh nhất anh từng gặp.",
+    "Chỉ cần có BuBu bên cạnh là anh thấy may mắn rồi.",
+    "Hôm nay BuBu đẹp hơn hôm qua, mà hôm qua đã đẹp lắm rồi.",
+    "Nụ cười của BuBu đáng giá cả một vườn hoa.",
+    "Cảm ơn BuBu vì đã là BuBu.",
+    "Anh thương BuBu nhiều hơn BuBu nghĩ đấy.",
+    "BuBu cứ làm chính mình thôi, anh lo mọi thứ còn lại.",
+    "BuBu là lý do anh dậy sớm và ngủ ngon.",
+    "Trong mắt anh, BuBu luôn là số một.",
+    "Ở bên BuBu, ngày nào cũng là 20/10.",
+    "BuBu ơi, anh yêu BuBu mỗi ngày một nhiều hơn.",
+    "Nếu được chọn lại, anh vẫn chọn BuBu.",
+    "BuBu là món quà quý nhất của năm nay.",
+    "Có BuBu, mưa cũng đáng yêu hơn.",
+    "BuBu xứng đáng với tất cả điều dịu dàng của thế giới này.",
+    "Khi BuBu cười, cả vườn hoa của anh cũng nở theo.",
+    "BuBu là người anh muốn ở bên dù bao nhiêu mùa trôi qua.",
+    "Anh thấy hạnh phúc chỉ vì được yêu BuBu.",
+    "Dù mai sau thế nào, câu 'anh yêu BuBu' vẫn luôn đúng.",
+    "BuBu mệt thì nghiêng đầu qua đây, có anh.",
+  ],
+  en: [
+    "BuBu is the prettiest person I've ever met.",
+    "Just having BuBu beside me is luck enough.",
+    "BuBu is prettier today — and yesterday was already so pretty.",
+    "BuBu's smile is worth a whole garden of flowers.",
+    "Thank you, BuBu, for being you.",
+    "I love BuBu more than BuBu knows.",
+    "Just be yourself, BuBu — I'll handle the rest.",
+    "BuBu is the reason I wake up early and sleep well.",
+    "In my eyes, BuBu is always number one.",
+    "With BuBu, every day feels like October 20th.",
+    "BuBu, I love you a little more every day.",
+    "If I had to choose again, I'd still choose BuBu.",
+    "BuBu is the best gift of this year.",
+    "Even rain is sweeter when I'm with BuBu.",
+    "BuBu deserves every gentle thing in the world.",
+    "When BuBu smiles, my whole garden blooms.",
+    "BuBu is who I want beside me through every season.",
+    "I'm happy just getting to love BuBu.",
+    "Whatever comes, 'I love BuBu' will always be true.",
+    "Tired, BuBu? Lean this way — I'm right here.",
+  ],
+};
+
+// --- Bouquet of picked roses ---
+function Bouquet({ hues }: { hues: Rose["hue"][] }) {
+  const show = hues.slice(0, 10);
+  // (left%, top%, scale, rotateDeg) — clustered above the ribbon
+  const positions: [number, number, number, number][] = [
+    [50, 32, 1.0, 0],
+    [30, 42, 0.88, -14],
+    [70, 42, 0.88, 14],
+    [18, 58, 0.78, -26],
+    [82, 58, 0.78, 26],
+    [40, 52, 0.84, -6],
+    [60, 52, 0.84, 6],
+    [28, 70, 0.72, -32],
+    [72, 70, 0.72, 32],
+    [50, 62, 0.82, 0],
+  ];
+  return (
+    <div className="bouquet">
+      <div className="bouquet-roses">
+        {show.map((h, i) => {
+          const [x, y, s, r] = positions[i];
+          return (
+            <div
+              key={i}
+              className="bouquet-rose"
+              style={{
+                left: `${x}%`,
+                top: `${y}%`,
+                transform: `translate(-50%, -50%) scale(${s}) rotate(${r}deg)`,
+                zIndex: 10 - Math.abs(5 - i),
+              }}
+            >
+              <Rose hue={h} size={110} />
+            </div>
+          );
+        })}
+      </div>
+      <svg className="bouquet-ribbon" viewBox="0 0 100 30" preserveAspectRatio="none">
+        <path d="M35 2 Q50 10 65 2 L68 24 Q50 18 32 24 Z" fill="#d87a95" />
+        <path d="M35 2 Q20 10 5 24 L18 28 Q30 16 35 2 Z" fill="#c06a85" />
+        <path d="M65 2 Q80 10 95 24 L82 28 Q70 16 65 2 Z" fill="#c06a85" />
+        <circle cx="50" cy="8" r="3" fill="#b05673" />
+      </svg>
+    </div>
+  );
+}
+
 function makeGarden(count = 56): Rose[] {
   const list: Rose[] = [];
   for (let i = 0; i < count; i++) {
@@ -263,15 +390,22 @@ function makeGarden(count = 56): Rose[] {
   return list.sort((a, b) => b.bottom - a.bottom);
 }
 
+type Burst = { id: number; x: number; y: number; hue: string };
+
 export default function GiftTool() {
   const [scene, setScene] = useState<Scene>("intro");
   const [music, setMusic] = useState(false);
   const [lang, setLang] = useState<"vi" | "en">("vi");
   const [bloomKey, setBloomKey] = useState(0);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [bouquetOpen, setBouquetOpen] = useState(false);
+  const [surpriseIdx, setSurpriseIdx] = useState<number | null>(null);
+  const [bursts, setBursts] = useState<Burst[]>([]);
 
   const garden = useMemo(() => makeGarden(60), [bloomKey]);
   const petals = useMemo(() => makePetals(22), []);
   const ytMountRef = useRef<HTMLDivElement | null>(null);
+  const burstIdRef = useRef(0);
 
   useYouTubeMusic(music, ytMountRef);
 
@@ -284,17 +418,80 @@ export default function GiftTool() {
   const replayBloom = useCallback(() => {
     setScene("intro");
     setBloomKey((k) => k + 1);
+    setPicked(new Set());
     window.setTimeout(() => setScene("garden"), 650);
   }, []);
 
-  // Keyboard shortcut: ESC to close card
+  const pickRose = useCallback((id: number) => {
+    setPicked((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const openSurprise = useCallback(() => {
+    const pool = SURPRISE[lang];
+    setSurpriseIdx(Math.floor(Math.random() * pool.length));
+  }, [lang]);
+
+  const reshuffleSurprise = useCallback(() => {
+    setSurpriseIdx((cur) => {
+      const pool = SURPRISE[lang];
+      if (pool.length < 2) return cur;
+      let next = cur;
+      while (next === cur) next = Math.floor(Math.random() * pool.length);
+      return next;
+    });
+  }, [lang]);
+
+  const spawnBurst = useCallback((x: number, y: number) => {
+    const id = ++burstIdRef.current;
+    const hues = ["#f28baa", "#f6a2b8", "#ec8c99", "#e37b9a", "#d87a95"];
+    const hue = hues[Math.floor(Math.random() * hues.length)];
+    setBursts((prev) => [...prev.slice(-24), { id, x, y, hue }]);
+    window.setTimeout(() => {
+      setBursts((prev) => prev.filter((b) => b.id !== id));
+    }, 1500);
+  }, []);
+
+  const onRootPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (scene !== "garden") return;
+      const target = e.target as HTMLElement;
+      // Avoid double-emitting on interactive elements and rose heads
+      if (target.closest("button, a, input, textarea, [role='button'], .card, .bouquet-modal, .surprise-modal, .g-rose-inner")) return;
+      spawnBurst(e.clientX, e.clientY);
+    },
+    [scene, spawnBurst],
+  );
+
+  const handlePick = useCallback(
+    (id: number, x: number, y: number) => {
+      pickRose(id);
+      spawnBurst(x, y);
+    },
+    [pickRose, spawnBurst],
+  );
+
+  // Keyboard shortcut: ESC closes any open overlay
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && scene === "card") setScene(scene === "card" ? "garden" : scene);
+      if (e.key !== "Escape") return;
+      if (surpriseIdx !== null) return setSurpriseIdx(null);
+      if (bouquetOpen) return setBouquetOpen(false);
+      if (scene === "card") return setScene("garden");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [scene]);
+  }, [scene, bouquetOpen, surpriseIdx]);
+
+  const pickedCount = picked.size;
+  const pickedHues = useMemo(
+    () => garden.filter((r) => picked.has(r.id)).map((r) => r.hue),
+    [garden, picked],
+  );
 
   const t =
     lang === "vi"
@@ -317,6 +514,17 @@ export default function GiftTool() {
           replay: "Cho hoa nở lại",
           music: "Nhạc nền",
           back: "Quay lại",
+          pickHint: "Chạm từng bông để hái tặng BuBu nhé.",
+          pickedCount: (n: number) => `Đã hái ${n} bông`,
+          viewBouquet: "Xem bó hoa",
+          bouquetTitle: "Bó hoa anh gửi BuBu",
+          bouquetDesc: (n: number) =>
+            `BuBu vừa hái ${n} bông — mỗi bông là một lần anh nhớ BuBu trong hôm nay.`,
+          bouquetReset: "Hái lại từ đầu",
+          giftButton: "Hộp quà bí mật",
+          surpriseTitle: "Một lời ngọt cho BuBu",
+          surpriseAgain: "Lắc lại hộp quà",
+          close: "Đóng",
         }
       : {
           tagline: "A whole garden of love, for BuBu.",
@@ -336,10 +544,21 @@ export default function GiftTool() {
           replay: "Bloom again",
           music: "Music",
           back: "Back",
+          pickHint: "Tap each flower to pick one for BuBu.",
+          pickedCount: (n: number) => `${n} picked`,
+          viewBouquet: "See the bouquet",
+          bouquetTitle: "A bouquet for BuBu",
+          bouquetDesc: (n: number) =>
+            `BuBu just picked ${n} flowers — each one is a moment I thought of you today.`,
+          bouquetReset: "Start over",
+          giftButton: "Mystery gift",
+          surpriseTitle: "A sweet note for BuBu",
+          surpriseAgain: "Shake again",
+          close: "Close",
         };
 
   return (
-    <div className="gift-root">
+    <div className="gift-root" onPointerDown={onRootPointerDown}>
       {/* hidden YouTube audio player */}
       <div className="yt-sink" aria-hidden>
         <div ref={ytMountRef} />
@@ -409,9 +628,28 @@ export default function GiftTool() {
       {/* garden layer — always rendered so transitions can bloom in/out */}
       <div className={`garden ${scene === "garden" ? "on" : "off"}`} key={bloomKey}>
         {garden.map((r) => (
-          <RoseWithStem key={r.id} r={r} blooming={scene === "garden"} />
+          <RoseWithStem
+            key={r.id}
+            r={r}
+            blooming={scene === "garden"}
+            picked={picked.has(r.id)}
+            onPick={scene === "garden" ? handlePick : undefined}
+          />
         ))}
         <div className="ground" />
+      </div>
+
+      {/* click bursts — floating hearts from taps */}
+      <div className="burst-layer" aria-hidden>
+        {bursts.map((b) => (
+          <span
+            key={b.id}
+            className="burst-heart"
+            style={{ left: b.x, top: b.y, color: b.hue }}
+          >
+            <IconHeartFilled size={22} />
+          </span>
+        ))}
       </div>
 
       {/* intro — single rose growing */}
@@ -447,13 +685,126 @@ export default function GiftTool() {
           <div className="garden-caption">
             <IconSparkles size={16} /> {t.gardenCaption}
           </div>
+          <div className="garden-sub">
+            <IconHeart size={13} /> {t.pickHint}
+            {pickedCount > 0 && (
+              <span className="picked-badge" key={pickedCount}>
+                <IconHeartFilled size={12} /> {t.pickedCount(pickedCount)}
+              </span>
+            )}
+          </div>
           <div className="garden-buttons">
             <button type="button" className="pill" onClick={() => setScene("card")}>
               <IconHeart size={16} /> {t.reopenCard}
             </button>
-            <button type="button" className="pill ghost" onClick={replayBloom}>
-              <IconFlower size={16} /> {t.replay}
+            <button type="button" className="pill" onClick={openSurprise}>
+              <IconGift size={16} /> {t.giftButton}
             </button>
+            {pickedCount >= 3 && (
+              <button
+                type="button"
+                className="pill primary"
+                onClick={() => setBouquetOpen(true)}
+              >
+                <IconFlower size={16} /> {t.viewBouquet} ({pickedCount})
+              </button>
+            )}
+            <button type="button" className="pill ghost" onClick={replayBloom}>
+              <IconRefresh size={16} /> {t.replay}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* bouquet modal */}
+      {bouquetOpen && (
+        <div
+          className="card-backdrop bouquet-modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setBouquetOpen(false);
+          }}
+        >
+          <div className="card bouquet-card">
+            <button
+              type="button"
+              className="close-x"
+              onClick={() => setBouquetOpen(false)}
+              aria-label={t.close}
+            >
+              <IconX size={18} />
+            </button>
+            <div className="card-to">
+              <IconSparkles size={14} /> {t.bouquetTitle}
+            </div>
+            <div className="bouquet-stage">
+              <Bouquet hues={pickedHues} />
+            </div>
+            <p className="card-body">{t.bouquetDesc(pickedCount)}</p>
+            <div className="card-sign">{t.cardSign}</div>
+            <div className="bouquet-actions">
+              <button
+                type="button"
+                className="pill ghost"
+                onClick={() => {
+                  setPicked(new Set());
+                  setBouquetOpen(false);
+                }}
+              >
+                <IconRefresh size={14} /> {t.bouquetReset}
+              </button>
+              <button type="button" className="card-cta" onClick={() => setBouquetOpen(false)}>
+                {t.close}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* surprise modal */}
+      {surpriseIdx !== null && (
+        <div
+          className="card-backdrop surprise-modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSurpriseIdx(null);
+          }}
+        >
+          <div className="card surprise-card">
+            <button
+              type="button"
+              className="close-x"
+              onClick={() => setSurpriseIdx(null)}
+              aria-label={t.close}
+            >
+              <IconX size={18} />
+            </button>
+            <div className="surprise-icon">
+              <IconGift size={44} stroke={1.4} />
+              <span className="sparkle s1">
+                <IconSparkles size={14} />
+              </span>
+              <span className="sparkle s2">
+                <IconSparkles size={10} />
+              </span>
+              <span className="sparkle s3">
+                <IconHeartFilled size={12} />
+              </span>
+            </div>
+            <div className="card-to">{t.surpriseTitle}</div>
+            <p className="surprise-text" key={surpriseIdx}>
+              {SURPRISE[lang][surpriseIdx]}
+            </p>
+            <div className="bouquet-actions">
+              <button type="button" className="pill ghost" onClick={reshuffleSurprise}>
+                <IconRefresh size={14} /> {t.surpriseAgain}
+              </button>
+              <button type="button" className="card-cta" onClick={() => setSurpriseIdx(null)}>
+                {t.close}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -893,6 +1244,191 @@ export default function GiftTool() {
           100% { transform: translate(var(--petal-drift), -110vh) rotate(360deg); opacity: 0; }
         }
 
+        /* --- Pick-a-flower --- */
+        .g-rose.clickable .g-rose-inner {
+          cursor: pointer;
+          pointer-events: auto;
+          transition: transform 0.2s ease, filter 0.2s ease;
+        }
+        .g-rose.clickable .g-rose-inner:hover {
+          transform: scale(1.14);
+          filter: drop-shadow(0 6px 12px rgba(227, 123, 154, 0.35));
+        }
+        .g-rose.picked .g-rose-inner {
+          animation: pluck 0.7s cubic-bezier(.2,.6,.3,1) forwards;
+          pointer-events: none;
+        }
+        @keyframes pluck {
+          0% { transform: scale(1); opacity: 1; }
+          40% { transform: scale(1.35) translateY(-6px); }
+          100% { transform: scale(0) translateY(-80px); opacity: 0; }
+        }
+
+        .garden-sub {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          color: #8a5f74;
+          padding: 4px 12px;
+          background: rgba(255,255,255,0.55);
+          backdrop-filter: blur(10px);
+          border-radius: 999px;
+          border: 1px solid rgba(232, 180, 197, 0.4);
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+        .picked-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: linear-gradient(135deg, #f6a2b8, #e37b9a);
+          color: #fff;
+          padding: 2px 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 600;
+          animation: pop 0.4s cubic-bezier(.2,.9,.3,1.3) both;
+        }
+        @keyframes pop {
+          0% { transform: scale(0.5); opacity: 0; }
+          60% { transform: scale(1.2); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .pill.primary {
+          background: linear-gradient(135deg, #f6a2b8, #e37b9a);
+          color: #fff;
+          border-color: #e37b9a;
+        }
+
+        /* --- Bouquet modal --- */
+        .close-x {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 32px;
+          height: 32px;
+          border: 0;
+          background: rgba(227, 123, 154, 0.08);
+          color: #a85676;
+          border-radius: 999px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.15s ease;
+        }
+        .close-x:hover { background: rgba(227, 123, 154, 0.18); }
+        .bouquet-card { max-width: 460px; }
+        .bouquet-stage {
+          position: relative;
+          width: 100%;
+          height: 240px;
+          margin: 12px auto 20px;
+        }
+        .bouquet {
+          position: relative;
+          width: 280px;
+          height: 240px;
+          margin: 0 auto;
+        }
+        .bouquet-roses {
+          position: absolute;
+          inset: 0 0 60px 0;
+        }
+        .bouquet-rose {
+          position: absolute;
+          width: 110px;
+          height: 110px;
+          margin: 0;
+          transform-origin: center center;
+          filter: drop-shadow(0 4px 10px rgba(170, 90, 120, 0.18));
+          animation: bloom-in 0.6s cubic-bezier(.2,.9,.3,1.2) both;
+        }
+        .bouquet-rose > svg { width: 100%; height: 100%; }
+        @keyframes bloom-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .bouquet-ribbon {
+          position: absolute;
+          left: 20%;
+          right: 20%;
+          bottom: 0;
+          height: 60px;
+          overflow: visible;
+        }
+        .bouquet-actions {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          justify-content: center;
+          margin-top: 18px;
+          flex-wrap: wrap;
+        }
+
+        /* --- Surprise modal --- */
+        .surprise-card { max-width: 400px; padding-top: 44px; }
+        .surprise-icon {
+          position: relative;
+          width: 76px;
+          height: 76px;
+          margin: 0 auto 10px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #ffdbe6, #ffc4d4);
+          color: #a85676;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 10px 24px rgba(227, 123, 154, 0.35);
+          animation: wiggle 1.6s ease-in-out infinite;
+        }
+        @keyframes wiggle {
+          0%, 100% { transform: rotate(-4deg); }
+          50% { transform: rotate(4deg); }
+        }
+        .surprise-icon .sparkle {
+          position: absolute;
+          color: #e37b9a;
+          animation: twinkle 1.8s ease-in-out infinite;
+        }
+        .surprise-icon .s1 { top: -6px; right: -4px; animation-delay: 0s; }
+        .surprise-icon .s2 { bottom: -2px; left: -6px; animation-delay: 0.4s; }
+        .surprise-icon .s3 { top: 8px; left: -10px; animation-delay: 0.8s; }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.3; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1.2); }
+        }
+        .surprise-text {
+          font-size: 18px;
+          line-height: 1.5;
+          color: #4a3240;
+          font-style: italic;
+          margin: 16px 8px 4px;
+          min-height: 60px;
+          animation: fade-up 0.5s ease both;
+        }
+
+        /* --- Click bursts --- */
+        .burst-layer {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 80;
+          overflow: hidden;
+        }
+        .burst-heart {
+          position: absolute;
+          transform: translate(-50%, -50%);
+          animation: burst 1.4s cubic-bezier(.2, .6, .3, 1) forwards;
+          filter: drop-shadow(0 2px 4px rgba(227, 123, 154, 0.3));
+        }
+        @keyframes burst {
+          0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+          20% { transform: translate(-50%, -70%) scale(1.2); opacity: 1; }
+          100% { transform: translate(-50%, -220%) scale(0.9); opacity: 0; }
+        }
+
         @media (max-width: 640px) {
           .tagline { font-size: 12px; top: 56px; left: 16px; }
           .intro-title { font-size: 22px; }
@@ -901,6 +1437,9 @@ export default function GiftTool() {
           .card-headline { font-size: 22px; }
           .card-body { font-size: 13px; }
           .garden { height: 60vh; }
+          .garden-sub { font-size: 11px; padding: 4px 10px; }
+          .surprise-text { font-size: 16px; }
+          .bouquet-stage { height: 200px; }
         }
 
         @media (prefers-reduced-motion: reduce) {

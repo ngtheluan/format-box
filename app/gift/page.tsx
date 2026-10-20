@@ -1,14 +1,11 @@
-import type { Metadata } from "next";
-import dynamic from "next/dynamic";
+import { notFound } from "next/navigation";
 
-const GiftTool = dynamic(() => import("./GiftTool"), { ssr: false });
-
-export const metadata: Metadata = {
-  title: "Dành bạn, cả một vườn thương — Happy Women's Day 20/10",
-  description: "Một món quà nhỏ dịu dàng cho người bạn thương — ngày 20/10.",
+// The bare /gift URL is intentionally hidden — the real page lives at
+// /gift/[token] with a secret slug (see GIFT_TOKEN below).
+export const metadata = {
   robots: { index: false, follow: false },
 };
 
 export default function Page() {
-  return <GiftTool />;
+  notFound();
 }
