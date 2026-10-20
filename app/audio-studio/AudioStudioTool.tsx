@@ -1,6 +1,6 @@
 "use client";
 import { useToast } from "@/components/Toast";
-import { Button } from "@/components/ui";
+import { Button, Checkbox } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import {
   IconArrowBackUp,
@@ -1036,14 +1036,18 @@ export default function AudioStudioTool() {
                   {treble}dB
                 </span>
               </div>
-              <label className="as-check">
-                <input type="checkbox" checked={reverse} onChange={(e) => setReverse(e.target.checked)} />
-                {t("audio_reverse")}
-              </label>
-              <label className="as-check">
-                <input type="checkbox" checked={normalize} onChange={(e) => setNormalize(e.target.checked)} />
-                {t("audio_normalize")}
-              </label>
+              <Checkbox
+                className="as-check"
+                checked={reverse}
+                onChange={(e) => setReverse(e.target.checked)}
+                label={t("audio_reverse")}
+              />
+              <Checkbox
+                className="as-check"
+                checked={normalize}
+                onChange={(e) => setNormalize(e.target.checked)}
+                label={t("audio_normalize")}
+              />
             </div>
 
             <div className="as-export">

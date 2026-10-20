@@ -13,6 +13,7 @@ import {
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
+import { Select } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 
 type Meme = {
@@ -299,13 +300,12 @@ export default function MemeTool() {
         </form>
 
         <div className="meme-select">
-          <select value={sub} onChange={(e) => setSub(e.target.value)} aria-label="subreddit">
-            {subOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={sub}
+            onChange={(e) => setSub(e.target.value)}
+            aria-label="subreddit"
+            options={subOptions.map((o) => ({ value: o.value, label: o.label }))}
+          />
         </div>
 
         <div className="meme-chips" role="tablist">
@@ -325,17 +325,12 @@ export default function MemeTool() {
 
         {sort === "top" && (
           <div className="meme-select">
-            <select
+            <Select
               value={topRange}
               onChange={(e) => setTopRange(e.target.value as TopRange)}
               aria-label="time range"
-            >
-              {topOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              options={topOptions.map((o) => ({ value: o.value, label: o.label }))}
+            />
           </div>
         )}
 

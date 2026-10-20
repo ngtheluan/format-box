@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import {
   IconArrowLeft,
@@ -2290,7 +2290,7 @@ export default function PhotoboothTool() {
                     <img src={qrDataUrl} alt="QR code" className="pb-share-qr" />
                     <p className="pb-share-note">Quét QR — ảnh tự xoá sau 24 giờ</p>
                     <div className="pb-qr-link">
-                      <input readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
+                      <Input inputSize="sm" readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
                       <button
                         className="pb-qr-copy"
                         onClick={async () => {

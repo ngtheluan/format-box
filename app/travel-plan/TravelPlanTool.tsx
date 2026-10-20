@@ -220,7 +220,7 @@ export default function TravelPlanTool() {
       {shareUrl && (
         <div className="trip-share-bar">
           <IconLink size={16} stroke={1.8} />
-          <input className="trip-share-input" readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
+          <Input className="trip-share-input" inputSize="sm" readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
           <IconButton
             aria-label={t("trip_copy_link")}
             size="sm"
