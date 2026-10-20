@@ -308,7 +308,7 @@ export default function GiftTool() {
           cardBody1:
             "Một bông hoa có thể làm một ngày thêm đẹp. Còn BuBu, làm cả thế giới của anh DuDu dịu dàng hơn mỗi ngày.",
           cardBody2:
-            "Nhân ngày 20/10, anh DuDu chúc Minh Ngọc luôn được yêu thương, được chiều chuộng và có thật nhiều niềm vui. Mong BuBu đủ bình yên để tận hưởng những điều nhỏ bé, đủ tự tin để theo đuổi những điều mình yêu — và luôn có anh ở ngay bên cạnh.",
+            "Nhân ngày 20/10, anh DuDu chúc bé BuBu luôn được yêu thương, được chiều chuộng và có thật nhiều niềm vui. Mong BuBu đủ bình yên để tận hưởng những điều nhỏ bé, đủ tự tin để theo đuổi những điều mình yêu — và luôn có anh ở ngay bên cạnh.",
           cardBody3:
             "Hôm nay, ngày mai và cả những ngày sau nữa, BuBu cứ rạng rỡ theo cách của riêng mình nhé. Anh sẽ luôn là người đứng vỗ tay to nhất.",
           cardSign: "Yêu BuBu nhiều lắm ♡",
