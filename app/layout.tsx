@@ -39,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const allTools = await getTools();
   const initialTools = allTools.filter((t) => isToolVisible(t, role));
   return (
-    <html lang="vi" data-theme="light" suppressHydrationWarning>
+    <html lang="vi" data-theme="dark" suppressHydrationWarning>
       <head>
         <meta
           name="viewport"
@@ -49,16 +49,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         />
         <meta name="google-site-verification" content="D8R9qU3Bhqzd1ac3m68dlRnoPFpstzoG9VNMkTAvymI" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('fb-theme');var t=(s==='dark'||s==='light')?s:'light';if(!s)localStorage.setItem('fb-theme','light');document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='light';}})();`,
+            __html: `(function(){try{var s=localStorage.getItem('fb-theme');var t=(s==='dark'||s==='light')?s:'dark';if(!s)localStorage.setItem('fb-theme','dark');document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`,
           }}
         />
       </head>
       <body>
+        {/* Blueprint margin ruler on the left edge; the marker tracks page scroll. */}
+        <div aria-hidden="true" className="margin-ruler">
+          <div className="margin-ruler-marker" />
+        </div>
         {/* To start counting visitors and page views, follow these steps. */}
         <Analytics />
         {/* To start collecting performance metrics, follow these steps. */}

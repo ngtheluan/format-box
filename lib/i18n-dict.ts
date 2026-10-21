@@ -1138,7 +1138,10 @@ export const DICT = {
   pb_clear_stickers: { vi: "Xoá hết sticker", en: "Clear stickers" },
   pb_download: { vi: "Tải ảnh", en: "Download photo" },
   pb_new_session: { vi: "Chụp bộ mới", en: "New session" },
-  pb_hint_drag: { vi: "Kéo để di chuyển sticker, chạm/click để chọn.", en: "Drag to move stickers, tap/click to select." },
+  pb_hint_drag: {
+    vi: "Kéo để di chuyển sticker, chạm/click để chọn.",
+    en: "Drag to move stickers, tap/click to select.",
+  },
   pb_countdown_ready: { vi: "Sẵn sàng", en: "Get ready" },
 
   // TRAVEL PLAN
@@ -1215,6 +1218,9 @@ export const DICT = {
     en: "Add places to see your itinerary appear here.",
   },
   trip_powered: { vi: "Tạo bằng FormatBox · Lộ trình", en: "Made with FormatBox · Travel planner" },
-  trip_view_invalid: { vi: "Link lộ trình không hợp lệ hoặc đã hỏng.", en: "This itinerary link is invalid or broken." },
+  trip_view_invalid: {
+    vi: "Link lộ trình không hợp lệ hoặc đã hỏng.",
+    en: "This itinerary link is invalid or broken.",
+  },
   trip_view_make: { vi: "Tạo lộ trình của bạn", en: "Make your own" },
 } as const;

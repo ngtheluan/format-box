@@ -1,15 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  IconArrowLeft,
-  IconArrowRight,
-  IconArrowUpRight,
-  IconClock,
-  IconListDetails,
-  IconMessageCircle,
-  IconSparkles,
-} from "@tabler/icons-react";
+import { IconArrowLeft, IconArrowRight, IconArrowUpRight, IconListDetails } from "@tabler/icons-react";
 import {
   categoriesToMap,
   formatDateVi,
@@ -106,67 +98,79 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
       <BodyEnhancer />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      {/* Ambient wash behind the hero — tint only, no cover photo. */}
-      <div
-        className="bd-ambient"
-        aria-hidden="true"
-        style={{ background: `linear-gradient(135deg, ${post.cover.from}, ${post.cover.to})` }}
-      />
-
-      {/* Cover first, then chip + title + dek. No breadcrumb. */}
-      <figure className="bd-figure">
-        <BlogCover post={post} variant="hero" />
-        {cover?.credit && (
-          <figcaption>
-            <T k="blog_photo" />:{" "}
-            <a href={cover.credit.url} target="_blank" rel="noopener noreferrer">
-              {cover.credit.name}
-            </a>{" "}
-            / {cover.credit.source}
-          </figcaption>
-        )}
-      </figure>
-
+      {/* HEAD TILE — breadcrumb, category + tags, title, dek, byline (200Lab style) */}
       <header className="bd-head">
-        <Link href="/blog" className="bd-chip" prefetch={false}>
-          <IconSparkles size={13} stroke={2} /> {catLabel(post.category)}
-        </Link>
+        <i className="bl-corners" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+        </i>
+        <nav className="bd-crumb" aria-label="Breadcrumb">
+          <Link href="/" prefetch={false}>
+            FormatBox
+          </Link>
+          <i>/</i>
+          <Link href="/blog" prefetch={false}>
+            Blog
+          </Link>
+          <i>/</i>
+          <span>{post.title}</span>
+        </nav>
+        <div className="bd-chips">
+          <Link href="/blog" className="bd-chip" prefetch={false}>
+            {catLabel(post.category)}
+          </Link>
+          {post.tags.slice(0, 4).map((tg) => (
+            <span key={tg} className="bd-tagchip">
+              {tg}
+            </span>
+          ))}
+        </div>
         <h1 className="bd-title">{post.title}</h1>
         {post.excerpt && <p className="bd-dek">{post.excerpt}</p>}
+        <div className="bd-byline">
+          <span className="bd-avatar" aria-hidden="true">
+            {initials || "FB"}
+          </span>
+          <span className="bd-byline-meta">
+            <strong>{post.author}</strong>
+            <span className="bd-sep" />
+            <time dateTime={post.date}>{formatDateVi(post.date)}</time>
+            <span className="bd-sep" />
+            <span>
+              {post.readMin} <T k="blog_read_min" />
+            </span>
+            {toc.length > 0 && (
+              <>
+                <span className="bd-sep" />
+                <span>
+                  {toc.length} <T k="blog_sections" />
+                </span>
+              </>
+            )}
+          </span>
+        </div>
       </header>
 
-      {/* READING LAYOUT: floating share rail | article | floating TOC */}
+      {/* READING LAYOUT: article tile | sticky context TOC */}
       <div className={`bd-layout${toc.length ? "" : " no-toc"}`}>
-        <aside className="bd-rail" aria-label="Share">
-          <ShareBar title={post.title} path={`/blog/${post.slug}`} />
-        </aside>
-
         <article className="bd-article">
+          <figure className="bd-figure">
+            <BlogCover post={post} variant="hero" />
+            {cover?.credit && (
+              <figcaption>
+                <T k="blog_photo" />:{" "}
+                <a href={cover.credit.url} target="_blank" rel="noopener noreferrer">
+                  {cover.credit.name}
+                </a>{" "}
+                / {cover.credit.source}
+              </figcaption>
+            )}
+          </figure>
+
           <div className="bd-topmeta">
             <BlogAudioPlayer slug={post.slug} />
-            <div className="bd-byline">
-              <span className="bd-avatar" aria-hidden="true">
-                {initials || "FB"}
-              </span>
-              <div className="bd-byline-text">
-                <strong>{post.author}</strong>
-                <span className="bd-byline-meta">
-                  <time dateTime={post.date}>{formatDateVi(post.date)}</time>
-                  <span className="bd-sep" />
-                  <span>
-                    <IconClock size={12} stroke={2} /> {post.readMin} <T k="blog_read_min" />
-                  </span>
-                  {toc.length > 0 && (
-                    <>
-                      <span className="bd-sep" />
-                      <span>
-                        <IconListDetails size={12} stroke={2} /> {toc.length} <T k="blog_sections" />
-                      </span>
-                    </>
-                  )}
-                </span>
-              </div>
-            </div>
           </div>
 
           {toc.length > 0 && (
@@ -264,31 +268,13 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
               Xem tất cả <IconArrowRight size={14} stroke={2} />
             </Link>
           </div>
-          <div className="bl-grid">
+          <div className="bz-grid">
             {related.map((p) => (
               <BlogCard key={p.slug} post={p} catLabel={catLabel(p.category)} readLabel={<T k="blog_read_min" />} />
             ))}
           </div>
         </section>
       )}
-
-      <section className="bd-cta">
-        <div className="bd-cta-text">
-          <span className="bd-cta-ico" aria-hidden="true">
-            <IconMessageCircle size={20} stroke={1.8} />
-          </span>
-          <div>
-            <strong>Thấy bài viết hữu ích?</strong>
-            <p>Chia sẻ với bạn bè, hoặc khám phá thêm bài viết trong cùng chủ đề.</p>
-          </div>
-        </div>
-        <div className="bd-cta-actions">
-          <ShareBar title={post.title} path={`/blog/${post.slug}`} />
-          <Link href="/blog" className="bd-cta-btn">
-            {catLabel(post.category)} <IconArrowUpRight size={14} stroke={2} />
-          </Link>
-        </div>
-      </section>
     </div>
   );
 }

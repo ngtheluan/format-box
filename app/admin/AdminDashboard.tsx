@@ -26,10 +26,10 @@ type AdminApp = {
 
 const ADMIN_APPS: AdminApp[] = [
   {
-    href: "/admin/analytics",
-    title: "Thống kê",
-    desc: "Lượt sử dụng từng tool theo ngày, top tool hot.",
-    icon: <IconChartBar size={20} stroke={1.7} />,
+    href: "/admin/blog",
+    title: "Blog",
+    desc: "Sinh bài AI, duyệt/từ chối, chỉnh sửa Markdown.",
+    icon: <IconArticle size={20} stroke={1.7} />,
   },
   {
     href: "/admin/menu",
@@ -44,16 +44,16 @@ const ADMIN_APPS: AdminApp[] = [
     icon: <IconLanguage size={20} stroke={1.7} />,
   },
   {
-    href: "/admin/blog",
-    title: "Blog",
-    desc: "Sinh bài AI, duyệt/từ chối, chỉnh sửa Markdown.",
-    icon: <IconArticle size={20} stroke={1.7} />,
-  },
-  {
     href: "/admin/users",
     title: "Users",
     desc: "Quản lý tài khoản người dùng — tạo, sửa, đổi mật khẩu, xoá.",
     icon: <IconUsers size={20} stroke={1.7} />,
+  },
+  {
+    href: "/admin/analytics",
+    title: "Thống kê",
+    desc: "Lượt sử dụng từng tool theo ngày, top tool hot.",
+    icon: <IconChartBar size={20} stroke={1.7} />,
   },
   {
     href: "/admin/theme",

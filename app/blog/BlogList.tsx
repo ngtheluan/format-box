@@ -1,59 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import {
-  IconArrowRight,
-  IconArticle,
-  IconPinFilled,
-  IconCalendar,
-  IconClock,
-  IconSearch,
-  IconSparkles,
-  IconX,
-} from "@tabler/icons-react";
-import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost } from "@/lib/blog";
-import { BlogCard } from "@/components/BlogCard";
+import { BlogCard, Corners } from "@/components/BlogCard";
 import { BlogCover } from "@/components/BlogCover";
+import { Stack } from "@/components/ui";
+import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
+import { IconArrowRight, IconArticle } from "@tabler/icons-react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 
 const PAGE = 12;
+const SIDE = 4; // recent posts shown beside the featured story
 
-function norm(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d");
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  const first = parts[0][0];
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
 }
 
-export function BlogList({
-  posts: all,
-  categories,
-}: {
-  posts: BlogPost[];
-  categories?: BlogCategoryMap;
-}) {
+export function BlogList({ posts: all, categories }: { posts: BlogPost[]; categories?: BlogCategoryMap }) {
   const { t } = useI18n();
   const [active, setActive] = useState<string | null>(null);
-  const [q, setQ] = useState("");
   const [limit, setLimit] = useState(PAGE);
-  const searchRef = useRef<HTMLInputElement>(null);
   const catMap = categories && Object.keys(categories).length ? categories : DEFAULT_CATEGORIES;
   const catLabel = (k: string) => catMap[k] || k;
   const readLabel = t("blog_read_min");
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   const counts = useMemo(
     () =>
@@ -65,206 +38,143 @@ export function BlogList({
   );
   const topics = Object.keys(catMap).filter((k) => counts[k]);
 
-  const filtered = useMemo(() => {
-    const needle = norm(q.trim());
-    return all.filter((p) => {
-      if (active && p.category !== active) return false;
-      if (!needle) return true;
-      return norm(`${p.title} ${p.excerpt} ${p.tags.join(" ")} ${catMap[p.category] || ""}`).includes(needle);
-    });
-  }, [all, active, q, catMap]);
+  const filtered = useMemo(() => (active ? all.filter((p) => p.category === active) : all), [all, active]);
 
-  // Featured = pinned posts of the current filter; if none, fall back to the latest.
-  // Multiple pinned posts rotate in a slider at the top.
-  const pinned = filtered.filter((p) => p.pinned);
-  const featured = pinned.length ? pinned : filtered.length ? [filtered[0]] : [];
-  const featuredSlugs = new Set(featured.map((p) => p.slug));
-  const rest = filtered.filter((p) => !featuredSlugs.has(p.slug));
+  // Featured split is independent of the topic filter: pinned posts fill it
+  // (first = hero, the rest beside it); with nothing pinned, fall back to the latest posts.
+  const pinned = all.filter((p) => p.pinned);
+  const hero = pinned[0] ?? all[0] ?? null;
+  const side = (pinned.length ? pinned.slice(1) : all.filter((p) => p.slug !== hero?.slug)).slice(0, SIDE);
+  // The grid skips featured posts on the default view; a topic view lists every post in it.
+  const usedSlugs = new Set<string>(!active && hero ? [hero.slug, ...side.map((p) => p.slug)] : []);
+  const rest = filtered.filter((p) => !usedSlugs.has(p.slug));
   const shown = rest.slice(0, limit);
-  const [slide, setSlide] = useState(0);
-  useEffect(() => {
-    if (featured.length < 2) return;
-    const id = setInterval(() => setSlide((n) => (n + 1) % featured.length), 10000);
-    return () => clearInterval(id);
-  }, [featured.length]);
-  // Clamp slide when filter changes.
-  useEffect(() => {
-    if (slide >= featured.length) setSlide(0);
-  }, [featured.length, slide]);
 
   function pickCat(k: string | null) {
     setActive(k);
     setLimit(PAGE);
   }
 
-  return (
-    <>
-      {/* HERO: airy, centered, with soft aurora blobs behind */}
-      <section className="bh" aria-labelledby="blog-h1">
-        <div className="bh-aurora" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
-        <h1 id="blog-h1" className="bh-title">
-          {t("blog_hero_1")}{" "}
-          <span className="bh-grad">{t("blog_hero_2")}</span>
-        </h1>
-        <p className="bh-dek">{t("blog_hero_d")}</p>
-      </section>
+  const secLabel = active ? catMap[active] : t("blog_latest");
 
-      {/* FEATURED: pinned posts rotate in a slider; else the latest post stands alone. */}
-      {featured.length > 0 && (
-        <div className="bh-featured-wrap">
-          <div
-            className="bh-featured-track"
-            style={{ transform: `translateX(-${slide * 100}%)` }}
-          >
-            {featured.map((p) => (
-              <Link
-                key={p.slug}
-                href={`/blog/${p.slug}`}
-                prefetch={false}
-                className="bh-featured"
-                aria-label={p.title}
-              >
-                <div className="bh-featured-text">
-                  <span className="bh-featured-cat">
-                    {p.pinned && <IconPinFilled size={11} stroke={2} />}
-                    <IconSparkles size={11} stroke={2.2} /> {catLabel(p.category)}
+  return (
+    <Stack gap={20}>
+      {/* HERO — framed tile: eyebrow, title, dek, topic filters */}
+      <header className="bz-hero" aria-labelledby="blog-h1">
+        <Corners />
+        <span className="bz-eyebrow">{t("blog_eyebrow")}</span>
+        <h1 id="blog-h1" className="bz-title">
+          {t("blog_hero_1")} {t("blog_hero_2")}
+        </h1>
+        <p className="bz-dek">{t("blog_hero_d")}</p>
+      </header>
+
+      {/* FEATURED SPLIT — big story (7) + side list (5); unaffected by the topic filter */}
+      {hero && (
+        <div className={`bz-top${side.length ? "" : " bz-top--solo"}`} aria-label={t("blog_featured")}>
+          <article className="bz-tile bz-feat">
+            <Corners />
+            <Link href={`/blog/${hero.slug}`} prefetch={false} className="bz-feat-link">
+              <span className="bz-media">
+                <BlogCover post={hero} variant="hero" size={[1200, 675]} />
+              </span>
+              <span className="bz-feat-body">
+                <span className="bz-feat-cats">
+                  <span className="bz-cat">{catLabel(hero.category)}</span>
+                  {hero.tags.length > 0 && <span className="bz-tags">{hero.tags.slice(0, 3).join(" · ")}</span>}
+                </span>
+                <h2>{hero.title}</h2>
+                {hero.excerpt && <span className="bz-excerpt">{hero.excerpt}</span>}
+                <span className="bz-meta">
+                  <time dateTime={hero.date}>{formatDateVi(hero.date)}</time>
+                  <i aria-hidden="true">·</i>
+                  <span>
+                    {hero.readMin} {readLabel}
                   </span>
-                  <h2>{p.title}</h2>
-                  {p.excerpt && <p>{p.excerpt}</p>}
-                  <div className="bh-featured-meta">
-                    <span>
-                      <IconCalendar size={12} stroke={2} /> {formatDateVi(p.date)}
+                </span>
+                <span className="bz-byline">
+                  <span className="bz-avatar">{initials(hero.author)}</span>
+                  {hero.author}
+                </span>
+              </span>
+            </Link>
+          </article>
+
+          {side.length > 0 && (
+            <div className="bz-side">
+              {side.map((p) => (
+                <article key={p.slug} className="bz-tile bz-side-item">
+                  <Corners />
+                  <Link href={`/blog/${p.slug}`} prefetch={false}>
+                    <span className="bz-media">
+                      <BlogCover post={p} size={[480, 270]} />
                     </span>
-                    <span className="bh-dot" />
-                    <span>
-                      <IconClock size={12} stroke={2} /> {p.readMin} {readLabel}
+                    <span className="bz-side-text">
+                      <h2>{p.title}</h2>
+                      {p.excerpt && <span className="bz-side-ex">{p.excerpt}</span>}
+                      <time dateTime={p.date}>{formatDateVi(p.date)}</time>
                     </span>
-                  </div>
-                  <span className="bh-featured-cta">
-                    Đọc bài <IconArrowRight size={14} stroke={2} />
-                  </span>
-                </div>
-                <div className="bh-featured-media">
-                  <BlogCover post={p} variant="hero" size={[1200, 800]} />
-                </div>
-              </Link>
-            ))}
-          </div>
-          {featured.length > 1 && (
-            <div className="bh-featured-dots" role="tablist" aria-label="Slider">
-              {featured.map((p, i) => (
-                <button
-                  key={p.slug}
-                  type="button"
-                  role="tab"
-                  aria-selected={i === slide}
-                  aria-label={`Slide ${i + 1}`}
-                  className={`bh-featured-dot${i === slide ? " is-on" : ""}`}
-                  onClick={() => setSlide(i)}
-                />
+                  </Link>
+                </article>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* FILTER BAR: sticky, holds tabs + search */}
-      <div className="bh-bar">
-        <div className="bh-tabs" role="tablist" aria-label={t("blog_topics")}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!active}
-            onClick={() => pickCat(null)}
-            className={`bh-tab${!active ? " is-active" : ""}`}
-          >
-            {t("blog_all")}
-            <span className="bh-tab-n">{all.length}</span>
-          </button>
-          {topics.map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={active === key}
-              onClick={() => pickCat(active === key ? null : key)}
-              className={`bh-tab${active === key ? " is-active" : ""}`}
-            >
-              {catMap[key]}
-              <span className="bh-tab-n">{counts[key]}</span>
-            </button>
-          ))}
-        </div>
-        <label className="bh-search">
-          <IconSearch size={16} stroke={2} />
-          <input
-            ref={searchRef}
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setLimit(PAGE);
-            }}
-            placeholder={t("blog_search")}
-            aria-label={t("blog_search")}
-          />
-          {q ? (
-            <button type="button" onClick={() => setQ("")} aria-label={t("blog_clear")}>
-              <IconX size={14} stroke={2} />
-            </button>
+      {/* LATEST GRID */}
+      {rest.length > 0 || active ? (
+        <section className="bz-sec">
+          <header className="bz-sec-head">
+            <h2>{secLabel}</h2>
+            <nav className="bz-pills" role="tablist" aria-label={t("blog_topics")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!active}
+                onClick={() => pickCat(null)}
+                className={`bz-pill${!active ? " is-active" : ""}`}
+              >
+                {t("blog_all")}
+              </button>
+              {topics.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active === key}
+                  onClick={() => pickCat(active === key ? null : key)}
+                  className={`bz-pill${active === key ? " is-active" : ""}`}
+                >
+                  {catMap[key]}
+                </button>
+              ))}
+            </nav>
+          </header>
+          {filtered.length === 0 ? (
+            <div className="bz-empty">
+              <IconArticle size={22} stroke={1.7} />
+              <p>{t("blog_empty")}</p>
+              <button type="button" className="bz-btn" onClick={() => pickCat(null)}>
+                {t("blog_clear")}
+              </button>
+            </div>
           ) : (
-            <kbd>/</kbd>
+            <div className="bz-grid">
+              {shown.map((p) => (
+                <BlogCard key={p.slug} post={p} catLabel={catLabel(p.category)} readLabel={readLabel} />
+              ))}
+            </div>
           )}
-        </label>
-      </div>
-
-      {rest.length > 0 && (
-        <div className="bh-section">
-          <h3>
-            <IconArticle size={16} stroke={2} />
-            {active ? catMap[active] : q.trim() ? `Kết quả cho “${q.trim()}”` : "Bài viết khác"}
-            <span>{rest.length} bài</span>
-          </h3>
-        </div>
-      )}
-
-      {filtered.length === 0 ? (
-        <div className="bl-empty">
-          <span className="bl-empty-ico">
-            <IconArticle size={22} stroke={1.7} />
-          </span>
-          <p>{t("blog_empty")}</p>
-          <button
-            type="button"
-            className="bl-btn"
-            onClick={() => {
-              setQ("");
-              pickCat(null);
-            }}
-          >
-            {t("blog_clear")}
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="bl-grid">
-            {shown.map((p) => (
-              <BlogCard key={p.slug} post={p} catLabel={catLabel(p.category)} readLabel={readLabel} />
-            ))}
-          </div>
           {rest.length > shown.length && (
-            <div className="bl-more">
-              <button type="button" className="bl-btn" onClick={() => setLimit((n) => n + PAGE)}>
+            <div className="bz-more">
+              <button type="button" className="bz-btn" onClick={() => setLimit((n) => n + PAGE)}>
                 {t("blog_load_more")} <IconArrowRight size={14} stroke={2} />
-                <span>+{Math.min(PAGE, rest.length - shown.length)}</span>
               </button>
             </div>
           )}
-        </>
-      )}
-    </>
+        </section>
+      ) : null}
+    </Stack>
   );
 }
