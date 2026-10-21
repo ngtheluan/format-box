@@ -8,7 +8,7 @@ import {
   IconX,
   IconArrowsMoveVertical,
 } from "@tabler/icons-react";
-import { CATEGORY_ORDER, toolSearchable, type Tool, type ToolCategory } from "@/lib/tools-shared";
+import { CATEGORY_ORDER, isToolVisible, toolSearchable, type Role, type Tool, type ToolCategory } from "@/lib/tools-shared";
 import { useTools } from "@/components/ToolsProvider";
 import { ToolIcon } from "@/lib/tool-icons";
 import { useI18n } from "@/lib/i18n";
@@ -38,12 +38,17 @@ export default function SearchPalette() {
   const [active, setActive] = useState(0);
   const [isMac, setIsMac] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [role, setRole] = useState<Role>("guest");
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsMac(/Mac|iPhone|iPad|iPod/.test(navigator.platform));
     setMounted(true);
+    fetch("/api/user/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setRole((d?.user?.role as Role) ?? "guest"))
+      .catch(() => {});
   }, []);
 
   // Cmd/Ctrl+K to toggle + Escape to close
@@ -86,11 +91,12 @@ export default function SearchPalette() {
 
   const results = useMemo(() => {
     const query = q.trim();
-    return TOOLS.map((tool) => ({ tool, s: score(tool, query) }))
+    return TOOLS.filter((tool) => isToolVisible(tool, role))
+      .map((tool) => ({ tool, s: score(tool, query) }))
       .filter((r) => r.s > 0)
       .sort((a, b) => b.s - a.s)
       .map((r) => r.tool);
-  }, [q, TOOLS]);
+  }, [q, TOOLS, role]);
 
   useEffect(() => setActive(0), [q]);
 

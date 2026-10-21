@@ -5,11 +5,6 @@
    feedback. Hides the global Nav on all blog routes.
    ============================================================ */
 
-/* Hide the fixed Nav on blog routes (set by AppShell as .app-shell--blog). */
-.app-shell--blog .nav {
-  display: none !important;
-}
-
 .blog-wrap,
 .bd {
   width: 100%;

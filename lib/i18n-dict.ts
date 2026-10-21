@@ -3,6 +3,7 @@
 export const DICT = {
   // NAV / MENU
   nav_tools: { vi: "Công cụ", en: "Tools" },
+  nav_blog: { vi: "Bài viết", en: "Blog" },
   nav_search_placeholder: { vi: "Tìm công cụ", en: "Search tools" },
   nav_all_tools: { vi: "Tất cả tool", en: "All tools" },
   nav_results: { vi: "kết quả", en: "results" },

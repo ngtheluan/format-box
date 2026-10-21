@@ -8,11 +8,9 @@ import { usePathname } from "next/navigation";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
-  // Blog pages hide the global Nav for an immersive, editorial reading experience;
-  // navigation lives inside the blog's own translucent toolbar.
   const isBlog = pathname === "/blog" || pathname.startsWith("/blog/");
   const isImmersive = pathname === "/gift" || pathname.startsWith("/gift/");
-  const hideNav = isAdmin || isBlog || isImmersive;
+  const hideNav = isAdmin || isImmersive;
   const hideChrome = isAdmin || isImmersive;
 
   return (
