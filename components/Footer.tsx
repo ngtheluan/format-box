@@ -9,9 +9,9 @@ export default function Footer() {
     <footer className="ft">
       <div className="ft-inner ft-line">
         <span>{t("ft_copy")}</span>
-        <a className="ft-mail" href="mailto:nguyenluan.work@gmail.com">
+        <a className="ft-mail" href="mailto:formatbox.support@gmail.com">
           <IconMail size={13} stroke={1.9} />
-          <span>nguyenluan.work@gmail.com</span>
+          <span>formatbox.support@gmail.com</span>
         </a>
         <span className="mono">
           {process.env.NEXT_PUBLIC_APP_VERSION}
