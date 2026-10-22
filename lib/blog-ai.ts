@@ -64,7 +64,8 @@ async function callOpenAICompat(
       { role: "user", content: o.user },
     ],
   };
-  if (o.maxTokens) body.max_tokens = o.maxTokens;
+  const maxTok = o.maxTokens ?? (o.long ? 8000 : undefined);
+  if (maxTok) body.max_tokens = maxTok;
   if (o.json) body.response_format = { type: "json_object" };
   const r = await fetch(ep.url, {
     method: "POST",
@@ -100,7 +101,8 @@ async function callGroq(o: LlmOpts, model: string, search: boolean): Promise<str
       { role: "user", content: o.user },
     ],
   };
-  if (o.maxTokens) body.max_completion_tokens = o.maxTokens;
+  const maxTokGroq = o.maxTokens ?? (o.long ? 8000 : undefined);
+  if (maxTokGroq) body.max_completion_tokens = maxTokGroq;
   if (search) body.tools = [{ type: "browser_search" }];
   else if (o.json) body.response_format = { type: "json_object" };
   const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -111,6 +113,9 @@ async function callGroq(o: LlmOpts, model: string, search: boolean): Promise<str
   });
   if (!r.ok) throw new Error(`Groq ${r.status}: ${(await r.text()).slice(0, 240)}`);
   const j: any = await r.json();
+  if (o.long && j?.choices?.[0]?.finish_reason === "length") {
+    throw new Error(`Groq bị cắt (max_tokens)`);
+  }
   return j?.choices?.[0]?.message?.content ?? "";
 }
 
@@ -119,7 +124,8 @@ async function callGemini(o: LlmOpts, model: string, search: boolean): Promise<s
     model,
   )}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY || "")}`;
   const generationConfig: Record<string, unknown> = { temperature: o.temperature ?? 0.7 };
-  if (o.maxTokens) generationConfig.maxOutputTokens = o.maxTokens;
+  const maxTokGem = o.maxTokens ?? (o.long ? 8000 : undefined);
+  if (maxTokGem) generationConfig.maxOutputTokens = maxTokGem;
   if (o.json && !search) generationConfig.responseMimeType = "application/json";
   const r = await fetch(endpoint, {
     method: "POST",
@@ -387,10 +393,17 @@ export async function searchWikimedia(query: string, n = 12, _page = 1): Promise
         const meta = info.extmetadata || {};
         const artist = (meta.Artist?.value || "").replace(/<[^>]+>/g, "").trim() || "Wikimedia";
         const license = (meta.LicenseShortName?.value || "").replace(/<[^>]+>/g, "").trim();
+        // Use the exact thumbnail URL returned by Commons. Rewriting its pixel
+        // size can request a rendition larger than the source (for example,
+        // turning an 800px image into a nonexistent 1200px thumbnail).
+        const thumb = String(info.thumburl || "").replace(
+          /^https?:\/\/thumb\.wikimedia\.org(?=\/)/i,
+          "https://upload.wikimedia.org",
+        );
         return {
           id: `w:${p.pageid}`,
-          url: info.thumburl.replace(/\/\d+px-/, "/1200px-"),
-          thumb: info.thumburl.replace(/\/\d+px-/, "/400px-"),
+          url: thumb,
+          thumb,
           alt: (p.title || "").replace(/^File:/, "").replace(/\.[a-z]+$/i, "").slice(0, 220),
           credit: artist.slice(0, 60),
           creditUrl: `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`,

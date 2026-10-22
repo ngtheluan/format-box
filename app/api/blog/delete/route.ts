@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { isAdmin } from "@/lib/admin-auth";
@@ -22,6 +23,8 @@ export async function POST(req: Request) {
         await fs.unlink(path.join(coverDir, `${slug}-${i}.jpg`));
       } catch {}
     }
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${slug}`);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Xoá lỗi" }, { status: 500 });

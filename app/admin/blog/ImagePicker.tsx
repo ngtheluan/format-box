@@ -106,7 +106,7 @@ export default function ImagePicker({ title, initialQuery, onPick, onClose }: Pr
             {items.map((c) => (
               <button key={c.id} type="button" className="bga-picker-item" onClick={() => pick(c)} title={c.alt}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.thumb} alt={c.alt} loading="lazy" />
+                <img src={c.thumb} alt={c.alt} loading="lazy" referrerPolicy="no-referrer" />
                 <span>{c.credit}</span>
               </button>
             ))}

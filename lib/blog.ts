@@ -1,4 +1,5 @@
 import { marked } from "marked";
+import { unstable_noStore as noStore } from "next/cache";
 import { supabase, supabaseAdmin } from "./supabase";
 
 export type BlogCategory = string;
@@ -47,6 +48,7 @@ function defaultCatRows(): BlogCategoryRow[] {
 }
 
 export async function listPublicCategories(): Promise<BlogCategoryRow[]> {
+  noStore();
   const sb = supabase();
   if (!sb) return defaultCatRows();
   const data = await withRetry(async () => {
@@ -135,6 +137,13 @@ marked.setOptions({ gfm: true, breaks: false });
 
 // Rewrite legacy pollinations URLs → our /api/img proxy (handles 500s with seed retry).
 export function rewriteImgUrl(url: string): string {
+  // AI-generated Markdown may escape URL punctuation (for example
+  // `https\://...Rice\_...`). Those backslashes are valid Markdown escapes,
+  // but must not be sent to the image host as part of the URL.
+  url = url.replace(/\\/g, "");
+  // `thumb.wikimedia.org` is a retired thumbnail host. Older saved posts may
+  // still contain it, while Commons serves the same path from upload.wikimedia.org.
+  url = url.replace(/^https?:\/\/thumb\.wikimedia\.org(?=\/)/i, "https://upload.wikimedia.org");
   const m = url.match(/^https?:\/\/image\.pollinations\.ai\/prompt\/([^?]+)\?(.+)$/);
   if (!m) return url;
   const prompt = decodeURIComponent(m[1]).replace(/[‐-―]/g, "-");
@@ -230,7 +239,7 @@ function preEmbed(md: string): { md: string; map: Map<string, string> } {
 }
 
 export function renderMarkdown(md: string): { html: string; toc: TocItem[] } {
-  const rewritten = md.replace(/https?:\/\/image\.pollinations\.ai\/prompt\/[^\s)"']+/g, (u) => rewriteImgUrl(u));
+  const rewritten = md.replace(/https?\\?:\/\/[^\s)"']+/g, (u) => rewriteImgUrl(u));
   const { md: prepared, map } = preEmbed(rewritten);
   let raw = marked.parse(prepared) as string;
   map.forEach((html, key) => {
@@ -245,7 +254,8 @@ export function renderMarkdown(md: string): { html: string; toc: TocItem[] } {
     toc.push({ id, text });
     return `<h2 id="${id}"${attrs ?? ""}>${inner}</h2>`;
   });
-  return { html: html.replace(/<table>([\s\S]*?)<\/table>/g, '<div class="bd-table"><table>$1</table></div>'), toc };
+  const withImgPolicy = html.replace(/<img\b(?![^>]*\breferrerpolicy=)([^>]*)>/gi, '<img referrerpolicy="no-referrer"$1>');
+  return { html: withImgPolicy.replace(/<table>([\s\S]*?)<\/table>/g, '<div class="bd-table"><table>$1</table></div>'), toc };
 }
 
 // DB mapping
@@ -327,6 +337,7 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 3, delayMs = 150): Pro
 }
 
 export async function listPublicPosts(): Promise<BlogPost[]> {
+  noStore();
   const sb = supabase();
   if (!sb) return [];
   const data = await withRetry(async () => {
@@ -338,6 +349,7 @@ export async function listPublicPosts(): Promise<BlogPost[]> {
 }
 
 export async function getPublicPost(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
+  noStore();
   const sb = supabase();
   if (!sb) return null;
   const data = await withRetry(async () => {

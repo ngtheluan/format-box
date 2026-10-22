@@ -21,6 +21,7 @@ export function BlogCover({ post, variant = "card", size }: Props) {
         className="blog-cover-img"
         loading={variant === "hero" ? "eager" : "lazy"}
         decoding="async"
+        referrerPolicy="no-referrer"
       />
     );
   }

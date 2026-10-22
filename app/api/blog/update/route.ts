@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/admin-auth";
 import { getAdminPost, updatePost, type BlogCategory } from "@/lib/blog";
 
@@ -45,6 +46,8 @@ export async function POST(req: Request) {
 
   try {
     await updatePost(slug, dbPatch);
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${slug}`);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "DB lỗi" }, { status: 500 });

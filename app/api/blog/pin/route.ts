@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/admin-auth";
 import { updatePost } from "@/lib/blog";
 
@@ -12,6 +13,8 @@ export async function POST(req: Request) {
   if (!slug) return NextResponse.json({ error: "Thiếu slug" }, { status: 400 });
   try {
     await updatePost(slug, { pinned: !!pinned });
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${slug}`);
     return NextResponse.json({ ok: true, pinned: !!pinned });
   } catch (e: any) {
     const msg = e?.message || "DB lỗi";

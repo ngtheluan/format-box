@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/admin-auth";
 import { updateStatus } from "@/lib/blog";
 
@@ -10,6 +11,8 @@ export async function POST(req: Request) {
   if (!slug) return NextResponse.json({ error: "Thiếu slug" }, { status: 400 });
   try {
     await updateStatus(slug, "draft");
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${slug}`);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "DB lỗi" }, { status: 500 });

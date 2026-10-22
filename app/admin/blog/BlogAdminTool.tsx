@@ -2,8 +2,8 @@
 import "@/app/blog/blog.css";
 import { useToast } from "@/components/Toast";
 import type { SelectOption } from "@/components/ui";
-import { Field, Input, Select, Switch, Tab, Tabs, TabsList, TabPanel, Textarea } from "@/components/ui";
-import type { BlogCategory, BlogCategoryRow, BlogPost, BlogStatus } from "@/lib/blog";
+import { Field, Input, Select, Switch, Tab, TabPanel, Tabs, TabsList, Textarea } from "@/components/ui";
+import { rewriteImgUrl, type BlogCategory, type BlogCategoryRow, type BlogPost, type BlogStatus } from "@/lib/blog";
 import {
   AI_MODELS,
   AI_PROVIDER_LABEL,
@@ -912,12 +912,15 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                     {p.coverImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={p.coverImage
+                        src={rewriteImgUrl(
+                          p.coverImage
                           .split("#")[0]
                           .replace(/([?&])w=\d+/, "$1w=160")
-                          .replace(/([?&])h=\d+/, "$1h=100")}
+                          .replace(/([?&])h=\d+/, "$1h=100"),
+                        )}
                         alt=""
                         loading="lazy"
+                        referrerPolicy="no-referrer"
                       />
                     ) : (
                       <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
@@ -1010,418 +1013,532 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
             <div className="fx-modal-head">
               <h2>
                 <IconSparkles size={16} stroke={2} /> Sinh bài blog
-                <span className="fx-badge">AI · miễn phí</span>
+                <span className="fx-badge">AI</span>
               </h2>
               <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => !genLoading && setGenerateOpen(false)}>
                 <IconX size={16} stroke={2} />
               </button>
             </div>
             <div className="fx-modal-body">
-              {(genLoading || (Object.keys(genSteps).length > 0 && (genAborted || genErr))) ? (() => {
-                const keys = (Object.keys(STEP_LABEL) as GenStep[]).filter((k) => genSteps[k]);
-                const total = keys.length;
-                const done = keys.filter((k) => genSteps[k]!.status === "done" || genSteps[k]!.status === "skip").length;
-                const pct = total ? Math.round((done / total) * 100) : 0;
-                const activeIdx = keys.findIndex((k) => genSteps[k]!.status === "start");
-                const activeLabel = activeIdx >= 0 ? STEP_LABEL[keys[activeIdx]] : null;
-                return (
-                  <div className="bga-progress-inline">
-                    <div className="bga-progress-head">
-                      <div className="bga-progress-title">
-                        {genLoading ? (
-                          <>
-                            <IconLoader2 size={13} className="spin" />
-                            <span>{activeLabel || "Chuẩn bị…"}</span>
-                          </>
-                        ) : genAborted ? (
-                          <>
-                            <IconX size={13} stroke={2} /> Đã huỷ
-                          </>
-                        ) : (
-                          <>
-                            <IconAlertTriangle size={13} /> Dừng với lỗi
-                          </>
-                        )}
+              {genLoading || (Object.keys(genSteps).length > 0 && (genAborted || genErr)) ? (
+                (() => {
+                  const keys = (Object.keys(STEP_LABEL) as GenStep[]).filter((k) => genSteps[k]);
+                  const total = keys.length;
+                  const done = keys.filter(
+                    (k) => genSteps[k]!.status === "done" || genSteps[k]!.status === "skip",
+                  ).length;
+                  const pct = total ? Math.round((done / total) * 100) : 0;
+                  const activeIdx = keys.findIndex((k) => genSteps[k]!.status === "start");
+                  const activeLabel = activeIdx >= 0 ? STEP_LABEL[keys[activeIdx]] : null;
+                  return (
+                    <div className="bga-progress-inline">
+                      <div className="bga-progress-head">
+                        <div className="bga-progress-title">
+                          {genLoading ? (
+                            <>
+                              <IconLoader2 size={13} className="spin" />
+                              <span>{activeLabel || "Chuẩn bị…"}</span>
+                            </>
+                          ) : genAborted ? (
+                            <>
+                              <IconX size={13} stroke={2} /> Đã huỷ
+                            </>
+                          ) : (
+                            <>
+                              <IconAlertTriangle size={13} /> Dừng với lỗi
+                            </>
+                          )}
+                        </div>
+                        <div className="bga-progress-meta">
+                          <span>
+                            {done}/{total} bước
+                          </span>
+                          <span className="bga-progress-pct">{pct}%</span>
+                          <span className="bga-elapsed-chip">{genElapsed}s</span>
+                        </div>
                       </div>
-                      <div className="bga-progress-meta">
-                        <span>{done}/{total} bước</span>
-                        <span className="bga-progress-pct">{pct}%</span>
-                        <span className="bga-elapsed-chip">{genElapsed}s</span>
+                      <div className="bga-progress-bar">
+                        <div className="bga-progress-fill" style={{ width: `${pct}%` }} />
                       </div>
-                    </div>
-                    <div className="bga-progress-bar">
-                      <div className="bga-progress-fill" style={{ width: `${pct}%` }} />
-                    </div>
-                    <ol className="bga-steps" style={{ marginTop: 14 }}>
-                      {keys.map((k) => {
-                        const st = genSteps[k]!;
-                        const dur = st.durationMs;
-                        return (
-                          <li key={k} data-status={st.status}>
-                            <span className="bga-step-ico">
-                              {st.status === "done" ? (
-                                <IconCircleCheckFilled size={18} />
-                              ) : st.status === "start" ? (
-                                <IconLoader2 size={18} className="spin" />
-                              ) : st.status === "skip" ? (
-                                <IconPlayerSkipForward size={17} />
-                              ) : (
-                                <IconCircleDashed size={18} />
-                              )}
-                            </span>
-                            <div className="bga-step-main">
-                              <div className="bga-step-top">
-                                <b>{STEP_LABEL[k]}</b>
-                                {dur != null && dur > 0 && (
-                                  <span className="bga-step-dur">{(dur / 1000).toFixed(1)}s</span>
+                      <ol className="bga-steps" style={{ marginTop: 14 }}>
+                        {keys.map((k) => {
+                          const st = genSteps[k]!;
+                          const dur = st.durationMs;
+                          return (
+                            <li key={k} data-status={st.status}>
+                              <span className="bga-step-ico">
+                                {st.status === "done" ? (
+                                  <IconCircleCheckFilled size={18} />
+                                ) : st.status === "start" ? (
+                                  <IconLoader2 size={18} className="spin" />
+                                ) : st.status === "skip" ? (
+                                  <IconPlayerSkipForward size={17} />
+                                ) : (
+                                  <IconCircleDashed size={18} />
                                 )}
+                              </span>
+                              <div className="bga-step-main">
+                                <div className="bga-step-top">
+                                  <b>{STEP_LABEL[k]}</b>
+                                  {dur != null && dur > 0 && (
+                                    <span className="bga-step-dur">{(dur / 1000).toFixed(1)}s</span>
+                                  )}
+                                </div>
+                                {st.detail && <span className="bga-step-detail">{st.detail}</span>}
                               </div>
-                              {st.detail && <span className="bga-step-detail">{st.detail}</span>}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                      {genErr && (
+                        <div
+                          className="fx-err"
+                          style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 10 }}
+                        >
+                          <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
+              ) : (
+                <>
+                  <fieldset disabled={genLoading} className="bga-gen4">
+                    {/* HERO — mode + presets */}
+                    <div className="bga-hero">
+                      <div className="bga-seg bga-seg-pill">
+                        {(
+                          [
+                            ["topic", "Tự nhập", <IconWriting key="i" size={13} stroke={1.9} />],
+                            ["random", "AI chọn", <IconSparkles key="i" size={13} stroke={1.9} />],
+                          ] as const
+                        ).map(([k, label, ic]) => (
+                          <button
+                            key={k}
+                            type="button"
+                            className={genMode === k ? "is-on" : ""}
+                            onClick={() => setGenMode(k)}
+                          >
+                            {ic} {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="bga-presets" title="Preset nhanh — nạp sẵn phong cách & cấu trúc">
+                        {(
+                          [
+                            {
+                              id: "tutorial",
+                              label: "Hướng dẫn kỹ thuật",
+                              ic: <IconWriting size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("tutorial");
+                                setGenStructure("howto");
+                                setGenAudience("intermediate");
+                                setGenLength("long");
+                                setGenExtras(["tldr", "code"]);
+                              },
+                            },
+                            {
+                              id: "review",
+                              label: "Review sản phẩm",
+                              ic: <IconPalette size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("analysis");
+                                setGenStructure("review");
+                                setGenAudience("mixed");
+                                setGenLength("medium");
+                                setGenExtras(["tldr", "faq"]);
+                              },
+                            },
+                            {
+                              id: "deepdive",
+                              label: "Phân tích chuyên sâu",
+                              ic: <IconBrain size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("expert");
+                                setGenStructure("deepdive");
+                                setGenAudience("expert");
+                                setGenLength("long");
+                                setGenExtras(["stats"]);
+                              },
+                            },
+                            {
+                              id: "news",
+                              label: "Tin xu hướng",
+                              ic: <IconWorldSearch size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("friendly");
+                                setGenStructure("news");
+                                setGenAudience("mixed");
+                                setGenLength("short");
+                                setGenExtras(["tldr", "stats"]);
+                                setGenResearch(true);
+                              },
+                            },
+                          ] as const
+                        ).map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="bga-preset-btn"
+                            onClick={p.apply}
+                            title={`Preset: ${p.label}`}
+                          >
+                            {p.ic} {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* TOPIC — big input + ideas */}
+                    {genMode === "topic" ? (
+                      <div className="bga-topic-wrap">
+                        <Input
+                          autoFocus
+                          className="bga-topic-input"
+                          value={topic}
+                          onChange={(e) => setTopic(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && !genLoading && generate()}
+                          placeholder="Nhập chủ đề của bạn… (VD: WebGPU cho người mới 2026)"
+                          leftIcon={<IconTarget size={16} stroke={1.9} />}
+                          rightSlot={
+                            <div className="bga-topic-tools">
+                              <button
+                                type="button"
+                                className={`bga-tool-btn${ideasTrending ? " is-on" : ""}`}
+                                onClick={() => setIdeasTrending((v) => !v)}
+                                title="Gợi ý theo xu hướng mới (tra cứu web)"
+                              >
+                                <IconWorldSearch size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="bga-tool-btn"
+                                onClick={suggestIdeas}
+                                disabled={ideasLoading}
+                                title="Gợi ý ý tưởng từ AI"
+                              >
+                                {ideasLoading ? <IconLoader2 size={14} className="spin" /> : <IconBulb size={14} />}
+                              </button>
                             </div>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                    {genErr && (
-                      <div className="fx-err" style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 10 }}>
-                        <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <div className="bga-random-info">
+                        <IconSparkles size={16} stroke={2} />
+                        <span>
+                          AI sẽ tự chọn chủ đề mới cho danh mục <b>{CAT_LABEL[genCategory] || genCategory}</b>
+                        </span>
                       </div>
                     )}
-                  </div>
-                );
-              })() : (<>
-              <fieldset disabled={genLoading} className="bga-gen4">
-                {/* HERO — mode + presets */}
-                <div className="bga-hero">
-                  <div className="bga-seg bga-seg-pill">
-                    {(
-                      [
-                        ["topic", "Tự nhập", <IconWriting key="i" size={13} stroke={1.9} />],
-                        ["random", "AI chọn", <IconSparkles key="i" size={13} stroke={1.9} />],
-                      ] as const
-                    ).map(([k, label, ic]) => (
-                      <button
-                        key={k}
-                        type="button"
-                        className={genMode === k ? "is-on" : ""}
-                        onClick={() => setGenMode(k)}
-                      >
-                        {ic} {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="bga-presets" title="Preset nhanh — nạp sẵn phong cách & cấu trúc">
-                    {(
-                      [
-                        {
-                          id: "tutorial",
-                          label: "Hướng dẫn kỹ thuật",
-                          ic: <IconWriting size={12} stroke={1.9} />,
-                          apply: () => {
-                            setGenTone("tutorial");
-                            setGenStructure("howto");
-                            setGenAudience("intermediate");
-                            setGenLength("long");
-                            setGenExtras(["tldr", "code"]);
-                          },
-                        },
-                        {
-                          id: "review",
-                          label: "Review sản phẩm",
-                          ic: <IconPalette size={12} stroke={1.9} />,
-                          apply: () => {
-                            setGenTone("analysis");
-                            setGenStructure("review");
-                            setGenAudience("mixed");
-                            setGenLength("medium");
-                            setGenExtras(["tldr", "faq"]);
-                          },
-                        },
-                        {
-                          id: "deepdive",
-                          label: "Phân tích chuyên sâu",
-                          ic: <IconBrain size={12} stroke={1.9} />,
-                          apply: () => {
-                            setGenTone("expert");
-                            setGenStructure("deepdive");
-                            setGenAudience("expert");
-                            setGenLength("long");
-                            setGenExtras(["stats"]);
-                          },
-                        },
-                        {
-                          id: "news",
-                          label: "Tin xu hướng",
-                          ic: <IconWorldSearch size={12} stroke={1.9} />,
-                          apply: () => {
-                            setGenTone("friendly");
-                            setGenStructure("news");
-                            setGenAudience("mixed");
-                            setGenLength("short");
-                            setGenExtras(["tldr", "stats"]);
-                            setGenResearch(true);
-                          },
-                        },
-                      ] as const
-                    ).map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className="bga-preset-btn"
-                        onClick={p.apply}
-                        title={`Preset: ${p.label}`}
-                      >
-                        {p.ic} {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
-                {/* TOPIC — big input + ideas */}
-                {genMode === "topic" ? (
-                  <div className="bga-topic-wrap">
-                    <Input
-                      autoFocus
-                      className="bga-topic-input"
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && !genLoading && generate()}
-                      placeholder="Nhập chủ đề của bạn… (VD: WebGPU cho người mới 2026)"
-                      leftIcon={<IconTarget size={16} stroke={1.9} />}
-                      rightSlot={
-                        <div className="bga-topic-tools">
+                    {ideas.length > 0 && (
+                      <div className="bga-ideas bga-ideas-compact">
+                        {ideas.map((i) => (
                           <button
+                            key={i.title}
                             type="button"
-                            className={`bga-tool-btn${ideasTrending ? " is-on" : ""}`}
-                            onClick={() => setIdeasTrending((v) => !v)}
-                            title="Gợi ý theo xu hướng mới (tra cứu web)"
+                            className={topic === i.title ? "is-on" : ""}
+                            onClick={() => {
+                              setGenMode("topic");
+                              setTopic(i.title);
+                              if (i.angle && !genNotes) setGenNotes(i.angle);
+                            }}
                           >
-                            <IconWorldSearch size={14} />
+                            <b>{i.title}</b>
+                            {i.angle && <span>{i.angle}</span>}
                           </button>
-                          <button
-                            type="button"
-                            className="bga-tool-btn"
-                            onClick={suggestIdeas}
-                            disabled={ideasLoading}
-                            title="Gợi ý ý tưởng từ AI"
+                        ))}
+                      </div>
+                    )}
+
+                    {/* TABS — Nội dung / Phong cách / AI & Nâng cao */}
+                    <Tabs value={genTab} onValueChange={setGenTab} variant="segment">
+                      <TabsList>
+                        <Tab value="content">
+                          <IconArticle size={13} stroke={1.9} /> Nội dung
+                        </Tab>
+                        <Tab value="style">
+                          <IconPalette size={13} stroke={1.9} /> Phong cách
+                        </Tab>
+                        <Tab value="advanced">
+                          <IconBrain size={13} stroke={1.9} /> AI & Nâng cao
+                        </Tab>
+                      </TabsList>
+
+                      <TabPanel value="content">
+                        <div className="bga-grid-dense">
+                          <Field
+                            label={
+                              <>
+                                <IconLayoutList size={11} stroke={1.9} /> Danh mục
+                              </>
+                            }
                           >
-                            {ideasLoading ? <IconLoader2 size={14} className="spin" /> : <IconBulb size={14} />}
-                          </button>
+                            <Select
+                              value={genCategory}
+                              onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
+                              options={CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c }))}
+                              selectSize="sm"
+                            />
+                          </Field>
+                          <Field label="Độ dài">
+                            <div className="bga-seg bga-seg-sm">
+                              {GEN_LENGTHS.map((l) => (
+                                <button
+                                  key={l.id}
+                                  type="button"
+                                  className={genLength === l.id ? "is-on" : ""}
+                                  onClick={() => setGenLength(l.id)}
+                                  title={`${l.words} từ · ${l.sections} section`}
+                                >
+                                  {l.label}
+                                </button>
+                              ))}
+                            </div>
+                          </Field>
+                          <Field
+                            label={
+                              <>
+                                <IconPhoto size={11} stroke={1.9} /> Số ảnh
+                              </>
+                            }
+                          >
+                            <div className="bga-seg bga-seg-sm">
+                              {[0, 1, 2, 3, 4].map((n) => (
+                                <button
+                                  key={n}
+                                  type="button"
+                                  className={genImages === n ? "is-on" : ""}
+                                  onClick={() => setGenImages(n)}
+                                >
+                                  {n}
+                                </button>
+                              ))}
+                            </div>
+                          </Field>
                         </div>
-                      }
-                    />
-                  </div>
-                ) : (
-                  <div className="bga-random-info">
-                    <IconSparkles size={16} stroke={2} />
-                    <span>
-                      AI sẽ tự chọn chủ đề mới cho danh mục <b>{CAT_LABEL[genCategory] || genCategory}</b>
-                    </span>
-                  </div>
-                )}
 
-                {ideas.length > 0 && (
-                  <div className="bga-ideas bga-ideas-compact">
-                    {ideas.map((i) => (
-                      <button
-                        key={i.title}
-                        type="button"
-                        className={topic === i.title ? "is-on" : ""}
-                        onClick={() => {
-                          setGenMode("topic");
-                          setTopic(i.title);
-                          if (i.angle && !genNotes) setGenNotes(i.angle);
-                        }}
-                      >
-                        <b>{i.title}</b>
-                        {i.angle && <span>{i.angle}</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* TABS — Nội dung / Phong cách / AI & Nâng cao */}
-                <Tabs value={genTab} onValueChange={setGenTab} variant="segment">
-                  <TabsList>
-                    <Tab value="content">
-                      <IconArticle size={13} stroke={1.9} /> Nội dung
-                    </Tab>
-                    <Tab value="style">
-                      <IconPalette size={13} stroke={1.9} /> Phong cách
-                    </Tab>
-                    <Tab value="advanced">
-                      <IconBrain size={13} stroke={1.9} /> AI & Nâng cao
-                    </Tab>
-                  </TabsList>
-
-                  <TabPanel value="content">
-                    <div className="bga-grid-dense">
-                      <Field label={<><IconLayoutList size={11} stroke={1.9} /> Danh mục</>}>
-                        <Select
-                          value={genCategory}
-                          onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
-                          options={CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c }))}
-                          selectSize="sm"
-                        />
-                      </Field>
-                      <Field label="Độ dài">
-                        <div className="bga-seg bga-seg-sm">
-                          {GEN_LENGTHS.map((l) => (
-                            <button
-                              key={l.id}
-                              type="button"
-                              className={genLength === l.id ? "is-on" : ""}
-                              onClick={() => setGenLength(l.id)}
-                              title={`${l.words} từ · ${l.sections} section`}
-                            >
-                              {l.label}
-                            </button>
-                          ))}
+                        <div className="bga-inline-row" style={{ marginTop: 10 }}>
+                          <Field
+                            label={
+                              <>
+                                <IconSearch size={11} stroke={1.9} /> Từ khoá SEO
+                              </>
+                            }
+                          >
+                            <Input
+                              value={genSeoKeyword}
+                              onChange={(e) => setGenSeoKeyword(e.target.value)}
+                              placeholder="webgpu là gì…"
+                              inputSize="sm"
+                            />
+                          </Field>
+                          <Field label="Phần phụ">
+                            <div className="bga-chips">
+                              {GEN_EXTRAS.map((x) => {
+                                const on = genExtras.includes(x.id);
+                                return (
+                                  <button
+                                    key={x.id}
+                                    type="button"
+                                    className={`bga-chip${on ? " is-on" : ""}`}
+                                    onClick={() =>
+                                      setGenExtras((prev) => (on ? prev.filter((e) => e !== x.id) : [...prev, x.id]))
+                                    }
+                                    title={x.hint}
+                                  >
+                                    {on ? <IconCheck size={11} stroke={2.4} /> : <IconPlus size={11} stroke={2} />}
+                                    {x.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </Field>
                         </div>
-                      </Field>
-                      <Field label={<><IconPhoto size={11} stroke={1.9} /> Số ảnh</>}>
-                        <div className="bga-seg bga-seg-sm">
-                          {[0, 1, 2, 3, 4].map((n) => (
-                            <button
-                              key={n}
-                              type="button"
-                              className={genImages === n ? "is-on" : ""}
-                              onClick={() => setGenImages(n)}
-                            >
-                              {n}
-                            </button>
-                          ))}
+
+                        <Field
+                          label={
+                            <>
+                              <IconMessageCircle size={11} stroke={1.9} /> Yêu cầu thêm (tuỳ chọn)
+                            </>
+                          }
+                        >
+                          <Textarea
+                            rows={2}
+                            value={genNotes}
+                            onChange={(e) => setGenNotes(e.target.value)}
+                            placeholder="Ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
+                            autoGrow
+                          />
+                        </Field>
+                      </TabPanel>
+
+                      <TabPanel value="style">
+                        <div className="bga-grid-dense">
+                          <Field
+                            label={
+                              <>
+                                <IconMicrophone size={11} stroke={1.9} /> Giọng văn
+                              </>
+                            }
+                            hint={GEN_TONES.find((t) => t.id === genTone)?.hint}
+                          >
+                            <Select
+                              value={genTone}
+                              onChange={(e) => setGenTone(e.target.value as GenTone)}
+                              options={GEN_TONES.map((t) => ({ value: t.id, label: t.label }))}
+                              selectSize="sm"
+                            />
+                          </Field>
+                          <Field
+                            label={
+                              <>
+                                <IconUsers size={11} stroke={1.9} /> Đối tượng
+                              </>
+                            }
+                            hint={GEN_AUDIENCES.find((a) => a.id === genAudience)?.hint}
+                          >
+                            <Select
+                              value={genAudience}
+                              onChange={(e) => setGenAudience(e.target.value as GenAudience)}
+                              options={GEN_AUDIENCES.map((a) => ({ value: a.id, label: a.label }))}
+                              selectSize="sm"
+                            />
+                          </Field>
+                          <Field
+                            label={
+                              <>
+                                <IconArticle size={11} stroke={1.9} /> Cấu trúc
+                              </>
+                            }
+                            hint={GEN_STRUCTURES.find((s) => s.id === genStructure)?.hint}
+                          >
+                            <Select
+                              value={genStructure}
+                              onChange={(e) => setGenStructure(e.target.value as GenStructure)}
+                              options={GEN_STRUCTURES.map((s) => ({ value: s.id, label: s.label }))}
+                              selectSize="sm"
+                            />
+                          </Field>
+                          <Field
+                            label={
+                              <>
+                                <IconTarget size={11} stroke={1.9} /> Vùng mục tiêu
+                              </>
+                            }
+                            hint={GEN_REGIONS.find((r) => r.id === genRegion)?.hint}
+                          >
+                            <Select
+                              value={genRegion}
+                              onChange={(e) => setGenRegion(e.target.value as GenRegion)}
+                              options={GEN_REGIONS.map((r) => ({ value: r.id, label: r.label }))}
+                              selectSize="sm"
+                            />
+                          </Field>
+                          <Field
+                            label={
+                              <>
+                                <IconMessageCircle size={11} stroke={1.9} /> Call-to-action
+                              </>
+                            }
+                            hint={GEN_CTAS.find((c) => c.id === genCta)?.hint}
+                          >
+                            <Select
+                              value={genCta}
+                              onChange={(e) => setGenCta(e.target.value as GenCta)}
+                              options={GEN_CTAS.map((c) => ({ value: c.id, label: c.label }))}
+                              selectSize="sm"
+                            />
+                          </Field>
+                          <Field
+                            label={
+                              <>
+                                <IconPhoto size={11} stroke={1.9} /> Phong cách ảnh
+                              </>
+                            }
+                            hint={GEN_IMAGE_STYLES.find((s) => s.id === genImageStyle)?.hint}
+                          >
+                            <Select
+                              value={genImageStyle}
+                              onChange={(e) => setGenImageStyle(e.target.value as GenImageStyle)}
+                              options={GEN_IMAGE_STYLES.map((s) => ({ value: s.id, label: s.label }))}
+                              selectSize="sm"
+                            />
+                          </Field>
                         </div>
-                      </Field>
+                      </TabPanel>
+
+                      <TabPanel value="advanced">
+                        <div className="bga-ai-bar">
+                          <IconBrain size={14} stroke={1.9} className="bga-ai-ic" />
+                          <Select
+                            value={genModel}
+                            onChange={(e) => setGenModel(e.target.value)}
+                            className="bga-ai-model"
+                            selectSize="sm"
+                            options={(Object.keys(AI_MODELS) as AiProvider[]).flatMap<SelectOption>((p) =>
+                              AI_MODELS[p].map((m) => ({
+                                value: `${p}|${m.id}`,
+                                label: `${AI_PROVIDER_LABEL[p]} · ${m.label}${m.search ? " · web" : ""}${providers[p] ? "" : " (chưa có key)"}`,
+                                disabled: !providers[p],
+                              })),
+                            )}
+                          />
+                        </div>
+
+                        <div className="bga-toggles">
+                          <label className="bga-toggle-card" title="Tra cứu web trước khi viết để có dữ kiện mới">
+                            <Switch checked={genResearch} onChange={(e) => setGenResearch(e.target.checked)} />
+                            <div className="bga-toggle-text">
+                              <b>
+                                <IconWorldSearch size={12} stroke={1.9} /> Tra cứu web
+                              </b>
+                              <span>Dữ kiện mới, kèm nguồn tham khảo trong bài</span>
+                            </div>
+                          </label>
+                          <label className="bga-toggle-card" title="AI thứ hai rà lại bài, bỏ/làm mềm câu nghi bịa">
+                            <Switch checked={genFactCheck} onChange={(e) => setGenFactCheck(e.target.checked)} />
+                            <div className="bga-toggle-text">
+                              <b>
+                                <IconCircleCheckFilled size={12} /> Kiểm chứng dữ kiện
+                              </b>
+                              <span>Pass 2: AI bắt lỗi hallucination (chậm hơn ~15s)</span>
+                            </div>
+                          </label>
+                          <label
+                            className="bga-toggle-card"
+                            title="Chèn mục Đọc thêm với 2-4 bài đã xuất bản liên quan"
+                          >
+                            <Switch
+                              checked={genInternalLinks}
+                              onChange={(e) => setGenInternalLinks(e.target.checked)}
+                            />
+                            <div className="bga-toggle-text">
+                              <b>
+                                <IconLink size={12} stroke={1.9} /> Liên kết nội bộ
+                              </b>
+                              <span>Chèn &quot;Đọc thêm&quot; đến bài liên quan — tốt cho SEO</span>
+                            </div>
+                          </label>
+                        </div>
+                      </TabPanel>
+                    </Tabs>
+                  </fieldset>
+
+                  {genErr && !genLoading && Object.keys(genSteps).length === 0 && (
+                    <div className="fx-err" style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                      <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
                     </div>
-
-                    <div className="bga-inline-row" style={{ marginTop: 10 }}>
-                      <Field label={<><IconSearch size={11} stroke={1.9} /> Từ khoá SEO</>}>
-                        <Input
-                          value={genSeoKeyword}
-                          onChange={(e) => setGenSeoKeyword(e.target.value)}
-                          placeholder="webgpu là gì…"
-                          inputSize="sm"
-                        />
-                      </Field>
-                      <Field label="Phần phụ">
-                        <div className="bga-chips">
-                          {GEN_EXTRAS.map((x) => {
-                            const on = genExtras.includes(x.id);
-                            return (
-                              <button
-                                key={x.id}
-                                type="button"
-                                className={`bga-chip${on ? " is-on" : ""}`}
-                                onClick={() =>
-                                  setGenExtras((prev) => (on ? prev.filter((e) => e !== x.id) : [...prev, x.id]))
-                                }
-                                title={x.hint}
-                              >
-                                {on ? <IconCheck size={11} stroke={2.4} /> : <IconPlus size={11} stroke={2} />}
-                                {x.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </Field>
-                    </div>
-
-                    <Field label={<><IconMessageCircle size={11} stroke={1.9} /> Yêu cầu thêm (tuỳ chọn)</>}>
-                      <Textarea
-                        rows={2}
-                        value={genNotes}
-                        onChange={(e) => setGenNotes(e.target.value)}
-                        placeholder="Ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
-                        autoGrow
-                      />
-                    </Field>
-                  </TabPanel>
-
-                  <TabPanel value="style">
-                    <div className="bga-grid-dense">
-                      <Field label={<><IconMicrophone size={11} stroke={1.9} /> Giọng văn</>} hint={GEN_TONES.find((t) => t.id === genTone)?.hint}>
-                        <Select value={genTone} onChange={(e) => setGenTone(e.target.value as GenTone)}
-                          options={GEN_TONES.map((t) => ({ value: t.id, label: t.label }))} selectSize="sm" />
-                      </Field>
-                      <Field label={<><IconUsers size={11} stroke={1.9} /> Đối tượng</>} hint={GEN_AUDIENCES.find((a) => a.id === genAudience)?.hint}>
-                        <Select value={genAudience} onChange={(e) => setGenAudience(e.target.value as GenAudience)}
-                          options={GEN_AUDIENCES.map((a) => ({ value: a.id, label: a.label }))} selectSize="sm" />
-                      </Field>
-                      <Field label={<><IconArticle size={11} stroke={1.9} /> Cấu trúc</>} hint={GEN_STRUCTURES.find((s) => s.id === genStructure)?.hint}>
-                        <Select value={genStructure} onChange={(e) => setGenStructure(e.target.value as GenStructure)}
-                          options={GEN_STRUCTURES.map((s) => ({ value: s.id, label: s.label }))} selectSize="sm" />
-                      </Field>
-                      <Field label={<><IconTarget size={11} stroke={1.9} /> Vùng mục tiêu</>} hint={GEN_REGIONS.find((r) => r.id === genRegion)?.hint}>
-                        <Select value={genRegion} onChange={(e) => setGenRegion(e.target.value as GenRegion)}
-                          options={GEN_REGIONS.map((r) => ({ value: r.id, label: r.label }))} selectSize="sm" />
-                      </Field>
-                      <Field label={<><IconMessageCircle size={11} stroke={1.9} /> Call-to-action</>} hint={GEN_CTAS.find((c) => c.id === genCta)?.hint}>
-                        <Select value={genCta} onChange={(e) => setGenCta(e.target.value as GenCta)}
-                          options={GEN_CTAS.map((c) => ({ value: c.id, label: c.label }))} selectSize="sm" />
-                      </Field>
-                      <Field label={<><IconPhoto size={11} stroke={1.9} /> Phong cách ảnh</>} hint={GEN_IMAGE_STYLES.find((s) => s.id === genImageStyle)?.hint}>
-                        <Select value={genImageStyle} onChange={(e) => setGenImageStyle(e.target.value as GenImageStyle)}
-                          options={GEN_IMAGE_STYLES.map((s) => ({ value: s.id, label: s.label }))} selectSize="sm" />
-                      </Field>
-                    </div>
-                  </TabPanel>
-
-                  <TabPanel value="advanced">
-                    <div className="bga-ai-bar">
-                      <IconBrain size={14} stroke={1.9} className="bga-ai-ic" />
-                      <Select
-                        value={genModel}
-                        onChange={(e) => setGenModel(e.target.value)}
-                        className="bga-ai-model"
-                        selectSize="sm"
-                        options={(Object.keys(AI_MODELS) as AiProvider[]).flatMap<SelectOption>((p) =>
-                          AI_MODELS[p].map((m) => ({
-                            value: `${p}|${m.id}`,
-                            label: `${AI_PROVIDER_LABEL[p]} · ${m.label}${m.search ? " · web" : ""}${providers[p] ? "" : " (chưa có key)"}`,
-                            disabled: !providers[p],
-                          })),
-                        )}
-                      />
-                    </div>
-
-                    <div className="bga-toggles">
-                      <label className="bga-toggle-card" title="Tra cứu web trước khi viết để có dữ kiện mới">
-                        <Switch checked={genResearch} onChange={(e) => setGenResearch(e.target.checked)} />
-                        <div className="bga-toggle-text">
-                          <b><IconWorldSearch size={12} stroke={1.9} /> Tra cứu web</b>
-                          <span>Dữ kiện mới, kèm nguồn tham khảo trong bài</span>
-                        </div>
-                      </label>
-                      <label className="bga-toggle-card" title="AI thứ hai rà lại bài, bỏ/làm mềm câu nghi bịa">
-                        <Switch checked={genFactCheck} onChange={(e) => setGenFactCheck(e.target.checked)} />
-                        <div className="bga-toggle-text">
-                          <b><IconCircleCheckFilled size={12} /> Kiểm chứng dữ kiện</b>
-                          <span>Pass 2: AI bắt lỗi hallucination (chậm hơn ~15s)</span>
-                        </div>
-                      </label>
-                      <label className="bga-toggle-card" title="Chèn mục Đọc thêm với 2-4 bài đã xuất bản liên quan">
-                        <Switch checked={genInternalLinks} onChange={(e) => setGenInternalLinks(e.target.checked)} />
-                        <div className="bga-toggle-text">
-                          <b><IconLink size={12} stroke={1.9} /> Liên kết nội bộ</b>
-                          <span>Chèn &quot;Đọc thêm&quot; đến bài liên quan — tốt cho SEO</span>
-                        </div>
-                      </label>
-                    </div>
-                  </TabPanel>
-                </Tabs>
-              </fieldset>
-
-              {genErr && !genLoading && Object.keys(genSteps).length === 0 && (
-                <div className="fx-err" style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-                  <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
-                </div>
+                  )}
+                  <p className="bga-hint">
+                    AI: <b>Groq · Gemini · OpenRouter · DeepSeek · Mistral · Cerebras · Pollinations</b> (tự fallback
+                    khi hết lượt). Ảnh: <b>Unsplash · Pexels · Wikimedia · Openverse</b>. Bài vào trạng thái <b>Nháp</b>{" "}
+                    để bạn duyệt.
+                  </p>
+                </>
               )}
-              <p className="bga-hint">
-                AI: <b>Groq · Gemini · OpenRouter · DeepSeek · Mistral · Cerebras · Pollinations</b> (tự fallback khi hết lượt).
-                Ảnh: <b>Unsplash · Pexels · Wikimedia · Openverse</b>. Bài vào trạng thái <b>Nháp</b> để bạn duyệt.
-              </p>
-              </>)}
             </div>
             <div className="fx-modal-foot">
               {genLoading ? (
@@ -1490,7 +1607,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                 <div className="bga-cover">
                   {editing.coverImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={editing.coverImage.split("#")[0]} alt="" />
+                    <img src={rewriteImgUrl(editing.coverImage.split("#")[0])} alt="" referrerPolicy="no-referrer" />
                   ) : (
                     <div className="bga-cover-empty">
                       <IconPhoto size={22} stroke={1.6} /> Chưa có ảnh bìa (dùng gradient)
@@ -1646,7 +1763,9 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                 ) : (
                   <div
                     className="bga-md-preview blog-body"
-                    dangerouslySetInnerHTML={{ __html: marked.parse(editing.markdown) as string }}
+                    dangerouslySetInnerHTML={{
+                      __html: marked.parse(editing.markdown.replace(/https?\\?:\/\/[^\s)"']+/g, (url) => rewriteImgUrl(url))) as string,
+                    }}
                   />
                 )}
               </div>
