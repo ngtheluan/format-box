@@ -43,8 +43,8 @@ export function BlogList({ posts: all, categories }: { posts: BlogPost[]; catego
   // Featured split is independent of the topic filter: pinned posts fill it
   // (first = hero, the rest beside it); with nothing pinned, fall back to the latest posts.
   const pinned = all.filter((p) => p.pinned);
-  const hero = pinned[0] ?? all[0] ?? null;
-  const side = (pinned.length ? pinned.slice(1) : all.filter((p) => p.slug !== hero?.slug)).slice(0, SIDE);
+  const hero = pinned[0] ?? null;
+  const side = pinned.slice(1, 1 + SIDE);
   // The grid skips featured posts on the default view; a topic view lists every post in it.
   const usedSlugs = new Set<string>(!active && hero ? [hero.slug, ...side.map((p) => p.slug)] : []);
   const rest = filtered.filter((p) => !usedSlugs.has(p.slug));

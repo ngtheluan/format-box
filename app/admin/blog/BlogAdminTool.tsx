@@ -1,39 +1,42 @@
 "use client";
 import "@/app/blog/blog.css";
-import "./blog-admin.css";
-import { BlogCover } from "@/components/BlogCover";
 import { useToast } from "@/components/Toast";
+import type { SelectOption } from "@/components/ui";
+import { Field, Input, Select, Switch, Tab, Tabs, TabsList, TabPanel, Textarea } from "@/components/ui";
 import type { BlogCategory, BlogCategoryRow, BlogPost, BlogStatus } from "@/lib/blog";
 import {
   AI_MODELS,
   AI_PROVIDER_LABEL,
+  GEN_AUDIENCES,
+  GEN_CTAS,
+  GEN_EXTRAS,
+  GEN_IMAGE_STYLES,
   GEN_LENGTHS,
+  GEN_REGIONS,
+  GEN_STRUCTURES,
   GEN_TONES,
   type AiProvider,
+  type GenAudience,
+  type GenCta,
   type GenEvent,
+  type GenExtra,
+  type GenImageStyle,
   type GenLength,
+  type GenRegion,
   type GenStep,
+  type GenStructure,
   type GenTone,
   type ImageCandidate,
 } from "@/lib/blog-ai-shared";
 import {
   IconAlertTriangle,
   IconArticle,
+  IconBrain,
   IconBulb,
-  IconCircleCheckFilled,
-  IconCircleDashed,
-  IconPhoto,
-  IconPhotoPlus,
-  IconPhotoSearch,
-  IconPlayerSkipForward,
-  IconTextGrammar,
-  IconViewportNarrow,
-  IconViewportWide,
-  IconWand,
-  IconWorldSearch,
-  IconCalendar,
   IconCategory,
   IconCheck,
+  IconCircleCheckFilled,
+  IconCircleDashed,
   IconCircleDashedCheck,
   IconClock,
   IconDeviceFloppy,
@@ -42,20 +45,38 @@ import {
   IconEye,
   IconEyeOff,
   IconLayoutGrid,
+  IconLayoutList,
+  IconLink,
   IconLoader2,
-  IconPlus,
+  IconMessageCircle,
+  IconMicrophone,
+  IconPalette,
+  IconPhoto,
+  IconPhotoPlus,
+  IconPhotoSearch,
   IconPin,
   IconPinFilled,
+  IconPlayerSkipForward,
+  IconPlus,
   IconRotateClockwise,
+  IconSearch,
   IconSparkles,
+  IconTarget,
+  IconTextGrammar,
   IconTrash,
-  IconUser,
+  IconUsers,
+  IconViewportNarrow,
+  IconViewportWide,
+  IconWand,
+  IconWorldSearch,
+  IconWriting,
   IconX,
 } from "@tabler/icons-react";
 import { marked } from "marked";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminBody from "../AdminBody";
+import "./blog-admin.css";
 import ImagePicker from "./ImagePicker";
 
 marked.setOptions({ gfm: true, breaks: false });
@@ -66,11 +87,19 @@ type Props = {
   providers: Record<AiProvider, boolean>;
 };
 
-type StepState = { status: "pending" | "start" | "done" | "skip"; detail?: string };
+type StepState = {
+  status: "pending" | "start" | "done" | "skip";
+  detail?: string;
+  startedAt?: number;
+  durationMs?: number;
+};
 const STEP_LABEL: Record<GenStep, string> = {
   topic: "AI chọn chủ đề",
   research: "Tra cứu web",
+  outline: "Lập dàn ý",
   write: "Viết bài",
+  factcheck: "Kiểm chứng dữ kiện",
+  linking: "Chèn liên kết nội bộ",
   images: "Tìm & duyệt ảnh liên quan",
   save: "Lưu nháp",
 };
@@ -85,7 +114,10 @@ const ASSIST: { id: AssistAction; label: string; icon: JSX.Element }[] = [
 // Picker needs English keywords: prefer ASCII-only tags, else the de-accented title.
 function photoQuery(title: string, tags: string[]) {
   const t = tags.filter((x) => /^[\x20-\x7e]+$/.test(x));
-  const ascii = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d");
+  const ascii = title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d");
   return (t.length ? t.slice(0, 3).join(" ") : ascii.split(/\s+/).slice(0, 4).join(" ")).toLowerCase();
 }
 type StatusFilter = "all" | BlogStatus;
@@ -135,11 +167,23 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
   const [genImages, setGenImages] = useState(3);
   const [genResearch, setGenResearch] = useState(true);
   const [genNotes, setGenNotes] = useState("");
+  const [genAudience, setGenAudience] = useState<GenAudience>("intermediate");
+  const [genStructure, setGenStructure] = useState<GenStructure>("auto");
+  const [genSeoKeyword, setGenSeoKeyword] = useState("");
+  const [genExtras, setGenExtras] = useState<GenExtra[]>(["tldr"]);
+  const [genCta, setGenCta] = useState<GenCta>("none");
+  const [genRegion, setGenRegion] = useState<GenRegion>("vn");
+  const [genImageStyle, setGenImageStyle] = useState<GenImageStyle>("mixed");
+  const [genFactCheck, setGenFactCheck] = useState(false);
+  const [genInternalLinks, setGenInternalLinks] = useState(true);
+  const [genTab, setGenTab] = useState("content");
   const [topic, setTopic] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [genErr, setGenErr] = useState("");
   const [genSteps, setGenSteps] = useState<Partial<Record<GenStep, StepState>>>({});
   const [genElapsed, setGenElapsed] = useState(0);
+  const [genAborted, setGenAborted] = useState(false);
+  const genAbortRef = useRef<AbortController | null>(null);
   const [ideas, setIdeas] = useState<{ title: string; angle: string }[]>([]);
   const [ideasLoading, setIdeasLoading] = useState(false);
   const [ideasTrending, setIdeasTrending] = useState(false);
@@ -174,9 +218,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
   const [saving, setSaving] = useState(false);
   const [editErr, setEditErr] = useState("");
 
-  // Preview drawer (for drafts/rejected)
-  const [preview, setPreview] = useState<{ post: BlogPost; html: string } | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const MAX_PINNED = 4;
 
   const counts = useMemo(() => {
     const c = { all: posts.length, draft: 0, rejected: 0, published: 0 };
@@ -200,9 +242,17 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
 
   const statActiveStyle = { border: "1.5px solid #f97316", boxShadow: "0 0 0 2px rgba(249,115,22,0.15)" } as const;
 
+  function cancelGenerate() {
+    genAbortRef.current?.abort();
+    setGenAborted(true);
+  }
+
   async function generate() {
     const t = topic.trim();
     if (genMode === "topic" && !t) return;
+    const ac = new AbortController();
+    genAbortRef.current = ac;
+    setGenAborted(false);
     setGenLoading(true);
     setGenErr("");
     setGenSteps({
@@ -215,6 +265,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
     try {
       const r = await fetch("/api/blog/generate", {
         method: "POST",
+        signal: ac.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: genMode,
@@ -227,6 +278,15 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
           images: genImages,
           research: genResearch,
           notes: genNotes,
+          audience: genAudience,
+          structure: genStructure,
+          seoKeyword: genSeoKeyword,
+          extras: genExtras,
+          cta: genCta,
+          region: genRegion,
+          imageStyle: genImageStyle,
+          factCheck: genFactCheck,
+          internalLinks: genInternalLinks,
         }),
       });
       if (!r.ok || !r.body) {
@@ -239,7 +299,22 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
       let buf = "";
       let created: BlogPost | null = null;
       const handle = (e: GenEvent) => {
-        if (e.type === "step") setGenSteps((cur) => ({ ...cur, [e.step]: { status: e.status, detail: e.detail } }));
+        if (e.type === "ping") return;
+        if (e.type === "step")
+          setGenSteps((cur) => {
+            const prev = cur[e.step];
+            const now = Date.now();
+            if (e.status === "start")
+              return { ...cur, [e.step]: { status: "start", detail: e.detail, startedAt: now } };
+            if (e.status === "done" || e.status === "skip") {
+              const dur = prev?.startedAt ? now - prev.startedAt : prev?.durationMs;
+              return {
+                ...cur,
+                [e.step]: { ...prev, status: e.status, detail: e.detail ?? prev?.detail, durationMs: dur },
+              };
+            }
+            return cur;
+          });
         else if (e.type === "error") setGenErr(e.error);
         else if (e.type === "done") created = e.post;
       };
@@ -263,12 +338,18 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
         setIdeas([]);
         setGenerateOpen(false);
         toast(`Đã sinh: ${post.title}`);
-        openPreview(post);
       }
     } catch (e: any) {
-      setGenErr(e?.message || "Lỗi");
+      if (ac.signal.aborted) setGenErr("Đã huỷ sinh bài");
+      else {
+        const msg = String(e?.message || e || "");
+        if (/fetch failed|network|aborted/i.test(msg))
+          setGenErr("Kết nối bị gián đoạn — có thể do mạng hoặc server quá tải. Hãy thử lại.");
+        else setGenErr(msg || "Lỗi không xác định");
+      }
     } finally {
       setGenLoading(false);
+      genAbortRef.current = null;
     }
   }
 
@@ -293,6 +374,13 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
 
   async function togglePin(p: BlogPost) {
     const next = !p.pinned;
+    if (next) {
+      const count = posts.filter((x) => x.pinned).length;
+      if (count >= MAX_PINNED) {
+        toast(`Chỉ được ghim tối đa ${MAX_PINNED} bài`);
+        return;
+      }
+    }
     // Optimistic flip; revert if API fails.
     setPosts((prev) => prev.map((x) => (x.slug === p.slug ? { ...x, pinned: next } : x)));
     try {
@@ -310,7 +398,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
     }
   }
 
-    async function reimage(p: BlogPost) {
+  async function reimage(p: BlogPost) {
     setReimaging(p.slug);
     try {
       const r = await fetch("/api/blog/reimage", {
@@ -521,24 +609,6 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
     }
   }
 
-  async function openPreview(p: BlogPost) {
-    setPreviewLoading(true);
-    try {
-      const r = await fetch(`/api/blog/update?slug=${encodeURIComponent(p.slug)}`);
-      const j = await r.json();
-      if (!r.ok) {
-        toast(j?.error || "Lỗi");
-        return;
-      }
-      const html = (await marked.parse(j.markdown || "")) as string;
-      setPreview({ post: j.post, html });
-    } catch (e: any) {
-      toast(e?.message || "Lỗi");
-    } finally {
-      setPreviewLoading(false);
-    }
-  }
-
   async function logout() {
     await fetch("/api/admin/login", { method: "DELETE" });
     window.location.href = "/admin";
@@ -700,7 +770,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
           </div>
           <div
             className="fx-stat"
-            data-tone="info"
+            data-tone="mute"
             onClick={() => setStatusFilter("draft")}
             style={{ cursor: "pointer", ...(statusFilter === "draft" ? statActiveStyle : null) }}
           >
@@ -714,7 +784,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
           </div>
           <div
             className="fx-stat"
-            data-tone="mute"
+            data-tone="err"
             onClick={() => setStatusFilter("rejected")}
             style={{ cursor: "pointer", ...(statusFilter === "rejected" ? statActiveStyle : null) }}
           >
@@ -827,137 +897,116 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
             <div>Ngày</div>
             <div style={{ textAlign: "right" }}>Actions</div>
           </div>
-          {visible.map((p) => {
-            const status = (p.status || "published") as BlogStatus;
-            return (
-              <div
-                key={p.slug}
-                className="fx-row blog-row"
-                style={{ gridTemplateColumns: "56px 1fr 100px 110px 100px 190px" }}
-              >
-                <div className="bga-thumb">
-                  {p.coverImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.coverImage.split("#")[0].replace(/([?&])w=\d+/, "$1w=160").replace(/([?&])h=\d+/, "$1h=100")} alt="" loading="lazy" />
-                  ) : (
-                    <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
-                  )}
-                </div>
+          {(() => {
+            const pinnedCount = posts.filter((x) => x.pinned).length;
+            return visible.map((p) => {
+              const status = (p.status || "published") as BlogStatus;
+              const canShowPin = p.pinned || pinnedCount < MAX_PINNED;
+              return (
                 <div
-                  className="fx-title-cell blog-title-click"
-                  onClick={() => (status === "published" ? openPreview(p) : startEdit(p))}
-                  style={{ cursor: "pointer" }}
-                  title={status === "published" ? "Xem thử" : "Sửa"}
+                  key={p.slug}
+                  className="fx-row blog-row"
+                  style={{ gridTemplateColumns: "56px 1fr 100px 110px 100px 190px" }}
                 >
-                  <div className="fx-t-row">
-                    <b>{p.title}</b>
-                    <span className="fx-t-href">/blog/{p.slug}</span>
+                  <div className="bga-thumb">
+                    {p.coverImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.coverImage
+                          .split("#")[0]
+                          .replace(/([?&])w=\d+/, "$1w=160")
+                          .replace(/([?&])h=\d+/, "$1h=100")}
+                        alt=""
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
+                    )}
                   </div>
-                  <span className="fx-t-sub">{p.excerpt}</span>
-                </div>
-                <div>
-                  <span className="fx-cat-cell" data-cat={p.category}>
-                    {CAT_LABEL[p.category] || p.category}
-                  </span>
-                </div>
-                <div>
-                  <span
-                    className="fx-badge"
-                    data-tone={status === "published" ? "ok" : status === "rejected" ? "mute" : "info"}
+                  <div
+                    className="fx-title-cell blog-title-click"
+                    onClick={() => startEdit(p)}
+                    style={{ cursor: "pointer" }}
+                    title="Sửa"
                   >
-                    {STATUS_LABEL[status]}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12, color: "var(--fg-muted, #888)" }}>{p.date}</div>
-                <div className="fx-row-actions">
-                  <button
-                    className="fx-btn fx-btn-icon"
-                    onClick={() => togglePin(p)}
-                    title={p.pinned ? "Bỏ ghim" : "Ghim lên đầu /blog"}
-                    style={p.pinned ? { color: "var(--warn, #f59e0b)" } : undefined}
-                  >
-                    {p.pinned ? <IconPinFilled size={14} stroke={1.9} /> : <IconPin size={14} stroke={1.9} />}
-                  </button>
-                  {(status === "draft" || status === "rejected") && (
-                    <button
-                      className="fx-btn fx-btn-icon"
-                      onClick={() => approve(p)}
-                      title="Duyệt → DB"
-                      style={{ color: "var(--ok, #10b981)" }}
+                    <div className="fx-t-row">
+                      <b>{p.title}</b>
+                      <span className="fx-t-href">/blog/{p.slug}</span>
+                    </div>
+                    <span className="fx-t-sub">{p.excerpt}</span>
+                  </div>
+                  <div>
+                    <span className="fx-cat-cell" data-cat={p.category}>
+                      {CAT_LABEL[p.category] || p.category}
+                    </span>
+                  </div>
+                  <div>
+                    <span
+                      className="fx-badge"
+                      data-tone={status === "published" ? "ok" : status === "rejected" ? "err" : "mute"}
                     >
-                      <IconCheck size={14} stroke={2} />
-                    </button>
-                  )}
-                  {status === "draft" && (
-                    <button
-                      className="fx-btn fx-btn-icon"
-                      onClick={() => reject(p)}
-                      title="Từ chối"
-                      style={{ color: "var(--warn, #f59e0b)" }}
-                    >
-                      <IconX size={14} stroke={2} />
-                    </button>
-                  )}
-                  {status === "published" ? (
-                    <>
-                      <Link href={`/blog/${p.slug}`} target="_blank" className="fx-btn fx-btn-icon" title="Xem">
-                        <IconEye size={14} stroke={1.9} />
-                      </Link>
+                      {STATUS_LABEL[status]}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--fg-muted, #888)" }}>{p.date}</div>
+                  <div className="fx-row-actions">
+                    {canShowPin && (
                       <button
                         className="fx-btn fx-btn-icon"
-                        onClick={() => unpublish(p)}
-                        title="Về nháp để sửa"
-                        style={{ color: "var(--info, #3b82f6)" }}
+                        onClick={() => togglePin(p)}
+                        title={p.pinned ? "Bỏ ghim" : "Ghim lên đầu /blog"}
+                        style={p.pinned ? { color: "var(--warn, #f59e0b)" } : undefined}
                       >
-                        <IconRotateClockwise size={14} stroke={1.9} />
+                        {p.pinned ? <IconPinFilled size={14} stroke={1.9} /> : <IconPin size={14} stroke={1.9} />}
                       </button>
-                    </>
-                  ) : (
-                    <>
+                    )}
+                    {(status === "draft" || status === "rejected") && (
                       <button
-                        type="button"
                         className="fx-btn fx-btn-icon"
-                        onClick={() => openPreview(p)}
-                        title="Xem thử (nháp)"
-                        disabled={previewLoading}
+                        onClick={() => approve(p)}
+                        title="Duyệt → DB"
+                        style={{ color: "var(--ok, #10b981)" }}
                       >
-                        {previewLoading ? (
-                          <IconLoader2 size={14} className="spin" />
-                        ) : (
+                        <IconCheck size={14} stroke={2} />
+                      </button>
+                    )}
+                    {status === "draft" && (
+                      <button
+                        className="fx-btn fx-btn-icon"
+                        onClick={() => reject(p)}
+                        title="Từ chối"
+                        style={{ color: "var(--warn, #f59e0b)" }}
+                      >
+                        <IconX size={14} stroke={2} />
+                      </button>
+                    )}
+                    {status === "published" ? (
+                      <>
+                        <Link href={`/blog/${p.slug}`} target="_blank" className="fx-btn fx-btn-icon" title="Xem">
                           <IconEye size={14} stroke={1.9} />
-                        )}
-                      </button>
-                      <button className="fx-btn fx-btn-icon" onClick={() => startEdit(p)} title="Sửa">
-                        <IconEdit size={14} stroke={1.9} />
-                      </button>
-                      <button
-                        className="fx-btn fx-btn-icon"
-                        onClick={() => reimage(p)}
-                        disabled={reimaging === p.slug}
-                        title="AI chọn lại ảnh liên quan (bìa + ảnh tự động trong bài)"
-                      >
-                        {reimaging === p.slug ? (
-                          <IconLoader2 size={14} className="spin" />
-                        ) : (
-                          <IconPhotoSearch size={14} stroke={1.9} />
-                        )}
-                      </button>
-                    </>
-                  )}
-                  <button className="fx-btn fx-btn-icon fx-btn-danger" onClick={() => remove(p)} title="Xoá">
-                    <IconTrash size={14} stroke={1.9} />
-                  </button>
+                        </Link>
+                        <button
+                          className="fx-btn fx-btn-icon"
+                          onClick={() => unpublish(p)}
+                          title="Về nháp để sửa"
+                          style={{ color: "var(--info, #3b82f6)" }}
+                        >
+                          <IconRotateClockwise size={14} stroke={1.9} />
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       )}
 
       {/* GENERATE MODAL */}
       {generateOpen && (
         <div className="fx-modal-bg" style={{ zIndex: 200 }}>
-          <div className="fx-modal" style={{ maxWidth: 760, width: "95vw" }}>
+          <div className="fx-modal" style={{ maxWidth: 880, width: "96vw" }}>
             <div className="fx-modal-head">
               <h2>
                 <IconSparkles size={16} stroke={2} /> Sinh bài blog
@@ -968,124 +1017,211 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
               </button>
             </div>
             <div className="fx-modal-body">
-              <fieldset disabled={genLoading} className="bga-gen">
-                <div className="bga-row">
-                  <div className="bga-seg">
+              {(genLoading || (Object.keys(genSteps).length > 0 && (genAborted || genErr))) ? (() => {
+                const keys = (Object.keys(STEP_LABEL) as GenStep[]).filter((k) => genSteps[k]);
+                const total = keys.length;
+                const done = keys.filter((k) => genSteps[k]!.status === "done" || genSteps[k]!.status === "skip").length;
+                const pct = total ? Math.round((done / total) * 100) : 0;
+                const activeIdx = keys.findIndex((k) => genSteps[k]!.status === "start");
+                const activeLabel = activeIdx >= 0 ? STEP_LABEL[keys[activeIdx]] : null;
+                return (
+                  <div className="bga-progress-inline">
+                    <div className="bga-progress-head">
+                      <div className="bga-progress-title">
+                        {genLoading ? (
+                          <>
+                            <IconLoader2 size={13} className="spin" />
+                            <span>{activeLabel || "Chuẩn bị…"}</span>
+                          </>
+                        ) : genAborted ? (
+                          <>
+                            <IconX size={13} stroke={2} /> Đã huỷ
+                          </>
+                        ) : (
+                          <>
+                            <IconAlertTriangle size={13} /> Dừng với lỗi
+                          </>
+                        )}
+                      </div>
+                      <div className="bga-progress-meta">
+                        <span>{done}/{total} bước</span>
+                        <span className="bga-progress-pct">{pct}%</span>
+                        <span className="bga-elapsed-chip">{genElapsed}s</span>
+                      </div>
+                    </div>
+                    <div className="bga-progress-bar">
+                      <div className="bga-progress-fill" style={{ width: `${pct}%` }} />
+                    </div>
+                    <ol className="bga-steps" style={{ marginTop: 14 }}>
+                      {keys.map((k) => {
+                        const st = genSteps[k]!;
+                        const dur = st.durationMs;
+                        return (
+                          <li key={k} data-status={st.status}>
+                            <span className="bga-step-ico">
+                              {st.status === "done" ? (
+                                <IconCircleCheckFilled size={18} />
+                              ) : st.status === "start" ? (
+                                <IconLoader2 size={18} className="spin" />
+                              ) : st.status === "skip" ? (
+                                <IconPlayerSkipForward size={17} />
+                              ) : (
+                                <IconCircleDashed size={18} />
+                              )}
+                            </span>
+                            <div className="bga-step-main">
+                              <div className="bga-step-top">
+                                <b>{STEP_LABEL[k]}</b>
+                                {dur != null && dur > 0 && (
+                                  <span className="bga-step-dur">{(dur / 1000).toFixed(1)}s</span>
+                                )}
+                              </div>
+                              {st.detail && <span className="bga-step-detail">{st.detail}</span>}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                    {genErr && (
+                      <div className="fx-err" style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 10 }}>
+                        <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : (<>
+              <fieldset disabled={genLoading} className="bga-gen4">
+                {/* HERO — mode + presets */}
+                <div className="bga-hero">
+                  <div className="bga-seg bga-seg-pill">
                     {(
                       [
-                        ["topic", "Tự nhập chủ đề"],
-                        ["random", "AI tự chọn chủ đề"],
+                        ["topic", "Tự nhập", <IconWriting key="i" size={13} stroke={1.9} />],
+                        ["random", "AI chọn", <IconSparkles key="i" size={13} stroke={1.9} />],
                       ] as const
-                    ).map(([k, label]) => (
-                      <button key={k} type="button" className={genMode === k ? "is-on" : ""} onClick={() => setGenMode(k)}>
-                        {label}
+                    ).map(([k, label, ic]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        className={genMode === k ? "is-on" : ""}
+                        onClick={() => setGenMode(k)}
+                      >
+                        {ic} {label}
                       </button>
                     ))}
                   </div>
-                  <label className="bga-check" title="Tra cứu web trước khi viết để có dữ kiện mới, kèm nguồn tham khảo">
-                    <button
-                      type="button"
-                      className={`fx-switch${genResearch ? " on" : ""}`}
-                      onClick={() => setGenResearch((v) => !v)}
-                      aria-pressed={genResearch}
-                    />
-                    <IconWorldSearch size={14} stroke={1.9} /> Tra cứu web
-                  </label>
+                  <div className="bga-presets" title="Preset nhanh — nạp sẵn phong cách & cấu trúc">
+                    {(
+                      [
+                        {
+                          id: "tutorial",
+                          label: "Hướng dẫn kỹ thuật",
+                          ic: <IconWriting size={12} stroke={1.9} />,
+                          apply: () => {
+                            setGenTone("tutorial");
+                            setGenStructure("howto");
+                            setGenAudience("intermediate");
+                            setGenLength("long");
+                            setGenExtras(["tldr", "code"]);
+                          },
+                        },
+                        {
+                          id: "review",
+                          label: "Review sản phẩm",
+                          ic: <IconPalette size={12} stroke={1.9} />,
+                          apply: () => {
+                            setGenTone("analysis");
+                            setGenStructure("review");
+                            setGenAudience("mixed");
+                            setGenLength("medium");
+                            setGenExtras(["tldr", "faq"]);
+                          },
+                        },
+                        {
+                          id: "deepdive",
+                          label: "Phân tích chuyên sâu",
+                          ic: <IconBrain size={12} stroke={1.9} />,
+                          apply: () => {
+                            setGenTone("expert");
+                            setGenStructure("deepdive");
+                            setGenAudience("expert");
+                            setGenLength("long");
+                            setGenExtras(["stats"]);
+                          },
+                        },
+                        {
+                          id: "news",
+                          label: "Tin xu hướng",
+                          ic: <IconWorldSearch size={12} stroke={1.9} />,
+                          apply: () => {
+                            setGenTone("friendly");
+                            setGenStructure("news");
+                            setGenAudience("mixed");
+                            setGenLength("short");
+                            setGenExtras(["tldr", "stats"]);
+                            setGenResearch(true);
+                          },
+                        },
+                      ] as const
+                    ).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="bga-preset-btn"
+                        onClick={p.apply}
+                        title={`Preset: ${p.label}`}
+                      >
+                        {p.ic} {p.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="bga-grid3">
-                  <div className="fx-field">
-                    <label>Danh mục</label>
-                    <select value={genCategory} onChange={(e) => setGenCategory(e.target.value as BlogCategory)}>
-                      {CAT_ORDER.map((c) => (
-                        <option key={c} value={c}>
-                          {CAT_LABEL[c]}
-                        </option>
-                      ))}
-                    </select>
+                {/* TOPIC — big input + ideas */}
+                {genMode === "topic" ? (
+                  <div className="bga-topic-wrap">
+                    <Input
+                      autoFocus
+                      className="bga-topic-input"
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && !genLoading && generate()}
+                      placeholder="Nhập chủ đề của bạn… (VD: WebGPU cho người mới 2026)"
+                      leftIcon={<IconTarget size={16} stroke={1.9} />}
+                      rightSlot={
+                        <div className="bga-topic-tools">
+                          <button
+                            type="button"
+                            className={`bga-tool-btn${ideasTrending ? " is-on" : ""}`}
+                            onClick={() => setIdeasTrending((v) => !v)}
+                            title="Gợi ý theo xu hướng mới (tra cứu web)"
+                          >
+                            <IconWorldSearch size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="bga-tool-btn"
+                            onClick={suggestIdeas}
+                            disabled={ideasLoading}
+                            title="Gợi ý ý tưởng từ AI"
+                          >
+                            {ideasLoading ? <IconLoader2 size={14} className="spin" /> : <IconBulb size={14} />}
+                          </button>
+                        </div>
+                      }
+                    />
                   </div>
-                  <div className="fx-field">
-                    <label>Model</label>
-                    <select value={genModel} onChange={(e) => setGenModel(e.target.value)}>
-                      {(Object.keys(AI_MODELS) as AiProvider[]).map((p) => (
-                        <optgroup key={p} label={`${AI_PROVIDER_LABEL[p]}${providers[p] ? "" : " (chưa có key)"}`}>
-                          {AI_MODELS[p].map((m) => (
-                            <option key={m.id} value={`${p}|${m.id}`} disabled={!providers[p]}>
-                              {m.label}
-                              {m.search ? " · web" : ""}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
+                ) : (
+                  <div className="bga-random-info">
+                    <IconSparkles size={16} stroke={2} />
+                    <span>
+                      AI sẽ tự chọn chủ đề mới cho danh mục <b>{CAT_LABEL[genCategory] || genCategory}</b>
+                    </span>
                   </div>
-                  <div className="fx-field">
-                    <label>Giọng văn</label>
-                    <select value={genTone} onChange={(e) => setGenTone(e.target.value as GenTone)}>
-                      {GEN_TONES.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="fx-field">
-                    <label>Độ dài</label>
-                    <div className="bga-seg">
-                      {GEN_LENGTHS.map((l) => (
-                        <button
-                          key={l.id}
-                          type="button"
-                          className={genLength === l.id ? "is-on" : ""}
-                          onClick={() => setGenLength(l.id)}
-                          title={`${l.words} từ`}
-                        >
-                          {l.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="fx-field">
-                    <label>Ảnh trong bài</label>
-                    <div className="bga-seg">
-                      {[0, 1, 2, 3, 4].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          className={genImages === n ? "is-on" : ""}
-                          onClick={() => setGenImages(n)}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="fx-field">
-                    <label>Gợi ý chủ đề</label>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button
-                        type="button"
-                        className="fx-btn"
-                        style={{ flex: 1, justifyContent: "center" }}
-                        onClick={suggestIdeas}
-                        disabled={ideasLoading}
-                      >
-                        {ideasLoading ? <IconLoader2 size={14} className="spin" /> : <IconBulb size={14} />} Gợi ý
-                      </button>
-                      <button
-                        type="button"
-                        className={`fx-btn fx-btn-icon${ideasTrending ? " fx-btn-primary" : ""}`}
-                        onClick={() => setIdeasTrending((v) => !v)}
-                        title="Gợi ý theo xu hướng mới (tra cứu web)"
-                      >
-                        <IconWorldSearch size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                )}
 
                 {ideas.length > 0 && (
-                  <div className="bga-ideas">
+                  <div className="bga-ideas bga-ideas-compact">
                     {ideas.map((i) => (
                       <button
                         key={i.title}
@@ -1104,86 +1240,233 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                   </div>
                 )}
 
-                {genMode === "topic" && (
-                  <div className="fx-field">
-                    <label>Chủ đề *</label>
-                    <input
-                      autoFocus
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && generate()}
-                      placeholder="VD: WebGPU cho người mới 2026, Rust vs Go cho backend…"
-                    />
-                  </div>
-                )}
-                <div className="fx-field">
-                  <label>Yêu cầu thêm (tuỳ chọn)</label>
-                  <textarea
-                    rows={2}
-                    style={{ resize: "vertical" }}
-                    value={genNotes}
-                    onChange={(e) => setGenNotes(e.target.value)}
-                    placeholder="Đối tượng đọc, ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
-                  />
-                </div>
+                {/* TABS — Nội dung / Phong cách / AI & Nâng cao */}
+                <Tabs value={genTab} onValueChange={setGenTab} variant="segment">
+                  <TabsList>
+                    <Tab value="content">
+                      <IconArticle size={13} stroke={1.9} /> Nội dung
+                    </Tab>
+                    <Tab value="style">
+                      <IconPalette size={13} stroke={1.9} /> Phong cách
+                    </Tab>
+                    <Tab value="advanced">
+                      <IconBrain size={13} stroke={1.9} /> AI & Nâng cao
+                    </Tab>
+                  </TabsList>
+
+                  <TabPanel value="content">
+                    <div className="bga-grid-dense">
+                      <Field label={<><IconLayoutList size={11} stroke={1.9} /> Danh mục</>}>
+                        <Select
+                          value={genCategory}
+                          onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
+                          options={CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c }))}
+                          selectSize="sm"
+                        />
+                      </Field>
+                      <Field label="Độ dài">
+                        <div className="bga-seg bga-seg-sm">
+                          {GEN_LENGTHS.map((l) => (
+                            <button
+                              key={l.id}
+                              type="button"
+                              className={genLength === l.id ? "is-on" : ""}
+                              onClick={() => setGenLength(l.id)}
+                              title={`${l.words} từ · ${l.sections} section`}
+                            >
+                              {l.label}
+                            </button>
+                          ))}
+                        </div>
+                      </Field>
+                      <Field label={<><IconPhoto size={11} stroke={1.9} /> Số ảnh</>}>
+                        <div className="bga-seg bga-seg-sm">
+                          {[0, 1, 2, 3, 4].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              className={genImages === n ? "is-on" : ""}
+                              onClick={() => setGenImages(n)}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </Field>
+                    </div>
+
+                    <div className="bga-inline-row" style={{ marginTop: 10 }}>
+                      <Field label={<><IconSearch size={11} stroke={1.9} /> Từ khoá SEO</>}>
+                        <Input
+                          value={genSeoKeyword}
+                          onChange={(e) => setGenSeoKeyword(e.target.value)}
+                          placeholder="webgpu là gì…"
+                          inputSize="sm"
+                        />
+                      </Field>
+                      <Field label="Phần phụ">
+                        <div className="bga-chips">
+                          {GEN_EXTRAS.map((x) => {
+                            const on = genExtras.includes(x.id);
+                            return (
+                              <button
+                                key={x.id}
+                                type="button"
+                                className={`bga-chip${on ? " is-on" : ""}`}
+                                onClick={() =>
+                                  setGenExtras((prev) => (on ? prev.filter((e) => e !== x.id) : [...prev, x.id]))
+                                }
+                                title={x.hint}
+                              >
+                                {on ? <IconCheck size={11} stroke={2.4} /> : <IconPlus size={11} stroke={2} />}
+                                {x.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </Field>
+                    </div>
+
+                    <Field label={<><IconMessageCircle size={11} stroke={1.9} /> Yêu cầu thêm (tuỳ chọn)</>}>
+                      <Textarea
+                        rows={2}
+                        value={genNotes}
+                        onChange={(e) => setGenNotes(e.target.value)}
+                        placeholder="Ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
+                        autoGrow
+                      />
+                    </Field>
+                  </TabPanel>
+
+                  <TabPanel value="style">
+                    <div className="bga-grid-dense">
+                      <Field label={<><IconMicrophone size={11} stroke={1.9} /> Giọng văn</>} hint={GEN_TONES.find((t) => t.id === genTone)?.hint}>
+                        <Select value={genTone} onChange={(e) => setGenTone(e.target.value as GenTone)}
+                          options={GEN_TONES.map((t) => ({ value: t.id, label: t.label }))} selectSize="sm" />
+                      </Field>
+                      <Field label={<><IconUsers size={11} stroke={1.9} /> Đối tượng</>} hint={GEN_AUDIENCES.find((a) => a.id === genAudience)?.hint}>
+                        <Select value={genAudience} onChange={(e) => setGenAudience(e.target.value as GenAudience)}
+                          options={GEN_AUDIENCES.map((a) => ({ value: a.id, label: a.label }))} selectSize="sm" />
+                      </Field>
+                      <Field label={<><IconArticle size={11} stroke={1.9} /> Cấu trúc</>} hint={GEN_STRUCTURES.find((s) => s.id === genStructure)?.hint}>
+                        <Select value={genStructure} onChange={(e) => setGenStructure(e.target.value as GenStructure)}
+                          options={GEN_STRUCTURES.map((s) => ({ value: s.id, label: s.label }))} selectSize="sm" />
+                      </Field>
+                      <Field label={<><IconTarget size={11} stroke={1.9} /> Vùng mục tiêu</>} hint={GEN_REGIONS.find((r) => r.id === genRegion)?.hint}>
+                        <Select value={genRegion} onChange={(e) => setGenRegion(e.target.value as GenRegion)}
+                          options={GEN_REGIONS.map((r) => ({ value: r.id, label: r.label }))} selectSize="sm" />
+                      </Field>
+                      <Field label={<><IconMessageCircle size={11} stroke={1.9} /> Call-to-action</>} hint={GEN_CTAS.find((c) => c.id === genCta)?.hint}>
+                        <Select value={genCta} onChange={(e) => setGenCta(e.target.value as GenCta)}
+                          options={GEN_CTAS.map((c) => ({ value: c.id, label: c.label }))} selectSize="sm" />
+                      </Field>
+                      <Field label={<><IconPhoto size={11} stroke={1.9} /> Phong cách ảnh</>} hint={GEN_IMAGE_STYLES.find((s) => s.id === genImageStyle)?.hint}>
+                        <Select value={genImageStyle} onChange={(e) => setGenImageStyle(e.target.value as GenImageStyle)}
+                          options={GEN_IMAGE_STYLES.map((s) => ({ value: s.id, label: s.label }))} selectSize="sm" />
+                      </Field>
+                    </div>
+                  </TabPanel>
+
+                  <TabPanel value="advanced">
+                    <div className="bga-ai-bar">
+                      <IconBrain size={14} stroke={1.9} className="bga-ai-ic" />
+                      <Select
+                        value={genModel}
+                        onChange={(e) => setGenModel(e.target.value)}
+                        className="bga-ai-model"
+                        selectSize="sm"
+                        options={(Object.keys(AI_MODELS) as AiProvider[]).flatMap<SelectOption>((p) =>
+                          AI_MODELS[p].map((m) => ({
+                            value: `${p}|${m.id}`,
+                            label: `${AI_PROVIDER_LABEL[p]} · ${m.label}${m.search ? " · web" : ""}${providers[p] ? "" : " (chưa có key)"}`,
+                            disabled: !providers[p],
+                          })),
+                        )}
+                      />
+                    </div>
+
+                    <div className="bga-toggles">
+                      <label className="bga-toggle-card" title="Tra cứu web trước khi viết để có dữ kiện mới">
+                        <Switch checked={genResearch} onChange={(e) => setGenResearch(e.target.checked)} />
+                        <div className="bga-toggle-text">
+                          <b><IconWorldSearch size={12} stroke={1.9} /> Tra cứu web</b>
+                          <span>Dữ kiện mới, kèm nguồn tham khảo trong bài</span>
+                        </div>
+                      </label>
+                      <label className="bga-toggle-card" title="AI thứ hai rà lại bài, bỏ/làm mềm câu nghi bịa">
+                        <Switch checked={genFactCheck} onChange={(e) => setGenFactCheck(e.target.checked)} />
+                        <div className="bga-toggle-text">
+                          <b><IconCircleCheckFilled size={12} /> Kiểm chứng dữ kiện</b>
+                          <span>Pass 2: AI bắt lỗi hallucination (chậm hơn ~15s)</span>
+                        </div>
+                      </label>
+                      <label className="bga-toggle-card" title="Chèn mục Đọc thêm với 2-4 bài đã xuất bản liên quan">
+                        <Switch checked={genInternalLinks} onChange={(e) => setGenInternalLinks(e.target.checked)} />
+                        <div className="bga-toggle-text">
+                          <b><IconLink size={12} stroke={1.9} /> Liên kết nội bộ</b>
+                          <span>Chèn &quot;Đọc thêm&quot; đến bài liên quan — tốt cho SEO</span>
+                        </div>
+                      </label>
+                    </div>
+                  </TabPanel>
+                </Tabs>
               </fieldset>
 
-              {Object.keys(genSteps).length > 0 && (
-                <ol className="bga-steps" aria-live="polite">
-                  {(Object.keys(STEP_LABEL) as GenStep[])
-                    .filter((k) => genSteps[k])
-                    .map((k) => {
-                      const st = genSteps[k]!;
-                      return (
-                        <li key={k} data-status={st.status}>
-                          <span className="bga-step-ico">
-                            {st.status === "done" ? (
-                              <IconCircleCheckFilled size={16} />
-                            ) : st.status === "start" ? (
-                              <IconLoader2 size={16} className="spin" />
-                            ) : st.status === "skip" ? (
-                              <IconPlayerSkipForward size={15} />
-                            ) : (
-                              <IconCircleDashed size={16} />
-                            )}
-                          </span>
-                          <b>{STEP_LABEL[k]}</b>
-                          {st.detail && <span className="bga-step-detail">{st.detail}</span>}
-                        </li>
-                      );
-                    })}
-                </ol>
-              )}
-              {genErr && (
+              {genErr && !genLoading && Object.keys(genSteps).length === 0 && (
                 <div className="fx-err" style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
                   <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
                 </div>
               )}
               <p className="bga-hint">
-                Bài được viết bằng AI miễn phí (tự chuyển model khác nếu hết lượt), ảnh là ảnh chụp thật tìm trên
-                Unsplash/Openverse và được AI duyệt đúng ngữ cảnh. Bài vào trạng thái <b>Nháp</b> để bạn duyệt.
+                AI: <b>Groq · Gemini · OpenRouter · DeepSeek · Mistral · Cerebras · Pollinations</b> (tự fallback khi hết lượt).
+                Ảnh: <b>Unsplash · Pexels · Wikimedia · Openverse</b>. Bài vào trạng thái <b>Nháp</b> để bạn duyệt.
               </p>
+              </>)}
             </div>
             <div className="fx-modal-foot">
-              {genLoading && <span className="bga-elapsed">{genElapsed}s</span>}
-              <button className="fx-btn" onClick={() => setGenerateOpen(false)} disabled={genLoading}>
-                Huỷ
-              </button>
-              <button
-                className="fx-btn fx-btn-primary"
-                onClick={generate}
-                disabled={(genMode === "topic" && !topic.trim()) || genLoading}
-              >
-                {genLoading ? (
-                  <>
-                    <IconLoader2 size={14} className="spin" /> Đang sinh…
-                  </>
-                ) : (
-                  <>
+              {genLoading ? (
+                <button
+                  className="fx-btn fx-btn-danger"
+                  onClick={cancelGenerate}
+                  disabled={genAborted}
+                  style={{ marginLeft: "auto" }}
+                >
+                  {genAborted ? (
+                    <>
+                      <IconLoader2 size={14} className="spin" /> Đang huỷ…
+                    </>
+                  ) : (
+                    <>
+                      <IconX size={14} stroke={2} /> Huỷ sinh bài
+                    </>
+                  )}
+                </button>
+              ) : Object.keys(genSteps).length > 0 && (genAborted || genErr) ? (
+                <button
+                  className="fx-btn fx-btn-primary"
+                  style={{ marginLeft: "auto" }}
+                  onClick={() => {
+                    setGenSteps({});
+                    setGenErr("");
+                    setGenAborted(false);
+                  }}
+                >
+                  <IconSparkles size={14} /> Thử lại
+                </button>
+              ) : (
+                <>
+                  <button className="fx-btn" onClick={() => setGenerateOpen(false)}>
+                    Huỷ
+                  </button>
+                  <button
+                    className="fx-btn fx-btn-primary"
+                    onClick={generate}
+                    disabled={genMode === "topic" && !topic.trim()}
+                  >
                     <IconSparkles size={14} /> Sinh bài
-                  </>
-                )}
-              </button>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1220,7 +1503,10 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                       onClick={() =>
                         setPicker({
                           target: "cover",
-                          query: photoQuery(editing.title, editing.tags.split(",").map((s) => s.trim())),
+                          query: photoQuery(
+                            editing.title,
+                            editing.tags.split(",").map((s) => s.trim()),
+                          ),
                         })
                       }
                     >
@@ -1238,70 +1524,64 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                     )}
                   </div>
                 </div>
-                <div className="fx-field">
-                  <label>
-                    Title *
-                    <button
-                      type="button"
-                      className="bga-inline-ai"
-                      onClick={() => assist("meta")}
-                      disabled={!!assisting}
-                      title="AI gợi ý tiêu đề, mô tả, tags từ nội dung"
-                    >
-                      {assisting === "meta" ? <IconLoader2 size={12} className="spin" /> : <IconSparkles size={12} />}{" "}
-                      AI gợi ý
-                    </button>
-                  </label>
-                  <input
+                <Field
+                  required
+                  label={
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, width: "100%" }}>
+                      Title
+                      <button
+                        type="button"
+                        className="bga-inline-ai"
+                        onClick={() => assist("meta")}
+                        disabled={!!assisting}
+                        title="AI gợi ý tiêu đề, mô tả, tags từ nội dung"
+                        style={{ marginLeft: "auto" }}
+                      >
+                        {assisting === "meta" ? <IconLoader2 size={12} className="spin" /> : <IconSparkles size={12} />}{" "}
+                        AI gợi ý
+                      </button>
+                    </span>
+                  }
+                >
+                  <Input
                     value={editing.title}
                     onChange={(e) => setEditing((cur) => (cur ? { ...cur, title: e.target.value } : cur))}
                   />
-                </div>
-                <div className="fx-field">
-                  <label>Excerpt</label>
-                  <textarea
+                </Field>
+                <Field label="Excerpt">
+                  <Textarea
                     rows={3}
-                    style={{ resize: "none" }}
                     value={editing.excerpt}
                     onChange={(e) => setEditing((cur) => (cur ? { ...cur, excerpt: e.target.value } : cur))}
                   />
-                </div>
-                <div className="fx-grid2">
-                  <div className="fx-field">
-                    <label>Category</label>
-                    <select
+                </Field>
+                <div className="bga-grid2">
+                  <Field label="Category">
+                    <Select
                       value={editing.category}
                       onChange={(e) =>
                         setEditing((cur) => (cur ? { ...cur, category: e.target.value as BlogCategory } : cur))
                       }
-                    >
-                      {CAT_ORDER.map((c) => (
-                        <option key={c} value={c}>
-                          {CAT_LABEL[c]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="fx-field">
-                    <label>Phút đọc</label>
-                    <input
+                      options={CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c }))}
+                    />
+                  </Field>
+                  <Field label="Phút đọc">
+                    <Input
                       type="number"
                       value={editing.readMin}
                       onChange={(e) => setEditing((cur) => (cur ? { ...cur, readMin: Number(e.target.value) } : cur))}
                     />
-                  </div>
+                  </Field>
                 </div>
-                <div className="fx-field">
-                  <label>Tags (phẩy phân cách)</label>
-                  <input
+                <Field label="Tags (phẩy phân cách)">
+                  <Input
                     value={editing.tags}
                     onChange={(e) => setEditing((cur) => (cur ? { ...cur, tags: e.target.value } : cur))}
                   />
-                </div>
-                <div className="fx-field">
-                  <label>Slug</label>
-                  <input value={editing.slug} disabled />
-                </div>
+                </Field>
+                <Field label="Slug">
+                  <Input value={editing.slug} disabled monospace />
+                </Field>
               </div>
 
               <div className="bga-edit-main">
@@ -1329,7 +1609,10 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                     onClick={() =>
                       setPicker({
                         target: "inline",
-                        query: photoQuery(editing.title, editing.tags.split(",").map((s) => s.trim())),
+                        query: photoQuery(
+                          editing.title,
+                          editing.tags.split(",").map((s) => s.trim()),
+                        ),
                       })
                     }
                     title="Chèn ảnh tại vị trí con trỏ"
@@ -1367,12 +1650,46 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                   />
                 )}
               </div>
-              {editErr && <div className="fx-err" style={{ gridColumn: "1 / -1" }}>{editErr}</div>}
+              {editErr && (
+                <div className="fx-err" style={{ gridColumn: "1 / -1" }}>
+                  {editErr}
+                </div>
+              )}
             </div>
             <div className="fx-modal-foot">
               <Link href={`/blog/${editing.slug}`} target="_blank" className="fx-btn" style={{ marginRight: "auto" }}>
                 <IconExternalLink size={14} /> Xem bài
               </Link>
+              <button
+                type="button"
+                className="fx-btn"
+                onClick={() => {
+                  const p = posts.find((x) => x.slug === editing.slug);
+                  if (p) reimage(p);
+                }}
+                disabled={saving || reimaging === editing.slug}
+                title="AI chọn lại ảnh liên quan (bìa + ảnh tự động trong bài)"
+              >
+                {reimaging === editing.slug ? (
+                  <IconLoader2 size={14} className="spin" />
+                ) : (
+                  <IconPhotoSearch size={14} />
+                )}{" "}
+                AI chọn lại ảnh
+              </button>
+              <button
+                type="button"
+                className="fx-btn fx-btn-danger"
+                onClick={async () => {
+                  const p = posts.find((x) => x.slug === editing.slug);
+                  if (!p) return;
+                  await remove(p);
+                  setEditing(null);
+                }}
+                disabled={saving}
+              >
+                <IconTrash size={14} /> Xoá
+              </button>
               <button className="fx-btn" onClick={() => setEditing(null)} disabled={saving}>
                 Huỷ
               </button>
@@ -1401,103 +1718,6 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
         />
       )}
 
-      {/* PREVIEW DRAWER (drafts/rejected) */}
-      {preview && (
-        <>
-          <div
-            onClick={() => setPreview(null)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.5)",
-              backdropFilter: "blur(4px)",
-              zIndex: 180,
-              animation: "fade-in 0.2s ease",
-            }}
-          />
-          <aside
-            style={{
-              position: "fixed",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: "min(560px, 100vw)",
-              background: "var(--bg)",
-              borderLeft: "1px solid var(--border)",
-              zIndex: 190,
-              display: "flex",
-              flexDirection: "column",
-              boxShadow: "-20px 0 60px -10px rgba(0,0,0,0.5)",
-              animation: "drawer-in 0.25s ease",
-            }}
-          >
-            <div
-              style={{
-                padding: "12px 16px",
-                borderBottom: "1px solid var(--border)",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                background: "color-mix(in srgb, var(--bg) 92%, transparent)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <span className="fx-badge" data-tone={preview.post.status === "rejected" ? "mute" : "info"}>
-                {preview.post.status === "rejected" ? "Từ chối" : "Nháp"}
-              </span>
-              <b style={{ flex: 1, fontSize: 14, color: "var(--bright)" }}>Xem thử</b>
-              <button
-                type="button"
-                className="fx-btn fx-btn-icon fx-btn-ghost"
-                onClick={() => setPreview(null)}
-                title="Đóng"
-              >
-                <IconX size={16} stroke={2} />
-              </button>
-            </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px 40px" }}>
-              <div
-                style={{
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  marginBottom: 16,
-                  border: "1px solid var(--border)",
-                  aspectRatio: "16 / 9",
-                }}
-              >
-                <BlogCover post={preview.post} />
-              </div>
-              <h1 style={{ fontSize: "1.3rem", lineHeight: 1.3, color: "var(--bright)", marginBottom: 10 }}>
-                {preview.post.title}
-              </h1>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 10,
-                  fontSize: 12,
-                  color: "var(--dim)",
-                  paddingBottom: 14,
-                  borderBottom: "1px dashed var(--border)",
-                  marginBottom: 16,
-                }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <IconUser size={12} stroke={1.8} /> {preview.post.author}
-                </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <IconCalendar size={12} stroke={1.8} /> {preview.post.date}
-                </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <IconClock size={12} stroke={1.8} /> {preview.post.readMin} phút đọc
-                </span>
-              </div>
-              <div className="blog-body" dangerouslySetInnerHTML={{ __html: preview.html }} />
-            </div>
-          </aside>
-        </>
-      )}
-
       {/* CATEGORY EDIT MODAL */}
       {catEditing && (
         <div className="fx-modal-bg" style={{ zIndex: 200 }}>
@@ -1511,29 +1731,27 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
               </button>
             </div>
             <div className="fx-modal-body">
-              <div className="fx-field">
-                <label>Tên hiển thị *</label>
-                <input
+              <Field label="Tên hiển thị" required>
+                <Input
                   autoFocus
                   value={catEditing.label}
                   disabled={catSaving}
                   onChange={(e) => setCatEditing((cur) => (cur ? { ...cur, label: e.target.value } : cur))}
                   placeholder="VD: Món ăn Việt"
                 />
-              </div>
-              <div className="fx-grid2">
-                <div className="fx-field">
-                  <label>Slug {catEditing.isNew ? "" : "(cố định)"}</label>
-                  <input
+              </Field>
+              <div className="bga-grid2">
+                <Field label={`Slug ${catEditing.isNew ? "" : "(cố định)"}`}>
+                  <Input
                     value={catEditing.slug}
                     disabled={catSaving || !catEditing.isNew}
+                    monospace
                     onChange={(e) => setCatEditing((cur) => (cur ? { ...cur, slug: e.target.value } : cur))}
                     placeholder="auto từ tên"
                   />
-                </div>
-                <div className="fx-field">
-                  <label>Thứ tự</label>
-                  <input
+                </Field>
+                <Field label="Thứ tự">
+                  <Input
                     type="number"
                     value={catEditing.sort}
                     disabled={catSaving}
@@ -1541,19 +1759,18 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                       setCatEditing((cur) => (cur ? { ...cur, sort: Number(e.target.value) || 0 } : cur))
                     }
                   />
-                </div>
+                </Field>
               </div>
-              <div className="fx-field">
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
+              <Field label="Hiển thị công khai">
+                <div className="bga-switch-row">
+                  <Switch
                     checked={catEditing.active}
                     disabled={catSaving}
                     onChange={(e) => setCatEditing((cur) => (cur ? { ...cur, active: e.target.checked } : cur))}
                   />
-                  Hiển thị công khai
-                </label>
-              </div>
+                  <span className="bga-switch-lbl">{catEditing.active ? "Bật" : "Tắt"}</span>
+                </div>
+              </Field>
               {catErr && <div className="fx-err">{catErr}</div>}
             </div>
             <div className="fx-modal-foot">
@@ -1682,7 +1899,8 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
           .blog-row .fx-row-actions {
             grid-area: act;
             display: flex !important;
-            justify-content: flex-end;
+            justify-contentimport { size } from '../../apple-icon';
+: flex-end;
             flex-wrap: wrap;
             gap: 6px;
             padding-top: 10px;

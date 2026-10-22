@@ -497,6 +497,10 @@
   background: rgba(56, 189, 248, 0.14);
   color: #7dd3fc;
 }
+.fx-stat[data-tone="err"] .fx-stat-ico {
+  background: rgba(240, 86, 107, 0.14);
+  color: #f0566b;
+}
 .fx-stat-txt {
   display: flex;
   flex-direction: column;
@@ -1348,6 +1352,11 @@
   background: rgba(160, 170, 255, 0.08);
   color: var(--dim);
   border-color: var(--border);
+}
+.fx-scope .fx-badge[data-tone="err"] {
+  background: color-mix(in srgb, var(--err, #f0566b) 18%, transparent);
+  color: var(--err, #f0566b);
+  border-color: color-mix(in srgb, var(--err, #f0566b) 45%, transparent);
 }
 
 /* select inside admin forms matches input styling */

@@ -91,7 +91,7 @@ export default function HomeBlogSection() {
         )}
 
         <div className="home-blog-cta" data-reveal>
-          <a href="/blog" target="_blank" className="home-blog-btn">
+          <a href="/blog" target="_self" className="home-blog-btn">
             <IconArticle size={16} stroke={1.9} />
             {t("sec_blog_cta")}
             <IconArrowRight size={14} stroke={2} />

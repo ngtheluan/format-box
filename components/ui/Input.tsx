@@ -1,7 +1,7 @@
 "use client";
 import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
 
-export type InputSize = "sm" | "md" | "lg";
+export type InputSize = "xs" | "sm" | "md" | "lg";
 
 export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
   inputSize?: InputSize;

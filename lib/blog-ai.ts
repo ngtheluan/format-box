@@ -24,8 +24,60 @@ export function availableProviders(): Record<AiProvider, boolean> {
   return {
     groq: !!process.env.GROQ_API_KEY,
     gemini: !!process.env.GEMINI_API_KEY,
+    openrouter: !!process.env.OPENROUTER_API_KEY,
+    deepseek: !!process.env.DEEPSEEK_API_KEY,
+    mistral: !!process.env.MISTRAL_API_KEY,
+    cerebras: !!process.env.CEREBRAS_API_KEY,
     pollinations: true,
   };
+}
+
+// OpenAI-compatible endpoints: OpenRouter, DeepSeek, Mistral, Cerebras.
+type OaiEndpoint = { url: string; key: string | undefined; headers?: Record<string, string> };
+
+const OAI_ENDPOINTS: Record<"openrouter" | "deepseek" | "mistral" | "cerebras", () => OaiEndpoint> = {
+  openrouter: () => ({
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    key: process.env.OPENROUTER_API_KEY,
+    headers: {
+      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "https://formatbox.online",
+      "X-Title": "FormatBox Blog",
+    },
+  }),
+  deepseek: () => ({ url: "https://api.deepseek.com/v1/chat/completions", key: process.env.DEEPSEEK_API_KEY }),
+  mistral: () => ({ url: "https://api.mistral.ai/v1/chat/completions", key: process.env.MISTRAL_API_KEY }),
+  cerebras: () => ({ url: "https://api.cerebras.ai/v1/chat/completions", key: process.env.CEREBRAS_API_KEY }),
+};
+
+async function callOpenAICompat(
+  o: LlmOpts,
+  provider: keyof typeof OAI_ENDPOINTS,
+  model: string,
+): Promise<string> {
+  const ep = OAI_ENDPOINTS[provider]();
+  if (!ep.key) throw new Error(`${provider}: thiếu API key`);
+  const body: Record<string, unknown> = {
+    model,
+    temperature: o.temperature ?? 0.7,
+    messages: [
+      { role: "system", content: o.system },
+      { role: "user", content: o.user },
+    ],
+  };
+  if (o.maxTokens) body.max_tokens = o.maxTokens;
+  if (o.json) body.response_format = { type: "json_object" };
+  const r = await fetch(ep.url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${ep.key}`, ...(ep.headers || {}) },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
+  });
+  if (!r.ok) throw new Error(`${provider} ${r.status}: ${(await r.text()).slice(0, 240)}`);
+  const j: any = await r.json();
+  if (o.long && j?.choices?.[0]?.finish_reason === "length") {
+    throw new Error(`${provider} bị cắt (max_tokens)`);
+  }
+  return j?.choices?.[0]?.message?.content ?? "";
 }
 
 function supportsSearch(provider: AiProvider, model: string) {
@@ -111,12 +163,11 @@ async function callPollinations(o: LlmOpts, model: string): Promise<string> {
 
 async function callOnce(o: LlmOpts, provider: AiProvider, model: string): Promise<LlmResult> {
   const search = !!o.webSearch && supportsSearch(provider, model);
-  const raw =
-    provider === "groq"
-      ? await callGroq(o, model, search)
-      : provider === "gemini"
-        ? await callGemini(o, model, search)
-        : await callPollinations(o, model);
+  let raw: string;
+  if (provider === "groq") raw = await callGroq(o, model, search);
+  else if (provider === "gemini") raw = await callGemini(o, model, search);
+  else if (provider === "pollinations") raw = await callPollinations(o, model);
+  else raw = await callOpenAICompat(o, provider, model);
   const text = cleanText(raw);
   if (!text) throw new Error(`${provider} trả về rỗng`);
   return { text, provider, model, searched: search };
@@ -134,7 +185,8 @@ export async function callLlm(o: LlmOpts): Promise<LlmResult> {
   };
   push(o.provider, o.model || models(o.provider)[0].id);
   for (const m of models(o.provider)) push(o.provider, m.id);
-  for (const p of ["groq", "gemini", "pollinations"] as AiProvider[]) {
+  // Try providers in order of generation quality / cost efficiency.
+  for (const p of ["groq", "cerebras", "gemini", "deepseek", "mistral", "openrouter", "pollinations"] as AiProvider[]) {
     if (p === o.provider || (o.long && p === "pollinations")) continue;
     for (const m of models(p)) push(p, m.id);
   }
@@ -287,11 +339,91 @@ export async function searchOpenverse(query: string, n = 12, page = 1): Promise<
   }
 }
 
+export async function searchPexels(query: string, perPage = 12, page = 1): Promise<ImageCandidate[]> {
+  const key = process.env.PEXELS_API_KEY;
+  if (!key || !query.trim()) return [];
+  try {
+    const r = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${page}&orientation=landscape`,
+      { headers: { Authorization: key }, signal: AbortSignal.timeout(8000) },
+    );
+    if (!r.ok) return [];
+    const j: any = await r.json();
+    return ((j?.photos || []) as any[])
+      .filter((p) => p?.src?.large2x)
+      .map((p) => ({
+        id: `p:${p.id}`,
+        url: p.src.large2x,
+        thumb: p.src.medium || p.src.small,
+        alt: (p.alt || "").slice(0, 220),
+        credit: p.photographer || "Pexels",
+        creditUrl: `${p.photographer_url || p.url}?${UTM}`,
+        source: "pexels" as const,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function searchWikimedia(query: string, n = 12, _page = 1): Promise<ImageCandidate[]> {
+  if (!query.trim()) return [];
+  try {
+    const r = await fetch(
+      `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(
+        `filetype:bitmap ${query}`,
+      )}&gsrnamespace=6&gsrlimit=${n}&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=1200`,
+      { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "FormatBox/1.0 (blog image search)" } },
+    );
+    if (!r.ok) return [];
+    const j: any = await r.json();
+    const pages = Object.values(j?.query?.pages || {}) as any[];
+    return pages
+      .filter((p) => {
+        const info = p?.imageinfo?.[0];
+        return info?.thumburl && Number(info.width || 0) >= 800;
+      })
+      .map((p) => {
+        const info = p.imageinfo[0];
+        const meta = info.extmetadata || {};
+        const artist = (meta.Artist?.value || "").replace(/<[^>]+>/g, "").trim() || "Wikimedia";
+        const license = (meta.LicenseShortName?.value || "").replace(/<[^>]+>/g, "").trim();
+        return {
+          id: `w:${p.pageid}`,
+          url: info.thumburl.replace(/\/\d+px-/, "/1200px-"),
+          thumb: info.thumburl.replace(/\/\d+px-/, "/400px-"),
+          alt: (p.title || "").replace(/^File:/, "").replace(/\.[a-z]+$/i, "").slice(0, 220),
+          credit: artist.slice(0, 60),
+          creditUrl: `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`,
+          source: "wikimedia" as const,
+          license: license ? license.toUpperCase() : undefined,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+// Round-robin across sources so one dry source doesn't crowd out better ones.
 export async function searchImages(query: string, n = 12, page = 1): Promise<ImageCandidate[]> {
-  const u = await searchUnsplash(query, n, page);
-  if (u.length >= Math.min(6, n)) return u;
-  const o = await searchOpenverse(query, n - u.length, page);
-  return [...u, ...o];
+  const per = Math.ceil(n / 2) + 2;
+  const [u, p, w, o] = await Promise.all([
+    searchUnsplash(query, per, page),
+    searchPexels(query, per, page),
+    searchWikimedia(query, per, page),
+    searchOpenverse(query, per, page),
+  ]);
+  const out: ImageCandidate[] = [];
+  const seen = new Set<string>();
+  const lanes = [u, p, w, o];
+  for (let i = 0; out.length < n && i < per * lanes.length; i++) {
+    const list = lanes[i % lanes.length];
+    const c = list[Math.floor(i / lanes.length)];
+    if (c && !seen.has(c.id)) {
+      seen.add(c.id);
+      out.push(c);
+    }
+  }
+  return out;
 }
 
 export function trackImageUse(c: Pick<ImageCandidate, "source" | "downloadLocation">) {
@@ -304,8 +436,32 @@ export function trackImageUse(c: Pick<ImageCandidate, "source" | "downloadLocati
 
 export function imageCaption(c: ImageCandidate): string {
   const name = c.credit.replace(/[[\]]/g, "");
-  const src = c.source === "unsplash" ? "Unsplash" : c.license ? `${c.license} · Openverse` : "Openverse";
+  const srcLabel: Record<ImageCandidate["source"], string> = {
+    unsplash: "Unsplash",
+    pexels: "Pexels",
+    wikimedia: "Wikimedia Commons",
+    openverse: "Openverse",
+    pollinations: "Pollinations AI",
+  };
+  const src = c.license ? `${c.license} · ${srcLabel[c.source]}` : srcLabel[c.source];
   return `*Ảnh: [${name}](${c.creditUrl}) / ${src}*`;
+}
+
+// Fallback: AI-generated image from Pollinations (no key, deterministic by seed).
+export function pollinationsFallback(prompt: string, w = 1200, h = 675): ImageCandidate {
+  const clean = prompt.replace(/[^\p{L}\p{N}\s,-]/gu, " ").trim().slice(0, 200) || "abstract gradient";
+  const enc = encodeURIComponent(clean);
+  const seed = Math.abs(clean.split("").reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0));
+  const base = `https://image.pollinations.ai/prompt/${enc}?seed=${seed}&nologo=true&enhance=true`;
+  return {
+    id: `pol:${seed}`,
+    url: `${base}&width=${w}&height=${h}`,
+    thumb: `${base}&width=400&height=225`,
+    alt: clean,
+    credit: "Pollinations AI",
+    creditUrl: "https://pollinations.ai",
+    source: "pollinations",
+  };
 }
 
 export type ImageSlot = { key: string; query: string; alt: string; context: string };
@@ -388,6 +544,13 @@ export async function pickImages(
       out[s.key] = take(bestLexical(q, list, 0.5) || list.find((c) => !used.has(c.id)));
     }),
   );
+
+  // Guarantee an image for every slot (cover must always have one).
+  for (const s of slots) {
+    if (!out[s.key]) {
+      out[s.key] = pollinationsFallback(`${s.alt || ctx.title} ${s.query}`.trim());
+    }
+  }
 
   await Promise.all(Object.values(out).map((c) => (c ? trackImageUse(c) : undefined)));
   return out;
