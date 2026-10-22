@@ -8,6 +8,7 @@ import {
   IconMail,
   IconMenu4,
   IconMessageDots,
+  IconNews,
   IconSettings,
   IconUser,
   IconUserCircle,
@@ -48,6 +49,7 @@ export default function MobileTabBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mode, setMode] = useState<AppMode>("user");
   const [kbInset, setKbInset] = useState(0);
+  const [hidden, setHidden] = useState(false);
   const toast = useToast();
   const { t } = useI18n();
 
@@ -121,6 +123,30 @@ export default function MobileTabBar() {
       window.clearTimeout(t3);
     };
   }, [accountView]);
+
+  useEffect(() => {
+    if (settingsOpen || accountView || menuOpen) {
+      setHidden(false);
+      return;
+    }
+    let lastY = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const dy = y - lastY;
+        if (y < 10) setHidden(false);
+        else if (dy > 6) setHidden(true);
+        else if (dy < -6) setHidden(false);
+        lastY = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [settingsOpen, accountView, menuOpen]);
 
   useEffect(() => {
     const onSearchState = (e: Event) => {
@@ -224,13 +250,24 @@ export default function MobileTabBar() {
   const dispatch = (name: string) => window.dispatchEvent(new CustomEvent(name));
 
   const isHome = pathname === "/";
+  const isBlog = pathname === "/blog";
+  const isBlogPost = pathname.startsWith("/blog/");
 
   return (
     <>
-      <nav className="mtab" aria-label="Mobile">
+      <nav
+        className="mtab"
+        aria-label="Mobile"
+        style={{
+          transition: "transform 220ms ease, opacity 220ms ease",
+          transform: hidden ? "translateY(calc(100% + 32px))" : "translateY(0)",
+          opacity: hidden ? 0 : 1,
+          pointerEvents: hidden ? "none" : undefined,
+        }}
+      >
         <button
           type="button"
-          className={`mtab-btn${menuOpen ? " active" : ""}`}
+          className={`mtab-btn${menuOpen || isBlogPost ? " active" : ""}`}
           onClick={() => dispatch("fb:open-search")}
           aria-label="Menu"
           aria-expanded={menuOpen}
@@ -239,15 +276,10 @@ export default function MobileTabBar() {
           <span>{t("mtab_menu")}</span>
         </button>
 
-        <button
-          type="button"
-          className="mtab-btn"
-          onClick={() => dispatch("fb:open-feedback")}
-          aria-label={t("mtab_feedback")}
-        >
-          <IconMessageDots size={22} stroke={1.8} />
-          <span>{t("mtab_feedback")}</span>
-        </button>
+        <Link href="/blog" className={`mtab-btn${isBlog ? " active" : ""}`} aria-label={t("mtab_blog")}>
+          <IconNews size={22} stroke={1.8} />
+          <span>{t("mtab_blog")}</span>
+        </Link>
 
         <Link href="/" className={`mtab-btn${isHome ? " active" : ""}`} aria-label={t("mtab_home")}>
           <IconHome size={22} stroke={1.8} />
@@ -354,9 +386,7 @@ export default function MobileTabBar() {
             <div
               className="mtab-sheet"
               style={
-                kbInset > 0
-                  ? { marginBottom: kbInset, maxHeight: `calc(100vh - ${kbInset}px - 24px)` }
-                  : undefined
+                kbInset > 0 ? { marginBottom: kbInset, maxHeight: `calc(100vh - ${kbInset}px - 24px)` } : undefined
               }
             >
               <div className="mtab-sheet-head">
@@ -385,6 +415,21 @@ export default function MobileTabBar() {
                       <small>@{user.accountname}</small>
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    className="mtab-sheet-row mtab-sheet-row-btn"
+                    onClick={() => {
+                      closeAccount();
+                      dispatch("fb:open-feedback");
+                    }}
+                  >
+                    <span className="mtab-sheet-row-ico">
+                      <IconMessageDots size={20} stroke={1.8} />
+                    </span>
+                    <span className="mtab-acct-body">
+                      <b>{t("mtab_feedback")}</b>
+                    </span>
+                  </button>
                   <button type="button" className="mtab-sheet-row mtab-sheet-row-btn" onClick={doLogout}>
                     <span className="mtab-sheet-row-ico">
                       <IconLogout size={20} stroke={1.8} />
@@ -506,7 +551,9 @@ export default function MobileTabBar() {
                   <button
                     type="submit"
                     className="fx-btn fx-btn-primary"
-                    disabled={!firstname || !lastname || !accountname || !email || password.length < MIN_PASSWORD_LENGTH || busy}
+                    disabled={
+                      !firstname || !lastname || !accountname || !email || password.length < MIN_PASSWORD_LENGTH || busy
+                    }
                   >
                     {busy ? t("acct_busy") : t("acct_btn_register")}
                   </button>

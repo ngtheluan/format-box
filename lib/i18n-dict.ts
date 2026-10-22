@@ -1115,6 +1115,7 @@ export const DICT = {
 
   mtab_menu: { vi: "Menu", en: "Menu" },
   mtab_feedback: { vi: "Phản hồi", en: "Feedback" },
+  mtab_blog: { vi: "Blog", en: "Blog" },
   mtab_home: { vi: "Trang chủ", en: "Home" },
   mtab_account: { vi: "Tài khoản", en: "Account" },
   mtab_setting: { vi: "Cài đặt", en: "Settings" },

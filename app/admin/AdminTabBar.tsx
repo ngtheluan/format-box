@@ -22,6 +22,7 @@ export default function AdminTabBar() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [mode, setMode] = useState<AppMode>("admin");
   const [user, setUser] = useState<AppUser | null>(null);
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -40,6 +41,29 @@ export default function AdminTabBar() {
     setSettingsOpen(false);
     setAccountOpen(false);
   }, [pathname]);
+  useEffect(() => {
+    if (settingsOpen || accountOpen) {
+      setHidden(false);
+      return;
+    }
+    let lastY = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const dy = y - lastY;
+        if (y < 10) setHidden(false);
+        else if (dy > 6) setHidden(true);
+        else if (dy < -6) setHidden(false);
+        lastY = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [settingsOpen, accountOpen]);
 
   function switchMode(next: AppMode) {
     setMode(next);
@@ -67,7 +91,18 @@ export default function AdminTabBar() {
 
   return (
     <>
-      <nav className="atab" aria-label="Admin">
+      <nav
+        className="atab"
+        aria-label="Admin"
+        style={{
+          transition: "transform 220ms ease, opacity 220ms ease",
+          transform: hidden
+            ? "translateX(-50%) translateY(calc(100% + 32px))"
+            : "translateX(-50%) translateY(0)",
+          opacity: hidden ? 0 : 1,
+          pointerEvents: hidden ? "none" : undefined,
+        }}
+      >
         <Link href="/admin" className={`atab-btn${isHome ? " active" : ""}`} aria-label="Home">
           <IconHome size={22} stroke={1.8} />
           <span>Home</span>

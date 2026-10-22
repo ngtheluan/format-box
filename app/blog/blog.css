@@ -1248,7 +1248,7 @@
 }
 .blog-wrap,
 .bd {
-  max-width: 1200px;
+  max-width: 1320px;
   padding-top: 76px; /* clear the floating nav */
 }
 
@@ -1599,6 +1599,22 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+@media (max-width: 640px) {
+  .bz-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -14px;
+    padding: 0 14px;
+  }
+  .bz-pills::-webkit-scrollbar {
+    display: none;
+  }
+  .bz-pill {
+    flex: 0 0 auto;
+  }
 }
 .bz-pill {
   height: 36px;
@@ -1956,7 +1972,7 @@
 }
 @media (max-width: 640px) {
   .blog-wrap {
-    padding: 72px 12px 40px;
+    padding: 12px 12px 40px;
   }
   .bz-hero {
     padding: 20px 16px;
