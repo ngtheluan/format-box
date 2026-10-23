@@ -40,13 +40,13 @@ const ADMIN_APPS: AdminApp[] = [
   {
     href: "/admin/translations",
     title: "Ngôn ngữ",
-    desc: "Quản lý đa ngôn ngữ VI/EN — thêm, sửa, seed từ source dict.",
+    desc: "Quản lý đa ngôn ngữ thêm, sửa, seed từ source dict.",
     icon: <IconLanguage size={20} stroke={1.7} />,
   },
   {
     href: "/admin/users",
     title: "Users",
-    desc: "Quản lý tài khoản người dùng — tạo, sửa, đổi mật khẩu, xoá.",
+    desc: "Quản lý tài khoản người dùng trên site.",
     icon: <IconUsers size={20} stroke={1.7} />,
   },
   {
@@ -82,7 +82,7 @@ const ADMIN_APPS: AdminApp[] = [
   {
     href: "/admin/photobooth",
     title: "Photobooth",
-    desc: "Ảnh user chụp lưu trên Vercel Blob — tự xoá sau 24h.",
+    desc: "Ảnh chụp lưu trên Vercel Blob — tự xoá sau 24h.",
     icon: <IconCamera size={20} stroke={1.7} />,
   },
   {

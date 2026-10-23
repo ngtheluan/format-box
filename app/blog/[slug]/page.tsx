@@ -171,7 +171,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
           </div>
 
           {toc.length > 0 && (
-            <details className="bd-toc-mobile">
+            <details className="bd-toc-mobile" open>
               <summary>
                 <IconListDetails size={14} stroke={2} /> <T k="blog_toc" /> <span>({toc.length})</span>
               </summary>

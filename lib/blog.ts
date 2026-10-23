@@ -133,6 +133,24 @@ function slugify(s: string): string {
 }
 export { slugify };
 
+const HTML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+function decodeHtmlEntities(s: string): string {
+  return s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, body) => {
+    if (body[0] === "#") {
+      const code = body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : m;
+    }
+    return HTML_ENTITIES[body.toLowerCase()] ?? m;
+  });
+}
+
 marked.setOptions({ gfm: true, breaks: false });
 
 // Rewrite legacy pollinations URLs → our /api/img proxy (handles 500s with seed retry).
@@ -247,7 +265,7 @@ export function renderMarkdown(md: string): { html: string; toc: TocItem[] } {
   });
   const toc: TocItem[] = [];
   const html = raw.replace(/<h2(\s[^>]*)?>([\s\S]*?)<\/h2>/gi, (_m, attrs, inner) => {
-    const text = inner.replace(/<[^>]+>/g, "").trim();
+    const text = decodeHtmlEntities(inner.replace(/<[^>]+>/g, "")).trim();
     let id = slugify(text);
     let n = 2;
     while (toc.some((t) => t.id === id)) id = `${slugify(text)}-${n++}`;

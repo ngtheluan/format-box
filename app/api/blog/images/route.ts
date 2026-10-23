@@ -1,5 +1,5 @@
 import { isAdmin } from "@/lib/admin-auth";
-import { searchOpenverse, searchUnsplash, trackImageUse } from "@/lib/blog-ai";
+import { searchOpenverse, searchPexels, searchUnsplash, searchWikimedia, trackImageUse } from "@/lib/blog-ai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -11,9 +11,20 @@ export async function GET(req: Request) {
   const u = new URL(req.url);
   const q = (u.searchParams.get("q") || "").trim().slice(0, 120);
   const page = Math.max(1, Number(u.searchParams.get("page") || "1"));
-  const source = u.searchParams.get("source") === "openverse" ? "openverse" : "unsplash";
+  const srcParam = u.searchParams.get("source") || "unsplash";
+  const source = (["unsplash", "openverse", "pexels", "wikimedia"].includes(srcParam) ? srcParam : "unsplash") as
+    | "unsplash"
+    | "openverse"
+    | "pexels"
+    | "wikimedia";
   if (!q) return NextResponse.json({ images: [] });
-  const images = source === "openverse" ? await searchOpenverse(q, 18, page) : await searchUnsplash(q, 18, page);
+  const fn = {
+    unsplash: searchUnsplash,
+    openverse: searchOpenverse,
+    pexels: searchPexels,
+    wikimedia: searchWikimedia,
+  }[source];
+  const images = await fn(q, 18, page);
   return NextResponse.json({ images });
 }
 

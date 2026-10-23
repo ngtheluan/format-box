@@ -392,7 +392,9 @@ export default function AccountMenu() {
               <button
                 type="submit"
                 className="fx-btn fx-btn-primary"
-                disabled={!firstname || !lastname || !accountname || !email || password.length < MIN_PASSWORD_LENGTH || busy}
+                disabled={
+                  !firstname || !lastname || !accountname || !email || password.length < MIN_PASSWORD_LENGTH || busy
+                }
               >
                 {busy ? (
                   <>

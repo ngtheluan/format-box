@@ -1602,7 +1602,10 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                 <IconX size={16} stroke={2} />
               </button>
             </div>
-            <div className="fx-modal-body bga-edit" style={{ maxHeight: "calc(94vh - 130px)" }}>
+            <div
+              className={`fx-modal-body bga-edit${editView === "preview" ? " is-preview" : ""}`}
+              style={{ maxHeight: "calc(94vh - 130px)" }}
+            >
               <div className="bga-edit-side">
                 <div className="bga-cover">
                   {editing.coverImage ? (
@@ -1719,38 +1722,46 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                       <IconEye size={13} /> Xem trước
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    className="fx-btn"
-                    disabled={editView !== "write"}
-                    onClick={() =>
-                      setPicker({
-                        target: "inline",
-                        query: photoQuery(
-                          editing.title,
-                          editing.tags.split(",").map((s) => s.trim()),
-                        ),
-                      })
-                    }
-                    title="Chèn ảnh tại vị trí con trỏ"
-                  >
-                    <IconPhotoPlus size={14} /> Chèn ảnh
-                  </button>
-                  <span className="bga-toolbar-sep" />
-                  <span className="bga-toolbar-label">
-                    <IconSparkles size={13} /> AI với đoạn bôi đen:
-                  </span>
-                  {ASSIST.map((x) => (
-                    <button
-                      key={x.id}
-                      type="button"
-                      className="fx-btn"
-                      disabled={!!assisting || editView !== "write"}
-                      onClick={() => assist(x.id)}
-                    >
-                      {assisting === x.id ? <IconLoader2 size={13} className="spin" /> : x.icon} {x.label}
-                    </button>
-                  ))}
+                  {editing.status === "published" ? (
+                    <span className="bga-toolbar-label" style={{ color: "var(--warn, #f59e0b)" }}>
+                      <IconEye size={13} /> Đang xem bài đã phát hành — chuyển về Nháp để chỉnh sửa
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="fx-btn"
+                        disabled={editView !== "write"}
+                        onClick={() =>
+                          setPicker({
+                            target: "inline",
+                            query: photoQuery(
+                              editing.title,
+                              editing.tags.split(",").map((s) => s.trim()),
+                            ),
+                          })
+                        }
+                        title="Chèn ảnh tại vị trí con trỏ"
+                      >
+                        <IconPhotoPlus size={14} /> Chèn ảnh
+                      </button>
+                      <span className="bga-toolbar-sep" />
+                      <span className="bga-toolbar-label">
+                        <IconSparkles size={13} /> AI với đoạn bôi đen:
+                      </span>
+                      {ASSIST.map((x) => (
+                        <button
+                          key={x.id}
+                          type="button"
+                          className="fx-btn"
+                          disabled={!!assisting || editView !== "write"}
+                          onClick={() => assist(x.id)}
+                        >
+                          {assisting === x.id ? <IconLoader2 size={13} className="spin" /> : x.icon} {x.label}
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </div>
                 {editView === "write" ? (
                   <textarea
@@ -1779,50 +1790,106 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
               <Link href={`/blog/${editing.slug}`} target="_blank" className="fx-btn" style={{ marginRight: "auto" }}>
                 <IconExternalLink size={14} /> Xem bài
               </Link>
-              <button
-                type="button"
-                className="fx-btn"
-                onClick={() => {
-                  const p = posts.find((x) => x.slug === editing.slug);
-                  if (p) reimage(p);
-                }}
-                disabled={saving || reimaging === editing.slug}
-                title="AI chọn lại ảnh liên quan (bìa + ảnh tự động trong bài)"
-              >
-                {reimaging === editing.slug ? (
-                  <IconLoader2 size={14} className="spin" />
-                ) : (
-                  <IconPhotoSearch size={14} />
-                )}{" "}
-                AI chọn lại ảnh
-              </button>
-              <button
-                type="button"
-                className="fx-btn fx-btn-danger"
-                onClick={async () => {
-                  const p = posts.find((x) => x.slug === editing.slug);
-                  if (!p) return;
-                  await remove(p);
-                  setEditing(null);
-                }}
-                disabled={saving}
-              >
-                <IconTrash size={14} /> Xoá
-              </button>
-              <button className="fx-btn" onClick={() => setEditing(null)} disabled={saving}>
-                Huỷ
-              </button>
-              <button className="fx-btn fx-btn-primary" onClick={saveEdit} disabled={saving}>
-                {saving ? (
-                  <>
-                    <IconLoader2 size={14} className="spin" /> Đang lưu…
-                  </>
-                ) : (
-                  <>
-                    <IconDeviceFloppy size={14} /> Lưu
-                  </>
-                )}
-              </button>
+              {editing.status === "published" ? (
+                <>
+                  <button
+                    type="button"
+                    className="fx-btn"
+                    onClick={async () => {
+                      const p = posts.find((x) => x.slug === editing.slug);
+                      if (!p) return;
+                      await unpublish(p);
+                      setEditing((cur) => (cur ? { ...cur, status: "draft" } : cur));
+                    }}
+                    disabled={saving}
+                    title="Chuyển về nháp để chỉnh sửa"
+                  >
+                    <IconX size={14} /> Về Nháp để sửa
+                  </button>
+                  <button className="fx-btn fx-btn-primary" onClick={() => setEditing(null)}>
+                    Đóng
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="fx-btn"
+                    onClick={() => {
+                      const p = posts.find((x) => x.slug === editing.slug);
+                      if (p) reimage(p);
+                    }}
+                    disabled={saving || reimaging === editing.slug}
+                    title="AI chọn lại ảnh liên quan trong bài (không đổi ảnh bìa)"
+                  >
+                    {reimaging === editing.slug ? (
+                      <IconLoader2 size={14} className="spin" />
+                    ) : (
+                      <IconPhotoSearch size={14} />
+                    )}{" "}
+                    AI chọn lại ảnh
+                  </button>
+                  <button
+                    type="button"
+                    className="fx-btn fx-btn-danger"
+                    onClick={async () => {
+                      const p = posts.find((x) => x.slug === editing.slug);
+                      if (!p) return;
+                      await remove(p);
+                      setEditing(null);
+                    }}
+                    disabled={saving}
+                  >
+                    <IconTrash size={14} /> Xoá
+                  </button>
+                  {editing.status === "draft" && (
+                    <button
+                      type="button"
+                      className="fx-btn"
+                      onClick={async () => {
+                        const p = posts.find((x) => x.slug === editing.slug);
+                        if (!p) return;
+                        await reject(p);
+                        setEditing(null);
+                      }}
+                      disabled={saving}
+                      style={{ color: "var(--warn, #f59e0b)" }}
+                    >
+                      <IconX size={14} /> Từ chối
+                    </button>
+                  )}
+                  {(editing.status === "draft" || editing.status === "rejected") && (
+                    <button
+                      type="button"
+                      className="fx-btn"
+                      onClick={async () => {
+                        const p = posts.find((x) => x.slug === editing.slug);
+                        if (!p) return;
+                        await approve(p);
+                        setEditing((cur) => (cur ? { ...cur, status: "published" } : cur));
+                      }}
+                      disabled={saving}
+                      style={{ color: "var(--ok, #10b981)" }}
+                    >
+                      <IconCheck size={14} /> Duyệt
+                    </button>
+                  )}
+                  <button className="fx-btn" onClick={() => setEditing(null)} disabled={saving}>
+                    Huỷ
+                  </button>
+                  <button className="fx-btn fx-btn-primary" onClick={saveEdit} disabled={saving}>
+                    {saving ? (
+                      <>
+                        <IconLoader2 size={14} className="spin" /> Đang lưu…
+                      </>
+                    ) : (
+                      <>
+                        <IconDeviceFloppy size={14} /> Lưu
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

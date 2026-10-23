@@ -13,7 +13,14 @@ type Props = {
 // Search Unsplash / Openverse and pick a photo (cover or inline image).
 export default function ImagePicker({ title, initialQuery, onPick, onClose }: Props) {
   const [q, setQ] = useState(initialQuery);
-  const [source, setSource] = useState<"unsplash" | "openverse">("unsplash");
+  const [source, setSource] = useState<"unsplash" | "openverse" | "pexels" | "wikimedia">("unsplash");
+
+  const SOURCES = [
+    { k: "unsplash", label: "Unsplash" },
+    { k: "pexels", label: "Pexels" },
+    { k: "wikimedia", label: "Wikimedia" },
+    { k: "openverse", label: "Openverse (CC)" },
+  ] as const;
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<ImageCandidate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -74,17 +81,17 @@ export default function ImagePicker({ title, initialQuery, onPick, onClose }: Pr
         <div className="fx-modal-body">
           <div className="bga-picker-bar">
             <div className="bga-seg">
-              {(["unsplash", "openverse"] as const).map((s) => (
+              {SOURCES.map(({ k, label }) => (
                 <button
-                  key={s}
+                  key={k}
                   type="button"
-                  className={source === s ? "is-on" : ""}
+                  className={source === k ? "is-on" : ""}
                   onClick={() => {
-                    setSource(s);
-                    submit(s);
+                    setSource(k);
+                    submit(k);
                   }}
                 >
-                  {s === "unsplash" ? "Unsplash" : "Openverse (CC)"}
+                  {label}
                 </button>
               ))}
             </div>
@@ -106,7 +113,16 @@ export default function ImagePicker({ title, initialQuery, onPick, onClose }: Pr
             {items.map((c) => (
               <button key={c.id} type="button" className="bga-picker-item" onClick={() => pick(c)} title={c.alt}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.thumb} alt={c.alt} loading="lazy" referrerPolicy="no-referrer" />
+                <img
+                  src={c.thumb}
+                  alt={c.alt}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (img.src !== c.url) img.src = c.url;
+                  }}
+                />
                 <span>{c.credit}</span>
               </button>
             ))}

@@ -3,12 +3,12 @@
 import { BlogCard, Corners } from "@/components/BlogCard";
 import { BlogCover } from "@/components/BlogCover";
 import { Stack } from "@/components/ui";
-import { DidYouKnow } from "./DidYouKnow";
 import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
 import { IconArrowRight, IconArticle } from "@tabler/icons-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { DidYouKnow } from "./DidYouKnow";
 
 const PAGE = 12;
 const SIDE = 4; // recent posts shown beside the featured story

@@ -23,7 +23,7 @@ function promptOf(src: string): string {
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const { slug, cover = true } = (await req.json().catch(() => ({}))) as { slug?: string; cover?: boolean };
+  const { slug, cover = false } = (await req.json().catch(() => ({}))) as { slug?: string; cover?: boolean };
   if (!slug) return NextResponse.json({ error: "Thiếu slug" }, { status: 400 });
   const post = await getAdminPost(slug);
   if (!post) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
