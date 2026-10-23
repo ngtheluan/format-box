@@ -2,7 +2,7 @@
 
 import { Modal } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
-import { IconArrowRight, IconBulb, IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -161,10 +161,7 @@ export function DidYouKnow() {
   return (
     <section className="bz-sec dyk-sec" aria-labelledby="dyk-h2">
       <header className="bz-sec-head">
-        <h2 id="dyk-h2" className="dyk-h2">
-          <IconBulb size={18} stroke={1.8} />
-          {t("blog_dyk_title")}
-        </h2>
+        <h2 id="dyk-h2">{t("blog_dyk_title")}</h2>
         <span className="dyk-sub">{t("blog_dyk_sub")}</span>
       </header>
 

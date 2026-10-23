@@ -15,7 +15,7 @@ import { BlogCover } from "@/components/BlogCover";
 import { BlogCard } from "@/components/BlogCard";
 import { BlogAudioPlayer } from "@/components/BlogAudioPlayer";
 import { T } from "@/components/T";
-import { BlogToc, BodyEnhancer, ReadingProgress, ShareBar } from "./BlogReader";
+import { BlogToc, BodyEnhancer, ReaderTools, ReadingProgress, ShareBar } from "./BlogReader";
 import "../blog.css";
 
 export const dynamic = "force-dynamic";
@@ -168,6 +168,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
 
           <div className="bd-topmeta">
             <BlogAudioPlayer slug={post.slug} />
+            <ReaderTools slug={post.slug} title={post.title} markdown={post.markdown} />
           </div>
 
           {toc.length > 0 && (

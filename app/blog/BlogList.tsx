@@ -5,9 +5,9 @@ import { BlogCover } from "@/components/BlogCover";
 import { Stack } from "@/components/ui";
 import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
-import { IconArrowRight, IconArticle } from "@tabler/icons-react";
+import { IconArrowRight, IconArticle, IconX } from "@tabler/icons-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DidYouKnow } from "./DidYouKnow";
 
 const PAGE = 12;
@@ -123,6 +123,8 @@ export function BlogList({ posts: all, categories }: { posts: BlogPost[]; catego
         </div>
       )}
 
+      <SavedPosts posts={all} />
+
       {/* LATEST GRID */}
       {rest.length > 0 || active ? (
         <section className="bz-sec">
@@ -179,5 +181,71 @@ export function BlogList({ posts: all, categories }: { posts: BlogPost[]; catego
 
       <DidYouKnow />
     </Stack>
+  );
+}
+
+function SavedPosts({ posts }: { posts: BlogPost[] }) {
+  const [slugs, setSlugs] = useState<string[]>([]);
+  const [ready, setReady] = useState(false);
+
+  const read = () => {
+    try {
+      const raw = localStorage.getItem("fb-blog-saved");
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      setSlugs(Array.isArray(list) ? list : []);
+    } catch {
+      setSlugs([]);
+    }
+  };
+
+  useEffect(() => {
+    read();
+    setReady(true);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "fb-blog-saved") read();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  function remove(slug: string) {
+    try {
+      const next = slugs.filter((s) => s !== slug);
+      localStorage.setItem("fb-blog-saved", JSON.stringify(next));
+      setSlugs(next);
+    } catch {}
+  }
+
+  if (!ready || slugs.length === 0) return null;
+  const byId = new Map(posts.map((p) => [p.slug, p] as const));
+  const items = slugs.map((s) => byId.get(s)).filter(Boolean) as BlogPost[];
+  if (items.length === 0) return null;
+
+  return (
+    <section className="bz-sec bz-saved" aria-label="Bài viết đã lưu">
+      <header className="bz-sec-head">
+        <h2>Bài viết đã lưu</h2>
+        <span className="bz-saved-count">{items.length}</span>
+      </header>
+      <ul className="bz-saved-list">
+        {items.map((p) => (
+          <li key={p.slug}>
+            <Link href={`/blog/${p.slug}`} prefetch={false} className="bz-saved-link">
+              <span className="bz-saved-title">{p.title}</span>
+              <span className="bz-saved-meta">{formatDateVi(p.date)}</span>
+            </Link>
+            <button
+              type="button"
+              className="bz-saved-rm"
+              onClick={() => remove(p.slug)}
+              aria-label={`Bỏ lưu ${p.title}`}
+              title="Bỏ lưu"
+            >
+              <IconX size={13} stroke={2} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

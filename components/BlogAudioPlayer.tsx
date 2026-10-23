@@ -1,22 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { IconVolume, IconLoader2, IconAlertTriangle } from "@tabler/icons-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  IconAlertTriangle,
+  IconLoader2,
+  IconPlayerPauseFilled,
+  IconPlayerPlayFilled,
+  IconVolume,
+} from "@tabler/icons-react";
 
 type Props = {
   slug: string;
 };
 
 const VOICES = [
-  { key: "hoaimy", label: "Hoài My (Nữ)" },
-  { key: "namminh", label: "Nam Minh (Nam)" },
+  { key: "hoaimy", label: "Hoài My" },
+  { key: "namminh", label: "Nam Minh" },
 ];
+
+function fmt(sec: number) {
+  if (!isFinite(sec) || sec < 0) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 export function BlogAudioPlayer({ slug }: Props) {
   const [voice, setVoice] = useState("hoaimy");
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [cur, setCur] = useState(0);
+  const [dur, setDur] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const load = async (v: string) => {
     setLoading(true);
@@ -36,64 +53,63 @@ export function BlogAudioPlayer({ slug }: Props) {
   const onVoiceChange = (v: string) => {
     setVoice(v);
     setUrl(null);
+    setPlaying(false);
+    setCur(0);
+    setDur(0);
     load(v);
   };
 
-  // Auto-generate on mount so the user can press play without first clicking a button.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load(voice);
   }, [slug]);
 
+  function toggle() {
+    const el = audioRef.current;
+    if (!el || !url) return;
+    if (el.paused) el.play();
+    else el.pause();
+  }
+
+  function seek(e: React.MouseEvent<HTMLDivElement>) {
+    const el = audioRef.current;
+    if (!el || !dur) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    el.currentTime = p * dur;
+    setCur(el.currentTime);
+  }
+
+  const pct = dur ? (cur / dur) * 100 : 0;
+  const disabled = !url || loading;
+
   return (
-    <div
-      className="bd-audio"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 10,
-        margin: 0,
-        fontSize: "0.78rem",
-        color: "var(--text)",
-      }}
-    >
-      <span
-        style={{
-          display: "grid",
-          placeItems: "center",
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-          color: "#fff",
-          flexShrink: 0,
-        }}
+    <div className={`bd-audio${playing ? " is-playing" : ""}`}>
+      <button
+        type="button"
+        className="bd-audio-play"
+        onClick={toggle}
+        disabled={disabled}
+        aria-label={playing ? "Tạm dừng" : "Phát"}
       >
-        <IconVolume size={15} stroke={2} />
-      </span>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, lineHeight: 1.15 }}>
-        <strong style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--bright)" }}>Nghe bài viết</strong>
-        <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: "0.72rem",
-            color: "var(--dim)",
-          }}
-        >
+        {loading ? (
+          <IconLoader2 size={16} className="bd-audio-spin" />
+        ) : playing ? (
+          <IconPlayerPauseFilled size={14} />
+        ) : (
+          <IconPlayerPlayFilled size={14} />
+        )}
+      </button>
+
+      <div className="bd-audio-body">
+        <div className="bd-audio-head">
+          <IconVolume size={12} stroke={2} />
+          <strong>Nghe bài viết</strong>
+          <span className="bd-audio-sep" />
           <select
+            className="bd-audio-voice"
             value={voice}
             onChange={(e) => onVoiceChange(e.target.value)}
-            style={{
-              padding: 0,
-              fontSize: "0.72rem",
-              borderRadius: 0,
-              border: 0,
-              background: "transparent",
-              color: "var(--dim)",
-              cursor: "pointer",
-            }}
             aria-label="Giọng đọc"
           >
             {VOICES.map((v) => (
@@ -102,57 +118,45 @@ export function BlogAudioPlayer({ slug }: Props) {
               </option>
             ))}
           </select>
-          {loading && (
-            <>
-              <span>·</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <IconLoader2 size={11} className="spin" /> Đang tạo…
-              </span>
-            </>
-          )}
           {error && (
-            <>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => load(voice)}
-                style={{
-                  padding: 0,
-                  fontSize: "0.72rem",
-                  fontWeight: 600,
-                  border: 0,
-                  background: "transparent",
-                  color: "var(--err)",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                  textUnderlineOffset: 2,
-                }}
-                title={error}
-              >
-                <IconAlertTriangle size={11} style={{ verticalAlign: "middle" }} /> Thử lại
-              </button>
-            </>
+            <button type="button" className="bd-audio-err" onClick={() => load(voice)} title={error}>
+              <IconAlertTriangle size={11} /> Thử lại
+            </button>
           )}
-        </span>
+        </div>
+        <div
+          className="bd-audio-track"
+          onClick={seek}
+          role="slider"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(pct)}
+          aria-label="Tiến độ phát"
+        >
+          <div className="bd-audio-fill" style={{ width: `${pct}%` }} />
+          <div className="bd-audio-knob" style={{ left: `${pct}%` }} />
+        </div>
       </div>
+
+      <span className="bd-audio-time">
+        <b>{fmt(cur)}</b>
+        <i>/</i>
+        <span>{fmt(dur)}</span>
+      </span>
+
       {url && (
         <audio
-          controls
+          ref={audioRef}
           src={url}
           preload="metadata"
-          style={{ height: 32, maxWidth: 220 }}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => setPlaying(false)}
+          onTimeUpdate={(e) => setCur(e.currentTarget.currentTime)}
+          onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
+          style={{ display: "none" }}
         />
       )}
-      <style jsx>{`
-        .spin {
-          animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   );
 }
