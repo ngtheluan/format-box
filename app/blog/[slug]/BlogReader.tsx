@@ -157,7 +157,7 @@ export function ShareBar({ title, path }: { title: string; path: string }) {
 }
 
 // Adds copy buttons to code blocks and opens external links in a new tab.
-export function BodyEnhancer() {
+export function BodyEnhancer({ slug }: { slug?: string }) {
   const { t } = useI18n();
   useEffect(() => {
     const body = document.querySelector(".bd-article .blog-body");
@@ -190,6 +190,6 @@ export function BodyEnhancer() {
       }
     });
     return () => added.forEach((b) => b.remove());
-  }, [t]);
+  }, [t, slug]);
   return null;
 }

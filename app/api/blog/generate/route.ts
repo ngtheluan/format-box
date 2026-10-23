@@ -10,7 +10,7 @@ import {
   type BlogCategory,
   type BlogPost,
 } from "@/lib/blog";
-import { callLlm, imageCaption, parseJsonLoose, pickImages, researchTopic, toQuery, type ImageSlot } from "@/lib/blog-ai";
+import { callLlm, imageCaption, isAsciiQuery, parseJsonLoose, pickImages, researchTopic, toQuery, translatePhotoQuery, type ImageSlot } from "@/lib/blog-ai";
 import {
   AI_MODELS,
   GEN_AUDIENCES,
@@ -281,12 +281,41 @@ export async function POST(req: Request) {
         let n = 0;
         while ((m = imgRe.exec(md))) {
           if (n >= Math.max(nImages, 0)) break;
-          slots.push({ key: `img${++n}`, alt: m[1], query: toQuery(m[2], 6), context: sectionAt(m.index) });
+          slots.push({ key: `img${++n}`, alt: m[1], query: m[2].trim(), context: sectionAt(m.index) });
         }
         const styleSuffix = imageStyle.id === "illustration" ? " illustration vector" : imageStyle.id === "photo" ? " photo" : "";
-        const coverQuery = toQuery((meta.imageQuery || meta.imagePrompt || meta.title) + styleSuffix, 6);
-        slots.unshift({ key: "cover", alt: meta.title, query: coverQuery, context: meta.excerpt || meta.title });
-        if (styleSuffix) slots.forEach((s) => (s.query = s.key === "cover" ? s.query : toQuery(s.query + styleSuffix, 6)));
+        const rawCover = (meta.imageQuery || meta.imagePrompt || "").toString().trim();
+        slots.unshift({ key: "cover", alt: meta.title, query: rawCover, context: meta.excerpt || meta.title });
+
+        // Guarantee every slot has an ENGLISH photo query. Non-ASCII (Vietnamese)
+        // queries make Unsplash/Pexels return random/unrelated results, which is
+        // the root cause of covers that don't match the article. If the writer
+        // model gave us Vietnamese (or nothing), translate via LLM.
+        const writerProvider = written.provider;
+        await Promise.all(
+          slots.map(async (s) => {
+            if (!isAsciiQuery(s.query)) {
+              const translated = await translatePhotoQuery(s.query || s.alt || meta.title, {
+                title: meta.title,
+                provider: writerProvider,
+                context: s.context,
+              });
+              if (translated) s.query = translated;
+            }
+            // Last-resort fallback: use ASCII tags, else de-accented title.
+            if (!isAsciiQuery(s.query)) {
+              const asciiTags = (Array.isArray(meta.tags) ? meta.tags : [])
+                .map(String)
+                .filter((t) => isAsciiQuery(t))
+                .slice(0, 3)
+                .join(" ");
+              s.query =
+                asciiTags ||
+                meta.title.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").split(/\s+/).slice(0, 4).join(" ");
+            }
+            s.query = toQuery(s.query + (s.key === "cover" ? styleSuffix : styleSuffix), 6);
+          }),
+        );
 
         send({ type: "step", step: "images", status: "start", detail: `${slots.length} ảnh` });
         const picked = await pickImages(slots, { title: meta.title, provider: written.provider });

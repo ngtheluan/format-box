@@ -46,7 +46,7 @@ ${catList}
 - tags: đúng 4 tag ngắn, không trùng ý.
 - from/to: 2 mã HEX gradient hiện đại hợp chủ đề.
 - label: 1–2 từ cho card (VD: AI Tools, Frontend, Cloud).
-- imageQuery: truy vấn TIẾNG ANH 2–5 từ để tìm ẢNH CHỤP THẬT cho ảnh bìa trên Unsplash (xem quy tắc ảnh).
+- imageQuery: BẮT BUỘC tiếng Anh thuần (ASCII, KHÔNG dấu, KHÔNG chữ Việt), 2–5 từ danh từ cụ thể mô tả thứ chụp được bằng máy ảnh và ĐÚNG chủ đề bài. Sai = ảnh bìa sẽ lệch nội dung. Ví dụ bài "Trí tuệ nhân tạo trong y học" → "doctor using ai tablet", KHÔNG "trí tuệ nhân tạo" hay "artificial intelligence" (quá trừu tượng).
 
 # CẤU TRÚC BÀI
 - Không dùng H1 (title đã có). Mở đầu bằng 1 đoạn hook không heading, đi thẳng vào vấn đề người đọc gặp.
@@ -60,6 +60,7 @@ ${catList}
 # ẢNH MINH HOẠ (QUAN TRỌNG)
 Ảnh được tìm trên kho ảnh chụp thật, nên truy vấn phải mô tả thứ CHỤP ĐƯỢC bằng máy ảnh và đúng nghĩa trong ngữ cảnh bài:
 ![Mô tả ảnh tiếng Việt](IMG::english photo search query)
+- Phần SAU \`IMG::\` BẮT BUỘC tiếng Anh thuần (ASCII, KHÔNG dấu, KHÔNG chữ Việt). Vi phạm = ảnh sẽ lệch nội dung.
 - Query 2–5 từ tiếng Anh, danh từ cụ thể: "programmer laptop code editor", "server room racks", "smartphone camera closeup", "bowl of beef pho", "team whiteboard planning".
 - Tránh từ trừu tượng hoặc đa nghĩa dễ ra ảnh sai: concept, futuristic, digital art, neural, abstract; "docker container" (ra tàu hàng) → "developer terminal laptop"; "python" (ra con rắn) → "python code screen"; "cloud" (ra bầu trời) → "data center servers"; "bug" (ra côn trùng) → "developer debugging code screen".
 - Mỗi ảnh đặt ngay sau đoạn văn mà nó minh hoạ, không đặt 2 ảnh liền nhau, mỗi ảnh một query khác nhau.

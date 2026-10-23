@@ -1,6 +1,6 @@
 import { isAdmin } from "@/lib/admin-auth";
 import { getAdminPost, updatePost, withCoverCredit } from "@/lib/blog";
-import { imageCaption, pickImages, toQuery, type ImageSlot } from "@/lib/blog-ai";
+import { imageCaption, isAsciiQuery, pickImages, toQuery, translatePhotoQuery, type ImageSlot } from "@/lib/blog-ai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -41,14 +41,34 @@ export async function POST(req: Request) {
     slots.push({ key: `img${++n}`, alt: m[1], query: toQuery(promptOf(m[2]) || m[1], 6), context: ctx });
   }
   if (cover) {
+    const asciiTags = post.tags.filter((t) => isAsciiQuery(t)).join(" ");
     slots.unshift({
       key: "cover",
       alt: post.title,
-      query: toQuery(`${post.tags.join(" ")} ${post.cover.label}`, 5),
+      query: asciiTags || post.cover.label,
       context: `${post.title} — ${post.excerpt}`,
     });
   }
   if (!slots.length) return NextResponse.json({ error: "Bài không có ảnh tự động để thay" }, { status: 400 });
+
+  // Make sure every slot has an English query — the stock photo APIs don't
+  // handle Vietnamese and would return random results.
+  await Promise.all(
+    slots.map(async (s) => {
+      if (!isAsciiQuery(s.query)) {
+        const q = await translatePhotoQuery(s.query || s.alt || post.title, {
+          title: post.title,
+          provider: "groq",
+          context: s.context,
+        });
+        if (q) s.query = q;
+      }
+      if (!isAsciiQuery(s.query)) {
+        s.query = post.title.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").split(/\s+/).slice(0, 4).join(" ");
+      }
+      s.query = toQuery(s.query, 6);
+    }),
+  );
 
   const picked = await pickImages(slots, { title: post.title, provider: "groq" });
   let k = 0;

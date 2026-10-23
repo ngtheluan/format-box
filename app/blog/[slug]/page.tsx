@@ -19,6 +19,8 @@ import { BlogToc, BodyEnhancer, ReadingProgress, ShareBar } from "./BlogReader";
 import "../blog.css";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const post = await getPublicPost(params.slug);
@@ -59,13 +61,8 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
   const catMap = categoriesToMap(cats);
   const catLabel = (slug: string) => catMap[slug] || slug;
 
-  const others = all.filter((p) => p.slug !== post.slug);
-  const related = [
-    ...others.filter((p) => p.category === post.category),
-    ...others.filter((p) => p.category !== post.category && p.tags.some((t) => post.tags.includes(t))),
-    ...others,
-  ]
-    .filter((p, i, a) => a.findIndex((x) => x.slug === p.slug) === i)
+  const related = all
+    .filter((p) => p.slug !== post.slug && p.category === post.category)
     .slice(0, 3);
 
   // `all` is newest first: index-1 is the newer post, index+1 the older one.
@@ -93,9 +90,9 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
   };
 
   return (
-    <div className="bd">
+    <div className="bd" key={post.slug}>
       <ReadingProgress />
-      <BodyEnhancer />
+      <BodyEnhancer slug={post.slug} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* HEAD TILE — breadcrumb, category + tags, title, dek, byline (200Lab style) */}

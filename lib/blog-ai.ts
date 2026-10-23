@@ -322,9 +322,13 @@ export async function searchUnsplash(query: string, perPage = 12, page = 1): Pro
 export async function searchOpenverse(query: string, n = 12, page = 1): Promise<ImageCandidate[]> {
   if (!query.trim()) return [];
   try {
+    // Openverse's public API typically takes 10–14s per query (CC search is heavy),
+    // so an 8s timeout silently killed every call → the pipeline never saw any
+    // Flickr/Openverse photo. Keep a generous timeout and drop the `size=large`
+    // filter which slows the backend and shrinks the result set.
     const r = await fetch(
-      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=${n}&page=${page}&aspect_ratio=wide&size=large&mature=false`,
-      { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "FormatBox/1.0 (blog image search)" } },
+      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=${n}&page=${page}&aspect_ratio=wide&mature=false`,
+      { signal: AbortSignal.timeout(18000), headers: { "User-Agent": "FormatBox/1.0 (blog image search)" } },
     );
     if (!r.ok) return [];
     const j: any = await r.json();
@@ -477,6 +481,43 @@ export function pollinationsFallback(prompt: string, w = 1200, h = 675): ImageCa
   };
 }
 
+// A query is usable for stock-photo search only if it's ASCII English (Vietnamese
+// diacritics or Vietnamese words return irrelevant results on Unsplash/Pexels).
+export function isAsciiQuery(s: string): boolean {
+  const t = (s || "").trim();
+  if (!t) return false;
+  if (!/^[\x20-\x7e]+$/.test(t)) return false;
+  // Reject pure numbers / junk.
+  return /[a-z]{3,}/i.test(t);
+}
+
+// Ask the LLM to turn a Vietnamese topic / alt text into a concrete English photo
+// search query. Falls back to the input if the call fails.
+export async function translatePhotoQuery(
+  vn: string,
+  ctx: { title: string; provider: AiProvider; context?: string },
+): Promise<string> {
+  const input = (vn || "").trim();
+  if (!input) return "";
+  if (isAsciiQuery(input)) return input;
+  try {
+    const r = await callLlm({
+      provider: ctx.provider === "pollinations" ? "groq" : ctx.provider,
+      json: true,
+      temperature: 0,
+      timeoutMs: 25_000,
+      system:
+        "You turn Vietnamese topics into a short English stock-photo search query. Reply JSON only. Rules: 2-5 words, concrete nouns a camera can capture (people doing things, physical objects, places), no abstract words (concept, abstract, futuristic, digital art), no brand names unless central, no words with multiple meanings that lead to wrong photos (bug=insect, python=snake, cloud=sky, docker=cargo ship, apple=fruit) — use their contextual meaning instead.",
+      user: `Bài: "${ctx.title}"${ctx.context ? `\nNgữ cảnh: ${ctx.context.slice(0, 200)}` : ""}\nCần query ảnh cho: "${input}"\n\nJSON: {"q":"english query"}`,
+    });
+    const j = parseJsonLoose<{ q?: string }>(r.text);
+    const q = (j?.q || "").trim();
+    return isAsciiQuery(q) ? q : "";
+  } catch {
+    return "";
+  }
+}
+
 export type ImageSlot = { key: string; query: string; alt: string; context: string };
 
 // Find a relevant photo for each slot: search → LLM picks the best match (or proposes
@@ -558,10 +599,13 @@ export async function pickImages(
     }),
   );
 
-  // Guarantee an image for every slot (cover must always have one).
+  // Guarantee an image for every slot (cover must always have one). Prefer the
+  // English search query over the Vietnamese alt so Pollinations renders a photo
+  // that actually matches the topic.
   for (const s of slots) {
     if (!out[s.key]) {
-      out[s.key] = pollinationsFallback(`${s.alt || ctx.title} ${s.query}`.trim());
+      const prompt = isAsciiQuery(s.query) ? s.query : `${s.alt || ctx.title}`;
+      out[s.key] = pollinationsFallback(prompt);
     }
   }
 

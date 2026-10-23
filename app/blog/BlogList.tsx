@@ -3,6 +3,7 @@
 import { BlogCard, Corners } from "@/components/BlogCard";
 import { BlogCover } from "@/components/BlogCover";
 import { Stack } from "@/components/ui";
+import { DidYouKnow } from "./DidYouKnow";
 import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
 import { IconArrowRight, IconArticle } from "@tabler/icons-react";
@@ -58,7 +59,7 @@ export function BlogList({ posts: all, categories }: { posts: BlogPost[]; catego
   const secLabel = active ? catMap[active] : t("blog_latest");
 
   return (
-    <Stack gap={20}>
+    <Stack gap={28}>
       {/* HERO — framed tile: eyebrow, title, dek, topic filters */}
       <header className="bz-hero" aria-labelledby="blog-h1">
         <Corners />
@@ -175,6 +176,8 @@ export function BlogList({ posts: all, categories }: { posts: BlogPost[]; catego
           )}
         </section>
       ) : null}
+
+      <DidYouKnow />
     </Stack>
   );
 }

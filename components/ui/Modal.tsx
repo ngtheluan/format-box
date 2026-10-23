@@ -53,7 +53,12 @@ export default function Modal({
       body.style.position = prev.position;
       body.style.top = prev.top;
       body.style.width = prev.width;
+      // Bypass global `scroll-behavior: smooth` so restore is instant, not an animated jump.
+      const html = document.documentElement;
+      const prevBehavior = html.style.scrollBehavior;
+      html.style.scrollBehavior = "auto";
       window.scrollTo(0, scrollY);
+      html.style.scrollBehavior = prevBehavior;
     };
   }, [open, onClose, closeOnEsc]);
 
