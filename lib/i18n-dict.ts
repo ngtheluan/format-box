@@ -5,7 +5,6 @@ export const DICT = {
   nav_tools: { vi: "Công cụ", en: "Tools" },
   nav_blog: { vi: "Bài viết", en: "Blog" },
   nav_search_placeholder: { vi: "Tìm công cụ", en: "Search tools" },
-  nav_all_tools: { vi: "Tất cả tool", en: "All tools" },
   nav_results: { vi: "kết quả", en: "results" },
   nav_no_result: { vi: "Không tìm thấy công cụ nào cho", en: "No tools found for" },
   cat_text: { vi: "Văn bản & Dữ liệu", en: "Text & Data" },
@@ -14,14 +13,11 @@ export const DICT = {
   cat_life: { vi: "Tiện ích", en: "Utilities" },
 
   // FLAPPY BIRD
-  flappy_start: { vi: "Bắt đầu", en: "Start" },
   flappy_restart: { vi: "Chơi lại", en: "Play again" },
   flappy_score: { vi: "Điểm", en: "Score" },
   flappy_best: { vi: "Kỷ lục", en: "Best" },
-  flappy_hint: { vi: "Chạm hoặc nhấn Space / ↑ để bay", en: "Tap or press Space / ↑ to flap" },
   flappy_gameover: { vi: "Kết thúc", en: "Game over" },
   flappy_new_best: { vi: "Kỷ lục mới!", en: "New best!" },
-  flappy_ready: { vi: "Sẵn sàng?", en: "Ready?" },
   flappy_play: { vi: "Chơi", en: "Play" },
   flappy_menu: { vi: "Trang chủ", en: "Menu" },
   flappy_scene: { vi: "Cảnh", en: "Scene" },
@@ -35,7 +31,6 @@ export const DICT = {
   flappy_scene_quake: { vi: "Động đất", en: "Earthquake" },
   flappy_scene_volcano: { vi: "Núi lửa", en: "Volcano" },
   flappy_scene_random: { vi: "Ngẫu nhiên", en: "Random" },
-  flappy_char_bird: { vi: "Chim", en: "Bird" },
   flappy_char_bee: { vi: "Ong", en: "Bee" },
   flappy_char_dino: { vi: "Chim", en: "Bird" },
   flappy_char_plane: { vi: "Máy bay", en: "Plane" },
@@ -55,22 +50,13 @@ export const DICT = {
   pacman_new_best: { vi: "Kỷ lục mới!", en: "New best!" },
 
   // HERO
-  hero_tag: { vi: "Miễn phí · Không đăng ký", en: "Free · No signup" },
   hero_h1_1: { vi: "Chuyển đổi dữ liệu", en: "Convert your data" },
   hero_h1_2: { vi: "ngay trên trình duyệt.", en: "right in your browser." },
   hero_sub: {
     vi: "Công cụ trực tuyến dành cho lập trình viên và người làm dữ liệu: định dạng, chuyển đổi và kiểm tra dữ liệu ngay trong trình duyệt — nhanh, riêng tư, không cần cài đặt.",
     en: "This is an online toolkit for developers and data teams to format, convert and validate data right in the browser — fast, private, and nothing to install.",
   },
-  hero_explore: { vi: "Khám phá tool", en: "Explore tools" },
-  hero_badge_fast: { vi: "Nhanh tức thì", en: "Instant" },
-  hero_badge_private: { vi: "Riêng tư 100%", en: "Fully private" },
-  hero_badge_mobile: { vi: "Chạy mượt mobile", en: "Mobile ready" },
-  hero_badge_shortcut: { vi: "Phím tắt bàn phím", en: "Keyboard shortcuts" },
   hero_quick_label: { vi: "Điểm nổi bật", en: "Highlights" },
-  hero_pill_label: { vi: "Khám phá tool", en: "Explore tools" },
-  hero_pill_tag: { vi: "LIVE", en: "LIVE" },
-  hero_pill_ready: { vi: "tool sẵn sàng dùng ngay", en: "tools ready to use" },
   hl_speed_eyebrow: { vi: "TỐC ĐỘ", en: "SPEED" },
   hl_speed_h: { vi: "Mở tool dưới 1 giây", en: "Tools open in under 1s" },
   hl_speed_p: {
@@ -84,9 +70,6 @@ export const DICT = {
     vi: "Desktop, tablet hay mobile — cùng trải nghiệm, không cần cài app.",
     en: "Desktop, tablet or mobile — same experience, no app install.",
   },
-  hl_dev_desktop: { vi: "Desktop", en: "Desktop" },
-  hl_dev_tablet: { vi: "Tablet", en: "Tablet" },
-  hl_dev_mobile: { vi: "Mobile", en: "Mobile" },
   hl_scale_eyebrow: { vi: "QUY MÔ", en: "SCALE" },
   hl_scale_h: { vi: "công cụ chuyên nghiệp", en: "pro-grade tools" },
   hl_scale_p: {
@@ -126,7 +109,6 @@ export const DICT = {
   },
   blog_posts: { vi: "bài viết", en: "posts" },
   blog_topics: { vi: "chủ đề", en: "topics" },
-  blog_search: { vi: "Tìm bài viết, chủ đề, tag…", en: "Search posts, topics, tags…" },
   blog_all: { vi: "Tất cả", en: "All" },
   blog_latest: { vi: "Mới cập nhật", en: "Latest" },
   blog_featured: { vi: "Nổi bật", en: "Featured" },
@@ -142,18 +124,12 @@ export const DICT = {
   blog_dyk_close: { vi: "Đóng", en: "Close" },
   blog_dyk_prev: { vi: "Ảnh trước", en: "Previous photo" },
   blog_dyk_next: { vi: "Ảnh sau", en: "Next photo" },
-  blog_results: { vi: "kết quả", en: "results" },
-  blog_home: { vi: "Trang chủ", en: "Home" },
   blog_toc: { vi: "Mục lục", en: "On this page" },
   blog_share: { vi: "Chia sẻ", en: "Share" },
   blog_copy_link: { vi: "Sao chép liên kết", en: "Copy link" },
   blog_copied: { vi: "Đã sao chép", en: "Copied" },
   blog_copy_code: { vi: "Sao chép", en: "Copy" },
-  blog_related: { vi: "Đọc tiếp", en: "Keep reading" },
-  blog_back: { vi: "Về trang Blog", en: "Back to Blog" },
   blog_photo: { vi: "Ảnh", en: "Photo" },
-  blog_by: { vi: "Bởi", en: "By" },
-  blog_updated: { vi: "Đăng ngày", en: "Published" },
   blog_sections: { vi: "phần", en: "sections" },
   blog_older: { vi: "Bài trước", en: "Previous" },
   blog_newer: { vi: "Bài tiếp theo", en: "Next" },
@@ -181,20 +157,12 @@ export const DICT = {
   },
 
   // CTA
-  cta_h: { vi: "Bắt đầu ngay.", en: "Get started" },
-  cta_p: {
-    vi: "Chọn một tool ở trên hoặc bắt đầu với Base64.",
-    en: "Pick a tool above or start with Base64.",
-  },
 
   // FOOTER
-  ft_tools: { vi: "CÔNG CỤ", en: "TOOLS" },
-  ft_author: { vi: "TÁC GIẢ", en: "AUTHOR" },
   ft_copy: {
     vi: "© 2026 FormatBox. Made in Ho Chi Minh City.",
     en: "© 2026 FormatBox. Made in Ho Chi Minh City.",
   },
-  ft_stack: { vi: "v1.0 · Next.js", en: "v1.0 · Next.js" },
 
   // COMMON ACTIONS
   act_copy: { vi: "Copy", en: "Copy" },
@@ -221,7 +189,6 @@ export const DICT = {
   audio_fade_out: { vi: "Fade out", en: "Fade out" },
   audio_reverse: { vi: "Đảo ngược", en: "Reverse" },
   audio_normalize: { vi: "Chuẩn hoá âm lượng", en: "Normalize" },
-  audio_export_wav: { vi: "Xuất WAV", en: "Export WAV" },
   audio_export: { vi: "Xuất", en: "Export" },
   audio_format: { vi: "Định dạng", en: "Format" },
   audio_bitrate: { vi: "Bitrate", en: "Bitrate" },
@@ -256,11 +223,9 @@ export const DICT = {
   act_validate: { vi: "Validate", en: "Validate" },
   act_json_to_string: { vi: "JSON → String", en: "JSON → String" },
   act_string_to_json: { vi: "String → JSON", en: "String → JSON" },
-  act_convert: { vi: "Chuyển đổi", en: "Convert" },
   act_reset_img: { vi: "Chọn ảnh khác", en: "Pick another image" },
   act_redraw: { vi: "Vẽ lại", en: "Redraw" },
   act_fit_view: { vi: "Fit view", en: "Fit view" },
-  act_saving: { vi: "Đang xuất...", en: "Exporting..." },
 
   // COMMON TOASTS
   toast_no_data: { vi: "Chưa có dữ liệu", en: "No input" },
@@ -273,7 +238,6 @@ export const DICT = {
   toast_html_downloaded: { vi: "Đã tải HTML", en: "HTML downloaded" },
   toast_graph_saved: { vi: "Đã tải graph.json", en: "Saved graph.json" },
   toast_valid_json: { vi: "JSON hợp lệ", en: "Valid JSON" },
-  toast_sample_loaded: { vi: "Đã điền dữ liệu mẫu", en: "Sample data loaded" },
 
   // COMMON LABELS
   lbl_chars: { vi: "chars", en: "chars" },
@@ -282,11 +246,6 @@ export const DICT = {
   lbl_result: { vi: "Kết quả", en: "Result" },
 
   // BASE64
-  b64_title: { vi: "Encode / Decode", en: "Encode / Decode" },
-  b64_sub: {
-    vi: "Mã hóa hoặc giải mã Base64. Hỗ trợ text UTF-8 và file. Xử lý ngay trên trình duyệt.",
-    en: "Encode or decode Base64. UTF-8 text + files, right in your browser.",
-  },
   b64_label_enc: { vi: "Nhập text cần encode", en: "Enter text to encode" },
   b64_label_dec: { vi: "Nhập Base64 cần decode", en: "Enter Base64 to decode" },
   b64_placeholder_text: { vi: "Paste text vào đây...", en: "Paste text here..." },
@@ -296,12 +255,6 @@ export const DICT = {
   b64_swap: { vi: "Đổi chiều", en: "Swap direction" },
 
   // JSON
-  json_title: { vi: "Formatter & Validator", en: "Formatter & Validator" },
-  json_sub: {
-    vi: "Format, validate, minify JSON, chuyển JSON ↔ string. Highlight lỗi, tree view, tính kích thước.",
-    en: "Format, validate, minify JSON, convert JSON ↔ string. Error highlighting, tree view, size info.",
-  },
-  json_label: { vi: "Input JSON", en: "Input JSON" },
   json_idle: { vi: "Paste JSON để bắt đầu", en: "Paste JSON to start" },
   json_valid: { vi: "JSON hợp lệ", en: "Valid JSON" },
   json_invalid: { vi: "JSON không hợp lệ", en: "Invalid JSON" },
@@ -309,14 +262,8 @@ export const DICT = {
   json_minified_prefix: { vi: "Đã minify (giảm", en: "Minified (saved" },
   json_stringified: { vi: "Đã chuyển JSON thành string", en: "Converted JSON to string" },
   json_unstringified: { vi: "Đã chuyển string thành JSON", en: "Converted string to JSON" },
-  json_not_string: {
-    vi: "Input không phải string chứa JSON",
-    en: "Input is not a string containing JSON",
-  },
   json_indent: { vi: "Indent:", en: "Indent:" },
-  json_spaces: { vi: "spaces", en: "spaces" },
   json_tab: { vi: "Tab", en: "Tab" },
-  json_tree_view: { vi: "Tree view", en: "Tree view" },
   json_type_array: { vi: "Array", en: "Array" },
   json_type_object: { vi: "Object", en: "Object" },
   json_type_string: { vi: "String", en: "String" },
@@ -341,11 +288,6 @@ export const DICT = {
   json_exit_fullscreen: { vi: "Thoát toàn màn hình", en: "Exit fullscreen" },
 
   // GRAPH
-  graph_title: { vi: "Graph Visualizer", en: "Graph Visualizer" },
-  graph_sub: {
-    vi: "Chuyển JSON thành đồ thị tương tác. Pan, zoom, khám phá cấu trúc dữ liệu.",
-    en: "Turn JSON into an interactive graph. Pan, zoom, explore structure.",
-  },
   graph_input: { vi: "Input JSON", en: "Input JSON" },
   graph_paste: { vi: "Paste JSON để bắt đầu", en: "Paste JSON to start" },
   graph_nodes: { vi: "nodes", en: "nodes" },
@@ -355,24 +297,12 @@ export const DICT = {
   graph_lg_value: { vi: "value", en: "value" },
 
   // IMAGE
-  img_title: { vi: "Converter", en: "Converter" },
-  img_sub: {
-    vi: "Chuyển đổi giữa PNG, JPG, WebP. Kéo thả ảnh, chỉnh chất lượng, tải về.",
-    en: "Convert between PNG, JPG, WebP. Drop image, tune quality, save.",
-  },
-  img_drop: { vi: "Kéo thả ảnh vào đây hoặc", en: "Drop an image here or" },
   img_convert_to: { vi: "Chuyển sang", en: "Convert to" },
   img_quality: { vi: "Chất lượng", en: "Quality" },
   img_quality_only: { vi: "(chỉ JPG/WebP)", en: "(JPG/WebP only)" },
   img_original: { vi: "Original", en: "Original" },
   img_converted: { vi: "Converted", en: "Converted" },
   img_save: { vi: "Tải ảnh", en: "Download image" },
-  img_smaller: { vi: "nhỏ hơn", en: "smaller" },
-  img_bigger: { vi: "lớn hơn", en: "bigger" },
-  img_sub2: {
-    vi: "Chuyển đổi, resize, xoay và tối ưu ảnh. Hỗ trợ hàng loạt, xử lý ngay trên trình duyệt.",
-    en: "Convert, resize, rotate and optimize images. Batch supported, all in your browser.",
-  },
   img_drop_multi: { vi: "Kéo thả ảnh vào đây hoặc", en: "Drop images here or" },
   img_resize: { vi: "Resize", en: "Resize" },
   img_resize_none: { vi: "Giữ nguyên", en: "Original" },
@@ -383,22 +313,13 @@ export const DICT = {
   img_flip_h: { vi: "Ngang", en: "Horizontal" },
   img_flip_v: { vi: "Dọc", en: "Vertical" },
   img_bg: { vi: "Nền (JPG)", en: "Background (JPG)" },
-  img_compare: { vi: "So sánh", en: "Compare" },
   img_queue: { vi: "Danh sách ảnh", en: "Image queue" },
   img_add_more: { vi: "Thêm ảnh", en: "Add more" },
   img_download_all: { vi: "Tải tất cả", en: "Download all" },
   img_process_all: { vi: "Xử lý tất cả", en: "Process all" },
   img_remove: { vi: "Xoá", en: "Remove" },
-  img_pending: { vi: "Chưa xử lý", en: "Pending" },
-  img_done: { vi: "Đã xử lý", en: "Done" },
 
   // JWT
-  jwt_title: { vi: "Decoder", en: "Decoder" },
-  jwt_sub: {
-    vi: "Paste token → giải mã header + payload + claims. Không verify signature.",
-    en: "Paste token → decode header + payload + claims. No signature verify.",
-  },
-  jwt_label: { vi: "JWT Token", en: "JWT Token" },
   jwt_placeholder: {
     vi: "Paste JWT (header.payload.signature)",
     en: "Paste JWT (header.payload.signature)",
@@ -418,11 +339,6 @@ export const DICT = {
   },
 
   // MARKDOWN
-  md_title: { vi: "Reader", en: "Reader" },
-  md_sub: {
-    vi: "Paste, kéo thả .md, xem preview trực tiếp. Copy HTML hoặc tải file HTML về.",
-    en: "Paste or drop .md, live preview. Copy HTML or download as file.",
-  },
   md_mode_edit: { vi: "Edit", en: "Edit" },
   md_mode_split: { vi: "Split", en: "Split" },
   md_mode_preview: { vi: "Preview", en: "Preview" },
@@ -437,11 +353,6 @@ export const DICT = {
   md_download_html: { vi: "Tải HTML", en: "Download HTML" },
 
   // TEXT CASE
-  tc_title: { vi: "Case Converter", en: "Case Converter" },
-  tc_sub: {
-    vi: "Paste text, xem mọi cách viết. Click vào card để copy.",
-    en: "Paste text, see every case. Click a card to copy.",
-  },
   tc_input_label: { vi: "Nhập text", en: "Enter text" },
   tc_input_placeholder: { vi: "Paste text vào đây...", en: "Paste text here..." },
   tc_reset_lower: { vi: "Về gốc lower", en: "Reset to lowercase" },
@@ -450,7 +361,6 @@ export const DICT = {
   // QR CODE
   qr_input_label: { vi: "Nội dung", en: "Content" },
   qr_input_placeholder: { vi: "Nhập text hoặc URL...", en: "Enter text or URL..." },
-  qr_options: { vi: "Tuỳ chỉnh", en: "Options" },
   qr_size: { vi: "Kích thước", en: "Size" },
   qr_margin: { vi: "Lề", en: "Margin" },
   qr_ecc: { vi: "Mức sửa lỗi", en: "Error correction" },
@@ -466,11 +376,6 @@ export const DICT = {
   qr_toast_copied: { vi: "Đã copy ảnh QR", en: "QR image copied" },
 
   // RESPONSIVE TESTER
-  rt_title: { vi: "Tester", en: "Tester" },
-  rt_sub: {
-    vi: "Xem trang web ở nhiều kích thước thiết bị. Xoay ngang, chỉnh zoom, so sánh nhanh.",
-    en: "View any website across many device sizes. Rotate, zoom, compare quickly.",
-  },
   rt_url_label: { vi: "URL trang web", en: "Website URL" },
   rt_url_ph: { vi: "https://example.com", en: "https://example.com" },
   rt_go: { vi: "Xem", en: "Go" },
@@ -493,11 +398,6 @@ export const DICT = {
   rt_invalid_url: { vi: "URL không hợp lệ", en: "Invalid URL" },
 
   // WHEEL
-  wh_title: { vi: "Wheel", en: "Wheel" },
-  wh_sub: {
-    vi: "Vòng quay may mắn. Nhập danh sách mỗi dòng một mục, bấm quay để chọn ngẫu nhiên.",
-    en: "Lucky wheel. Enter one item per line and spin to pick at random.",
-  },
   wh_items_label: { vi: "Danh sách (mỗi dòng một mục)", en: "Items (one per line)" },
   wh_items_placeholder: { vi: "Táo\nCam\nChuối\nDưa hấu", en: "Apple\nOrange\nBanana\nWatermelon" },
   wh_spin: { vi: "Quay!", en: "Spin!" },
@@ -527,11 +427,6 @@ export const DICT = {
   wh_spin_again: { vi: "Quay lại", en: "Spin again" },
 
   // CURL RUNNER
-  cu_title: { vi: "Runner", en: "Runner" },
-  cu_sub: {
-    vi: "Dán câu lệnh cURL, xem parse và response giống Postman. Chạy trực tiếp trên trình duyệt.",
-    en: "Paste a cURL command, inspect parsed request and response Postman-style. Runs in your browser.",
-  },
   cu_input_label: { vi: "cURL command", en: "cURL command" },
   cu_placeholder: {
     vi: "curl -X GET 'https://api.github.com/users/vercel' -H 'Accept: application/json'",
@@ -540,12 +435,9 @@ export const DICT = {
   cu_send: { vi: "Gửi", en: "Send" },
   cu_sending: { vi: "Đang gửi...", en: "Sending..." },
   cu_parse_err: { vi: "Không parse được cURL", en: "Cannot parse cURL" },
-  cu_request: { vi: "Request", en: "Request" },
-  cu_response: { vi: "Response", en: "Response" },
   cu_tab_body: { vi: "Body", en: "Body" },
   cu_tab_headers: { vi: "Headers", en: "Headers" },
   cu_tab_raw: { vi: "Raw", en: "Raw" },
-  cu_status: { vi: "Trạng thái", en: "Status" },
   cu_time: { vi: "Thời gian", en: "Time" },
   cu_size: { vi: "Kích thước", en: "Size" },
   cu_cors_warn: {
@@ -559,11 +451,6 @@ export const DICT = {
   },
 
   // COUNTDOWN
-  cd_title: { vi: "Timer", en: "Timer" },
-  cd_sub: {
-    vi: "Đếm ngược tới sự kiện quan trọng. Lưu nhiều mốc, chạy trực tiếp trên trình duyệt.",
-    en: "Count down to any event. Save multiple targets, runs right in your browser.",
-  },
   cd_new: { vi: "Thêm mới", en: "New countdown" },
   cd_title_ph: { vi: "Tên sự kiện (VD: Sinh nhật)", en: "Event title (e.g. Birthday)" },
   cd_add: { vi: "Thêm", en: "Add" },
@@ -599,11 +486,6 @@ export const DICT = {
   cd_notify_title: { vi: "Đã tới lúc!", en: "Time's up!" },
 
   // TIMESTAMP
-  ts_title: { vi: "Converter", en: "Converter" },
-  ts_sub: {
-    vi: "Chuyển đổi Unix timestamp qua lại với ngày giờ. Xem ISO, UTC, local, relative — copy trong một cú click.",
-    en: "Convert Unix timestamps to and from dates. Inspect ISO, UTC, local, relative — copy in one click.",
-  },
   ts_current: { vi: "Thời gian hiện tại", en: "Current time" },
   ts_pause: { vi: "Tạm dừng", en: "Pause" },
   ts_resume: { vi: "Tiếp tục", en: "Resume" },
@@ -627,11 +509,6 @@ export const DICT = {
   ts_relative: { vi: "Tương đối", en: "Relative" },
 
   // SPEED TEST
-  st_title: { vi: "Tốc độ mạng", en: "Network speed" },
-  st_sub: {
-    vi: "Đo tốc độ Wi-Fi / mạng: download, upload, ping, jitter. Sử dụng endpoint công khai của Cloudflare, chạy trực tiếp trên trình duyệt.",
-    en: "Measure Wi-Fi / network speed: download, upload, ping, jitter. Uses Cloudflare's public endpoints, runs right in your browser.",
-  },
   st_start: { vi: "Bắt đầu đo", en: "Start test" },
   st_run_again: { vi: "Đo lại", en: "Run again" },
   st_stop: { vi: "Dừng", en: "Stop" },
@@ -652,11 +529,6 @@ export const DICT = {
   },
 
   // FUEL PRICE
-  fp_title: { vi: "Price", en: "Price" },
-  fp_sub: {
-    vi: "Giá xăng dầu Việt Nam kỳ điều hành gần nhất. Nguồn tự động từ VnExpress, cập nhật mỗi giờ.",
-    en: "Vietnam fuel prices — latest adjustment cycle. Auto-sourced from VnExpress, refreshed hourly.",
-  },
   fp_refresh: { vi: "Làm mới", en: "Refresh" },
   fp_source: { vi: "Nguồn", en: "Source" },
   fp_published: { vi: "Bài đăng", en: "Published" },
@@ -682,16 +554,8 @@ export const DICT = {
   fp_kind_diesel: { vi: "Diesel", en: "Diesel" },
   fp_kind_kerosene: { vi: "Dầu hoả", en: "Kerosene" },
   fp_kind_mazut: { vi: "Mazut", en: "Mazut" },
-  fp_latest: { vi: "Kỳ mới nhất", en: "Latest cycle" },
-  fp_click_hint: { vi: "Click 1 điểm trên chart để xem chi tiết", en: "Click a point on the chart for details" },
-  fp_source_link: { vi: "Bài gốc", en: "Article" },
 
   // EXCHANGE CURRENCY
-  xc_title: { vi: "Đổi ngoại tệ", en: "Currency Converter" },
-  xc_sub: {
-    vi: "Chuyển đổi tiền tệ và tính tiền chuyển quốc tế theo tỉ giá mid-market realtime.",
-    en: "Convert currencies and estimate international transfers at live mid-market rates.",
-  },
   xc_refresh: { vi: "Làm mới", en: "Refresh" },
   xc_mode_live: { vi: "Live", en: "Live" },
   xc_mode_fallback: { vi: "Dự phòng", en: "Fallback" },
@@ -706,13 +570,8 @@ export const DICT = {
   xc_swap: { vi: "Đảo chiều", en: "Swap" },
   xc_result: { vi: "Kết quả", en: "Result" },
   xc_transfer: { vi: "Tính phí chuyển tiền quốc tế", en: "Include transfer fee" },
-  xc_transfer_sub: {
-    vi: "Ước tính phí ~1.2% + $2 khi chuyển tiền qua ngân hàng / dịch vụ quốc tế.",
-    en: "Estimates ~1.2% spread + $2 fixed fee for international bank / remittance transfer.",
-  },
   xc_fee: { vi: "Phí ước tính", en: "Estimated fee" },
   xc_quick: { vi: "Cặp phổ biến", en: "Popular pairs" },
-  xc_quick_sub: { vi: "Bấm để chọn nhanh", en: "Click to load" },
   xc_note: {
     vi: "Nguồn tỉ giá:",
     en: "Rate source:",
@@ -720,15 +579,7 @@ export const DICT = {
   xc_note_updated: { vi: "Cập nhật", en: "Updated" },
 
   // GOLD PRICE
-  gp_title: { vi: "Price", en: "Price" },
-  gp_sub: {
-    vi: "Giá vàng Việt Nam realtime — SJC, PNJ, 24K, 18K… lấy trực tiếp từ feed PNJ live.",
-    en: "Live Vietnam gold prices — SJC, PNJ, 24K, 18K, and more, straight from PNJ's live feed.",
-  },
   gp_refresh: { vi: "Làm mới", en: "Refresh" },
-  gp_source: { vi: "Nguồn", en: "Source" },
-  gp_published: { vi: "Cập nhật", en: "Updated" },
-  gp_fetched: { vi: "Đồng bộ lúc", en: "Fetched" },
   gp_mode_live: { vi: "Live", en: "Live" },
   gp_mode_fallback: { vi: "Dự phòng", en: "Fallback" },
   gp_stale_title: { vi: "Dữ liệu dự phòng", en: "Fallback data" },
@@ -737,26 +588,10 @@ export const DICT = {
     en: "Live fetch failed — showing last cached values.",
   },
   gp_err_title: { vi: "Lỗi tải dữ liệu", en: "Load error" },
-  gp_buy: { vi: "Mua vào", en: "Buy" },
-  gp_sell: { vi: "Bán ra", en: "Sell" },
-  gp_spread: { vi: "Chênh lệch", en: "Spread" },
-  gp_branch_all: { vi: "Tất cả chi nhánh", en: "All branches" },
-  gp_branch: { vi: "Chi nhánh", en: "Branch" },
-  gp_empty_title: { vi: "Không có dữ liệu", en: "No data" },
-  gp_empty_msg: {
-    vi: "Không có mục nào khớp với bộ lọc hiện tại.",
-    en: "No item matches the current filter.",
-  },
 
   // LUCKY TICKET (dò vé số)
-  lt_title: { vi: "Dò vé số", en: "Lottery Checker" },
-  lt_sub: {
-    vi: "Dò vé số 3 miền — kết quả realtime từ minhngoc.net.vn. Nhập số, xem ngay trúng giải nào.",
-    en: "Check Vietnamese lottery tickets across 3 regions with live results from minhngoc.net.vn.",
-  },
   lt_refresh: { vi: "Làm mới", en: "Refresh" },
   lt_source: { vi: "Nguồn", en: "Source" },
-  lt_published: { vi: "Cập nhật", en: "Updated" },
   lt_fetched: { vi: "Đồng bộ lúc", en: "Fetched" },
   lt_mode_live: { vi: "Live", en: "Live" },
   lt_mode_fallback: { vi: "Dự phòng", en: "Fallback" },
@@ -771,19 +606,9 @@ export const DICT = {
     vi: "Chưa có kết quả cho miền này.",
     en: "No results for this region yet.",
   },
-  lt_check_title: { vi: "Dò số vé", en: "Check your ticket" },
   lt_check_ph: { vi: "Nhập số vé (2–6 chữ số cuối)", en: "Enter your ticket (last 2–6 digits)" },
-  lt_check_hint: {
-    vi: "Gõ số vé của bạn để tự động highlight và xem có trúng giải nào.",
-    en: "Type your ticket number to auto-highlight matching prizes.",
-  },
 
   // CALENDAR
-  cal_title: { vi: "Lịch dương & âm", en: "Solar & Lunar" },
-  cal_sub: {
-    vi: "Xem lịch dương kèm âm lịch Việt Nam. Chọn một ngày để xem can chi ngày/tháng/năm.",
-    en: "Solar calendar with Vietnamese lunar dates. Pick a day to see its Can Chi day/month/year.",
-  },
   cal_today: { vi: "Hôm nay", en: "Today" },
   cal_solar: { vi: "Dương lịch", en: "Solar" },
   cal_lunar: { vi: "Âm lịch", en: "Lunar" },
@@ -797,11 +622,6 @@ export const DICT = {
   },
 
   // WEATHER
-  wt_title: { vi: "Thời tiết realtime", en: "Realtime weather" },
-  wt_sub: {
-    vi: "Thời tiết hiện tại và dự báo 7 ngày cho bất kỳ thành phố nào. Nguồn Open-Meteo, cập nhật liên tục.",
-    en: "Current conditions and 7-day forecast for any city. Powered by Open-Meteo, live updates.",
-  },
   wt_search_ph: { vi: "Tìm thành phố: Hanoi, Tokyo, Paris…", en: "Search a city: Hanoi, Tokyo, Paris…" },
   wt_my_loc: { vi: "Vị trí của tôi", en: "My location" },
   wt_refresh: { vi: "Làm mới", en: "Refresh" },
@@ -809,7 +629,6 @@ export const DICT = {
   wt_err_geo: { vi: "Trình duyệt không hỗ trợ định vị", en: "Geolocation not supported" },
   wt_my_loc_name: { vi: "Vị trí của bạn", en: "Your location" },
   wt_live: { vi: "Live", en: "Live" },
-  wt_feels_like: { vi: "Cảm giác", en: "Feels like" },
   wt_humidity: { vi: "Độ ẩm", en: "Humidity" },
   wt_wind: { vi: "Gió", en: "Wind" },
   wt_pressure: { vi: "Áp suất", en: "Pressure" },
@@ -820,8 +639,6 @@ export const DICT = {
   wt_visibility: { vi: "Tầm nhìn", en: "Visibility" },
   wt_cloud: { vi: "Mây phủ", en: "Cloud cover" },
   wt_precip: { vi: "Lượng mưa", en: "Precipitation" },
-  wt_sunrise: { vi: "Bình minh", en: "Sunrise" },
-  wt_sunset: { vi: "Hoàng hôn", en: "Sunset" },
   wt_next24: { vi: "24 giờ tới", en: "Next 24 hours" },
   wt_forecast7: { vi: "Dự báo 7 ngày", en: "7-day forecast" },
   wt_today: { vi: "Hôm nay", en: "Today" },
@@ -853,18 +670,12 @@ export const DICT = {
   wt_w_unknown: { vi: "—", en: "—" },
 
   // FAVICON EXPORT
-  fx_title: { vi: "Export", en: "Export" },
-  fx_sub: {
-    vi: "Upload 1 ảnh — sinh đầy đủ bộ favicon 16→512, apple-touch, PWA. Kèm snippet HTML và webmanifest.",
-    en: "Upload one image — get the full favicon set 16→512, apple-touch, PWA. HTML snippet and webmanifest included.",
-  },
   fx_drop: { vi: "Kéo thả ảnh vuông vào đây hoặc", en: "Drop a square image here or" },
   fx_drop_hint: {
     vi: "PNG · JPG · SVG · WebP · nên dùng ảnh 512×512 trở lên",
     en: "PNG · JPG · SVG · WebP · 512×512 or larger recommended",
   },
   fx_source: { vi: "Ảnh gốc", en: "Source" },
-  fx_total: { vi: "Tổng dung lượng", en: "Total size" },
   fx_fit: { vi: "Kiểu vừa khung", en: "Fit" },
   fx_fit_contain: { vi: "Chứa", en: "Contain" },
   fx_fit_cover: { vi: "Phủ", en: "Cover" },
@@ -877,30 +688,16 @@ export const DICT = {
     vi: "Cần đặt nền màu để bo góc",
     en: "Set a background color to round corners",
   },
-  fx_output: { vi: "Kết quả", en: "Output" },
   fx_download_all: { vi: "Tải tất cả", en: "Download all" },
   fx_reset: { vi: "Chọn ảnh khác", en: "Pick another image" },
-  fx_snippet: { vi: "Snippet HTML", en: "HTML snippet" },
 
   // BILL
-  bill_title: { vi: "Splitter", en: "Splitter" },
-  bill_sub: {
-    vi: "Điền chi phí nhóm, xem preview và tải ảnh PNG hoặc copy vào clipboard.",
-    en: "Fill in group expenses, preview, and download PNG or copy to clipboard.",
-  },
   bill_default_title: { vi: "HÓA ĐƠN THANH TOÁN", en: "PAYMENT BILL" },
-  bill_default_footer: {
-    vi: "Cảm ơn mọi người đã cùng nhau vui vẻ và fair-play!",
-    en: "Thanks for the good time — split fair and square!",
-  },
-  bill_title_placeholder: { vi: "HÓA ĐƠN THANH TOÁN", en: "PAYMENT BILL" },
   bill_tag_placeholder: { vi: "CHI PHÍ...", en: "EXPENSE..." },
   bill_theme: { vi: "Theme", en: "Theme" },
   bill_date: { vi: "Ngày thanh toán", en: "Payment date" },
   bill_people_count: { vi: "Số người tham gia", en: "Participants" },
   bill_split_type: { vi: "Hình thức", en: "Split type" },
-  bill_payer: { vi: "Người thanh toán", en: "Payer" },
-  bill_payer_placeholder: { vi: "Nhập tên...", en: "Enter name..." },
   bill_split_equal: { vi: "Chia đều", en: "Split equally" },
   bill_split_exception: { vi: "Ngoại lệ", en: "Exceptions" },
   bill_qr_head: { vi: "QUÉT MÃ THANH TOÁN", en: "SCAN TO PAY" },
@@ -964,12 +761,6 @@ export const DICT = {
   bill_toast_copy_failed: { vi: "Copy thất bại", en: "Copy failed" },
 
   // COLOR
-  cl_title: { vi: "Converter & Inspector", en: "Converter & Inspector" },
-  cl_sub: {
-    vi: "Chuyển đổi HEX, RGB, HSL, HSB, OKLCH. Xem bảng tint/shade, contrast WCAG cho nền trắng/đen — copy một chạm.",
-    en: "Convert between HEX, RGB, HSL, HSB, OKLCH. Preview tint/shade palette and WCAG contrast on light/dark — copy in one click.",
-  },
-  cl_input: { vi: "Nhập màu", en: "Enter color" },
   cl_preview: { vi: "Xem trước (kèm alpha)", en: "Preview (with alpha)" },
   cl_pick: { vi: "Chọn màu", en: "Pick color" },
   cl_random: { vi: "Ngẫu nhiên", en: "Random" },
@@ -979,11 +770,6 @@ export const DICT = {
   cl_contrast: { vi: "Contrast (WCAG)", en: "Contrast (WCAG)" },
   cl_on_white: { vi: "Trên nền trắng", en: "On white" },
   cl_on_black: { vi: "Trên nền đen", en: "On black" },
-  cl_sample: { vi: "Chữ mẫu", en: "Sample text" },
-  cl_sample_small: {
-    vi: "Chữ nhỏ hơn để kiểm tra khả năng đọc.",
-    en: "Smaller line to check legibility.",
-  },
 
   // UUID
   uuid_count: { vi: "Số lượng", en: "Count" },
@@ -1016,10 +802,6 @@ export const DICT = {
   lp_wiki_source: { vi: "Nguồn: Wikipedia tiếng Việt", en: "Source: Vietnamese Wikipedia" },
 
   // MEME
-  meme_search_ph: {
-    vi: "Tìm meme theo từ khoá (bỏ trống để lướt trending)...",
-    en: "Search memes by keyword (leave blank to browse trending)...",
-  },
   meme_search_ph_short: { vi: "Tìm meme...", en: "Search memes..." },
   meme_refresh: { vi: "Làm mới", en: "Refresh" },
   meme_load_more: { vi: "Tải thêm", en: "Load more" },
@@ -1080,8 +862,6 @@ export const DICT = {
   typing_time_left: { vi: "Còn lại", en: "Time left" },
   typing_restart: { vi: "Làm lại", en: "Restart" },
   typing_new_words: { vi: "Đoạn mới", en: "New words" },
-  typing_result: { vi: "Kết quả", en: "Result" },
-  typing_keystrokes: { vi: "Lượt gõ", en: "Keystrokes" },
   typing_best: { vi: "Kỷ lục", en: "Best" },
   typing_finished: { vi: "Hết giờ!", en: "Time's up!" },
   typing_input_placeholder: { vi: "Gõ ở đây…", en: "Type here…" },
@@ -1109,7 +889,6 @@ export const DICT = {
   acct_btn_register_busy: { vi: "Đang tạo tài khoản…", en: "Creating account…" },
   acct_switch_to_register: { vi: "Chưa có tài khoản? Đăng ký", en: "No account? Sign up" },
   acct_switch_to_login: { vi: "Đã có tài khoản? Đăng nhập", en: "Have an account? Log in" },
-  acct_err_missing: { vi: "Thiếu tài khoản hoặc mật khẩu", en: "Missing username or password" },
   acct_err_notfound: { vi: "Tài khoản chưa tồn tại — vui lòng đăng ký", en: "Account does not exist — please sign up" },
   acct_err_login_failed: { vi: "Đăng nhập thất bại", en: "Login failed" },
   acct_err_register_failed: { vi: "Đăng ký thất bại", en: "Sign up failed" },
@@ -1138,13 +917,7 @@ export const DICT = {
   pb_mirror: { vi: "Lật gương", en: "Mirror" },
   pb_capture: { vi: "Chụp", en: "Capture" },
   pb_retake: { vi: "Chụp lại", en: "Retake" },
-  pb_next: { vi: "Tiếp tục", en: "Next" },
-  pb_back: { vi: "Quay lại", en: "Back" },
-  pb_filter: { vi: "Bộ lọc", en: "Filter" },
-  pb_sticker: { vi: "Sticker", en: "Sticker" },
-  pb_theme: { vi: "Chủ đề khung", en: "Frame theme" },
   pb_caption: { vi: "Chú thích", en: "Caption" },
-  pb_remove_sticker: { vi: "Xoá sticker đã chọn", en: "Remove selected sticker" },
   pb_clear_stickers: { vi: "Xoá hết sticker", en: "Clear stickers" },
   pb_download: { vi: "Tải ảnh", en: "Download photo" },
   pb_new_session: { vi: "Chụp bộ mới", en: "New session" },
@@ -1152,7 +925,6 @@ export const DICT = {
     vi: "Kéo để di chuyển sticker, chạm/click để chọn.",
     en: "Drag to move stickers, tap/click to select.",
   },
-  pb_countdown_ready: { vi: "Sẵn sàng", en: "Get ready" },
 
   // TRAVEL PLAN
   trip_tab_edit: { vi: "Soạn", en: "Edit" },

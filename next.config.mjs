@@ -34,7 +34,6 @@ const nextConfig = {
       { protocol: "https", hostname: "commons.wikimedia.org" },
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "images.pexels.com" },
-      { protocol: "https", hostname: "live.staticflickr.com" },
     ],
   },
   modularizeImports: {

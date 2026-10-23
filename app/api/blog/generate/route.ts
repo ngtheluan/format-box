@@ -205,6 +205,7 @@ export async function POST(req: Request) {
           imagePrompt?: string;
         }>(metaMatch[1]);
         if (!meta?.title) throw new Error("META không parse được");
+        const metaTitle = meta.title;
         let md = trimmed.slice((metaMatch.index ?? 0) + metaMatch[0].length).trim().replace(/^#\s+.+\n+/, "");
         if (md.length < 400) throw new Error("Nội dung bài quá ngắn");
 
@@ -295,8 +296,8 @@ export async function POST(req: Request) {
         await Promise.all(
           slots.map(async (s) => {
             if (!isAsciiQuery(s.query)) {
-              const translated = await translatePhotoQuery(s.query || s.alt || meta.title, {
-                title: meta.title,
+              const translated = await translatePhotoQuery(s.query || s.alt || metaTitle, {
+                title: metaTitle,
                 provider: writerProvider,
                 context: s.context,
               });
@@ -311,7 +312,7 @@ export async function POST(req: Request) {
                 .join(" ");
               s.query =
                 asciiTags ||
-                meta.title.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").split(/\s+/).slice(0, 4).join(" ");
+                metaTitle.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").split(/\s+/).slice(0, 4).join(" ");
             }
             s.query = toQuery(s.query + (s.key === "cover" ? styleSuffix : styleSuffix), 6);
           }),
