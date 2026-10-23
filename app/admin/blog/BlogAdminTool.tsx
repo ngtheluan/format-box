@@ -44,6 +44,7 @@ import {
   IconExternalLink,
   IconEye,
   IconEyeOff,
+  IconGripVertical,
   IconLayoutGrid,
   IconLayoutList,
   IconLink,
@@ -135,6 +136,32 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [tab, setTab] = useState<"posts" | "categories">("posts");
+  const [catDragIdx, setCatDragIdx] = useState<number | null>(null);
+  const [catDropIdx, setCatDropIdx] = useState<number | null>(null);
+
+  async function handleCatDrop() {
+    if (catDragIdx === null || catDropIdx === null || catDragIdx === catDropIdx) {
+      setCatDragIdx(null);
+      setCatDropIdx(null);
+      return;
+    }
+    const next = [...cats];
+    const [moved] = next.splice(catDragIdx, 1);
+    next.splice(catDropIdx, 0, moved);
+    const reindexed = next.map((c, i) => ({ ...c, sort: (i + 1) * 10 }));
+    setCats(reindexed);
+    setCatDragIdx(null);
+    setCatDropIdx(null);
+    await Promise.all(
+      reindexed.map((c) =>
+        fetch("/api/blog/categories", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ slug: c.slug, sort: c.sort }),
+        }),
+      ),
+    );
+  }
 
   const CAT_LABEL = useMemo(() => {
     const m: Record<string, string> = {};
@@ -831,16 +858,40 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
               <div style={{ textAlign: "center" }}>Bài</div>
               <div style={{ textAlign: "right" }}>Actions</div>
             </div>
-            {cats.map((c) => {
+            {cats.map((c, i) => {
               const n = posts.filter((p) => p.category === c.slug).length;
+              const isDragging = catDragIdx === i;
+              const isOver = catDropIdx === i && catDragIdx !== null && catDragIdx !== i;
               return (
                 <div
                   key={c.slug}
                   className="fx-row"
-                  style={{ gridTemplateColumns: "32px 1fr 160px 80px 80px 140px", opacity: c.active ? 1 : 0.55 }}
+                  draggable
+                  onDragStart={() => setCatDragIdx(i)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setCatDropIdx(i);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    void handleCatDrop();
+                  }}
+                  onDragEnd={() => {
+                    setCatDragIdx(null);
+                    setCatDropIdx(null);
+                  }}
+                  style={{
+                    gridTemplateColumns: "32px 1fr 160px 80px 80px 140px",
+                    opacity: isDragging ? 0.4 : c.active ? 1 : 0.55,
+                    borderTop: isOver ? "2px solid var(--accent, #6366f1)" : undefined,
+                  }}
                 >
-                  <div className="fx-icon-cell">
-                    <IconCategory size={18} stroke={1.7} />
+                  <div
+                    className="fx-icon-cell"
+                    style={{ cursor: "grab", color: "var(--dim)" }}
+                    title="Kéo để sắp xếp"
+                  >
+                    <IconGripVertical size={16} stroke={1.8} />
                   </div>
                   <div className="fx-title-cell">
                     <div className="fx-t-row">
@@ -1031,71 +1082,101 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                   const activeIdx = keys.findIndex((k) => genSteps[k]!.status === "start");
                   const activeLabel = activeIdx >= 0 ? STEP_LABEL[keys[activeIdx]] : null;
                   return (
-                    <div className="bga-progress-inline">
-                      <div className="bga-progress-head">
-                        <div className="bga-progress-title">
-                          {genLoading ? (
-                            <>
-                              <IconLoader2 size={13} className="spin" />
-                              <span>{activeLabel || "Chuẩn bị…"}</span>
-                            </>
-                          ) : genAborted ? (
-                            <>
-                              <IconX size={13} stroke={2} /> Đã huỷ
-                            </>
-                          ) : (
-                            <>
-                              <IconAlertTriangle size={13} /> Dừng với lỗi
-                            </>
-                          )}
+                    <div
+                      className={`bga-progress-inline${genLoading ? " is-live" : ""}${genAborted ? " is-aborted" : ""}${genErr && !genAborted ? " is-error" : ""}`}
+                    >
+                      <div className="bga-prog-hero">
+                        <div
+                          className="bga-prog-ring"
+                          style={{ ["--p" as string]: pct, ["--size" as string]: "92px" }}
+                          role="progressbar"
+                          aria-valuenow={pct}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                        >
+                          <div className="bga-prog-ring-inner">
+                            <span className="bga-prog-ring-pct">{pct}</span>
+                            <span className="bga-prog-ring-unit">%</span>
+                          </div>
                         </div>
-                        <div className="bga-progress-meta">
-                          <span>
-                            {done}/{total} bước
-                          </span>
-                          <span className="bga-progress-pct">{pct}%</span>
-                          <span className="bga-elapsed-chip">{genElapsed}s</span>
+                        <div className="bga-prog-hero-text">
+                          <div className="bga-prog-stage">
+                            {genLoading ? (
+                              <>
+                                <span className="bga-prog-dot" />
+                                <span>Đang sinh bài</span>
+                              </>
+                            ) : genAborted ? (
+                              <>
+                                <IconX size={12} stroke={2.2} /> <span>Đã huỷ</span>
+                              </>
+                            ) : (
+                              <>
+                                <IconAlertTriangle size={12} /> <span>Dừng với lỗi</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="bga-prog-current">
+                            {genLoading ? (
+                              <>
+                                <IconLoader2 size={16} className="spin" />
+                                <span>{activeLabel || "Chuẩn bị…"}</span>
+                              </>
+                            ) : (
+                              <span>
+                                {done}/{total} bước hoàn tất
+                              </span>
+                            )}
+                          </div>
+                          <div className="bga-prog-meta-row">
+                            <span className="bga-prog-chip">
+                              <IconClock size={11} stroke={2} /> {genElapsed}s
+                            </span>
+                            <span className="bga-prog-chip">
+                              {done}/{total} bước
+                            </span>
+                          </div>
                         </div>
                       </div>
+
                       <div className="bga-progress-bar">
                         <div className="bga-progress-fill" style={{ width: `${pct}%` }} />
                       </div>
-                      <ol className="bga-steps" style={{ marginTop: 14 }}>
+
+                      <ol className="bga-prog-grid">
                         {keys.map((k) => {
                           const st = genSteps[k]!;
                           const dur = st.durationMs;
                           return (
-                            <li key={k} data-status={st.status}>
-                              <span className="bga-step-ico">
+                            <li key={k} data-status={st.status} className="bga-prog-cell">
+                              <span className="bga-prog-cell-ico">
                                 {st.status === "done" ? (
                                   <IconCircleCheckFilled size={18} />
                                 ) : st.status === "start" ? (
                                   <IconLoader2 size={18} className="spin" />
                                 ) : st.status === "skip" ? (
-                                  <IconPlayerSkipForward size={17} />
+                                  <IconPlayerSkipForward size={16} />
                                 ) : (
                                   <IconCircleDashed size={18} />
                                 )}
                               </span>
-                              <div className="bga-step-main">
-                                <div className="bga-step-top">
+                              <div className="bga-prog-cell-body">
+                                <div className="bga-prog-cell-top">
                                   <b>{STEP_LABEL[k]}</b>
                                   {dur != null && dur > 0 && (
-                                    <span className="bga-step-dur">{(dur / 1000).toFixed(1)}s</span>
+                                    <span className="bga-prog-cell-dur">{(dur / 1000).toFixed(1)}s</span>
                                   )}
                                 </div>
-                                {st.detail && <span className="bga-step-detail">{st.detail}</span>}
+                                {st.detail && <span className="bga-prog-cell-detail">{st.detail}</span>}
                               </div>
                             </li>
                           );
                         })}
                       </ol>
+
                       {genErr && (
-                        <div
-                          className="fx-err"
-                          style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 10 }}
-                        >
-                          <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
+                        <div className="bga-prog-err">
+                          <IconAlertTriangle size={14} /> <span>{genErr}</span>
                         </div>
                       )}
                     </div>

@@ -1807,22 +1807,20 @@
 }
 .bz-side {
   display: grid;
-  grid-auto-rows: 1fr;
+  grid-auto-rows: auto;
   gap: 10px;
   min-width: 0;
 }
 .bz-side-item a {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 12px;
-  height: 100%;
   color: inherit;
 }
 .bz-side-item .bz-media {
   flex: 0 0 58%;
-  align-self: stretch;
-  aspect-ratio: auto;
-  min-height: 100px;
+  aspect-ratio: 16 / 9;
+  min-height: 0;
 }
 .bz-side-text {
   display: flex;

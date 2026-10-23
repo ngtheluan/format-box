@@ -993,79 +993,425 @@
   word-break: break-word;
 }
 
-/* Inline progress (inside Generate modal body) */
+/* ===== Inline progress — hero + grid redesign ===== */
 .bga-progress-inline {
-  padding: 14px;
+  --prog: var(--fx-accent, #7565f6);
+  --prog2: #22c5e8;
+  --prog3: #ec4899;
+  position: relative;
+  padding: 20px;
+  background:
+    radial-gradient(ellipse at 10% 0%, color-mix(in srgb, var(--prog) 18%, transparent), transparent 55%),
+    radial-gradient(ellipse at 90% 100%, color-mix(in srgb, var(--prog2) 16%, transparent), transparent 55%),
+    linear-gradient(145deg, color-mix(in srgb, var(--bg2, var(--bg)) 95%, transparent), var(--bg));
+  border: 1px solid color-mix(in srgb, var(--prog) 25%, var(--border));
+  border-radius: 16px;
+  animation: fade-in 0.3s ease;
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 10%, transparent) inset,
+    0 20px 40px -20px color-mix(in srgb, var(--prog) 35%, transparent);
+}
+.bga-progress-inline.is-aborted {
+  --prog: #94a3b8;
+  --prog2: #94a3b8;
+}
+.bga-progress-inline.is-error {
+  --prog: #ef4444;
+  --prog2: #f97316;
+}
+.bga-progress-inline::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--fx-accent, #7565f6) 10%, transparent),
-    color-mix(in srgb, #22c5e8 8%, transparent)
+    color-mix(in srgb, var(--prog) 60%, transparent),
+    transparent 45%,
+    color-mix(in srgb, var(--prog2) 55%, transparent)
   );
-  border: 1px solid color-mix(in srgb, var(--fx-accent, #7565f6) 25%, var(--border));
-  border-radius: 12px;
-  animation: fade-in 0.2s ease;
-  overflow-x: hidden;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.7;
 }
-.bga-progress-inline .bga-progress-head {
+
+/* Hero: ring + stage text */
+.bga-prog-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+.bga-prog-ring {
+  --size: 92px;
+  --p: 0;
+  position: relative;
+  flex-shrink: 0;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: conic-gradient(
+    from -90deg,
+    var(--prog) 0%,
+    var(--prog2) calc(var(--p) * 1%),
+    color-mix(in srgb, var(--border) 60%, transparent) calc(var(--p) * 1%)
+  );
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--prog) 30%, transparent),
+    0 10px 24px -8px color-mix(in srgb, var(--prog) 45%, transparent);
+  transition: background 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bga-progress-inline.is-live .bga-prog-ring::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 60%, color-mix(in srgb, var(--prog) 70%, transparent));
+  filter: blur(4px);
+  opacity: 0.55;
+  animation: bga-ring-spin 2.4s linear infinite;
+  z-index: -1;
+}
+@keyframes bga-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.bga-prog-ring-inner {
+  align-items: center;
+  width: calc(var(--size) - 14px);
+  height: calc(var(--size) - 14px);
+  border-radius: 50%;
+  background: var(--bg);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.bga-prog-ring-pct {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--bright);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--prog), var(--prog2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.bga-prog-ring-unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dim);
+}
+
+.bga-prog-hero-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bga-prog-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--prog);
+  width: fit-content;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--prog) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--prog) 30%, transparent);
+}
+.bga-prog-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--prog);
+  box-shadow: 0 0 8px var(--prog);
+  animation: bga-dot-pulse 1.4s ease-in-out infinite;
+}
+@keyframes bga-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(0.7);
+  }
+}
+.bga-prog-current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--bright);
+  line-height: 1.3;
+  min-width: 0;
+}
+.bga-prog-current > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.bga-prog-current .spin {
+  color: var(--prog);
+  flex-shrink: 0;
+}
+.bga-prog-meta-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.bga-prog-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  font-size: 11px;
+  color: var(--dim);
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin progress bar below hero */
+.bga-progress-inline .bga-progress-bar {
+  position: relative;
+  height: 6px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.18),
+    inset 0 0 0 1px color-mix(in srgb, var(--border) 40%, transparent);
+}
+.bga-progress-inline .bga-progress-fill {
+  position: relative;
+  height: 100%;
+  background: linear-gradient(90deg, var(--prog), var(--prog2), var(--prog3), var(--prog));
+  background-size: 300% 100%;
+  border-radius: 999px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--prog) 55%, transparent);
+  animation: bga-progress-flow 4s linear infinite;
+}
+.bga-progress-inline .bga-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: translateX(-100%);
+  animation: bga-progress-sweep 1.8s ease-in-out infinite;
+}
+@keyframes bga-progress-flow {
+  to {
+    background-position: 300% 0;
+  }
+}
+@keyframes bga-progress-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  65%,
+  100% {
+    transform: translateX(260%);
+  }
+}
+
+/* Steps grid */
+.bga-prog-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.bga-prog-cell {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  border-radius: 10px;
+  min-width: 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(6px);
+}
+.bga-prog-cell[data-status="pending"] {
+  opacity: 0.5;
+}
+.bga-prog-cell[data-status="done"] {
+  border-color: color-mix(in srgb, var(--ok, #34d399) 30%, var(--border));
+  background: color-mix(in srgb, var(--ok, #34d399) 6%, var(--bg));
+}
+.bga-prog-cell[data-status="done"] .bga-prog-cell-ico {
+  color: var(--ok, #34d399);
+}
+.bga-prog-cell[data-status="start"] {
+  border-color: color-mix(in srgb, var(--prog) 65%, transparent);
+  background: color-mix(in srgb, var(--prog) 12%, var(--bg));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--prog) 14%, transparent),
+    0 4px 14px -4px color-mix(in srgb, var(--prog) 40%, transparent);
+}
+.bga-prog-cell[data-status="start"] .bga-prog-cell-ico {
+  color: var(--prog);
+}
+.bga-prog-cell[data-status="skip"] {
+  opacity: 1;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--dim) 5%, var(--bg));
+}
+.bga-prog-cell[data-status="skip"] b {
+  color: var(--dim);
+  font-weight: 500;
+}
+.bga-prog-cell[data-status="skip"] .bga-prog-cell-ico {
+  color: var(--dim);
+  opacity: 0.8;
+}
+.bga-prog-cell[data-status="skip"] .bga-prog-cell-detail {
+  font-style: italic;
+}
+
+.bga-prog-cell-ico {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--dim);
+  margin-top: 1px;
+}
+.bga-prog-cell-body {
+  flex: 1;
+  min-width: 0;
+}
+.bga-prog-cell-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.bga-progress-inline .bga-progress-title {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  font-size: 13px;
-  font-weight: 600;
+  gap: 8px;
+  font-size: 12.5px;
   color: var(--bright);
-}
-.bga-progress-inline .bga-steps li,
-.bga-progress-inline .bga-step-main,
-.bga-progress-inline .bga-step-top {
   min-width: 0;
 }
-.bga-progress-inline .bga-step-detail,
-.bga-progress-inline .bga-step-top b {
+.bga-prog-cell-top b {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.bga-prog-cell-dur {
+  font-size: 10px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 999px;
+  font-weight: 500;
+}
+.bga-prog-cell-detail {
+  display: block;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--dim) 75%, var(--text));
+  line-height: 1.4;
+  margin-top: 3px;
   overflow-wrap: anywhere;
   word-break: break-word;
-  text-wrap: auto;
 }
 
-/* Better skip & done state readability */
-.bga-progress .bga-steps li,
-.bga-progress-inline .bga-steps li {
+.bga-prog-err {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 12px;
   padding: 10px 12px;
-}
-.bga-progress .bga-steps li[data-status="skip"],
-.bga-progress-inline .bga-steps li[data-status="skip"] {
-  opacity: 1;
-  background: color-mix(in srgb, var(--dim) 6%, var(--bg));
-  border-style: dashed;
-}
-.bga-progress .bga-steps li[data-status="skip"] b,
-.bga-progress-inline .bga-steps li[data-status="skip"] b {
-  color: var(--dim);
-}
-.bga-progress .bga-steps li[data-status="skip"] .bga-step-ico,
-.bga-progress-inline .bga-steps li[data-status="skip"] .bga-step-ico {
-  color: var(--dim);
-  opacity: 0.9;
-}
-.bga-progress .bga-step-detail,
-.bga-progress-inline .bga-step-detail {
-  color: color-mix(in srgb, var(--dim) 70%, var(--text));
   font-size: 12px;
-  margin-top: 2px;
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 10%, var(--bg));
+  border: 1px solid color-mix(in srgb, #ef4444 30%, transparent);
+  border-radius: 10px;
+  line-height: 1.45;
 }
-.bga-progress .bga-steps li[data-status="skip"] .bga-step-detail,
-.bga-progress-inline .bga-steps li[data-status="skip"] .bga-step-detail {
-  font-style: italic;
+.bga-prog-err svg {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
-/* Prevent duration from floating alone to the far right while title stays left */
-.bga-progress .bga-step-top,
-.bga-progress-inline .bga-step-top {
-  gap: 10px;
+
+/* Responsive */
+@media (max-width: 640px) {
+  .bga-progress-inline {
+    padding: 16px;
+  }
+  .bga-prog-hero {
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .bga-prog-ring {
+    --size: 76px;
+  }
+  .bga-prog-ring-pct {
+    font-size: 22px;
+  }
+  .bga-prog-current {
+    font-size: 15px;
+  }
+  .bga-prog-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .bga-prog-cell {
+    padding: 9px 11px;
+  }
 }
+@media (max-width: 420px) {
+  .bga-prog-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .bga-prog-ring {
+    --size: 68px;
+    align-self: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bga-progress-inline .bga-progress-fill,
+  .bga-progress-inline .bga-progress-fill::after,
+  .bga-progress-inline.is-live .bga-prog-ring::before,
+  .bga-prog-dot {
+    animation: none;
+  }
+}
+
+/* Legacy .bga-progress (outside modal) — kept untouched above */

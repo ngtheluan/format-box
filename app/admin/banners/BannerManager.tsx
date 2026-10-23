@@ -5,6 +5,7 @@ import {
   IconBroadcast,
   IconClock,
   IconExternalLink,
+  IconGripVertical,
   IconLayoutGrid,
   IconPencil,
   IconPlus,
@@ -65,6 +66,8 @@ export default function BannerManager() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [editing, setEditing] = useState<Draft | null>(null);
   const [creating, setCreating] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
 
   const reload = useCallback(async () => {
     const res = await fetch("/api/admin/banners", { cache: "no-store" });
@@ -153,6 +156,34 @@ export default function BannerManager() {
     toast(creating ? "Đã tạo banner" : "Đã lưu banner");
   };
 
+  function handleDrop() {
+    if (dragIdx === null || dropIdx === null || dragIdx === dropIdx) {
+      setDragIdx(null);
+      setDropIdx(null);
+      return;
+    }
+    const next = [...banners];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(dropIdx, 0, moved);
+    // Banners sort DESC (cao hiện trước) — gán giảm dần theo vị trí.
+    const reindexed = next.map((b, i) => ({ ...b, sort: (next.length - i) * 10 }));
+    setBanners(reindexed);
+    setDragIdx(null);
+    setDropIdx(null);
+    Promise.all(
+      reindexed.map((b) =>
+        fetch("/api/admin/banners", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id: b.id, sort: b.sort }),
+        }),
+      ),
+    ).then(() => {
+      notifyPublic();
+      toast("Đã cập nhật thứ tự");
+    });
+  }
+
   async function logout() {
     await fetch("/api/admin/login", { method: "DELETE" });
     window.location.href = "/admin";
@@ -224,10 +255,46 @@ export default function BannerManager() {
         </div>
       ) : (
         <div className="fx-list">
-          {banners.map((b) => {
+          {banners.map((b, i) => {
             const st = statusOf(b);
+            const isDragging = dragIdx === i;
+            const isOver = dropIdx === i && dragIdx !== null && dragIdx !== i;
             return (
-              <div key={b.id} className="fx-card fx-row-card" data-banner-tone={b.tone}>
+              <div
+                key={b.id}
+                className="fx-card fx-row-card"
+                data-banner-tone={b.tone}
+                draggable
+                onDragStart={() => setDragIdx(i)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDropIdx(i);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  handleDrop();
+                }}
+                onDragEnd={() => {
+                  setDragIdx(null);
+                  setDropIdx(null);
+                }}
+                style={{
+                  opacity: isDragging ? 0.4 : 1,
+                  borderTop: isOver ? "2px solid var(--accent, #6366f1)" : undefined,
+                }}
+              >
+                <div
+                  style={{
+                    color: "var(--dim)",
+                    cursor: "grab",
+                    display: "flex",
+                    alignItems: "center",
+                    flex: "0 0 auto",
+                  }}
+                  title="Kéo để sắp xếp"
+                >
+                  <IconGripVertical size={16} stroke={1.8} />
+                </div>
                 <div style={{ flex: "1 1 auto", minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span className="fx-badge" data-tone={st.tone}>

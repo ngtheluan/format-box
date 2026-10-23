@@ -7,6 +7,7 @@ import type { Theme } from "@/lib/themes-shared";
 import {
   IconCheck,
   IconEye,
+  IconGripVertical,
   IconLayoutGrid,
   IconPalette,
   IconPencil,
@@ -45,6 +46,45 @@ export default function ThemeManager() {
   const savedSkinRef = useRef<Skin>("modern");
   const [editing, setEditing] = useState<Draft | null>(null);
   const [creating, setCreating] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const [orderOverride, setOrderOverride] = useState<string[] | null>(null);
+
+  const orderedThemes = useMemo(() => {
+    if (!orderOverride) return themes;
+    const byId = new Map(themes.map((t) => [t.id, t]));
+    const result = orderOverride.map((id) => byId.get(id)).filter(Boolean) as Theme[];
+    for (const t of themes) if (!orderOverride.includes(t.id)) result.push(t);
+    return result;
+  }, [themes, orderOverride]);
+
+  async function handleThemeDrop() {
+    if (dragIdx === null || dropIdx === null || dragIdx === dropIdx) {
+      setDragIdx(null);
+      setDropIdx(null);
+      return;
+    }
+    const next = [...orderedThemes];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(dropIdx, 0, moved);
+    // Themes sort ASC — thấp hiện trước.
+    const reindexed = next.map((t, i) => ({ ...t, sort: (i + 1) * 10 }));
+    setOrderOverride(reindexed.map((t) => t.id));
+    setDragIdx(null);
+    setDropIdx(null);
+    await Promise.all(
+      reindexed.map((t) =>
+        fetch("/api/admin/themes", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id: t.id, sort: t.sort }),
+        }),
+      ),
+    );
+    await reload();
+    setOrderOverride(null);
+    toast("Đã cập nhật thứ tự");
+  }
 
   useEffect(() => {
     savedSkinRef.current =
@@ -230,12 +270,54 @@ export default function ThemeManager() {
       }
     >
       <div className="skin-grid">
-        {themes.map((s) => {
+        {orderedThemes.map((s, i) => {
           const isEnabled = s.enabled;
           const isDefault = s.isDefault;
           const isCurrent = currentSkin === s.id;
+          const isDragging = dragIdx === i;
+          const isOver = dropIdx === i && dragIdx !== null && dragIdx !== i;
           return (
-            <div key={s.id} className={`skin-card${isCurrent ? " current" : ""}${isEnabled ? "" : " off"}`}>
+            <div
+              key={s.id}
+              className={`skin-card${isCurrent ? " current" : ""}${isEnabled ? "" : " off"}`}
+              draggable
+              onDragStart={() => setDragIdx(i)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDropIdx(i);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                void handleThemeDrop();
+              }}
+              onDragEnd={() => {
+                setDragIdx(null);
+                setDropIdx(null);
+              }}
+              style={{
+                opacity: isDragging ? 0.4 : 1,
+                outline: isOver ? "2px solid var(--accent, #6366f1)" : undefined,
+                position: "relative",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  left: 6,
+                  color: "#fff",
+                  opacity: 0.75,
+                  cursor: "grab",
+                  zIndex: 2,
+                  display: "inline-flex",
+                  background: "rgba(0,0,0,0.25)",
+                  borderRadius: 4,
+                  padding: 2,
+                }}
+                title="Kéo để sắp xếp"
+              >
+                <IconGripVertical size={14} stroke={1.9} />
+              </span>
               <div
                 className="skin-card-hero"
                 style={{ background: `linear-gradient(135deg, ${s.swatch[0]}, ${s.swatch[1]})` }}
