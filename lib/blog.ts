@@ -108,6 +108,101 @@ export async function deleteCategory(slug: string): Promise<void> {
   await sb.from("blog_categories").delete().eq("slug", slug).throwOnError();
 }
 
+export type DidYouKnowImage = { url: string; caption_vi: string; caption_en: string };
+
+export type DidYouKnowItem = {
+  slug: string;
+  tag_vi: string;
+  tag_en: string;
+  title_vi: string;
+  title_en: string;
+  intro_vi: string;
+  intro_en: string;
+  images: DidYouKnowImage[];
+  sort: number;
+  active: boolean;
+};
+
+type DbDyk = Omit<DidYouKnowItem, "images"> & { images: unknown };
+
+function normDykImages(x: unknown): DidYouKnowImage[] {
+  if (!Array.isArray(x)) return [];
+  return x
+    .map((it) => {
+      if (!it || typeof it !== "object") return null;
+      const o = it as any;
+      const url = typeof o.url === "string" ? o.url : "";
+      if (!url) return null;
+      return {
+        url,
+        caption_vi: typeof o.caption_vi === "string" ? o.caption_vi : "",
+        caption_en: typeof o.caption_en === "string" ? o.caption_en : "",
+      };
+    })
+    .filter(Boolean) as DidYouKnowImage[];
+}
+
+function normDyk(r: DbDyk): DidYouKnowItem {
+  return { ...r, images: normDykImages(r.images) };
+}
+
+export async function listPublicDidYouKnow(): Promise<DidYouKnowItem[]> {
+  noStore();
+  const sb = supabase();
+  if (!sb) return [];
+  const data = await withRetry(async () => {
+    const { data, error } = await sb
+      .from("blog_did_you_know")
+      .select("slug, tag_vi, tag_en, title_vi, title_en, intro_vi, intro_en, images, sort, active")
+      .eq("active", true)
+      .order("sort", { ascending: true });
+    if (error) throw error;
+    return data as DbDyk[] | null;
+  });
+  return (data ?? []).map(normDyk);
+}
+
+export async function listAdminDidYouKnow(): Promise<DidYouKnowItem[]> {
+  const sb = supabaseAdmin();
+  const { data } = await sb
+    .from("blog_did_you_know")
+    .select("slug, tag_vi, tag_en, title_vi, title_en, intro_vi, intro_en, images, sort, active")
+    .order("sort", { ascending: true });
+  return ((data as DbDyk[] | null) ?? []).map(normDyk);
+}
+
+export async function upsertDidYouKnow(item: DidYouKnowItem): Promise<void> {
+  const sb = supabaseAdmin();
+  await sb
+    .from("blog_did_you_know")
+    .upsert(
+      {
+        slug: item.slug,
+        tag_vi: item.tag_vi,
+        tag_en: item.tag_en,
+        title_vi: item.title_vi,
+        title_en: item.title_en,
+        intro_vi: item.intro_vi,
+        intro_en: item.intro_en,
+        images: item.images,
+        sort: item.sort,
+        active: item.active,
+      },
+      { onConflict: "slug" },
+    )
+    .throwOnError();
+}
+
+export async function updateDidYouKnow(slug: string, patch: Partial<Omit<DidYouKnowItem, "slug">>): Promise<void> {
+  const sb = supabaseAdmin();
+  await sb.from("blog_did_you_know").update(patch).eq("slug", slug).throwOnError();
+}
+
+export async function deleteDidYouKnow(slug: string): Promise<void> {
+  const sb = supabaseAdmin();
+  await sb.from("blog_did_you_know").delete().eq("slug", slug).throwOnError();
+}
+
 export async function countPostsInCategory(slug: string): Promise<number> {
   const sb = supabaseAdmin();
   const { count } = await sb

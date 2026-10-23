@@ -3,7 +3,7 @@
 import { BlogCard, Corners } from "@/components/BlogCard";
 import { BlogCover } from "@/components/BlogCover";
 import { Stack } from "@/components/ui";
-import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost } from "@/lib/blog";
+import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost, type DidYouKnowItem } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
 import { IconArrowRight, IconArticle, IconX } from "@tabler/icons-react";
 import Link from "next/link";
@@ -21,7 +21,7 @@ function initials(name: string) {
   return (first + last).toUpperCase();
 }
 
-export function BlogList({ posts: all, categories }: { posts: BlogPost[]; categories?: BlogCategoryMap }) {
+export function BlogList({ posts: all, categories, didYouKnow }: { posts: BlogPost[]; categories?: BlogCategoryMap; didYouKnow?: DidYouKnowItem[] }) {
   const { t } = useI18n();
   const [active, setActive] = useState<string | null>(null);
   const [limit, setLimit] = useState(PAGE);
@@ -182,7 +182,7 @@ export function BlogList({ posts: all, categories }: { posts: BlogPost[]; catego
         </section>
       ) : null}
 
-      <DidYouKnow />
+      <DidYouKnow items={didYouKnow} />
     </Stack>
   );
 }

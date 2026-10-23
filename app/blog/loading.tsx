@@ -54,6 +54,33 @@ export default function Loading() {
                 <span className="bz-skel-line" style={{ height: 10, width: 60 }} />
                 <span className="bz-skel-line" style={{ height: 14 }} />
                 <span className="bz-skel-line short" style={{ height: 14 }} />
+                <span className="bzc-author" style={{ gap: 8 }}>
+                  <span className="bz-skel-avatar" style={{ width: 20, height: 20, borderRadius: 2 }} />
+                  <span className="bz-skel-line" style={{ height: 10, width: 80 }} />
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="bz-sec dyk-sec" aria-hidden="true">
+        <header className="bz-sec-head">
+          <span className="bz-skel-line bz-skel-sec-title" />
+          <span className="bz-skel-line" style={{ height: 12, width: 180 }} />
+        </header>
+        <div className="dyk-grid">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="dyk-card" style={{ cursor: "default" }}>
+              <span className="dyk-thumb bz-skel-media" style={{ aspectRatio: "4 / 5" }} />
+              <span className="dyk-body">
+                <span className="bz-skel-line" style={{ height: 10, width: 70 }} />
+                <span className="bz-skel-line" style={{ height: 16 }} />
+                <span className="bz-skel-line short" style={{ height: 16 }} />
+                <span className="bz-skel-line" style={{ height: 12 }} />
+                <span className="bz-skel-line" style={{ height: 12 }} />
+                <span className="bz-skel-line short" style={{ height: 12 }} />
+                <span className="bz-skel-line" style={{ height: 12, width: 90, marginTop: "auto" }} />
               </span>
             </div>
           ))}

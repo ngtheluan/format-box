@@ -1813,7 +1813,7 @@
 }
 .bz-side-item a {
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 12px;
   color: inherit;
 }

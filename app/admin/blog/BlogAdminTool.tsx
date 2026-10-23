@@ -3,7 +3,7 @@ import "@/app/blog/blog.css";
 import { useToast } from "@/components/Toast";
 import type { SelectOption } from "@/components/ui";
 import { Field, Input, Select, Switch, Tab, TabPanel, Tabs, TabsList, Textarea } from "@/components/ui";
-import { rewriteImgUrl, type BlogCategory, type BlogCategoryRow, type BlogPost, type BlogStatus } from "@/lib/blog";
+import { rewriteImgUrl, type BlogCategory, type BlogCategoryRow, type BlogPost, type BlogStatus, type DidYouKnowItem, type DidYouKnowImage } from "@/lib/blog";
 import {
     AI_MODELS,
     AI_PROVIDER_LABEL,
@@ -90,6 +90,7 @@ marked.setOptions({ gfm: true, breaks: false });
 type Props = {
   initialPosts: BlogPost[];
   initialCategories: BlogCategoryRow[];
+  initialDidYouKnow?: DidYouKnowItem[];
   providers: Record<AiProvider, boolean>;
 };
 
@@ -134,13 +135,152 @@ const STATUS_LABEL: Record<BlogStatus, string> = {
   published: "Phát hành",
 };
 
-export default function BlogAdminTool({ initialPosts, initialCategories, providers }: Props) {
+export default function BlogAdminTool({ initialPosts, initialCategories, initialDidYouKnow, providers }: Props) {
   const toast = useToast();
   const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
   const [cats, setCats] = useState<BlogCategoryRow[]>(initialCategories);
+  const [dyk, setDyk] = useState<DidYouKnowItem[]>(initialDidYouKnow || []);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [tab, setTab] = useState<"posts" | "categories">("posts");
+  const [tab, setTab] = useState<"posts" | "categories" | "knowledge">("posts");
+
+  type DykDraft = {
+    original?: string;
+    slug: string;
+    tag_vi: string;
+    tag_en: string;
+    title_vi: string;
+    title_en: string;
+    intro_vi: string;
+    intro_en: string;
+    images: DidYouKnowImage[];
+    sort: number;
+    active: boolean;
+    isNew: boolean;
+  };
+  const [dykEditing, setDykEditing] = useState<DykDraft | null>(null);
+  const [dykSaving, setDykSaving] = useState(false);
+  const [dykErr, setDykErr] = useState("");
+  const [dykChooserOpen, setDykChooserOpen] = useState(false);
+  const [dykAiOpen, setDykAiOpen] = useState(false);
+  const [dykAiTopic, setDykAiTopic] = useState("");
+  const [dykAiCount, setDykAiCount] = useState(6);
+  const [dykAiLoading, setDykAiLoading] = useState(false);
+  const [dykAiErr, setDykAiErr] = useState("");
+
+  async function generateDykAi() {
+    setDykAiLoading(true);
+    setDykAiErr("");
+    try {
+      const r = await fetch("/api/blog/did-you-know/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: dykAiTopic.trim(), provider: genProvider, count: dykAiCount }),
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        setDykAiErr(j?.error || `Lỗi ${r.status}`);
+        return;
+      }
+      await reloadDyk();
+      toast(`Đã sinh: ${j.item?.title_vi || "mục mới"}`);
+      setDykAiOpen(false);
+      setDykAiTopic("");
+    } catch (e: any) {
+      setDykAiErr(e?.message || "Lỗi");
+    } finally {
+      setDykAiLoading(false);
+    }
+  }
+
+  function openNewDyk() {
+    setDykEditing({
+      slug: "",
+      tag_vi: "",
+      tag_en: "",
+      title_vi: "",
+      title_en: "",
+      intro_vi: "",
+      intro_en: "",
+      images: [],
+      sort: (dyk.at(-1)?.sort ?? 0) + 10,
+      active: true,
+      isNew: true,
+    });
+    setDykErr("");
+  }
+  function openEditDyk(it: DidYouKnowItem) {
+    setDykEditing({ original: it.slug, ...it, isNew: false });
+    setDykErr("");
+  }
+  async function reloadDyk() {
+    try {
+      const r = await fetch("/api/blog/did-you-know");
+      const j = await r.json();
+      if (r.ok && Array.isArray(j.items)) setDyk(j.items);
+    } catch {}
+  }
+  async function saveDyk() {
+    if (!dykEditing) return;
+    const title_vi = dykEditing.title_vi.trim();
+    if (!title_vi) {
+      setDykErr("Thiếu tiêu đề VI");
+      return;
+    }
+    setDykSaving(true);
+    setDykErr("");
+    try {
+      if (dykEditing.isNew) {
+        const r = await fetch("/api/blog/did-you-know", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...dykEditing, title_vi }),
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          setDykErr(j?.error || `Lỗi ${r.status}`);
+          return;
+        }
+      } else {
+        const r = await fetch("/api/blog/did-you-know", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...dykEditing, slug: dykEditing.original, title_vi }),
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          setDykErr(j?.error || `Lỗi ${r.status}`);
+          return;
+        }
+      }
+      await reloadDyk();
+      toast(`Đã lưu: ${title_vi}`);
+      setDykEditing(null);
+    } catch (e: any) {
+      setDykErr(e?.message || "Lỗi");
+    } finally {
+      setDykSaving(false);
+    }
+  }
+  async function toggleDykActive(it: DidYouKnowItem) {
+    const r = await fetch("/api/blog/did-you-know", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: it.slug, active: !it.active }),
+    });
+    const j = await r.json();
+    if (!r.ok) return toast(j?.error || "Lỗi");
+    setDyk((prev) => prev.map((x) => (x.slug === it.slug ? { ...x, active: !it.active } : x)));
+    toast(`${!it.active ? "Bật" : "Tắt"}: ${it.title_vi}`);
+  }
+  async function removeDyk(it: DidYouKnowItem) {
+    if (!confirm(`Xoá "${it.title_vi}"?`)) return;
+    const r = await fetch(`/api/blog/did-you-know?slug=${encodeURIComponent(it.slug)}`, { method: "DELETE" });
+    const j = await r.json();
+    if (!r.ok) return toast(j?.error || "Xoá thất bại");
+    setDyk((prev) => prev.filter((x) => x.slug !== it.slug));
+    toast(`Đã xoá: ${it.title_vi}`);
+  }
   const [catDragIdx, setCatDragIdx] = useState<number | null>(null);
   const [catDropIdx, setCatDropIdx] = useState<number | null>(null);
 
@@ -788,46 +928,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
       ]}
       search={{ value: q, onChange: setQ, placeholder: "Tìm theo tiêu đề, slug, tag…" }}
       onLogout={logout}
-      headerActions={
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <div
-            style={{
-              display: "flex",
-              gap: 4,
-              padding: 3,
-              background: "var(--bg2)",
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setTab("posts")}
-              className={`fx-btn ${tab === "posts" ? "fx-btn-primary" : "fx-btn-ghost"}`}
-              style={{ padding: "4px 10px", fontSize: 12 }}
-            >
-              <IconArticle size={13} stroke={1.9} /> Bài viết
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("categories")}
-              className={`fx-btn ${tab === "categories" ? "fx-btn-primary" : "fx-btn-ghost"}`}
-              style={{ padding: "4px 10px", fontSize: 12 }}
-            >
-              <IconCategory size={13} stroke={1.9} /> Danh mục
-            </button>
-          </div>
-          {tab === "posts" ? (
-            <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
-              <IconSparkles size={14} stroke={2.2} /> Sinh bài
-            </button>
-          ) : (
-            <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
-              <IconPlus size={14} stroke={2.2} /> Thêm danh mục
-            </button>
-          )}
-        </div>
-      }
+      headerActions={null}
       stats={
         <>
           <div
@@ -888,7 +989,136 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
         </>
       }
     >
-      {tab === "categories" ? (
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            padding: 3,
+            background: "var(--bg2)",
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setTab("posts")}
+            className={`fx-btn ${tab === "posts" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+            style={{ padding: "4px 10px", fontSize: 12 }}
+          >
+            <IconArticle size={13} stroke={1.9} /> Bài viết
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("categories")}
+            className={`fx-btn ${tab === "categories" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+            style={{ padding: "4px 10px", fontSize: 12 }}
+          >
+            <IconCategory size={13} stroke={1.9} /> Danh mục
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("knowledge")}
+            className={`fx-btn ${tab === "knowledge" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+            style={{ padding: "4px 10px", fontSize: 12 }}
+          >
+            <IconBulb size={13} stroke={1.9} /> Kiến thức
+          </button>
+        </div>
+        {tab === "posts" ? (
+          <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
+            <IconSparkles size={14} stroke={2.2} /> Sinh bài
+          </button>
+        ) : tab === "categories" ? (
+          <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
+            <IconPlus size={14} stroke={2.2} /> Thêm danh mục
+          </button>
+        ) : (
+          <button onClick={() => setDykChooserOpen(true)} className="fx-btn fx-btn-primary">
+            <IconPlus size={14} stroke={2.2} /> Thêm kiến thức
+          </button>
+        )}
+      </div>
+
+      {tab === "knowledge" ? (
+        dyk.length === 0 ? (
+          <div className="fx-empty">
+            <div className="fx-empty-ico">
+              <IconBulb size={22} stroke={1.7} />
+            </div>
+            Chưa có kiến thức nào. Bấm &quot;Thêm kiến thức&quot; để tạo mới.
+          </div>
+        ) : (
+          <div className="fx-table">
+            <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "56px 1fr 140px 80px 80px 140px" }}>
+              <div />
+              <div>Tiêu đề</div>
+              <div>Tag</div>
+              <div style={{ textAlign: "center" }}>Ảnh</div>
+              <div style={{ textAlign: "center" }}>Thứ tự</div>
+              <div style={{ textAlign: "right" }}>Actions</div>
+            </div>
+            {dyk.map((it) => (
+              <div
+                key={it.slug}
+                className="fx-row"
+                style={{ gridTemplateColumns: "56px 1fr 140px 80px 80px 140px", opacity: it.active ? 1 : 0.55 }}
+              >
+                <div className="bga-thumb">
+                  {it.images[0]?.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={rewriteImgUrl(it.images[0].url)} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span style={{ background: "linear-gradient(135deg,#64748b,#334155)" }} />
+                  )}
+                </div>
+                <div className="fx-title-cell">
+                  <div className="fx-t-row">
+                    <b>{it.title_vi}</b>
+                    {!it.active && (
+                      <span className="fx-badge" data-tone="mute">
+                        Tắt
+                      </span>
+                    )}
+                  </div>
+                  <span className="fx-t-sub">{it.intro_vi}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--dim)" }}>{it.tag_vi}</div>
+                <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{it.images.length}</div>
+                <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{it.sort}</div>
+                <div className="fx-row-actions">
+                  <button
+                    className="fx-btn fx-btn-icon"
+                    onClick={() => toggleDykActive(it)}
+                    title={it.active ? "Tắt" : "Bật"}
+                  >
+                    {it.active ? <IconEye size={14} stroke={1.9} /> : <IconEyeOff size={14} stroke={1.9} />}
+                  </button>
+                  <button className="fx-btn fx-btn-icon" onClick={() => openEditDyk(it)} title="Sửa">
+                    <IconEdit size={14} stroke={1.9} />
+                  </button>
+                  <button
+                    className="fx-btn fx-btn-icon fx-btn-danger"
+                    onClick={() => removeDyk(it)}
+                    title="Xoá"
+                  >
+                    <IconTrash size={14} stroke={1.9} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : tab === "categories" ? (
         cats.length === 0 ? (
           <div className="fx-empty">
             <div className="fx-empty-ico">
@@ -2199,6 +2429,349 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                 disabled={catSaving || !catEditing.label.trim()}
               >
                 {catSaving ? (
+                  <>
+                    <IconLoader2 size={14} className="spin" /> Đang lưu…
+                  </>
+                ) : (
+                  <>
+                    <IconDeviceFloppy size={14} /> Lưu
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DID-YOU-KNOW CHOOSER */}
+      {dykChooserOpen && (
+        <div className="fx-modal-bg" style={{ zIndex: 200 }} onClick={() => setDykChooserOpen(false)}>
+          <div className="fx-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="fx-modal-head">
+              <h2>
+                <IconBulb size={16} stroke={2} /> Thêm kiến thức
+              </h2>
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setDykChooserOpen(false)}>
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <button
+                type="button"
+                className="fx-btn"
+                style={{ flexDirection: "column", padding: 16, height: "auto", gap: 6 }}
+                onClick={() => {
+                  setDykChooserOpen(false);
+                  openNewDyk();
+                }}
+              >
+                <IconEdit size={22} stroke={1.7} />
+                <b>Thủ công</b>
+                <span style={{ fontSize: 11, color: "var(--dim)", textAlign: "center" }}>
+                  Tự nhập tiêu đề, mô tả, URL ảnh
+                </span>
+              </button>
+              <button
+                type="button"
+                className="fx-btn fx-btn-primary"
+                style={{ flexDirection: "column", padding: 16, height: "auto", gap: 6 }}
+                onClick={() => {
+                  setDykChooserOpen(false);
+                  setDykAiOpen(true);
+                  setDykAiErr("");
+                }}
+              >
+                <IconSparkles size={22} stroke={1.9} />
+                <b>AI tự sinh</b>
+                <span style={{ fontSize: 11, opacity: 0.85, textAlign: "center" }}>
+                  AI chọn chủ đề + viết nội dung + tìm ảnh
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DID-YOU-KNOW AI MODAL */}
+      {dykAiOpen && (
+        <div className="fx-modal-bg" style={{ zIndex: 200 }}>
+          <div className="fx-modal" style={{ maxWidth: 560 }}>
+            <div className="fx-modal-head">
+              <h2>
+                <IconSparkles size={16} stroke={2} /> Sinh kiến thức bằng AI
+                <span className="fx-badge">AI</span>
+              </h2>
+              <button
+                className="fx-btn fx-btn-icon fx-btn-ghost"
+                onClick={() => !dykAiLoading && setDykAiOpen(false)}
+              >
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body">
+              <Field label="Chủ đề (để trống → AI tự chọn)">
+                <Input
+                  autoFocus
+                  value={dykAiTopic}
+                  disabled={dykAiLoading}
+                  onChange={(e) => setDykAiTopic(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !dykAiLoading && generateDykAi()}
+                  placeholder="VD: hiện tượng cực quang, loài bạch tuộc, lịch sử cà phê…"
+                />
+              </Field>
+              <Field label={`Số ảnh (${dykAiCount})`}>
+                <div className="bga-seg bga-seg-sm">
+                  {[3, 4, 5, 6, 7, 8].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={dykAiCount === n ? "is-on" : ""}
+                      onClick={() => setDykAiCount(n)}
+                      disabled={dykAiLoading}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              {dykAiErr && <div className="fx-err">{dykAiErr}</div>}
+              <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 6 }}>
+                AI sẽ sinh tiêu đề, mô tả song ngữ VI/EN và tự tìm ảnh minh họa, rồi lưu vào DB. Bạn có thể sửa lại
+                sau.
+              </div>
+            </div>
+            <div className="fx-modal-foot">
+              <button className="fx-btn" onClick={() => setDykAiOpen(false)} disabled={dykAiLoading}>
+                Huỷ
+              </button>
+              <button className="fx-btn fx-btn-primary" onClick={generateDykAi} disabled={dykAiLoading}>
+                {dykAiLoading ? (
+                  <>
+                    <IconLoader2 size={14} className="spin" /> Đang sinh…
+                  </>
+                ) : (
+                  <>
+                    <IconSparkles size={14} stroke={2.2} /> Sinh ngay
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DID-YOU-KNOW EDIT MODAL */}
+      {dykEditing && (
+        <div className="fx-modal-bg" style={{ zIndex: 200 }}>
+          <div className="fx-modal" style={{ maxWidth: 720, width: "96vw" }}>
+            <div className="fx-modal-head">
+              <h2>
+                <IconBulb size={16} stroke={2} /> {dykEditing.isNew ? "Thêm kiến thức" : "Sửa kiến thức"}
+              </h2>
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => !dykSaving && setDykEditing(null)}>
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body">
+              <div className="bga-grid2">
+                <Field label="Tag (VI)">
+                  <Input
+                    value={dykEditing.tag_vi}
+                    disabled={dykSaving}
+                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, tag_vi: e.target.value } : cur))}
+                    placeholder="VD: Thiên nhiên"
+                  />
+                </Field>
+                <Field label="Tag (EN)">
+                  <Input
+                    value={dykEditing.tag_en}
+                    disabled={dykSaving}
+                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, tag_en: e.target.value } : cur))}
+                    placeholder="VD: Nature"
+                  />
+                </Field>
+              </div>
+              <Field label="Tiêu đề (VI)" required>
+                <Input
+                  autoFocus
+                  value={dykEditing.title_vi}
+                  disabled={dykSaving}
+                  onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, title_vi: e.target.value } : cur))}
+                />
+              </Field>
+              <Field label="Tiêu đề (EN)">
+                <Input
+                  value={dykEditing.title_en}
+                  disabled={dykSaving}
+                  onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, title_en: e.target.value } : cur))}
+                />
+              </Field>
+              <Field label="Giới thiệu (VI)">
+                <Textarea
+                  rows={2}
+                  value={dykEditing.intro_vi}
+                  disabled={dykSaving}
+                  onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, intro_vi: e.target.value } : cur))}
+                />
+              </Field>
+              <Field label="Giới thiệu (EN)">
+                <Textarea
+                  rows={2}
+                  value={dykEditing.intro_en}
+                  disabled={dykSaving}
+                  onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, intro_en: e.target.value } : cur))}
+                />
+              </Field>
+              <div className="bga-grid2">
+                <Field label={`Slug ${dykEditing.isNew ? "(auto từ title)" : "(cố định)"}`}>
+                  <Input
+                    value={dykEditing.slug}
+                    disabled={dykSaving || !dykEditing.isNew}
+                    monospace
+                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, slug: e.target.value } : cur))}
+                  />
+                </Field>
+                <Field label="Thứ tự">
+                  <Input
+                    type="number"
+                    value={dykEditing.sort}
+                    disabled={dykSaving}
+                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, sort: Number(e.target.value) || 0 } : cur))}
+                  />
+                </Field>
+              </div>
+              <Field label="Hiển thị công khai">
+                <div className="bga-switch-row">
+                  <Switch
+                    checked={dykEditing.active}
+                    disabled={dykSaving}
+                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, active: e.target.checked } : cur))}
+                  />
+                  <span className="bga-switch-lbl">{dykEditing.active ? "Bật" : "Tắt"}</span>
+                </div>
+              </Field>
+
+              <Field label={`Ảnh (${dykEditing.images.length})`}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {dykEditing.images.map((im, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "56px 1fr 32px",
+                        gap: 8,
+                        alignItems: "start",
+                        padding: 8,
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        background: "var(--bg2)",
+                      }}
+                    >
+                      <div className="bga-thumb" style={{ width: 56, height: 56 }}>
+                        {im.url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={rewriteImgUrl(im.url)} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span style={{ background: "linear-gradient(135deg,#64748b,#334155)" }} />
+                        )}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <Input
+                          value={im.url}
+                          disabled={dykSaving}
+                          placeholder="URL ảnh"
+                          onChange={(e) =>
+                            setDykEditing((cur) =>
+                              cur
+                                ? {
+                                    ...cur,
+                                    images: cur.images.map((x, i) => (i === idx ? { ...x, url: e.target.value } : x)),
+                                  }
+                                : cur,
+                            )
+                          }
+                        />
+                        <div className="bga-grid2">
+                          <Input
+                            value={im.caption_vi}
+                            disabled={dykSaving}
+                            placeholder="Caption VI"
+                            onChange={(e) =>
+                              setDykEditing((cur) =>
+                                cur
+                                  ? {
+                                      ...cur,
+                                      images: cur.images.map((x, i) =>
+                                        i === idx ? { ...x, caption_vi: e.target.value } : x,
+                                      ),
+                                    }
+                                  : cur,
+                              )
+                            }
+                          />
+                          <Input
+                            value={im.caption_en}
+                            disabled={dykSaving}
+                            placeholder="Caption EN"
+                            onChange={(e) =>
+                              setDykEditing((cur) =>
+                                cur
+                                  ? {
+                                      ...cur,
+                                      images: cur.images.map((x, i) =>
+                                        i === idx ? { ...x, caption_en: e.target.value } : x,
+                                      ),
+                                    }
+                                  : cur,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="fx-btn fx-btn-icon fx-btn-danger"
+                        onClick={() =>
+                          setDykEditing((cur) =>
+                            cur ? { ...cur, images: cur.images.filter((_, i) => i !== idx) } : cur,
+                          )
+                        }
+                        title="Xoá ảnh"
+                        disabled={dykSaving}
+                      >
+                        <IconTrash size={14} stroke={1.9} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="fx-btn"
+                    onClick={() =>
+                      setDykEditing((cur) =>
+                        cur
+                          ? { ...cur, images: [...cur.images, { url: "", caption_vi: "", caption_en: "" }] }
+                          : cur,
+                      )
+                    }
+                    disabled={dykSaving}
+                  >
+                    <IconPlus size={13} stroke={1.9} /> Thêm ảnh
+                  </button>
+                </div>
+              </Field>
+
+              {dykErr && <div className="fx-err">{dykErr}</div>}
+            </div>
+            <div className="fx-modal-foot">
+              <button className="fx-btn" onClick={() => setDykEditing(null)} disabled={dykSaving}>
+                Huỷ
+              </button>
+              <button
+                className="fx-btn fx-btn-primary"
+                onClick={saveDyk}
+                disabled={dykSaving || !dykEditing.title_vi.trim()}
+              >
+                {dykSaving ? (
                   <>
                     <IconLoader2 size={14} className="spin" /> Đang lưu…
                   </>

@@ -233,9 +233,10 @@ export async function POST(req: Request) {
         let slug = slugify(meta.title) || slugify(topic);
         for (let i = 2; await getAdminPost(slug); i++) slug = `${slugify(meta.title)}-${i}`;
 
-        // 4) Fact-check + internal-links run in parallel: both only read the draft.
-        //    Linking appends a section; factcheck may rewrite the body. Apply linking's
-        //    append on top of factcheck's rewrite (if any) to preserve both.
+        // 4) Fact-check, internal-links, AND the image pipeline all run in parallel.
+        //    Factcheck/linking only read the draft; the image pipeline only needs the
+        //    IMG:: slots + meta, both already extracted. Overlapping these three saves
+        //    ~30-60s on a typical run (previously sequential: factcheck+linking → images).
         const canFact = factCheck;
         const canLink = internalLinks && existing.some((p) => (p.status || "published") === "published");
         if (canFact) send({ type: "step", step: "factcheck", status: "start" });
@@ -248,7 +249,7 @@ export async function POST(req: Request) {
               temperature: 0,
               timeoutMs: 60_000,
               system:
-                "You are a strict fact-checker for Vietnamese blog articles. Spot claims that look fabricated: made-up numbers, versions, dates, quotes, product names, prices, benchmarks. Reply JSON only.",
+                "You are a strict fact-checker for Vietnamese blog articles. Spot claims that look fabricated: made-up numbers, versions, dates, quotes, product names, prices, benchmarks. Reply JSON only. CRITICAL: preserve every `![...](IMG::...)` placeholder exactly as it appears — do not remove, reorder, rename, or rewrite them; they are replaced with real images in a later step.",
               user: `Bài:\n${md.slice(0, 6000)}\n\nTrả JSON {"issues": ["..."], "fixed": "bản markdown đã bỏ/làm mềm các câu bịa, giữ nguyên các phần khác, KHÔNG rút ngắn tuỳ ý"}.\nNếu không có vấn đề, trả {"issues":[],"fixed":""}.`,
             })
               .then((check) => {
@@ -305,51 +306,54 @@ export async function POST(req: Request) {
             }),
             Promise.resolve(null));
 
-        const [fixed, linkBlock] = await Promise.all([factP, linkP]);
-        if (fixed) md = fixed;
-        if (linkBlock) md += linkBlock;
-
-        // 5) Images: search real photos and let AI reject ones that don't match.
+        // Extract image slots from the original draft BEFORE factcheck can rewrite it.
+        // Factcheck should preserve `![](IMG::...)` placeholders; if it drops some,
+        // the corresponding picked image is just unused.
         const slots: ImageSlot[] = [];
         const imgRe = /!\[([^\]]*)\]\(IMG::([^)]+)\)/g;
-        const sectionAt = (offset: number) => md.slice(0, offset).match(/##\s+(.+)\n/g)?.pop()?.replace(/^##\s+/, "") || "";
+        const sectionAt = (src: string, offset: number) =>
+          src.slice(0, offset).match(/##\s+(.+)\n/g)?.pop()?.replace(/^##\s+/, "") || "";
         let m: RegExpExecArray | null;
         let n = 0;
         while ((m = imgRe.exec(md))) {
           if (n >= Math.max(nImages, 0)) break;
-          slots.push({ key: `img${++n}`, alt: m[1], query: m[2].trim(), context: sectionAt(m.index) });
+          slots.push({ key: `img${++n}`, alt: m[1], query: m[2].trim(), context: sectionAt(md, m.index) });
         }
         const styleSuffix = imageStyle.id === "illustration" ? " illustration vector" : imageStyle.id === "photo" ? " photo" : "";
         const rawCover = (meta.imageQuery || meta.imagePrompt || "").toString().trim();
         slots.unshift({ key: "cover", alt: meta.title, query: rawCover, context: meta.excerpt || meta.title });
 
-        // Guarantee every slot has an ENGLISH photo query. Non-ASCII (Vietnamese)
-        // queries make Unsplash/Pexels return random/unrelated results, which is
-        // the root cause of covers that don't match the article. One batched LLM
-        // call translates all slots at once — avoids N round-trips.
         const writerProvider = written.provider;
-        const translated = await translatePhotoQueriesBatch(
-          slots.map((s) => ({ key: s.key, query: s.query || s.alt || metaTitle, alt: s.alt, context: s.context })),
-          { title: metaTitle, provider: writerProvider },
-        );
-        for (const s of slots) {
-          if (!isAsciiQuery(s.query) && translated[s.key]) s.query = translated[s.key];
-          // Last-resort fallback: use ASCII tags, else de-accented title.
-          if (!isAsciiQuery(s.query)) {
-            const asciiTags = (Array.isArray(meta.tags) ? meta.tags : [])
-              .map(String)
-              .filter((t) => isAsciiQuery(t))
-              .slice(0, 3)
-              .join(" ");
-            s.query =
-              asciiTags ||
-              metaTitle.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").split(/\s+/).slice(0, 4).join(" ");
-          }
-          s.query = toQuery(s.query + styleSuffix, 6);
-        }
-
         send({ type: "step", step: "images", status: "start", detail: `${slots.length} ảnh` });
-        const picked = await pickImages(slots, { title: meta.title, provider: written.provider });
+
+        // Image pipeline (translate → search → LLM pick) runs concurrently with
+        // factcheck + linking. No shared mutable state until the join below.
+        const imagesP = (async () => {
+          const translated = await translatePhotoQueriesBatch(
+            slots.map((s) => ({ key: s.key, query: s.query || s.alt || metaTitle, alt: s.alt, context: s.context })),
+            { title: metaTitle, provider: writerProvider },
+          );
+          for (const s of slots) {
+            if (!isAsciiQuery(s.query) && translated[s.key]) s.query = translated[s.key];
+            if (!isAsciiQuery(s.query)) {
+              const asciiTags = (Array.isArray(meta.tags) ? meta.tags : [])
+                .map(String)
+                .filter((t) => isAsciiQuery(t))
+                .slice(0, 3)
+                .join(" ");
+              s.query =
+                asciiTags ||
+                metaTitle.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").split(/\s+/).slice(0, 4).join(" ");
+            }
+            s.query = toQuery(s.query + styleSuffix, 6);
+          }
+          return pickImages(slots, { title: metaTitle, provider: writerProvider });
+        })();
+
+        const [fixed, linkBlock, picked] = await Promise.all([factP, linkP, imagesP]);
+        if (fixed) md = fixed;
+        if (linkBlock) md += linkBlock;
+
         let k = 0;
         md = md.replace(/!\[([^\]]*)\]\(IMG::([^)]+)\)\n?/g, (_all, alt) => {
           const c = picked[`img${++k}`];
