@@ -1701,9 +1701,9 @@
   color: inherit;
 }
 .bz-feat .bz-media {
-  flex: 1 1 0;
+  flex: 0 0 auto;
   aspect-ratio: auto;
-  min-height: 360px;
+  height: 360px;
 }
 /* Solo pinned → side-by-side (image left, body right) so the fold is compact. */
 .bz-top--solo .bz-feat-link {
