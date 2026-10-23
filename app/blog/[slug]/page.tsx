@@ -216,7 +216,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
 
         {toc.length > 0 && (
           <aside className="bd-aside">
-            <BlogToc toc={toc} />
+            <BlogToc toc={toc} title={post.title} />
           </aside>
         )}
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconBrandFacebook, IconBrandX, IconCheck, IconLink, IconListDetails } from "@tabler/icons-react";
+import { IconArrowDown, IconArrowUp, IconBrandFacebook, IconBrandX, IconCheck, IconLink } from "@tabler/icons-react";
 import { useI18n } from "@/lib/i18n";
 import type { TocItem } from "@/lib/blog";
 
@@ -34,7 +34,7 @@ export function ReadingProgress() {
 }
 
 // Table of contents with scroll-spy highlighting of the current section.
-export function BlogToc({ toc }: { toc: TocItem[] }) {
+export function BlogToc({ toc, title }: { toc: TocItem[]; title?: string }) {
   const { t } = useI18n();
   const [active, setActive] = useState(toc[0]?.id);
 
@@ -68,39 +68,58 @@ export function BlogToc({ toc }: { toc: TocItem[] }) {
     return () => window.removeEventListener("scroll", update);
   }, []);
 
+  // Arrow Up/Down jumps to prev/next heading. Skip when typing in an input.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const dir = e.key === "ArrowDown" ? 1 : -1;
+      const next = Math.max(0, Math.min(toc.length - 1, idx + dir));
+      if (next === idx) return;
+      e.preventDefault();
+      const el = document.getElementById(toc[next].id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        setActive(toc[next].id);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toc, idx]);
+
   return (
     <nav className="bd-toc" aria-label={t("blog_toc")}>
-      <div className="bd-toc-head">
-        <div
-          className="bd-toc-ring"
-          aria-hidden="true"
-          style={{ ["--pct" as string]: `${pct}%` }}
-        >
-          <b>{pct}%</b>
-        </div>
-        <div>
-          <span className="bd-toc-kicker">
-            <IconListDetails size={11} stroke={2} /> {t("blog_toc")}
-          </span>
-          <strong>
-            {idx + 1} / {toc.length}
-          </strong>
-        </div>
+      <div className="bd-toc-top">
+        <span className="bd-toc-kicker">Context</span>
+        <span className="bd-toc-pct">{pct}%</span>
       </div>
+      {title && <h3 className="bd-toc-title">{title}</h3>}
+      <span className="bd-toc-label">{t("blog_toc")}</span>
       <ol>
         {toc.map((x, i) => (
-          <li key={x.id}>
+          <li key={x.id} className={x.id === active ? "is-active" : i < idx ? "is-read" : ""}>
             <a
               href={`#${x.id}`}
-              className={`${x.id === active ? "is-active" : ""}${i < idx ? " is-read" : ""}`}
               onClick={() => setActive(x.id)}
             >
-              <i>{String(i + 1).padStart(2, "0")}</i>
               <span>{x.text}</span>
             </a>
           </li>
         ))}
       </ol>
+      <div className="bd-toc-dots" aria-hidden="true">
+        {toc.map((x, i) => (
+          <span key={x.id} className={i <= idx ? "is-on" : ""} />
+        ))}
+      </div>
+      <div className="bd-toc-keys" aria-hidden="true">
+        <kbd><IconArrowUp size={11} stroke={2.2} /></kbd>
+        <i>/</i>
+        <kbd><IconArrowDown size={11} stroke={2.2} /></kbd>
+        <span>to jump</span>
+      </div>
     </nav>
   );
 }
