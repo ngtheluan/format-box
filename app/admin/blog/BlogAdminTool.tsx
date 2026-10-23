@@ -5,73 +5,78 @@ import type { SelectOption } from "@/components/ui";
 import { Field, Input, Select, Switch, Tab, TabPanel, Tabs, TabsList, Textarea } from "@/components/ui";
 import { rewriteImgUrl, type BlogCategory, type BlogCategoryRow, type BlogPost, type BlogStatus } from "@/lib/blog";
 import {
-  AI_MODELS,
-  AI_PROVIDER_LABEL,
-  GEN_AUDIENCES,
-  GEN_CTAS,
-  GEN_EXTRAS,
-  GEN_IMAGE_STYLES,
-  GEN_LENGTHS,
-  GEN_REGIONS,
-  GEN_STRUCTURES,
-  GEN_TONES,
-  type AiProvider,
-  type GenAudience,
-  type GenCta,
-  type GenEvent,
-  type GenExtra,
-  type GenImageStyle,
-  type GenLength,
-  type GenRegion,
-  type GenStep,
-  type GenStructure,
-  type GenTone,
-  type ImageCandidate,
+    AI_MODELS,
+    AI_PROVIDER_LABEL,
+    GEN_AUDIENCES,
+    GEN_CTAS,
+    GEN_EXTRAS,
+    GEN_IMAGE_STYLES,
+    GEN_LENGTHS,
+    GEN_REGIONS,
+    GEN_STRUCTURES,
+    GEN_TONES,
+    type AiProvider,
+    type GenAudience,
+    type GenCta,
+    type GenEvent,
+    type GenExtra,
+    type GenImageStyle,
+    type GenLength,
+    type GenRegion,
+    type GenStep,
+    type GenStructure,
+    type GenTone,
+    type ImageCandidate,
 } from "@/lib/blog-ai-shared";
 import {
-  IconAlertTriangle,
-  IconArticle,
-  IconBrain,
-  IconBulb,
-  IconCategory,
-  IconCheck,
-  IconCircleCheckFilled,
-  IconCircleDashed,
-  IconCircleDashedCheck,
-  IconClock,
-  IconDeviceFloppy,
-  IconEdit,
-  IconExternalLink,
-  IconEye,
-  IconEyeOff,
-  IconGripVertical,
-  IconLayoutGrid,
-  IconLayoutList,
-  IconLink,
-  IconLoader2,
-  IconMessageCircle,
-  IconMicrophone,
-  IconPalette,
-  IconPhoto,
-  IconPhotoPlus,
-  IconPhotoSearch,
-  IconPin,
-  IconPinFilled,
-  IconPlayerSkipForward,
-  IconPlus,
-  IconRotateClockwise,
-  IconSearch,
-  IconSparkles,
-  IconTarget,
-  IconTextGrammar,
-  IconTrash,
-  IconUsers,
-  IconViewportNarrow,
-  IconViewportWide,
-  IconWand,
-  IconWorldSearch,
-  IconWriting,
-  IconX,
+    IconAlertTriangle,
+    IconArrowsLeftRight,
+    IconArticle,
+    IconBook,
+    IconBrain,
+    IconBulb,
+    IconCategory,
+    IconChartBar,
+    IconCheck,
+    IconCircleCheckFilled,
+    IconCircleDashed,
+    IconCircleDashedCheck,
+    IconClock,
+    IconDeviceFloppy,
+    IconEdit,
+    IconExternalLink,
+    IconEye,
+    IconEyeOff,
+    IconGripVertical,
+    IconHelpCircle,
+    IconLayoutGrid,
+    IconLayoutList,
+    IconLink,
+    IconListNumbers,
+    IconLoader2,
+    IconMessageCircle,
+    IconMicrophone,
+    IconPalette,
+    IconPhoto,
+    IconPhotoPlus,
+    IconPhotoSearch,
+    IconPin,
+    IconPinFilled,
+    IconPlayerSkipForward,
+    IconPlus,
+    IconRotateClockwise,
+    IconSearch,
+    IconSparkles,
+    IconTarget,
+    IconTextGrammar,
+    IconTrash,
+    IconUsers,
+    IconViewportNarrow,
+    IconViewportWide,
+    IconWand,
+    IconWorldSearch,
+    IconWriting,
+    IconX
 } from "@tabler/icons-react";
 import { marked } from "marked";
 import Link from "next/link";
@@ -184,7 +189,6 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
 
   // Generate modal
   const [generateOpen, setGenerateOpen] = useState(false);
-  const [genMode, setGenMode] = useState<"topic" | "random">("topic");
   const firstProvider = (Object.keys(AI_MODELS) as AiProvider[]).find((p) => providers[p]) || "pollinations";
   const [genModel, setGenModel] = useState(`${firstProvider}|${AI_MODELS[firstProvider][0].id}`);
   const genProvider = genModel.split("|")[0] as AiProvider;
@@ -214,6 +218,11 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
   const [ideas, setIdeas] = useState<{ title: string; angle: string }[]>([]);
   const [ideasLoading, setIdeasLoading] = useState(false);
   const [ideasTrending, setIdeasTrending] = useState(false);
+  const [selectedIdeas, setSelectedIdeas] = useState<Record<string, string>>({}); // title -> angle
+  const [batchIdx, setBatchIdx] = useState(0);
+  const [batchTotal, setBatchTotal] = useState(0);
+  const batchAbortRef = useRef(false);
+  const selectedCount = Object.keys(selectedIdeas).length;
 
   useEffect(() => {
     if (!genLoading) return;
@@ -270,20 +279,22 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
   const statActiveStyle = { border: "1.5px solid #f97316", boxShadow: "0 0 0 2px rgba(249,115,22,0.15)" } as const;
 
   function cancelGenerate() {
+    batchAbortRef.current = true;
     genAbortRef.current?.abort();
     setGenAborted(true);
   }
 
-  async function generate() {
-    const t = topic.trim();
-    if (genMode === "topic" && !t) return;
+  async function generate(override?: { topic?: string; notes?: string }) {
+    const t = (override?.topic ?? topic).trim();
+    const noteStr = override?.notes ?? genNotes;
+    const useRandom = !t;
     const ac = new AbortController();
     genAbortRef.current = ac;
     setGenAborted(false);
     setGenLoading(true);
     setGenErr("");
     setGenSteps({
-      ...(genMode === "random" ? { topic: { status: "pending" } } : {}),
+      ...(useRandom ? { topic: { status: "pending" } } : {}),
       research: { status: "pending" },
       write: { status: "pending" },
       images: { status: "pending" },
@@ -295,16 +306,16 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
         signal: ac.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode: genMode,
+          mode: useRandom ? "random" : "topic",
           provider: genProvider,
           model: genModel.split("|")[1],
-          topic: genMode === "topic" ? t : undefined,
+          topic: useRandom ? undefined : t,
           category: genCategory,
           tone: genTone,
           length: genLength,
           images: genImages,
           research: genResearch,
-          notes: genNotes,
+          notes: noteStr,
           audience: genAudience,
           structure: genStructure,
           seoKeyword: genSeoKeyword,
@@ -360,11 +371,14 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
       const post = created as BlogPost | null;
       if (post) {
         setPosts((prev) => [{ ...post, status: "draft" }, ...prev.filter((p) => p.slug !== post.slug)]);
-        setTopic("");
-        setGenNotes("");
-        setIdeas([]);
-        setGenerateOpen(false);
+        if (!override) {
+          setTopic("");
+          setGenNotes("");
+          setIdeas([]);
+          setGenerateOpen(false);
+        }
         toast(`Đã sinh: ${post.title}`);
+        return post;
       }
     } catch (e: any) {
       if (ac.signal.aborted) setGenErr("Đã huỷ sinh bài");
@@ -378,20 +392,54 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
       setGenLoading(false);
       genAbortRef.current = null;
     }
+    return null;
   }
 
-  async function suggestIdeas() {
+  async function generateBatch() {
+    const items = Object.entries(selectedIdeas).map(([title, angle]) => ({ title, angle }));
+    if (!items.length) return;
+    batchAbortRef.current = false;
+    setBatchTotal(items.length);
+    let ok = 0;
+    for (let i = 0; i < items.length; i++) {
+      if (batchAbortRef.current) break;
+      setBatchIdx(i + 1);
+      setGenSteps({});
+      setGenErr("");
+      setGenAborted(false);
+      const r = await generate({ topic: items[i].title, notes: items[i].angle });
+      if (r) ok++;
+      // Short gap between runs to let rate limits breathe.
+      if (i < items.length - 1 && !batchAbortRef.current) await new Promise((res) => setTimeout(res, 800));
+    }
+    setBatchTotal(0);
+    setBatchIdx(0);
+    setSelectedIdeas({});
+    setIdeas([]);
+    setTopic("");
+    setGenNotes("");
+    setGenerateOpen(false);
+    toast(`Đã sinh ${ok}/${items.length} bài`);
+  }
+
+  async function suggestIdeas(reroll = false) {
     setIdeasLoading(true);
     setGenErr("");
     try {
       const r = await fetch("/api/blog/ideas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category: genCategory, provider: genProvider, trending: ideasTrending }),
+        body: JSON.stringify({
+          category: genCategory,
+          provider: genProvider,
+          trending: ideasTrending,
+          exclude: reroll ? ideas.map((i) => i.title) : undefined,
+        }),
       });
       const j = await r.json();
       if (!r.ok) return setGenErr(j?.error || `Lỗi ${r.status}`);
       setIdeas(j.ideas || []);
+      if (reroll) setSelectedIdeas({});
     } catch (e: any) {
       setGenErr(e?.message || "Lỗi");
     } finally {
@@ -886,11 +934,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                     borderTop: isOver ? "2px solid var(--accent, #6366f1)" : undefined,
                   }}
                 >
-                  <div
-                    className="fx-icon-cell"
-                    style={{ cursor: "grab", color: "var(--dim)" }}
-                    title="Kéo để sắp xếp"
-                  >
+                  <div className="fx-icon-cell" style={{ cursor: "grab", color: "var(--dim)" }} title="Kéo để sắp xếp">
                     <IconGripVertical size={16} stroke={1.8} />
                   </div>
                   <div className="fx-title-cell">
@@ -965,9 +1009,9 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                       <img
                         src={rewriteImgUrl(
                           p.coverImage
-                          .split("#")[0]
-                          .replace(/([?&])w=\d+/, "$1w=160")
-                          .replace(/([?&])h=\d+/, "$1h=100"),
+                            .split("#")[0]
+                            .replace(/([?&])w=\d+/, "$1w=160")
+                            .replace(/([?&])h=\d+/, "$1h=100"),
                         )}
                         alt=""
                         loading="lazy"
@@ -1104,7 +1148,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                             {genLoading ? (
                               <>
                                 <span className="bga-prog-dot" />
-                                <span>Đang sinh bài</span>
+                                <span>{batchTotal > 1 ? `Bài ${batchIdx}/${batchTotal}` : "Đang sinh bài"}</span>
                               </>
                             ) : genAborted ? (
                               <>
@@ -1185,31 +1229,52 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
               ) : (
                 <>
                   <fieldset disabled={genLoading} className="bga-gen4">
-                    {/* HERO — mode + presets */}
-                    <div className="bga-hero">
-                      <div className="bga-seg bga-seg-pill">
-                        {(
-                          [
-                            ["topic", "Tự nhập", <IconWriting key="i" size={13} stroke={1.9} />],
-                            ["random", "AI chọn", <IconSparkles key="i" size={13} stroke={1.9} />],
-                          ] as const
-                        ).map(([k, label, ic]) => (
-                          <button
-                            key={k}
-                            type="button"
-                            className={genMode === k ? "is-on" : ""}
-                            onClick={() => setGenMode(k)}
-                          >
-                            {ic} {label}
-                          </button>
-                        ))}
-                      </div>
+                    {/* HERO — unified topic input (empty → AI auto picks) */}
+                    <div className="bga-topic-hero">
+                      <Input
+                        autoFocus
+                        className="bga-topic-input"
+                        value={topic}
+                        onChange={(e) => setTopic(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && !genLoading && generate()}
+                        placeholder={`Chủ đề bài viết… (để trống → AI tự chọn cho ${CAT_LABEL[genCategory] || genCategory})`}
+                        leftIcon={
+                          topic.trim() ? (
+                            <IconTarget size={16} stroke={1.9} />
+                          ) : (
+                            <IconSparkles size={16} stroke={2} className="bga-topic-ai-ic" />
+                          )
+                        }
+                        rightSlot={
+                          <div className="bga-topic-tools">
+                            <button
+                              type="button"
+                              className={`bga-tool-btn${ideasTrending ? " is-on" : ""}`}
+                              onClick={() => setIdeasTrending((v) => !v)}
+                              title="Gợi ý theo xu hướng mới (tra cứu web)"
+                            >
+                              <IconWorldSearch size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="bga-tool-btn bga-tool-btn-primary"
+                              onClick={() => suggestIdeas()}
+                              disabled={ideasLoading}
+                              title="Gợi ý ý tưởng từ AI"
+                            >
+                              {ideasLoading ? <IconLoader2 size={14} className="spin" /> : <IconBulb size={14} />}
+                              <span className="bga-tool-btn-lbl">Gợi ý</span>
+                            </button>
+                          </div>
+                        }
+                      />
                       <div className="bga-presets" title="Preset nhanh — nạp sẵn phong cách & cấu trúc">
+                        <span className="bga-presets-lbl">Preset:</span>
                         {(
                           [
                             {
                               id: "tutorial",
-                              label: "Hướng dẫn kỹ thuật",
+                              label: "Hướng dẫn",
                               ic: <IconWriting size={12} stroke={1.9} />,
                               apply: () => {
                                 setGenTone("tutorial");
@@ -1221,7 +1286,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                             },
                             {
                               id: "review",
-                              label: "Review sản phẩm",
+                              label: "Review",
                               ic: <IconPalette size={12} stroke={1.9} />,
                               apply: () => {
                                 setGenTone("analysis");
@@ -1233,7 +1298,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                             },
                             {
                               id: "deepdive",
-                              label: "Phân tích chuyên sâu",
+                              label: "Phân tích sâu",
                               ic: <IconBrain size={12} stroke={1.9} />,
                               apply: () => {
                                 setGenTone("expert");
@@ -1256,6 +1321,83 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                                 setGenResearch(true);
                               },
                             },
+                            {
+                              id: "listicle",
+                              label: "Top N",
+                              ic: <IconListNumbers size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("friendly");
+                                setGenStructure("listicle");
+                                setGenAudience("mixed");
+                                setGenLength("medium");
+                                setGenExtras(["tldr"]);
+                              },
+                            },
+                            {
+                              id: "comparison",
+                              label: "So sánh",
+                              ic: <IconArrowsLeftRight size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("analysis");
+                                setGenStructure("comparison");
+                                setGenAudience("intermediate");
+                                setGenLength("medium");
+                                setGenExtras(["tldr", "stats"]);
+                              },
+                            },
+                            {
+                              id: "explainer",
+                              label: "Giải thích",
+                              ic: <IconHelpCircle size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("friendly");
+                                setGenStructure("explainer");
+                                setGenAudience("beginner");
+                                setGenLength("short");
+                                setGenExtras(["tldr", "faq"]);
+                              },
+                            },
+                            {
+                              id: "story",
+                              label: "Kể chuyện",
+                              ic: <IconBook size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("story");
+                                setGenStructure("auto");
+                                setGenAudience("mixed");
+                                setGenLength("medium");
+                                setGenExtras([]);
+                                setGenCta("comment");
+                              },
+                            },
+                            {
+                              id: "seo",
+                              label: "Chuẩn SEO",
+                              ic: <IconSearch size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("expert");
+                                setGenStructure("auto");
+                                setGenAudience("mixed");
+                                setGenLength("medium");
+                                setGenExtras(["tldr", "faq"]);
+                                setGenCta("newsletter");
+                                setGenInternalLinks(true);
+                              },
+                            },
+                            {
+                              id: "data",
+                              label: "Số liệu & dữ liệu",
+                              ic: <IconChartBar size={12} stroke={1.9} />,
+                              apply: () => {
+                                setGenTone("analysis");
+                                setGenStructure("deepdive");
+                                setGenAudience("expert");
+                                setGenLength("long");
+                                setGenExtras(["tldr", "stats"]);
+                                setGenResearch(true);
+                                setGenFactCheck(true);
+                              },
+                            },
                           ] as const
                         ).map((p) => (
                           <button
@@ -1271,67 +1413,60 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                       </div>
                     </div>
 
-                    {/* TOPIC — big input + ideas */}
-                    {genMode === "topic" ? (
-                      <div className="bga-topic-wrap">
-                        <Input
-                          autoFocus
-                          className="bga-topic-input"
-                          value={topic}
-                          onChange={(e) => setTopic(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && !genLoading && generate()}
-                          placeholder="Nhập chủ đề của bạn… (VD: WebGPU cho người mới 2026)"
-                          leftIcon={<IconTarget size={16} stroke={1.9} />}
-                          rightSlot={
-                            <div className="bga-topic-tools">
-                              <button
-                                type="button"
-                                className={`bga-tool-btn${ideasTrending ? " is-on" : ""}`}
-                                onClick={() => setIdeasTrending((v) => !v)}
-                                title="Gợi ý theo xu hướng mới (tra cứu web)"
-                              >
-                                <IconWorldSearch size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                className="bga-tool-btn"
-                                onClick={suggestIdeas}
-                                disabled={ideasLoading}
-                                title="Gợi ý ý tưởng từ AI"
-                              >
-                                {ideasLoading ? <IconLoader2 size={14} className="spin" /> : <IconBulb size={14} />}
-                              </button>
-                            </div>
-                          }
-                        />
-                      </div>
-                    ) : (
-                      <div className="bga-random-info">
-                        <IconSparkles size={16} stroke={2} />
-                        <span>
-                          AI sẽ tự chọn chủ đề mới cho danh mục <b>{CAT_LABEL[genCategory] || genCategory}</b>
-                        </span>
-                      </div>
-                    )}
-
                     {ideas.length > 0 && (
-                      <div className="bga-ideas bga-ideas-compact">
-                        {ideas.map((i) => (
+                      <>
+                        <div className="bga-ideas bga-ideas-compact">
+                          {ideas.map((i) => {
+                            const on = i.title in selectedIdeas;
+                            return (
+                              <button
+                                key={i.title}
+                                type="button"
+                                className={on ? "is-on" : ""}
+                                onClick={() => {
+                                  setSelectedIdeas((prev) => {
+                                    const next = { ...prev };
+                                    if (on) delete next[i.title];
+                                    else next[i.title] = i.angle || "";
+                                    return next;
+                                  });
+                                }}
+                              >
+                                <b>{i.title}</b>
+                                {i.angle && <span>{i.angle}</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="bga-ideas-foot">
+                          <span className="bga-ideas-count">
+                            {selectedCount > 0 ? (
+                              <>
+                                Đã chọn <b>{selectedCount}</b> / {ideas.length} bài
+                                <button type="button" className="bga-ideas-clear" onClick={() => setSelectedIdeas({})}>
+                                  Bỏ chọn
+                                </button>
+                              </>
+                            ) : (
+                              <>Chọn 1 hoặc nhiều để sinh hàng loạt</>
+                            )}
+                          </span>
                           <button
-                            key={i.title}
                             type="button"
-                            className={topic === i.title ? "is-on" : ""}
-                            onClick={() => {
-                              setGenMode("topic");
-                              setTopic(i.title);
-                              if (i.angle && !genNotes) setGenNotes(i.angle);
-                            }}
+                            className="bga-ideas-reroll"
+                            onClick={() => suggestIdeas(true)}
+                            disabled={ideasLoading}
+                            title="Lấy 6 gợi ý khác"
                           >
-                            <b>{i.title}</b>
-                            {i.angle && <span>{i.angle}</span>}
+                            {ideasLoading ? (
+                              <IconLoader2 size={12} className="spin" />
+                            ) : (
+                              <IconRotateClockwise size={12} stroke={2} />
+                            )}
+                            Đổi gợi ý khác
                           </button>
-                        ))}
-                      </div>
+                        </div>
+                      </>
                     )}
 
                     {/* TABS — Nội dung / Phong cách / AI & Nâng cao */}
@@ -1401,59 +1536,72 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                           </Field>
                         </div>
 
-                        <div className="bga-inline-row" style={{ marginTop: 10 }}>
-                          <Field
-                            label={
-                              <>
-                                <IconSearch size={11} stroke={1.9} /> Từ khoá SEO
-                              </>
-                            }
-                          >
-                            <Input
-                              value={genSeoKeyword}
-                              onChange={(e) => setGenSeoKeyword(e.target.value)}
-                              placeholder="webgpu là gì…"
-                              inputSize="sm"
-                            />
-                          </Field>
-                          <Field label="Phần phụ">
-                            <div className="bga-chips">
-                              {GEN_EXTRAS.map((x) => {
-                                const on = genExtras.includes(x.id);
-                                return (
-                                  <button
-                                    key={x.id}
-                                    type="button"
-                                    className={`bga-chip${on ? " is-on" : ""}`}
-                                    onClick={() =>
-                                      setGenExtras((prev) => (on ? prev.filter((e) => e !== x.id) : [...prev, x.id]))
-                                    }
-                                    title={x.hint}
-                                  >
-                                    {on ? <IconCheck size={11} stroke={2.4} /> : <IconPlus size={11} stroke={2} />}
-                                    {x.label}
-                                  </button>
-                                );
-                              })}
+                        <div className="bga-opt-card">
+                          <div className="bga-opt-card-head">
+                            <span className="bga-opt-card-ic">
+                              <IconSparkles size={12} stroke={2} />
+                            </span>
+                            <b>Tuỳ chọn nâng cao</b>
+                            <span className="bga-opt-card-dim">Tối ưu SEO & bố cục bài</span>
+                          </div>
+                          <div className="bga-opt-card-body">
+                            <div className="bga-inline-row">
+                              <Field
+                                label={
+                                  <>
+                                    <IconSearch size={11} stroke={1.9} /> Từ khoá SEO
+                                  </>
+                                }
+                              >
+                                <Input
+                                  value={genSeoKeyword}
+                                  onChange={(e) => setGenSeoKeyword(e.target.value)}
+                                  placeholder="webgpu là gì…"
+                                  inputSize="sm"
+                                />
+                              </Field>
+                              <Field label="Phần phụ">
+                                <div className="bga-chips">
+                                  {GEN_EXTRAS.map((x) => {
+                                    const on = genExtras.includes(x.id);
+                                    return (
+                                      <button
+                                        key={x.id}
+                                        type="button"
+                                        className={`bga-chip${on ? " is-on" : ""}`}
+                                        onClick={() =>
+                                          setGenExtras((prev) =>
+                                            on ? prev.filter((e) => e !== x.id) : [...prev, x.id],
+                                          )
+                                        }
+                                        title={x.hint}
+                                      >
+                                        {on ? <IconCheck size={11} stroke={2.4} /> : <IconPlus size={11} stroke={2} />}
+                                        {x.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </Field>
                             </div>
-                          </Field>
-                        </div>
 
-                        <Field
-                          label={
-                            <>
-                              <IconMessageCircle size={11} stroke={1.9} /> Yêu cầu thêm (tuỳ chọn)
-                            </>
-                          }
-                        >
-                          <Textarea
-                            rows={2}
-                            value={genNotes}
-                            onChange={(e) => setGenNotes(e.target.value)}
-                            placeholder="Ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
-                            autoGrow
-                          />
-                        </Field>
+                            <Field
+                              label={
+                                <>
+                                  <IconMessageCircle size={11} stroke={1.9} /> Yêu cầu thêm (tuỳ chọn)
+                                </>
+                              }
+                            >
+                              <Textarea
+                                rows={2}
+                                value={genNotes}
+                                onChange={(e) => setGenNotes(e.target.value)}
+                                placeholder="Ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
+                                autoGrow
+                              />
+                            </Field>
+                          </div>
+                        </div>
                       </TabPanel>
 
                       <TabPanel value="style">
@@ -1613,11 +1761,6 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                       <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
                     </div>
                   )}
-                  <p className="bga-hint">
-                    AI: <b>Groq · Gemini · OpenRouter · DeepSeek · Mistral · Cerebras · Pollinations</b> (tự fallback
-                    khi hết lượt). Ảnh: <b>Unsplash · Pexels · Wikimedia · Openverse</b>. Bài vào trạng thái <b>Nháp</b>{" "}
-                    để bạn duyệt.
-                  </p>
                 </>
               )}
             </div>
@@ -1658,10 +1801,14 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                   </button>
                   <button
                     className="fx-btn fx-btn-primary"
-                    onClick={generate}
-                    disabled={genMode === "topic" && !topic.trim()}
+                    onClick={() => (selectedCount > 0 ? generateBatch() : generate())}
                   >
-                    <IconSparkles size={14} /> Sinh bài
+                    <IconSparkles size={14} />
+                    {selectedCount > 1
+                      ? `Sinh ${selectedCount} bài`
+                      : selectedCount === 1 || topic.trim()
+                        ? "Sinh bài"
+                        : "AI chọn & sinh"}
                   </button>
                 </>
               )}
@@ -1856,7 +2003,9 @@ export default function BlogAdminTool({ initialPosts, initialCategories, provide
                   <div
                     className="bga-md-preview blog-body"
                     dangerouslySetInnerHTML={{
-                      __html: marked.parse(editing.markdown.replace(/https?\\?:\/\/[^\s)"']+/g, (url) => rewriteImgUrl(url))) as string,
+                      __html: marked.parse(
+                        editing.markdown.replace(/https?\\?:\/\/[^\s)"']+/g, (url) => rewriteImgUrl(url)),
+                      ) as string,
                     }}
                   />
                 )}

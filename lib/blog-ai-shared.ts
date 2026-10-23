@@ -57,7 +57,17 @@ export type GenTone = "expert" | "friendly" | "tutorial" | "analysis" | "story";
 export type GenLength = "short" | "medium" | "long";
 export type GenAudience = "beginner" | "intermediate" | "expert" | "mixed";
 export type GenStructure = "auto" | "howto" | "listicle" | "deepdive" | "comparison" | "news" | "review" | "explainer";
-export type GenExtra = "tldr" | "faq" | "stats" | "code";
+export type GenExtra =
+  | "tldr"
+  | "faq"
+  | "stats"
+  | "code"
+  | "checklist"
+  | "quote"
+  | "warning"
+  | "example"
+  | "glossary"
+  | "takeaway";
 export type GenCta = "none" | "newsletter" | "readmore" | "share" | "comment";
 export type GenRegion = "vn" | "asia" | "global";
 export type GenImageStyle = "photo" | "illustration" | "mixed";
@@ -102,9 +112,15 @@ export const GEN_STRUCTURES: { id: GenStructure; label: string; hint: string }[]
 
 export const GEN_EXTRAS: { id: GenExtra; label: string; hint: string }[] = [
   { id: "tldr", label: "Tóm tắt đầu bài", hint: "3 gạch đầu dòng tóm tắt ngay sau hook" },
+  { id: "takeaway", label: "Key takeaways", hint: "box 3-5 điểm chốt trước phần Kết luận" },
   { id: "faq", label: "FAQ cuối bài", hint: "4-6 câu hỏi thường gặp + đáp án ngắn" },
   { id: "stats", label: "Số liệu dẫn chứng", hint: "ưu tiên số liệu có nguồn khi tra cứu web" },
   { id: "code", label: "Code examples", hint: "chèn code block khi phù hợp (bài kỹ thuật)" },
+  { id: "example", label: "Ví dụ thực tế", hint: "mỗi mục chính có 1 ví dụ cụ thể, không chung chung" },
+  { id: "checklist", label: "Checklist", hint: "cuối bài có danh sách tick-box hành động có thể làm ngay" },
+  { id: "quote", label: "Trích dẫn", hint: "chèn 1-2 blockquote từ chuyên gia hoặc nguồn uy tín" },
+  { id: "warning", label: "Lưu ý & cảnh báo", hint: "callout cho lỗi phổ biến, cạm bẫy, điểm cần tránh" },
+  { id: "glossary", label: "Giải nghĩa thuật ngữ", hint: "định nghĩa 3-6 thuật ngữ chuyên môn ở cuối bài" },
 ];
 
 export const GEN_TONES: { id: GenTone; label: string; hint: string }[] = [

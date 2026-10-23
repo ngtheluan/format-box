@@ -11,28 +11,39 @@ export const maxDuration = 120;
 // Suggest fresh topics for a category, avoiding titles the blog already has.
 export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as { category?: string; provider?: AiProvider; trending?: boolean };
+  const body = (await req.json().catch(() => ({}))) as {
+    category?: string;
+    provider?: AiProvider;
+    trending?: boolean;
+    exclude?: string[];
+  };
   const provider: AiProvider = body.provider && body.provider in AI_MODELS ? body.provider : "groq";
 
   const [cats, posts] = await Promise.all([listAdminCategories(), listAdminPosts()]);
   const label = cats.find((c) => c.slug === body.category)?.label || body.category || "công nghệ";
   const today = new Date().toISOString().slice(0, 10);
+  const avoid = [
+    ...posts.slice(0, 25).map((p) => p.title),
+    ...(Array.isArray(body.exclude) ? body.exclude.slice(0, 20) : []),
+  ];
 
   try {
     const r = await callLlm({
       provider,
       json: !body.trending,
       webSearch: !!body.trending,
-      temperature: 0.9,
-      timeoutMs: 90_000,
+      temperature: body.trending ? 0.8 : 0.9,
+      // Fast path: 25s. Trending path (web search) needs longer.
+      timeoutMs: body.trending ? 45_000 : 25_000,
+      maxTokens: 900,
       system: "Bạn là biên tập viên trưởng của một blog tiếng Việt. Chỉ trả JSON hợp lệ, không giải thích.",
       user: `Hôm nay ${today}. ${
-        body.trending ? "Tra cứu web các tin tức/xu hướng mới nhất rồi " : ""
-      }đề xuất 6 chủ đề bài blog tiếng Việt cho danh mục "${label}": cụ thể, hữu ích, có góc nhìn riêng, tiêu đề 45–75 ký tự.
-Tránh trùng các bài đã có:
-${posts.slice(0, 50).map((p) => `- ${p.title}`).join("\n") || "(chưa có)"}
+        body.trending ? "Tra cứu web xu hướng mới nhất rồi " : ""
+      }đề xuất 6 chủ đề blog tiếng Việt cho "${label}": cụ thể, có góc nhìn riêng, tiêu đề 45–75 ký tự.
+Tránh trùng:
+${avoid.map((t) => `- ${t}`).join("\n") || "(chưa có)"}
 
-JSON: {"ideas":[{"title":"...","angle":"1 câu: bài sẽ giúp người đọc điều gì"}]}`,
+JSON: {"ideas":[{"title":"...","angle":"1 câu lợi ích"}]}`,
     });
     const j = parseJsonLoose<{ ideas?: { title?: string; angle?: string }[] }>(r.text);
     const ideas = (j?.ideas || [])

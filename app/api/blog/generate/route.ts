@@ -10,7 +10,7 @@ import {
   type BlogCategory,
   type BlogPost,
 } from "@/lib/blog";
-import { callLlm, imageCaption, isAsciiQuery, parseJsonLoose, pickImages, researchTopic, toQuery, translatePhotoQuery, type ImageSlot } from "@/lib/blog-ai";
+import { callLlm, imageCaption, isAsciiQuery, parseJsonLoose, pickImages, researchTopic, toQuery, translatePhotoQueriesBatch, type ImageSlot } from "@/lib/blog-ai";
 import {
   AI_MODELS,
   GEN_AUDIENCES,
@@ -162,15 +162,33 @@ export async function POST(req: Request) {
           cta.id !== "none" ? `Call-to-action cuối bài (sau "## Kết luận"): ${cta.label} — ${cta.hint}. 1–2 câu, không hô khẩu hiệu.` : null,
           extras.length
             ? `Phần phụ bắt buộc:\n${extras
-                .map((e) =>
-                  e.id === "tldr"
-                    ? "- Ngay sau đoạn hook, thêm block \"**Tóm tắt**\" với 3 gạch đầu dòng tóm tắt bài."
-                    : e.id === "faq"
-                      ? "- Trước \"## Kết luận\", thêm \"## Câu hỏi thường gặp\" với 4–6 cặp **Q:** / **A:** ngắn gọn."
-                      : e.id === "stats"
-                        ? "- Khi có ghi chú nghiên cứu, trích số liệu kèm năm hoặc nguồn ngay trong câu."
-                        : "- Nếu chủ đề kỹ thuật, chèn 1–3 code block có cú pháp đúng và chú thích.",
-                )
+                .map((e) => {
+                  switch (e.id) {
+                    case "tldr":
+                      return '- Ngay sau đoạn hook, thêm block "**Tóm tắt**" với 3 gạch đầu dòng tóm tắt bài.';
+                    case "faq":
+                      return '- Trước "## Kết luận", thêm "## Câu hỏi thường gặp" với 4–6 cặp **Q:** / **A:** ngắn gọn.';
+                    case "stats":
+                      return "- Khi có ghi chú nghiên cứu, trích số liệu kèm năm hoặc nguồn ngay trong câu.";
+                    case "code":
+                      return "- Nếu chủ đề kỹ thuật, chèn 1–3 code block có cú pháp đúng và chú thích.";
+                    case "takeaway":
+                      return '- Trước "## Kết luận", thêm block "**Điểm chốt (Key takeaways)**" với 3–5 gạch đầu dòng ngắn, mỗi dòng là một ý giá trị cao nhất rút ra được.';
+                    case "example":
+                      return "- Mỗi section ## chính có ít nhất 1 ví dụ thực tế, cụ thể (tên công cụ, tình huống, con số); không viết chung chung.";
+                    case "checklist":
+                      return '- Trước "## Kết luận", thêm "## Checklist hành động" dạng `- [ ] ...` với 4–7 việc người đọc có thể làm ngay sau khi đọc.';
+                    case "quote":
+                      return "- Chèn 1–2 blockquote `>` trích lời chuyên gia hoặc nguồn uy tín, kèm tên người/nguồn ở dòng dưới. Chỉ dùng câu nói có thể kiểm chứng, không bịa.";
+                    case "warning":
+                      return '- Có ít nhất 1 callout dạng `> ⚠️ **Lưu ý:** ...` cảnh báo lỗi phổ biến, cạm bẫy hoặc điểm người đọc hay bỏ sót.';
+                    case "glossary":
+                      return '- Trước "## Kết luận", thêm "## Thuật ngữ" định nghĩa 3–6 từ chuyên môn xuất hiện trong bài theo dạng **Term** — nghĩa ngắn 1 câu.';
+                    default:
+                      return "";
+                  }
+                })
+                .filter(Boolean)
                 .join("\n")}`
             : null,
           nImages > 0 ? `Số ảnh minh hoạ trong bài: đúng ${nImages}.` : "Không chèn ảnh minh hoạ trong bài.",
@@ -215,11 +233,16 @@ export async function POST(req: Request) {
         let slug = slugify(meta.title) || slugify(topic);
         for (let i = 2; await getAdminPost(slug); i++) slug = `${slugify(meta.title)}-${i}`;
 
-        // 4a) Fact-check pass: a second model reviews the draft for likely hallucinations.
-        if (factCheck) {
-          send({ type: "step", step: "factcheck", status: "start" });
-          try {
-            const check = await callLlm({
+        // 4) Fact-check + internal-links run in parallel: both only read the draft.
+        //    Linking appends a section; factcheck may rewrite the body. Apply linking's
+        //    append on top of factcheck's rewrite (if any) to preserve both.
+        const canFact = factCheck;
+        const canLink = internalLinks && existing.some((p) => (p.status || "published") === "published");
+        if (canFact) send({ type: "step", step: "factcheck", status: "start" });
+        if (canLink) send({ type: "step", step: "linking", status: "start" });
+
+        const factP: Promise<string | null> = canFact
+          ? callLlm({
               provider: written.provider === "pollinations" ? provider : written.provider,
               json: true,
               temperature: 0,
@@ -227,52 +250,64 @@ export async function POST(req: Request) {
               system:
                 "You are a strict fact-checker for Vietnamese blog articles. Spot claims that look fabricated: made-up numbers, versions, dates, quotes, product names, prices, benchmarks. Reply JSON only.",
               user: `Bài:\n${md.slice(0, 6000)}\n\nTrả JSON {"issues": ["..."], "fixed": "bản markdown đã bỏ/làm mềm các câu bịa, giữ nguyên các phần khác, KHÔNG rút ngắn tuỳ ý"}.\nNếu không có vấn đề, trả {"issues":[],"fixed":""}.`,
-            });
-            const j = parseJsonLoose<{ issues?: string[]; fixed?: string }>(check.text);
-            const issues = j?.issues?.length || 0;
-            if (j?.fixed && j.fixed.length > 400) md = j.fixed.trim();
-            send({ type: "step", step: "factcheck", status: "done", detail: issues ? `Sửa ${issues} điểm nghi vấn` : "Không có cảnh báo" });
-          } catch (e: any) {
-            send({ type: "step", step: "factcheck", status: "skip", detail: e?.message?.slice(0, 120) });
-          }
-        } else {
-          send({ type: "step", step: "factcheck", status: "skip" });
-        }
+            })
+              .then((check) => {
+                const j = parseJsonLoose<{ issues?: string[]; fixed?: string }>(check.text);
+                const issues = j?.issues?.length || 0;
+                send({
+                  type: "step",
+                  step: "factcheck",
+                  status: "done",
+                  detail: issues ? `Sửa ${issues} điểm nghi vấn` : "Không có cảnh báo",
+                });
+                return j?.fixed && j.fixed.length > 400 ? j.fixed.trim() : null;
+              })
+              .catch((e: any) => {
+                send({ type: "step", step: "factcheck", status: "skip", detail: e?.message?.slice(0, 120) });
+                return null;
+              })
+          : (send({ type: "step", step: "factcheck", status: "skip" }), Promise.resolve(null));
 
-        // 4b) Internal-links pass: inject links to related published posts at the end.
-        if (internalLinks && existing.length) {
-          send({ type: "step", step: "linking", status: "start" });
-          try {
-            const published = existing.filter((p) => (p.status || "published") === "published").slice(0, 24);
-            if (published.length) {
+        const linkP: Promise<string | null> = canLink
+          ? (() => {
+              const published = existing.filter((p) => (p.status || "published") === "published").slice(0, 24);
               const listing = published.map((p) => `- /blog/${p.slug} | ${p.title}`).join("\n");
-              const r = await callLlm({
+              return callLlm({
                 provider: written.provider === "pollinations" ? provider : written.provider,
                 json: true,
                 temperature: 0.2,
                 timeoutMs: 45_000,
                 system: "Bạn chọn 2–4 bài liên quan nhất về chủ đề cho người đọc. Trả JSON thuần.",
                 user: `Bài vừa viết: "${meta.title}"\nExcerpt: ${meta.excerpt || ""}\n\nDanh sách bài đã xuất bản:\n${listing}\n\nTrả JSON {"related": [{"slug":"...","title":"..."}]} — 2–4 bài liên quan nhất, không trùng chủ đề hiện tại.`,
-              });
-              const j = parseJsonLoose<{ related?: { slug: string; title: string }[] }>(r.text);
-              const related = (j?.related || []).filter((x) => published.some((p) => p.slug === x.slug)).slice(0, 4);
-              if (related.length) {
-                const block = `\n\n## Đọc thêm\n${related.map((x) => `- [${x.title}](/blog/${x.slug})`).join("\n")}\n`;
-                // Insert before CTA block if present, else at end.
-                md += block;
-                send({ type: "step", step: "linking", status: "done", detail: `${related.length} bài liên quan` });
-              } else {
-                send({ type: "step", step: "linking", status: "skip", detail: "Không tìm được bài phù hợp" });
-              }
-            } else {
-              send({ type: "step", step: "linking", status: "skip", detail: "Chưa có bài đã xuất bản" });
-            }
-          } catch (e: any) {
-            send({ type: "step", step: "linking", status: "skip", detail: e?.message?.slice(0, 120) });
-          }
-        } else {
-          send({ type: "step", step: "linking", status: "skip" });
-        }
+              })
+                .then((r) => {
+                  const j = parseJsonLoose<{ related?: { slug: string; title: string }[] }>(r.text);
+                  const related = (j?.related || [])
+                    .filter((x) => published.some((p) => p.slug === x.slug))
+                    .slice(0, 4);
+                  if (related.length) {
+                    send({ type: "step", step: "linking", status: "done", detail: `${related.length} bài liên quan` });
+                    return `\n\n## Đọc thêm\n${related.map((x) => `- [${x.title}](/blog/${x.slug})`).join("\n")}\n`;
+                  }
+                  send({ type: "step", step: "linking", status: "skip", detail: "Không tìm được bài phù hợp" });
+                  return null;
+                })
+                .catch((e: any) => {
+                  send({ type: "step", step: "linking", status: "skip", detail: e?.message?.slice(0, 120) });
+                  return null;
+                });
+            })()
+          : (send({
+              type: "step",
+              step: "linking",
+              status: "skip",
+              detail: internalLinks ? "Chưa có bài đã xuất bản" : undefined,
+            }),
+            Promise.resolve(null));
+
+        const [fixed, linkBlock] = await Promise.all([factP, linkP]);
+        if (fixed) md = fixed;
+        if (linkBlock) md += linkBlock;
 
         // 5) Images: search real photos and let AI reject ones that don't match.
         const slots: ImageSlot[] = [];
@@ -290,33 +325,28 @@ export async function POST(req: Request) {
 
         // Guarantee every slot has an ENGLISH photo query. Non-ASCII (Vietnamese)
         // queries make Unsplash/Pexels return random/unrelated results, which is
-        // the root cause of covers that don't match the article. If the writer
-        // model gave us Vietnamese (or nothing), translate via LLM.
+        // the root cause of covers that don't match the article. One batched LLM
+        // call translates all slots at once — avoids N round-trips.
         const writerProvider = written.provider;
-        await Promise.all(
-          slots.map(async (s) => {
-            if (!isAsciiQuery(s.query)) {
-              const translated = await translatePhotoQuery(s.query || s.alt || metaTitle, {
-                title: metaTitle,
-                provider: writerProvider,
-                context: s.context,
-              });
-              if (translated) s.query = translated;
-            }
-            // Last-resort fallback: use ASCII tags, else de-accented title.
-            if (!isAsciiQuery(s.query)) {
-              const asciiTags = (Array.isArray(meta.tags) ? meta.tags : [])
-                .map(String)
-                .filter((t) => isAsciiQuery(t))
-                .slice(0, 3)
-                .join(" ");
-              s.query =
-                asciiTags ||
-                metaTitle.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").split(/\s+/).slice(0, 4).join(" ");
-            }
-            s.query = toQuery(s.query + (s.key === "cover" ? styleSuffix : styleSuffix), 6);
-          }),
+        const translated = await translatePhotoQueriesBatch(
+          slots.map((s) => ({ key: s.key, query: s.query || s.alt || metaTitle, alt: s.alt, context: s.context })),
+          { title: metaTitle, provider: writerProvider },
         );
+        for (const s of slots) {
+          if (!isAsciiQuery(s.query) && translated[s.key]) s.query = translated[s.key];
+          // Last-resort fallback: use ASCII tags, else de-accented title.
+          if (!isAsciiQuery(s.query)) {
+            const asciiTags = (Array.isArray(meta.tags) ? meta.tags : [])
+              .map(String)
+              .filter((t) => isAsciiQuery(t))
+              .slice(0, 3)
+              .join(" ");
+            s.query =
+              asciiTags ||
+              metaTitle.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").split(/\s+/).slice(0, 4).join(" ");
+          }
+          s.query = toQuery(s.query + styleSuffix, 6);
+        }
 
         send({ type: "step", step: "images", status: "start", detail: `${slots.length} ảnh` });
         const picked = await pickImages(slots, { title: meta.title, provider: written.provider });

@@ -322,13 +322,12 @@ export async function searchUnsplash(query: string, perPage = 12, page = 1): Pro
 export async function searchOpenverse(query: string, n = 12, page = 1): Promise<ImageCandidate[]> {
   if (!query.trim()) return [];
   try {
-    // Openverse's public API typically takes 10–14s per query (CC search is heavy),
-    // so an 8s timeout silently killed every call → the pipeline never saw any
-    // Flickr/Openverse photo. Keep a generous timeout and drop the `size=large`
-    // filter which slows the backend and shrinks the result set.
+    // Openverse CC search is heavy (10–14s typical), but Promise.all waits for the
+    // slowest lane, so an 18s cap blocked every slot by that long. 9s drops stragglers
+    // while still catching most results — the other three lanes keep the pool full.
     const r = await fetch(
       `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=${n}&page=${page}&aspect_ratio=wide&mature=false`,
-      { signal: AbortSignal.timeout(18000), headers: { "User-Agent": "FormatBox/1.0 (blog image search)" } },
+      { signal: AbortSignal.timeout(9000), headers: { "User-Agent": "FormatBox/1.0 (blog image search)" } },
     );
     if (!r.ok) return [];
     const j: any = await r.json();
@@ -515,6 +514,39 @@ export async function translatePhotoQuery(
     return isAsciiQuery(q) ? q : "";
   } catch {
     return "";
+  }
+}
+
+// Batch-translate several Vietnamese slot queries into English in a single LLM call,
+// saving N-1 round-trips compared to translating each slot separately.
+export async function translatePhotoQueriesBatch(
+  slots: { key: string; query: string; alt: string; context?: string }[],
+  ctx: { title: string; provider: AiProvider },
+): Promise<Record<string, string>> {
+  const need = slots.filter((s) => s.query && !isAsciiQuery(s.query));
+  if (!need.length) return {};
+  try {
+    const listing = need
+      .map((s) => `- ${s.key}: query="${s.query}" alt="${s.alt}"${s.context ? ` ctx="${s.context.slice(0, 120)}"` : ""}`)
+      .join("\n");
+    const r = await callLlm({
+      provider: ctx.provider === "pollinations" ? "groq" : ctx.provider,
+      json: true,
+      temperature: 0,
+      timeoutMs: 30_000,
+      system:
+        "You turn Vietnamese topics into short English stock-photo search queries. Reply JSON only. Rules per query: 2-5 words, concrete nouns a camera can capture (people doing things, physical objects, places), no abstract words (concept, abstract, futuristic, digital art), no brand names unless central, no words with multiple meanings that lead to wrong photos (bug=insect, python=snake, cloud=sky, docker=cargo ship, apple=fruit) — use the contextual meaning instead.",
+      user: `Bài: "${ctx.title}"\nCần query ảnh cho các slot sau:\n${listing}\n\nJSON: {"queries": {"<slot-key>": "english query"}}`,
+    });
+    const j = parseJsonLoose<{ queries?: Record<string, string> }>(r.text);
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(j?.queries || {})) {
+      const q = String(v || "").trim();
+      if (isAsciiQuery(q)) out[k] = q;
+    }
+    return out;
+  } catch {
+    return {};
   }
 }
 
