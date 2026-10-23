@@ -110,7 +110,7 @@ export const DICT = {
   blog_posts: { vi: "bài viết", en: "posts" },
   blog_topics: { vi: "chủ đề", en: "topics" },
   blog_all: { vi: "Tất cả", en: "All" },
-  blog_latest: { vi: "Mới cập nhật", en: "Latest" },
+  blog_all_sub: { vi: "Tất cả bài viết", en: "All blog" },
   blog_featured: { vi: "Nổi bật", en: "Featured" },
   blog_empty: { vi: "Không tìm thấy bài viết phù hợp.", en: "No matching posts." },
   blog_clear: { vi: "Xoá bộ lọc", en: "Clear filters" },

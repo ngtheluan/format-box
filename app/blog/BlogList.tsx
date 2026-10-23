@@ -56,7 +56,8 @@ export function BlogList({ posts: all, categories }: { posts: BlogPost[]; catego
     setLimit(PAGE);
   }
 
-  const secLabel = active ? catMap[active] : t("blog_latest");
+  const secLabel = active ? catMap[active] : t("blog_all_sub");
+  const secCount = active ? counts[active] : all.length;
 
   return (
     <Stack gap={28}>
@@ -129,7 +130,9 @@ export function BlogList({ posts: all, categories }: { posts: BlogPost[]; catego
       {rest.length > 0 || active ? (
         <section className="bz-sec">
           <header className="bz-sec-head">
-            <h2>{secLabel}</h2>
+            <h2>
+              {secLabel} ({secCount})
+            </h2>
             <nav className="bz-pills" role="tablist" aria-label={t("blog_topics")}>
               <button
                 type="button"
