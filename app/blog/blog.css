@@ -1821,6 +1821,7 @@
   flex: 0 0 58%;
   aspect-ratio: 16 / 9;
   min-height: 0;
+  align-self: flex-start;
 }
 .bz-side-text {
   display: flex;
