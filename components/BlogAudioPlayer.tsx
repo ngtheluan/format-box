@@ -35,11 +35,12 @@ export function BlogAudioPlayer({ slug }: Props) {
   const [dur, setDur] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const load = async (v: string) => {
+  const load = async (v: string, refresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/blog/tts?slug=${encodeURIComponent(slug)}&voice=${v}`);
+      const qs = `slug=${encodeURIComponent(slug)}&voice=${v}${refresh ? "&refresh=1" : ""}`;
+      const res = await fetch(`/api/blog/tts?${qs}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Lỗi tạo audio");
       setUrl(data.url);
@@ -119,7 +120,7 @@ export function BlogAudioPlayer({ slug }: Props) {
             ))}
           </select>
           {error && (
-            <button type="button" className="bd-audio-err" onClick={() => load(voice)} title={error}>
+            <button type="button" className="bd-audio-err" onClick={() => load(voice, true)} title={error}>
               <IconAlertTriangle size={11} /> Thử lại
             </button>
           )}

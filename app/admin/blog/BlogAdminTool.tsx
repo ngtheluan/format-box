@@ -80,6 +80,7 @@ import {
 } from "@tabler/icons-react";
 import { marked } from "marked";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminBody from "../AdminBody";
 import "./blog-admin.css";
@@ -137,6 +138,7 @@ const STATUS_LABEL: Record<BlogStatus, string> = {
 
 export default function BlogAdminTool({ initialPosts, initialCategories, initialDidYouKnow, providers }: Props) {
   const toast = useToast();
+  const router = useRouter();
   const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
   const [cats, setCats] = useState<BlogCategoryRow[]>(initialCategories);
   const [dyk, setDyk] = useState<DidYouKnowItem[]>(initialDidYouKnow || []);
@@ -345,7 +347,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
   const [genCta, setGenCta] = useState<GenCta>("none");
   const [genRegion, setGenRegion] = useState<GenRegion>("vn");
   const [genImageStyle, setGenImageStyle] = useState<GenImageStyle>("mixed");
-  const [genFactCheck, setGenFactCheck] = useState(false);
+  const [genFactCheck, setGenFactCheck] = useState(true);
   const [genInternalLinks, setGenInternalLinks] = useState(true);
   const [genTab, setGenTab] = useState("content");
   const [topic, setTopic] = useState("");
@@ -357,11 +359,13 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
   const genAbortRef = useRef<AbortController | null>(null);
   const [ideas, setIdeas] = useState<{ title: string; angle: string }[]>([]);
   const [ideasLoading, setIdeasLoading] = useState(false);
-  const [ideasTrending, setIdeasTrending] = useState(false);
   const [selectedIdeas, setSelectedIdeas] = useState<Record<string, string>>({}); // title -> angle
   const [batchIdx, setBatchIdx] = useState(0);
   const [batchTotal, setBatchTotal] = useState(0);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchFailed, setBatchFailed] = useState<{ title: string; angle: string; error: string }[]>([]);
   const batchAbortRef = useRef(false);
+  const lastGenErrRef = useRef("");
   const selectedCount = Object.keys(selectedIdeas).length;
 
   useEffect(() => {
@@ -433,6 +437,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
     setGenAborted(false);
     setGenLoading(true);
     setGenErr("");
+    lastGenErrRef.current = "";
     setGenSteps({
       ...(useRandom ? { topic: { status: "pending" } } : {}),
       research: { status: "pending" },
@@ -469,7 +474,9 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
       });
       if (!r.ok || !r.body) {
         const j = await r.json().catch(() => null);
-        setGenErr(j?.error || `Lỗi ${r.status}`);
+        const msg = j?.error || `Lỗi ${r.status}`;
+        setGenErr(msg);
+        lastGenErrRef.current = msg;
         return;
       }
       const reader = r.body.getReader();
@@ -493,7 +500,10 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
             }
             return cur;
           });
-        else if (e.type === "error") setGenErr(e.error);
+        else if (e.type === "error") {
+          setGenErr(e.error);
+          lastGenErrRef.current = e.error;
+        }
         else if (e.type === "done") created = e.post;
       };
       for (;;) {
@@ -511,6 +521,8 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
       const post = created as BlogPost | null;
       if (post) {
         setPosts((prev) => [{ ...post, status: "draft" }, ...prev.filter((p) => p.slug !== post.slug)]);
+        // Đồng bộ danh sách từ server để tab Nháp hiện bài mới mà không cần reload.
+        router.refresh();
         if (!override) {
           setTopic("");
           setGenNotes("");
@@ -521,12 +533,16 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
         return post;
       }
     } catch (e: any) {
-      if (ac.signal.aborted) setGenErr("Đã huỷ sinh bài");
-      else {
+      if (ac.signal.aborted) {
+        setGenErr("Đã huỷ sinh bài");
+        lastGenErrRef.current = "Đã huỷ sinh bài";
+      } else {
         const msg = String(e?.message || e || "");
-        if (/fetch failed|network|aborted/i.test(msg))
-          setGenErr("Kết nối bị gián đoạn — có thể do mạng hoặc server quá tải. Hãy thử lại.");
-        else setGenErr(msg || "Lỗi không xác định");
+        const final = /fetch failed|network|aborted/i.test(msg)
+          ? "Kết nối bị gián đoạn — có thể do mạng hoặc server quá tải. Hãy thử lại."
+          : msg || "Lỗi không xác định";
+        setGenErr(final);
+        lastGenErrRef.current = final;
       }
     } finally {
       setGenLoading(false);
@@ -535,45 +551,65 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
     return null;
   }
 
-  async function generateBatch() {
-    const items = Object.entries(selectedIdeas).map(([title, angle]) => ({ title, angle }));
+  async function generateBatch(itemsOverride?: { title: string; angle: string }[]) {
+    const items = itemsOverride || Object.entries(selectedIdeas).map(([title, angle]) => ({ title, angle }));
     if (!items.length) return;
     batchAbortRef.current = false;
+    setBatchRunning(true);
     setBatchTotal(items.length);
+    setBatchFailed([]);
     let ok = 0;
+    const failed: { title: string; angle: string; error: string }[] = [];
     for (let i = 0; i < items.length; i++) {
-      if (batchAbortRef.current) break;
+      if (batchAbortRef.current) {
+        // Bài còn lại sau khi huỷ cũng coi là chưa xong — giữ nguyên để người dùng thử lại.
+        for (let j = i; j < items.length; j++) failed.push({ ...items[j], error: "Đã huỷ" });
+        break;
+      }
       setBatchIdx(i + 1);
       setGenSteps({});
       setGenErr("");
       setGenAborted(false);
-      const r = await generate({ topic: items[i].title, notes: items[i].angle });
+      let r: BlogPost | null = null;
+      try {
+        r = (await generate({ topic: items[i].title, notes: items[i].angle })) || null;
+      } catch (e: any) {
+        r = null;
+      }
       if (r) ok++;
+      else failed.push({ ...items[i], error: lastGenErrRef.current || "Lỗi không xác định" });
       // Short gap between runs to let rate limits breathe.
       if (i < items.length - 1 && !batchAbortRef.current) await new Promise((res) => setTimeout(res, 800));
     }
+    setBatchRunning(false);
     setBatchTotal(0);
     setBatchIdx(0);
-    setSelectedIdeas({});
-    setIdeas([]);
-    setTopic("");
-    setGenNotes("");
-    setGenerateOpen(false);
-    toast(`Đã sinh ${ok}/${items.length} bài`);
+    setBatchFailed(failed);
+    if (failed.length === 0) {
+      setSelectedIdeas({});
+      setIdeas([]);
+      setTopic("");
+      setGenNotes("");
+      setGenerateOpen(false);
+    }
+    toast(`Đã sinh ${ok}/${items.length} bài${failed.length ? ` · ${failed.length} lỗi` : ""}`);
   }
 
   async function suggestIdeas(reroll = false) {
     setIdeasLoading(true);
     setGenErr("");
     try {
+      // Always tra cứu web + loại trùng với mọi bài đang có (nháp + đã phát hành + từ chối).
+      const existingTitles = posts.map((p) => p.title);
+      const exclude = reroll ? [...existingTitles, ...ideas.map((i) => i.title)] : existingTitles;
       const r = await fetch("/api/blog/ideas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           category: genCategory,
           provider: genProvider,
-          trending: ideasTrending,
-          exclude: reroll ? ideas.map((i) => i.title) : undefined,
+          trending: true,
+          exclude,
         }),
       });
       const j = await r.json();
@@ -1340,7 +1376,12 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                 <IconSparkles size={16} stroke={2} /> Sinh bài blog
                 <span className="fx-badge">AI</span>
               </h2>
-              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => !genLoading && setGenerateOpen(false)}>
+              <button
+                className="fx-btn fx-btn-icon fx-btn-ghost"
+                onClick={() => !genLoading && !batchRunning && setGenerateOpen(false)}
+                disabled={genLoading || batchRunning}
+                title={genLoading || batchRunning ? "Đang sinh bài — không thể đóng" : "Đóng"}
+              >
                 <IconX size={16} stroke={2} />
               </button>
             </div>
@@ -1479,20 +1520,16 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                           <div className="bga-topic-tools">
                             <button
                               type="button"
-                              className={`bga-tool-btn${ideasTrending ? " is-on" : ""}`}
-                              onClick={() => setIdeasTrending((v) => !v)}
-                              title="Gợi ý theo xu hướng mới (tra cứu web)"
-                            >
-                              <IconWorldSearch size={14} />
-                            </button>
-                            <button
-                              type="button"
                               className="bga-tool-btn bga-tool-btn-primary"
                               onClick={() => suggestIdeas()}
                               disabled={ideasLoading}
-                              title="Gợi ý ý tưởng từ AI"
+                              title="Tra cứu web xu hướng mới, không trùng bài đã có"
                             >
-                              {ideasLoading ? <IconLoader2 size={14} className="spin" /> : <IconBulb size={14} />}
+                              {ideasLoading ? (
+                                <IconLoader2 size={14} className="spin" />
+                              ) : (
+                                <IconWorldSearch size={14} />
+                              )}
                               <span className="bga-tool-btn-lbl">Gợi ý</span>
                             </button>
                           </div>
@@ -1576,31 +1613,6 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                               },
                             },
                             {
-                              id: "explainer",
-                              label: "Giải thích",
-                              ic: <IconHelpCircle size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("friendly");
-                                setGenStructure("explainer");
-                                setGenAudience("beginner");
-                                setGenLength("short");
-                                setGenExtras(["tldr", "faq"]);
-                              },
-                            },
-                            {
-                              id: "story",
-                              label: "Kể chuyện",
-                              ic: <IconBook size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("story");
-                                setGenStructure("auto");
-                                setGenAudience("mixed");
-                                setGenLength("medium");
-                                setGenExtras([]);
-                                setGenCta("comment");
-                              },
-                            },
-                            {
                               id: "seo",
                               label: "Chuẩn SEO",
                               ic: <IconSearch size={12} stroke={1.9} />,
@@ -1612,20 +1624,6 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                                 setGenExtras(["tldr", "faq"]);
                                 setGenCta("newsletter");
                                 setGenInternalLinks(true);
-                              },
-                            },
-                            {
-                              id: "data",
-                              label: "Số liệu & dữ liệu",
-                              ic: <IconChartBar size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("analysis");
-                                setGenStructure("deepdive");
-                                setGenAudience("expert");
-                                setGenLength("long");
-                                setGenExtras(["tldr", "stats"]);
-                                setGenResearch(true);
-                                setGenFactCheck(true);
                               },
                             },
                           ] as const
@@ -1769,10 +1767,10 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                         <div className="bga-opt-card">
                           <div className="bga-opt-card-head">
                             <span className="bga-opt-card-ic">
-                              <IconSparkles size={12} stroke={2} />
+                              <IconSearch size={12} stroke={2} />
                             </span>
-                            <b>Tuỳ chọn nâng cao</b>
-                            <span className="bga-opt-card-dim">Tối ưu SEO & bố cục bài</span>
+                            <b>SEO &amp; bố cục</b>
+                            <span className="bga-opt-card-dim">Từ khoá, phần phụ, yêu cầu riêng</span>
                           </div>
                           <div className="bga-opt-card-body">
                             <div className="bga-inline-row">
@@ -1991,6 +1989,25 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                       <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
                     </div>
                   )}
+                  {batchFailed.length > 0 && (
+                    <div
+                      className="fx-err"
+                      style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "stretch" }}
+                    >
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <IconAlertTriangle size={14} />
+                        <b>{batchFailed.length} bài chưa xong — chọn "Thử lại" ở dưới để sinh lại.</b>
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
+                        {batchFailed.map((f) => (
+                          <li key={f.title}>
+                            <b>{f.title}</b>
+                            {f.error ? ` — ${f.error}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -2012,26 +2029,51 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                     </>
                   )}
                 </button>
-              ) : Object.keys(genSteps).length > 0 && (genAborted || genErr) ? (
-                <button
-                  className="fx-btn fx-btn-primary"
-                  style={{ marginLeft: "auto" }}
-                  onClick={() => {
-                    setGenSteps({});
-                    setGenErr("");
-                    setGenAborted(false);
-                  }}
-                >
-                  <IconSparkles size={14} /> Thử lại
-                </button>
               ) : (
                 <>
                   <button className="fx-btn" onClick={() => setGenerateOpen(false)}>
-                    Huỷ
+                    Đóng
                   </button>
+                  {batchFailed.length > 0 && (
+                    <button
+                      className="fx-btn fx-btn-warn"
+                      onClick={() => {
+                        const retryItems = batchFailed.map(({ title, angle }) => ({ title, angle }));
+                        setBatchFailed([]);
+                        setGenSteps({});
+                        setGenErr("");
+                        setGenAborted(false);
+                        generateBatch(retryItems);
+                      }}
+                      title={`Thử lại ${batchFailed.length} bài lỗi`}
+                    >
+                      <IconRotateClockwise size={14} /> Thử lại {batchFailed.length} bài lỗi
+                    </button>
+                  )}
+                  {Object.keys(genSteps).length > 0 && (genAborted || genErr) && batchFailed.length === 0 && (
+                    <button
+                      className="fx-btn"
+                      onClick={() => {
+                        setGenSteps({});
+                        setGenErr("");
+                        setGenAborted(false);
+                        if (selectedCount > 0) generateBatch();
+                        else generate();
+                      }}
+                      title="Thử sinh lại ngay với cùng tham số"
+                    >
+                      <IconRotateClockwise size={14} /> Thử lại
+                    </button>
+                  )}
                   <button
                     className="fx-btn fx-btn-primary"
-                    onClick={() => (selectedCount > 0 ? generateBatch() : generate())}
+                    onClick={() => {
+                      setGenSteps({});
+                      setGenErr("");
+                      setGenAborted(false);
+                      setBatchFailed([]);
+                      selectedCount > 0 ? generateBatch() : generate();
+                    }}
                   >
                     <IconSparkles size={14} />
                     {selectedCount > 1

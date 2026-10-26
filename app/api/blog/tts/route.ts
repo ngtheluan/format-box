@@ -29,16 +29,71 @@ function stripMarkdown(md: string): string {
     .trim();
 }
 
-async function synthesize(text: string, voice: string): Promise<Buffer> {
+function splitForTts(text: string, max = 2200): string[] {
+  const sentences = text.split(/(?<=[.!?…])\s+/);
+  const out: string[] = [];
+  let cur = "";
+  for (const s of sentences) {
+    if ((cur + " " + s).length > max) {
+      if (cur) out.push(cur.trim());
+      if (s.length > max) {
+        for (let i = 0; i < s.length; i += max) out.push(s.slice(i, i + max));
+        cur = "";
+      } else {
+        cur = s;
+      }
+    } else {
+      cur = cur ? `${cur} ${s}` : s;
+    }
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+async function synthesizeOnce(text: string, voice: string, timeoutMs = 30_000): Promise<Buffer> {
   const tts = new MsEdgeTTS();
   await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
   const { audioStream } = tts.toStream(text);
   return await new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
+    const timer = setTimeout(() => {
+      try {
+        (audioStream as any).destroy?.();
+      } catch {}
+      reject(new Error("tts timeout"));
+    }, timeoutMs);
     audioStream.on("data", (c: Buffer) => chunks.push(c));
-    audioStream.on("end", () => resolve(Buffer.concat(chunks)));
-    audioStream.on("error", reject);
+    audioStream.on("end", () => {
+      clearTimeout(timer);
+      resolve(Buffer.concat(chunks));
+    });
+    audioStream.on("error", (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
   });
+}
+
+async function synthesize(text: string, voice: string): Promise<Buffer> {
+  const chunks = splitForTts(text);
+  const buffers: Buffer[] = [];
+  for (const chunk of chunks) {
+    let lastErr: any = null;
+    let ok: Buffer | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        ok = await synthesizeOnce(chunk, voice);
+        break;
+      } catch (e: any) {
+        lastErr = e;
+        // Exponential backoff: 400ms, 1200ms.
+        await new Promise((r) => setTimeout(r, 400 * Math.pow(3, attempt)));
+      }
+    }
+    if (!ok) throw lastErr || new Error("tts chunk failed");
+    buffers.push(ok);
+  }
+  return Buffer.concat(buffers);
 }
 
 export async function GET(req: Request) {
@@ -71,7 +126,7 @@ export async function GET(req: Request) {
   }
 
   const text = `${post.title}. ${stripMarkdown(post.markdown)}`;
-  const trimmed = text.slice(0, 8000);
+  const trimmed = text.slice(0, 6000);
 
   let audio: Buffer;
   try {

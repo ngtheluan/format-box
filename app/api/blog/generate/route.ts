@@ -267,7 +267,13 @@ export async function POST(req: Request) {
                 send({ type: "step", step: "factcheck", status: "skip", detail: e?.message?.slice(0, 120) });
                 return null;
               })
-          : (send({ type: "step", step: "factcheck", status: "skip" }), Promise.resolve(null));
+          : (send({
+              type: "step",
+              step: "factcheck",
+              status: "skip",
+              detail: "Tắt — bật trong AI & Nâng cao",
+            }),
+            Promise.resolve(null));
 
         const linkP: Promise<string | null> = canLink
           ? (() => {
