@@ -1996,7 +1996,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                     >
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <IconAlertTriangle size={14} />
-                        <b>{batchFailed.length} bài chưa xong — chọn "Thử lại" ở dưới để sinh lại.</b>
+                        <b>{batchFailed.length} bài chưa xong — chọn &ldquo;Thử lại&rdquo; ở dưới để sinh lại.</b>
                       </div>
                       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
                         {batchFailed.map((f) => (
