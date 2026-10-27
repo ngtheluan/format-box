@@ -2,7 +2,7 @@
 
 import { BlogCard, Corners } from "@/components/BlogCard";
 import { BlogCover } from "@/components/BlogCover";
-import { Input, Stack } from "@/components/ui";
+import { Stack } from "@/components/ui";
 import {
   DEFAULT_CATEGORIES,
   formatDateVi,
@@ -12,7 +12,7 @@ import {
   type DidYouKnowItem,
 } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
-import { IconArrowRight, IconArticle, IconSearch, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconArticle, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DidYouKnow } from "./DidYouKnow";
@@ -219,38 +219,6 @@ export function BlogList({
             <h2>
               {secLabel} ({secCount})
             </h2>
-            <div className="bz-search" style={{ flex: "1 1 240px", maxWidth: 360, minWidth: 180 }}>
-              <Input
-                inputSize="sm"
-                type="search"
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
-                  setLimit(PAGE);
-                }}
-                placeholder={t("blog_search_ph")}
-                leftIcon={<IconSearch size={14} stroke={1.8} />}
-                rightSlot={
-                  q ? (
-                    <button
-                      type="button"
-                      onClick={() => setQ("")}
-                      aria-label={t("blog_clear")}
-                      style={{
-                        background: "transparent",
-                        border: 0,
-                        padding: 2,
-                        cursor: "pointer",
-                        color: "var(--muted)",
-                        display: "inline-flex",
-                      }}
-                    >
-                      <IconX size={13} stroke={2} />
-                    </button>
-                  ) : null
-                }
-              />
-            </div>
             <nav className="bz-pills" role="tablist" aria-label={t("blog_topics")}>
               <button
                 type="button"
