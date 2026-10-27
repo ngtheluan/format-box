@@ -1,19 +1,18 @@
-import { IconShieldCheck, IconUser } from "@tabler/icons-react";
+import { IconShieldCheck, IconShieldLock, IconUser } from "@tabler/icons-react";
 
-type Role = "user" | "admin";
+type Role = "user" | "admin" | "superadmin";
 
 /**
- * Small chip signaling the signed-in viewer's role. Admin = accent-colored
- * shield, User = neutral user icon. Shared by AccountMenu, MobileTabBar and
- * AdminHeader so the role is instantly recognizable everywhere.
+ * Small chip signaling the signed-in viewer's role. Superadmin = locked shield
+ * (full power), Admin = accent-colored shield, User = neutral user icon.
  */
 export default function RoleBadge({ role, size = "sm" }: { role: Role; size?: "sm" | "xs" }) {
-  const isAdmin = role === "admin";
-  const Icon = isAdmin ? IconShieldCheck : IconUser;
+  const Icon = role === "superadmin" ? IconShieldLock : role === "admin" ? IconShieldCheck : IconUser;
+  const label = role === "superadmin" ? "SUPERADMIN" : role === "admin" ? "ADMIN" : "USER";
   return (
-    <span className={`role-badge role-badge-${isAdmin ? "admin" : "user"} role-badge-${size}`}>
+    <span className={`role-badge role-badge-${role} role-badge-${size}`}>
       <Icon size={size === "xs" ? 10 : 12} stroke={2} />
-      <span>{isAdmin ? "ADMIN" : "USER"}</span>
+      <span>{label}</span>
     </span>
   );
 }

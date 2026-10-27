@@ -1,6 +1,7 @@
 "use client";
 import { useToast } from "@/components/Toast";
 import { useToolsState } from "@/components/ToolsProvider";
+import { ADMIN_APPS } from "@/lib/admin-apps";
 import { TOOL_ICON_NAMES, TOOL_ICONS, ToolIcon } from "@/lib/tool-icons";
 import { CATEGORY_ORDER, type Tool, type ToolCategory } from "@/lib/tools-shared";
 import {
@@ -12,6 +13,7 @@ import {
   IconLayoutGrid,
   IconPlus,
   IconSearch,
+  IconShieldLock,
   IconToggleRight,
   IconTrash,
   IconX,
@@ -209,7 +211,106 @@ function IconPicker({ value, onChange }: { value: string; onChange: (name: strin
   );
 }
 
-export default function MenuManager() {
+function AdminMenuSection() {
+  const toast = useToast();
+  const [vis, setVis] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/admin/admin-menu", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok) setVis(j.visibility ?? {});
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function toggle(href: string) {
+    const next = !(vis[href] ?? true);
+    setVis((cur) => ({ ...cur, [href]: next }));
+    const res = await fetch("/api/admin/admin-menu", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ href, visibleAdmin: next }),
+    });
+    if (!res.ok) {
+      toast("Cập nhật thất bại");
+      setVis((cur) => ({ ...cur, [href]: !next }));
+    } else {
+      toast(next ? `Admin thấy ${href}` : `Admin bị ẩn ${href}`);
+    }
+  }
+
+  return (
+    <section
+      style={{
+        marginBottom: 20,
+        padding: 14,
+        border: "1px solid color-mix(in srgb, var(--err) 35%, transparent)",
+        background: "color-mix(in srgb, var(--err) 6%, transparent)",
+        borderRadius: 10,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <IconShieldLock size={18} stroke={1.9} style={{ color: "var(--err)" }} />
+        <b style={{ fontSize: 14 }}>Menu /admin cho role ADMIN</b>
+        <span className="fx-badge" style={{ background: "var(--err)", color: "#fff" }}>SUPERADMIN</span>
+      </div>
+      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 10 }}>
+        Bật/tắt các trang trong /admin cho role <b>admin</b>. Superadmin luôn thấy mọi trang. Admin không thấy sẽ bị
+        redirect về /admin.
+      </div>
+      {loading ? (
+        <div style={{ fontSize: 12, opacity: 0.6 }}>Đang tải…</div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 8 }}>
+          {ADMIN_APPS.map((a) => {
+            const on = vis[a.href] ?? true;
+            return (
+              <div
+                key={a.href}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 10px",
+                  background: "var(--fx-card, var(--bg2))",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{a.title}</div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      opacity: 0.6,
+                      fontFamily: "var(--font-mono, monospace)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {a.href}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={`fx-switch${on ? " on" : ""}`}
+                  onClick={() => toggle(a.href)}
+                  title={on ? "Admin thấy — bấm để ẩn" : "Admin không thấy — bấm để hiện"}
+                  aria-label="Toggle admin visibility"
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Tool | null>(null);
@@ -500,6 +601,7 @@ export default function MenuManager() {
         </>
       }
     >
+      {isSuperAdmin && <AdminMenuSection />}
       {loading ? (
         <div className="fx-empty">Đang tải…</div>
       ) : visible.length === 0 ? (

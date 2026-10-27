@@ -18,10 +18,10 @@ export type Tool = {
   visibleUser?: boolean;
 };
 
-export type Role = "guest" | "user" | "admin";
+export type Role = "guest" | "user" | "admin" | "superadmin";
 
 export function isToolVisible(t: Pick<Tool, "active" | "visibleGuest" | "visibleUser">, role: Role): boolean {
-  if (role === "admin") return true;
+  if (role === "admin" || role === "superadmin") return true;
   if ((t.active ?? true) === false) return false;
   if (role === "user") return t.visibleUser ?? true;
   return t.visibleGuest ?? true;

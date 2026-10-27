@@ -3,9 +3,16 @@ import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 import { authSecret } from "./user-auth-edge";
 
 export const USER_COOKIE = "fb-user-token";
-export const USER_MAX_AGE = 60 * 60 * 24 * 30;
+export const USER_MAX_AGE = 60 * 60 * 24;
+// Superadmin cookie lives ~10 years so the browser never drops it; the token
+// payload still signs this exp but verify skips the expiry check for superadmin.
+export const SUPERADMIN_MAX_AGE = 60 * 60 * 24 * 365 * 10;
 
-export type UserRole = "user" | "admin";
+export function maxAgeForRole(role: UserRole): number {
+  return role === "superadmin" ? SUPERADMIN_MAX_AGE : USER_MAX_AGE;
+}
+
+export type UserRole = "user" | "admin" | "superadmin";
 
 function secret(): string {
   const s = authSecret();
@@ -30,7 +37,7 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 export function makeUserToken(userId: string, role: UserRole = "user"): string {
-  const exp = Math.floor(Date.now() / 1000) + USER_MAX_AGE;
+  const exp = Math.floor(Date.now() / 1000) + maxAgeForRole(role);
   const payload = `${userId}.${role}.${exp}`;
   const sig = createHmac("sha256", secret()).update(payload).digest("hex");
   return `${payload}.${sig}`;
@@ -43,8 +50,8 @@ export function verifyUserToken(token: string | undefined): { userId: string; ro
   const [userId, roleRaw, expStr, sig] = parts;
   const exp = Number(expStr);
   if (!userId || !exp || !sig) return null;
-  if (Date.now() / 1000 > exp) return null;
-  const role: UserRole = roleRaw === "admin" ? "admin" : "user";
+  const role: UserRole = roleRaw === "superadmin" ? "superadmin" : roleRaw === "admin" ? "admin" : "user";
+  if (role !== "superadmin" && Date.now() / 1000 > exp) return null;
   const expected = createHmac("sha256", secret()).update(`${userId}.${role}.${exp}`).digest("hex");
   if (expected !== sig) return null;
   return { userId, role };

@@ -44,7 +44,8 @@ export async function POST(req: Request) {
   const sb = supabaseAdmin();
   const { data: existing } = await sb.from("app_users").select("id").eq("accountname", accountname).maybeSingle();
   if (existing) return NextResponse.json({ ok: false, error: "Tên tài khoản đã tồn tại" }, { status: 409 });
-  const safeRole: "user" | "admin" = role === "admin" ? "admin" : "user";
+  const safeRole: "user" | "admin" | "superadmin" =
+    role === "superadmin" ? "superadmin" : role === "admin" ? "admin" : "user";
   const { data, error } = await sb
     .from("app_users")
     .insert({
@@ -67,7 +68,7 @@ export async function PATCH(req: Request) {
   const { id, firstname, lastname, password, email, role, note } = await req.json().catch(() => ({}));
   if (!id) return NextResponse.json({ ok: false, error: "Thiếu id" }, { status: 400 });
   const patch: Record<string, string | null> = {};
-  if (role === "user" || role === "admin") patch.role = role;
+  if (role === "user" || role === "admin" || role === "superadmin") patch.role = role;
   if (typeof firstname === "string" && firstname) patch.firstname = firstname;
   if (typeof lastname === "string" && lastname) patch.lastname = lastname;
   if (typeof email === "string") {

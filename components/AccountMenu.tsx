@@ -12,7 +12,7 @@ import { useToast } from "./Toast";
 
 type View = "menu" | "auth";
 type AuthMode = "login" | "register";
-type AppRole = "user" | "admin";
+type AppRole = "user" | "admin" | "superadmin";
 type AppUser = { id: string; accountname: string; firstname: string; lastname: string; role?: AppRole };
 type AppMode = "user" | "admin";
 const MODE_KEY = "fb-mode";
@@ -182,7 +182,7 @@ export default function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label="Account"
         aria-expanded={open}
-        title={user ? `@${user.accountname}${user.role === "admin" ? " · Admin" : ""}` : t("acct_title_login")}
+        title={user ? `@${user.accountname}${user.role === "superadmin" ? " · Superadmin" : user.role === "admin" ? " · Admin" : ""}` : t("acct_title_login")}
       >
         <IconUserCircle size={18} stroke={1.8} />
         <span className="acct-trigger-name">
@@ -249,7 +249,7 @@ export default function AccountMenu() {
                   <span>{t("settings_language")}</span>
                   <LangToggle />
                 </div>
-                {user?.role === "admin" && (
+                {(user?.role === "admin" || user?.role === "superadmin") && (
                   <div className="account-pop-setting">
                     <span>{t("settings_mode")}</span>
                     <div className="lang-toggle" role="group" aria-label="Mode">

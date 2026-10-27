@@ -1,10 +1,48 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { SEED_TOOLS } from "@/lib/tools-shared";
+import { ADMIN_APP_ALWAYS_ON, ADMIN_APP_HREFS } from "@/lib/admin-apps";
 import { USER_COOKIE, authSecret, verifyUserTokenEdge, type UserRole } from "@/lib/user-auth-edge";
 
 const TOOL_HREFS = new Set(SEED_TOOLS.map((t) => t.href));
 
 type Visibility = { active: Set<string>; guest: Set<string>; user: Set<string> };
+
+const ADMIN_VIS_TTL_MS = 60_000;
+let adminVisCache: { hidden: Set<string>; at: number } | null = null;
+let adminVisInflight: Promise<Set<string>> | null = null;
+
+async function fetchAdminVisibility(req: NextRequest): Promise<Set<string>> {
+  try {
+    const res = await fetch(new URL("/api/admin/admin-menu/visibility", req.url), {
+      next: { revalidate: 60, tags: ["admin-menu"] },
+    });
+    if (!res.ok) return new Set();
+    const j = (await res.json()) as { hidden: string[] };
+    return new Set(j.hidden ?? []);
+  } catch {
+    return new Set();
+  }
+}
+
+function refreshAdminVisibility(req: NextRequest): Promise<Set<string>> {
+  if (!adminVisInflight) {
+    adminVisInflight = fetchAdminVisibility(req)
+      .then((h) => {
+        adminVisCache = { hidden: h, at: Date.now() };
+        return h;
+      })
+      .finally(() => {
+        adminVisInflight = null;
+      });
+  }
+  return adminVisInflight;
+}
+
+async function getAdminVisibility(req: NextRequest, event: NextFetchEvent): Promise<Set<string>> {
+  if (!adminVisCache) return refreshAdminVisibility(req);
+  if (Date.now() - adminVisCache.at > ADMIN_VIS_TTL_MS) event.waitUntil(refreshAdminVisibility(req));
+  return adminVisCache.hidden;
+}
 
 const VIS_TTL_MS = 60_000;
 let visCache: { v: Visibility | null; at: number } | null = null;
@@ -57,11 +95,27 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   // Admin area is gated server-side in app/admin/layout.tsx, which reads the
   // live DB role (not the cookie role), so promoting/demoting a user takes
   // effect on the next request without a re-login. Middleware below only
-  // decides tool visibility, which intentionally still uses the cookie role.
+  // decides tool visibility and per-admin-page visibility, which intentionally
+  // use the cookie role.
+
+  // Per-admin-page gating: superadmin always sees everything; `admin` loses
+  // access to pages flipped off in /admin/menu by the superadmin.
+  if (
+    role === "admin" &&
+    ADMIN_APP_HREFS.has(pathname) &&
+    !ADMIN_APP_ALWAYS_ON.has(pathname)
+  ) {
+    const hidden = await getAdminVisibility(req, event);
+    if (hidden.has(pathname)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/admin";
+      return NextResponse.redirect(url);
+    }
+  }
 
   // Tool pages: block when the viewer's role cannot see this tool.
   if (TOOL_HREFS.has(pathname)) {
-    if (role === "admin") return NextResponse.next();
+    if (role === "admin" || role === "superadmin") return NextResponse.next();
     const vis = await getVisibility(req, event);
     // On read failure, fall through — don't lock users out.
     if (!vis) return NextResponse.next();

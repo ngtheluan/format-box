@@ -1,105 +1,25 @@
-"use client";
-import {
-  IconArticle,
-  IconBroadcast,
-  IconCamera,
-  IconChartBar,
-  IconComponents,
-  IconDeviceGamepad2,
-  IconLanguage,
-  IconLayoutGrid,
-  IconListDetails,
-  IconMessageDots,
-  IconMicrophone,
-  IconPalette,
-  IconUsers,
-} from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import { ADMIN_APPS, type AdminApp } from "@/lib/admin-apps";
+import { isSuperAdmin } from "@/lib/admin-auth";
+import { supabaseAdmin } from "@/lib/supabase";
+import { TOOL_ICONS } from "@/lib/tool-icons";
+import { IconLayoutGrid } from "@tabler/icons-react";
 import AdminBody from "./AdminBody";
 
-type AdminApp = {
-  href: string;
-  title: string;
-  desc: string;
-  icon: ReactNode;
-};
+async function loadVisibleApps(): Promise<AdminApp[]> {
+  if (await isSuperAdmin()) return ADMIN_APPS;
+  try {
+    const { data } = await supabaseAdmin()
+      .from("admin_menu_visibility")
+      .select("href, visible_admin");
+    const hidden = new Set((data ?? []).filter((r) => r.visible_admin === false).map((r) => r.href));
+    return ADMIN_APPS.filter((a) => !hidden.has(a.href));
+  } catch {
+    return ADMIN_APPS;
+  }
+}
 
-const ADMIN_APPS: AdminApp[] = [
-  {
-    href: "/admin/blog",
-    title: "Blog",
-    desc: "Sinh bài AI, duyệt/từ chối, chỉnh sửa Markdown.",
-    icon: <IconArticle size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/menu",
-    title: "Menu",
-    desc: "Quản lý danh sách tools hiển thị ngoài trang chủ.",
-    icon: <IconListDetails size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/translations",
-    title: "Ngôn ngữ",
-    desc: "Quản lý đa ngôn ngữ thêm, sửa, seed từ source dict.",
-    icon: <IconLanguage size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/users",
-    title: "Users",
-    desc: "Quản lý tài khoản người dùng trên site.",
-    icon: <IconUsers size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/analytics",
-    title: "Thống kê",
-    desc: "Lượt sử dụng từng tool theo ngày, top tool hot.",
-    icon: <IconChartBar size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/theme",
-    title: "Theme",
-    desc: "Chọn theme cho toàn site và bật/tắt.",
-    icon: <IconPalette size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/banners",
-    title: "Thông báo",
-    desc: "Banner đẩy ra trang chủ — có lịch bật/tắt, cho đóng.",
-    icon: <IconBroadcast size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/feedback",
-    title: "Liên hệ góp ý",
-    desc: "Góp ý từ Google Sheet + file đính kèm Drive.",
-    icon: <IconMessageDots size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/podcasts",
-    title: "Podcasts",
-    desc: "MachuTeam podcast — tập podcast + video YouTube.",
-    icon: <IconMicrophone size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/photobooth",
-    title: "Photobooth",
-    desc: "Ảnh chụp lưu trên Vercel Blob — tự xoá sau 24h.",
-    icon: <IconCamera size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/gameplay",
-    title: "Gameplay",
-    desc: "Chọn game để chơi — Pac-Man, Flappy Bird.",
-    icon: <IconDeviceGamepad2 size={20} stroke={1.7} />,
-  },
-  {
-    href: "/admin/ui",
-    title: "UI Kit",
-    desc: "Bộ component dùng chung — Button, Input, Modal…",
-    icon: <IconComponents size={20} stroke={1.7} />,
-  },
-];
-
-export default function AdminDashboard() {
+export default async function AdminDashboard() {
+  const apps = await loadVisibleApps();
   return (
     <AdminBody
       crumbs={[{ label: "Dashboard", icon: <IconLayoutGrid size={13} stroke={1.8} />, current: true }]}
@@ -107,16 +27,21 @@ export default function AdminDashboard() {
       description="Chọn một app để quản lý."
     >
       <div className="fx-app-grid">
-        {ADMIN_APPS.map((a) => (
-          <a key={a.href} href={a.href} className="fx-card fx-app-card">
-            <span className="fx-app-icon">{a.icon}</span>
-            <span className="fx-app-info">
-              <b>{a.title}</b>
-              <span>{a.desc}</span>
-              <small>{a.href}</small>
-            </span>
-          </a>
-        ))}
+        {apps.map((a) => {
+          const Icon = TOOL_ICONS[a.iconName] ?? IconLayoutGrid;
+          return (
+            <a key={a.href} href={a.href} className="fx-card fx-app-card">
+              <span className="fx-app-icon">
+                <Icon size={20} stroke={1.7} />
+              </span>
+              <span className="fx-app-info">
+                <b>{a.title}</b>
+                <span>{a.desc}</span>
+                <small>{a.href}</small>
+              </span>
+            </a>
+          );
+        })}
       </div>
     </AdminBody>
   );

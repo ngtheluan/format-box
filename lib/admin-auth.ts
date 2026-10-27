@@ -13,7 +13,22 @@ export async function isAdmin(): Promise<boolean> {
       .select("role")
       .eq("id", id)
       .maybeSingle();
-    return data?.role === "admin";
+    return data?.role === "admin" || data?.role === "superadmin";
+  } catch {
+    return false;
+  }
+}
+
+export async function isSuperAdmin(): Promise<boolean> {
+  const id = currentUserId();
+  if (!id) return false;
+  try {
+    const { data } = await supabaseAdmin()
+      .from("app_users")
+      .select("role")
+      .eq("id", id)
+      .maybeSingle();
+    return data?.role === "superadmin";
   } catch {
     return false;
   }

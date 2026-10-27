@@ -26,7 +26,7 @@ import { useToast } from "./Toast";
 
 type AccountView = "user-auth" | null;
 type AuthMode = "login" | "register";
-type AppRole = "user" | "admin";
+type AppRole = "user" | "admin" | "superadmin";
 type AppUser = { id: string; accountname: string; firstname: string; lastname: string; role?: AppRole };
 type AppMode = "user" | "admin";
 const MODE_KEY = "fb-mode";
@@ -344,7 +344,7 @@ export default function MobileTabBar() {
                 <span>{t("settings_language")}</span>
                 <LangToggle />
               </div>
-              {user?.role === "admin" && (
+              {(user?.role === "admin" || user?.role === "superadmin") && (
                 <div className="mtab-sheet-row">
                   <span>{t("settings_mode")}</span>
                   <div className="lang-toggle" role="group" aria-label="Mode">

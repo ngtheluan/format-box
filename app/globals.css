@@ -16513,6 +16513,11 @@ section {
   padding: 0 5px;
   gap: 2px;
 }
+.role-badge-superadmin {
+  background: color-mix(in srgb, var(--err, #e11d48) 18%, transparent);
+  color: var(--err, #e11d48);
+  border-color: color-mix(in srgb, var(--err, #e11d48) 45%, transparent);
+}
 .role-badge-admin {
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   color: var(--accent);

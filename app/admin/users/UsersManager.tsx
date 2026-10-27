@@ -18,7 +18,13 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminBody from "../AdminBody";
 
-type Role = "user" | "admin";
+type Role = "user" | "admin" | "superadmin";
+
+const ROLE_COLORS: Record<Role, string> = {
+  superadmin: "var(--err)",
+  admin: "var(--accent)",
+  user: "var(--bg3)",
+};
 
 type AppUser = {
   id: string;
@@ -228,8 +234,8 @@ export default function UsersManager() {
                   fontSize: 10,
                   padding: "2px 6px",
                   borderRadius: 999,
-                  background: u.role === "admin" ? "var(--accent)" : "var(--bg3)",
-                  color: u.role === "admin" ? "#fff" : "var(--text)",
+                  background: ROLE_COLORS[u.role] ?? "var(--bg3)",
+                  color: u.role === "user" ? "var(--text)" : "#fff",
                   fontWeight: 600,
                   textTransform: "uppercase",
                   letterSpacing: 0.3,
@@ -348,32 +354,37 @@ export default function UsersManager() {
             <div style={{ display: "grid", gap: 4 }}>
               <label style={{ fontSize: 12, opacity: 0.75 }}>Vai trò</label>
               <div style={{ display: "flex", gap: 6 }}>
-                {(["user", "admin"] as Role[]).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setForm({ ...form, role: r })}
-                    className="fx-btn"
-                    style={{
-                      flex: 1,
-                      padding: "6px 10px",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      background: form.role === r ? "var(--accent)" : "var(--bg3)",
-                      color: form.role === r ? "#fff" : "var(--text)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 6,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.3,
-                    }}
-                  >
-                    {r}
-                  </button>
-                ))}
+                {(["user", "admin", "superadmin"] as Role[]).map((r) => {
+                  const active = form.role === r;
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setForm({ ...form, role: r })}
+                      className="fx-btn"
+                      style={{
+                        flex: 1,
+                        padding: "6px 10px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: active ? ROLE_COLORS[r] : "var(--bg3)",
+                        color: active ? "#fff" : "var(--text)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 6,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.3,
+                      }}
+                    >
+                      {r}
+                    </button>
+                  );
+                })}
               </div>
               <div style={{ fontSize: 11, opacity: 0.65 }}>
-                {form.role === "admin"
-                  ? "Admin: toàn quyền vào mọi trang và panel quản trị."
+                {form.role === "superadmin"
+                  ? "Superadmin: toàn quyền tuyệt đối, không bị giới hạn bởi cấu hình tool trong /admin."
+                  : form.role === "admin"
+                  ? "Admin: vào được panel quản trị, chỉ truy cập các tool được chọn trong /admin."
                   : "User: chỉ xem các tool được cho phép, không vào được admin."}
               </div>
             </div>

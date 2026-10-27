@@ -3,7 +3,11 @@
 // with the token-signing secret (AUTH_SECRET for back-compat).
 export const USER_COOKIE = "fb-user-token";
 
-export type UserRole = "user" | "admin";
+export type UserRole = "user" | "admin" | "superadmin";
+
+export function isAdminRole(role: UserRole | "guest" | null | undefined): boolean {
+  return role === "admin" || role === "superadmin";
+}
 
 /**
  * Token-signing secret. Prefer a dedicated, high-entropy AUTH_SECRET; fall back
@@ -23,8 +27,8 @@ export async function verifyUserTokenEdge(
   const [userId, roleRaw, expStr, sig] = parts;
   const exp = Number(expStr);
   if (!userId || !exp || !sig) return null;
-  if (Date.now() / 1000 > exp) return null;
-  const role: UserRole = roleRaw === "admin" ? "admin" : "user";
+  const role: UserRole = roleRaw === "superadmin" ? "superadmin" : roleRaw === "admin" ? "admin" : "user";
+  if (role !== "superadmin" && Date.now() / 1000 > exp) return null;
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [
     "sign",

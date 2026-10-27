@@ -3,80 +3,85 @@ import "@/app/blog/blog.css";
 import { useToast } from "@/components/Toast";
 import type { SelectOption } from "@/components/ui";
 import { Field, Input, Select, Switch, Tab, TabPanel, Tabs, TabsList, Textarea } from "@/components/ui";
-import { rewriteImgUrl, type BlogCategory, type BlogCategoryRow, type BlogPost, type BlogStatus, type DidYouKnowItem, type DidYouKnowImage } from "@/lib/blog";
 import {
-    AI_MODELS,
-    AI_PROVIDER_LABEL,
-    GEN_AUDIENCES,
-    GEN_CTAS,
-    GEN_EXTRAS,
-    GEN_IMAGE_STYLES,
-    GEN_LENGTHS,
-    GEN_REGIONS,
-    GEN_STRUCTURES,
-    GEN_TONES,
-    type AiProvider,
-    type GenAudience,
-    type GenCta,
-    type GenEvent,
-    type GenExtra,
-    type GenImageStyle,
-    type GenLength,
-    type GenRegion,
-    type GenStep,
-    type GenStructure,
-    type GenTone,
-    type ImageCandidate,
+  rewriteImgUrl,
+  type BlogCategory,
+  type BlogCategoryRow,
+  type BlogPost,
+  type BlogStatus,
+  type DidYouKnowImage,
+  type DidYouKnowItem,
+} from "@/lib/blog";
+import {
+  AI_MODELS,
+  AI_PROVIDER_LABEL,
+  GEN_AUDIENCES,
+  GEN_CTAS,
+  GEN_EXTRAS,
+  GEN_IMAGE_STYLES,
+  GEN_LENGTHS,
+  GEN_REGIONS,
+  GEN_STRUCTURES,
+  GEN_TONES,
+  type AiProvider,
+  type GenAudience,
+  type GenCta,
+  type GenEvent,
+  type GenExtra,
+  type GenImageStyle,
+  type GenLength,
+  type GenRegion,
+  type GenStep,
+  type GenStructure,
+  type GenTone,
+  type ImageCandidate,
 } from "@/lib/blog-ai-shared";
 import {
-    IconAlertTriangle,
-    IconArrowsLeftRight,
-    IconArticle,
-    IconBook,
-    IconBrain,
-    IconBulb,
-    IconCategory,
-    IconChartBar,
-    IconCheck,
-    IconCircleCheckFilled,
-    IconCircleDashed,
-    IconCircleDashedCheck,
-    IconClock,
-    IconDeviceFloppy,
-    IconEdit,
-    IconExternalLink,
-    IconEye,
-    IconEyeOff,
-    IconGripVertical,
-    IconHelpCircle,
-    IconLayoutGrid,
-    IconLayoutList,
-    IconLink,
-    IconListNumbers,
-    IconLoader2,
-    IconMessageCircle,
-    IconMicrophone,
-    IconPalette,
-    IconPhoto,
-    IconPhotoPlus,
-    IconPhotoSearch,
-    IconPin,
-    IconPinFilled,
-    IconPlayerSkipForward,
-    IconPlus,
-    IconRotateClockwise,
-    IconSearch,
-    IconSparkles,
-    IconTarget,
-    IconTextGrammar,
-    IconTrash,
-    IconUsers,
-    IconViewportNarrow,
-    IconViewportWide,
-    IconWand,
-    IconWorldSearch,
-    IconWriting,
-    IconX
+  IconAlertTriangle,
+  IconArrowsLeftRight,
+  IconArticle,
+  IconBrain,
+  IconBulb,
+  IconCategory,
+  IconCheck,
+  IconCircleCheckFilled,
+  IconCircleDashed,
+  IconCircleDashedCheck,
+  IconClock,
+  IconDeviceFloppy,
+  IconEdit,
+  IconExternalLink,
+  IconEye,
+  IconEyeOff,
+  IconGripVertical,
+  IconLayoutGrid,
+  IconLayoutList,
+  IconLink,
+  IconListNumbers,
+  IconLoader2,
+  IconMessageCircle,
+  IconMicrophone,
+  IconPalette,
+  IconPhoto,
+  IconPhotoPlus,
+  IconPhotoSearch,
+  IconPin,
+  IconPinFilled,
+  IconPlayerSkipForward,
+  IconPlus,
+  IconRotateClockwise,
+  IconSearch,
+  IconSparkles,
+  IconTarget,
+  IconTextGrammar,
+  IconTrash,
+  IconUsers,
+  IconViewportNarrow,
+  IconViewportWide,
+  IconWand,
+  IconWorldSearch,
+  IconWriting,
+  IconX,
 } from "@tabler/icons-react";
 import { marked } from "marked";
 import Link from "next/link";
@@ -503,8 +508,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
         else if (e.type === "error") {
           setGenErr(e.error);
           lastGenErrRef.current = e.error;
-        }
-        else if (e.type === "done") created = e.post;
+        } else if (e.type === "done") created = e.post;
       };
       for (;;) {
         const { value, done } = await reader.read();
@@ -1073,7 +1077,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
         </div>
         {tab === "posts" ? (
           <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
-            <IconSparkles size={14} stroke={2.2} /> Sinh bài
+            <IconSparkles size={14} stroke={2.2} /> Sinh bài AI
           </button>
         ) : tab === "categories" ? (
           <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
@@ -1143,11 +1147,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                   <button className="fx-btn fx-btn-icon" onClick={() => openEditDyk(it)} title="Sửa">
                     <IconEdit size={14} stroke={1.9} />
                   </button>
-                  <button
-                    className="fx-btn fx-btn-icon fx-btn-danger"
-                    onClick={() => removeDyk(it)}
-                    title="Xoá"
-                  >
+                  <button className="fx-btn fx-btn-icon fx-btn-danger" onClick={() => removeDyk(it)} title="Xoá">
                     <IconTrash size={14} stroke={1.9} />
                   </button>
                 </div>
@@ -2080,7 +2080,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                     {selectedCount > 1
                       ? `Sinh ${selectedCount} bài`
                       : selectedCount === 1 || topic.trim()
-                        ? "Sinh bài"
+                        ? "Sinh bài AI"
                         : "AI chọn & sinh"}
                   </button>
                 </>
@@ -2544,10 +2544,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                 <IconSparkles size={16} stroke={2} /> Sinh kiến thức bằng AI
                 <span className="fx-badge">AI</span>
               </h2>
-              <button
-                className="fx-btn fx-btn-icon fx-btn-ghost"
-                onClick={() => !dykAiLoading && setDykAiOpen(false)}
-              >
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => !dykAiLoading && setDykAiOpen(false)}>
                 <IconX size={16} stroke={2} />
               </button>
             </div>
@@ -2579,8 +2576,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
               </Field>
               {dykAiErr && <div className="fx-err">{dykAiErr}</div>}
               <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 6 }}>
-                AI sẽ sinh tiêu đề, mô tả song ngữ VI/EN và tự tìm ảnh minh họa, rồi lưu vào DB. Bạn có thể sửa lại
-                sau.
+                AI sẽ sinh tiêu đề, mô tả song ngữ VI/EN và tự tìm ảnh minh họa, rồi lưu vào DB. Bạn có thể sửa lại sau.
               </div>
             </div>
             <div className="fx-modal-foot">
@@ -2679,7 +2675,9 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                     type="number"
                     value={dykEditing.sort}
                     disabled={dykSaving}
-                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, sort: Number(e.target.value) || 0 } : cur))}
+                    onChange={(e) =>
+                      setDykEditing((cur) => (cur ? { ...cur, sort: Number(e.target.value) || 0 } : cur))
+                    }
                   />
                 </Field>
               </div>
@@ -2791,9 +2789,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                     className="fx-btn"
                     onClick={() =>
                       setDykEditing((cur) =>
-                        cur
-                          ? { ...cur, images: [...cur.images, { url: "", caption_vi: "", caption_en: "" }] }
-                          : cur,
+                        cur ? { ...cur, images: [...cur.images, { url: "", caption_vi: "", caption_en: "" }] } : cur,
                       )
                     }
                     disabled={dykSaving}

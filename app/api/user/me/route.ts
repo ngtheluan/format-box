@@ -14,7 +14,8 @@ export async function GET() {
       .eq("id", id)
       .maybeSingle();
     if (!data) return NextResponse.json({ ok: false, user: null });
-    return NextResponse.json({ ok: true, user: { ...data, role: data.role === "admin" ? "admin" : "user" } });
+    const role = data.role === "superadmin" ? "superadmin" : data.role === "admin" ? "admin" : "user";
+    return NextResponse.json({ ok: true, user: { ...data, role } });
   } catch {
     return NextResponse.json({ ok: false, user: null });
   }
