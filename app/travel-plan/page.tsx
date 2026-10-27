@@ -1,16 +1,18 @@
-"use client";
 import { ToolHeader } from "@/components/ToolHeader";
-import dynamic from "next/dynamic";
+import { ToolSeoContent } from "@/components/ToolSeoContent";
+import { toolMetadata } from "@/lib/seo-tools";
+import TravelPlanTool from "./TravelPlanTool";
 
-const TravelPlanTool = dynamic(() => import("./TravelPlanTool"), { ssr: false });
+export const metadata = toolMetadata("travel-plan");
 
 export default function Page() {
   return (
-    <div className="page" style={{ maxWidth: 1240 }}>
+    <div className="page">
       <ToolHeader href="/travel-plan" />
       <div className="tool-card">
         <TravelPlanTool />
       </div>
+      <ToolSeoContent slug="travel-plan" />
     </div>
   );
 }

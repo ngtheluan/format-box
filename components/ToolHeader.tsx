@@ -2,7 +2,10 @@
 import { useEffect, useRef } from "react";
 import { useTools } from "@/components/ToolsProvider";
 import { useI18n } from "@/lib/i18n";
+import { TOOL_SEO } from "@/lib/seo-tools";
 import { ToolIcon } from "@/lib/tool-icons";
+
+const SEO_SLUGS = new Set(Object.values(TOOL_SEO).map((s) => s.slug));
 
 export function ToolHeader({ href, h1Style }: { href: string; h1Style?: React.CSSProperties }) {
   const tools = useTools();
@@ -27,6 +30,7 @@ export function ToolHeader({ href, h1Style }: { href: string; h1Style?: React.CS
 
   useEffect(() => {
     if (typeof document === "undefined" || !tool) return;
+    if (SEO_SLUGS.has(href)) return; // pages with own SEO metadata keep server title
     const want = `${tool.title} · FormatBox`;
     document.title = want;
     const headTitle = document.querySelector("head > title");
@@ -36,7 +40,7 @@ export function ToolHeader({ href, h1Style }: { href: string; h1Style?: React.CS
     });
     obs.observe(headTitle, { childList: true, characterData: true, subtree: true });
     return () => obs.disconnect();
-  }, [tool]);
+  }, [tool, href]);
 
   if (!tool) return null;
   return (

@@ -1,14 +1,16 @@
-"use client";
 import { ToolHeader } from "@/components/ToolHeader";
-import dynamic from "next/dynamic";
+import { ToolSeoContent } from "@/components/ToolSeoContent";
+import { toolMetadata } from "@/lib/seo-tools";
+import AudioStudioTool from "./AudioStudioTool";
 
-const AudioStudioTool = dynamic(() => import("./AudioStudioTool"), { ssr: false });
+export const metadata = toolMetadata("audio-studio");
 
 export default function Page() {
   return (
     <div className="page">
       <ToolHeader href="/audio-studio" />
       <AudioStudioTool />
+      <ToolSeoContent slug="audio-studio" />
     </div>
   );
 }
