@@ -224,7 +224,7 @@ html:not([data-skin]) body::before {
   gap: 6px;
   height: 36px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid transparent;
   background: var(--accent);
   color: var(--on-accent);
@@ -680,7 +680,7 @@ section {
   font-family: var(--mono);
   color: var(--dim);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 10px;
   transition:
     color 0.15s,
     border-color 0.15s,
@@ -1684,7 +1684,7 @@ label {
   padding: 8px 10px 8px 14px;
   min-width: 260px;
   height: 36px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg2);
   color: var(--text);
@@ -2078,7 +2078,7 @@ label {
     display: block;
     width: 42px;
     height: 4px;
-    border-radius: 999px;
+    border-radius: 10px;
     background: color-mix(in srgb, var(--dim) 55%, transparent);
     margin: 8px auto 2px;
     z-index: 2;
@@ -2100,7 +2100,7 @@ label {
   align-items: center;
   gap: 4px;
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text);
@@ -2924,7 +2924,7 @@ label {
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 999px;
+  border-radius: 10px;
   transition: color 0.2s;
 }
 .fx-tab:hover {
@@ -2939,7 +2939,7 @@ label {
   bottom: 3px;
   width: calc(50% - 3px);
   left: 3px;
-  border-radius: 999px;
+  border-radius: 10px;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 110%);
   box-shadow:
     0 6px 16px -8px color-mix(in srgb, var(--accent) 65%, transparent),
@@ -3081,7 +3081,7 @@ label {
   padding: 5px 11px;
   background: color-mix(in srgb, var(--bg3) 60%, transparent);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 10px;
   color: var(--text);
   font-size: 12.5px;
   font-weight: 500;
@@ -3391,7 +3391,7 @@ label {
     display: block;
     width: 42px;
     height: 4px;
-    border-radius: 999px;
+    border-radius: 10px;
     background: color-mix(in srgb, var(--dim) 55%, transparent);
     margin: 8px auto 2px;
     z-index: 2;
@@ -6451,7 +6451,7 @@ label {
   align-items: center;
   gap: 4px;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -10279,7 +10279,7 @@ body:has(.fx-modal-bg) .margin-ruler {
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg2);
   color: var(--dim);
@@ -10300,7 +10300,7 @@ body:has(.fx-modal-bg) .margin-ruler {
 .gp-tab-count {
   font-size: 0.7rem;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: 10px;
   background: color-mix(in srgb, currentColor 15%, transparent);
   font-weight: 700;
 }
@@ -10354,7 +10354,7 @@ body:has(.fx-modal-bg) .margin-ruler {
   font-size: 0.72rem;
   color: var(--dim);
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--bg2);
 }
 
@@ -10596,7 +10596,7 @@ body:has(.fx-modal-bg) .margin-ruler {
 }
 .lt-regions .gp-branch {
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg2);
   color: var(--text);
@@ -10672,7 +10672,7 @@ body:has(.fx-modal-bg) .margin-ruler {
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--ok) 12%, transparent);
   color: var(--text);
   font-size: 0.8rem;
@@ -11554,7 +11554,7 @@ body:has(.fx-modal-bg) .margin-ruler {
   font-size: 10px;
   padding: 1px 7px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 10px;
   opacity: 0.75;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -11585,7 +11585,7 @@ body:has(.fx-modal-bg) .margin-ruler {
   opacity: 0.6;
   font-variant-numeric: tabular-nums;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg3);
 }
@@ -12131,7 +12131,7 @@ body:has(.fx-modal-bg) .margin-ruler {
   gap: 4px;
   padding: 4px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--bg2);
   color: var(--dim);
   font-size: 0.74rem;
@@ -15399,7 +15399,7 @@ section {
 .fb-banner-cta {
   flex: 0 0 auto;
   padding: 3px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--bright);
@@ -15552,7 +15552,7 @@ section {
     display: block;
     width: 42px;
     height: 4px;
-    border-radius: 999px;
+    border-radius: 10px;
     background: color-mix(in srgb, var(--dim) 55%, transparent);
     margin: 0 auto 10px;
   }
@@ -16255,7 +16255,7 @@ section {
   font-size: 0.72rem;
   font-weight: 600;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--trip-accent) 14%, #fff);
   color: color-mix(in srgb, var(--trip-accent) 70%, #202733);
   border: 1px solid color-mix(in srgb, var(--trip-accent) 25%, transparent);
@@ -16499,7 +16499,7 @@ section {
   align-items: center;
   gap: 3px;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -16599,7 +16599,7 @@ section {
   top: 10px;
   left: 10px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -16659,7 +16659,7 @@ section {
   align-items: center;
   gap: 8px;
   padding: 11px 20px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg2);
   color: var(--text);

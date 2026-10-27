@@ -3,7 +3,14 @@
 import { BlogCard, Corners } from "@/components/BlogCard";
 import { BlogCover } from "@/components/BlogCover";
 import { Stack } from "@/components/ui";
-import { DEFAULT_CATEGORIES, formatDateVi, type BlogCategoryMap, type BlogPost, type DidYouKnowItem } from "@/lib/blog";
+import {
+  DEFAULT_CATEGORIES,
+  formatDateVi,
+  slugifyLabel,
+  type BlogCategoryMap,
+  type BlogPost,
+  type DidYouKnowItem,
+} from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
 import { IconArrowRight, IconArticle, IconX } from "@tabler/icons-react";
 import Link from "next/link";
@@ -21,9 +28,20 @@ function initials(name: string) {
   return (first + last).toUpperCase();
 }
 
-export function BlogList({ posts: all, categories, didYouKnow }: { posts: BlogPost[]; categories?: BlogCategoryMap; didYouKnow?: DidYouKnowItem[] }) {
+export function BlogList({
+  posts: all,
+  categories,
+  didYouKnow,
+  activeTag = null,
+}: {
+  posts: BlogPost[];
+  categories?: BlogCategoryMap;
+  didYouKnow?: DidYouKnowItem[];
+  activeTag?: string | null;
+}) {
   const { t } = useI18n();
-  const [active, setActive] = useState<string | null>(null);
+  const [active, setActive] = useState<string | null>(activeTag);
+  const isTagPage = !!active;
   const [limit, setLimit] = useState(PAGE);
   const catMap = categories && Object.keys(categories).length ? categories : DEFAULT_CATEGORIES;
   const catLabel = (k: string) => catMap[k] || k;
@@ -52,9 +70,45 @@ export function BlogList({ posts: all, categories, didYouKnow }: { posts: BlogPo
   const shown = rest.slice(0, limit);
 
   function pickCat(k: string | null) {
-    setActive(k);
     setLimit(PAGE);
+    setActive(k);
+    const slug = k ? slugifyLabel(catLabel(k)) : "";
+    const url = k ? `/blog/tags/${slug}` : "/blog";
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", url);
+      document.title = k ? `#${slug} · FormatBox` : "Bài viết · FormatBox";
+    }
   }
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const want = active ? `#${slugifyLabel(catLabel(active))} · FormatBox` : "Bài viết · FormatBox";
+    document.title = want;
+    // Next App Router may reset <title> on URL change; keep ours sticky via observer.
+    const headTitle = document.querySelector("head > title");
+    if (!headTitle) return;
+    const obs = new MutationObserver(() => {
+      if (document.title !== want) document.title = want;
+    });
+    obs.observe(headTitle, { childList: true, characterData: true, subtree: true });
+    return () => obs.disconnect();
+  }, [active, catMap]);
+
+  useEffect(() => {
+    const onPop = () => {
+      if (typeof window === "undefined") return;
+      const m = window.location.pathname.match(/^\/blog\/tags\/([^/]+)/);
+      if (!m) {
+        setActive(null);
+        return;
+      }
+      const slug = decodeURIComponent(m[1]);
+      const key = catMap[slug] ? slug : Object.keys(catMap).find((k) => slugifyLabel(catMap[k]) === slug) || null;
+      setActive(key);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [catMap]);
 
   const secLabel = active ? catMap[active] : t("blog_all_sub");
   const secCount = active ? counts[active] : all.length;
@@ -64,15 +118,29 @@ export function BlogList({ posts: all, categories, didYouKnow }: { posts: BlogPo
       {/* HERO — framed tile: eyebrow, title, dek, topic filters */}
       <header className="bz-hero" aria-labelledby="blog-h1">
         <Corners />
-        <span className="bz-eyebrow">{t("blog_eyebrow")}</span>
-        <h1 id="blog-h1" className="bz-title">
-          {t("blog_hero_1")} {t("blog_hero_2")}
-        </h1>
-        <p className="bz-dek">{t("blog_hero_d")}</p>
+        {isTagPage ? (
+          <>
+            <span className="bz-eyebrow">{t("blog_eyebrow")}</span>
+            <h1 id="blog-h1" className="bz-title">
+              {catLabel(active!)}
+            </h1>
+            <p className="bz-dek">
+              Tổng hợp bài viết chia sẻ về chủ đề {catLabel(active!)} ({counts[active!] || 0})
+            </p>
+          </>
+        ) : (
+          <>
+            <span className="bz-eyebrow">{t("blog_eyebrow")}</span>
+            <h1 id="blog-h1" className="bz-title">
+              {t("blog_hero_1")} {t("blog_hero_2")}
+            </h1>
+            <p className="bz-dek">{t("blog_hero_d")}</p>
+          </>
+        )}
       </header>
 
       {/* FEATURED SPLIT — big story (7) + side list (5); unaffected by the topic filter */}
-      {hero && (
+      {!isTagPage && hero && (
         <div className={`bz-top${side.length ? "" : " bz-top--solo"}`} aria-label={t("blog_featured")}>
           <article className="bz-tile bz-feat">
             <Corners />
@@ -124,7 +192,7 @@ export function BlogList({ posts: all, categories, didYouKnow }: { posts: BlogPo
         </div>
       )}
 
-      <SavedPosts posts={all} />
+      {!isTagPage && <SavedPosts posts={all} />}
 
       {/* LATEST GRID */}
       {rest.length > 0 || active ? (
@@ -182,7 +250,7 @@ export function BlogList({ posts: all, categories, didYouKnow }: { posts: BlogPo
         </section>
       ) : null}
 
-      <DidYouKnow items={didYouKnow} />
+      {!isTagPage && <DidYouKnow items={didYouKnow} />}
     </Stack>
   );
 }

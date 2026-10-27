@@ -6,7 +6,7 @@ import "./blog.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Blog · FormatBox",
+  title: "Bài viết · FormatBox",
   description:
     "Những bài viết bổ ích về công nghệ, AI, web, bảo mật và nhiều lĩnh vực khác — FormatBox Blog.",
 };

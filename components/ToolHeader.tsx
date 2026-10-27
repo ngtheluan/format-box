@@ -24,6 +24,20 @@ export function ToolHeader({ href, h1Style }: { href: string; h1Style?: React.CS
   }, [href]);
 
   const tool = tools.find((t) => t.href === href);
+
+  useEffect(() => {
+    if (typeof document === "undefined" || !tool) return;
+    const want = `${tool.title} · FormatBox`;
+    document.title = want;
+    const headTitle = document.querySelector("head > title");
+    if (!headTitle) return;
+    const obs = new MutationObserver(() => {
+      if (document.title !== want) document.title = want;
+    });
+    obs.observe(headTitle, { childList: true, characterData: true, subtree: true });
+    return () => obs.disconnect();
+  }, [tool]);
+
   if (!tool) return null;
   return (
     <>

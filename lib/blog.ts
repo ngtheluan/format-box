@@ -29,6 +29,17 @@ export type BlogCategoryRow = {
 
 export type BlogCategoryMap = Record<string, string>;
 
+export function slugifyLabel(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 // Fallback dùng khi Supabase chưa seed hoặc không tải được.
 export const DEFAULT_CATEGORIES: BlogCategoryMap = {
   tech: "Công nghệ",
