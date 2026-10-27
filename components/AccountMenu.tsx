@@ -178,13 +178,18 @@ export default function AccountMenu() {
     <div className="account-menu" ref={ref}>
       <button
         type="button"
-        className={`theme-btn${user?.role === "admin" ? " is-admin" : ""}`}
+        className={`acct-trigger${mode === "admin" ? " is-admin" : ""}${user ? " has-user" : ""}`}
         onClick={() => setOpen((v) => !v)}
         aria-label="Account"
         aria-expanded={open}
-        title={user ? `@${user.accountname}${user.role === "admin" ? " · Admin" : ""}` : t("acct_label")}
+        title={user ? `@${user.accountname}${user.role === "admin" ? " · Admin" : ""}` : t("acct_title_login")}
       >
         <IconUserCircle size={18} stroke={1.8} />
+        <span className="acct-trigger-name">
+          {user
+            ? [user.firstname, user.lastname].filter(Boolean).join(" ") || user.accountname
+            : t("acct_title_login")}
+        </span>
       </button>
 
       {open && (

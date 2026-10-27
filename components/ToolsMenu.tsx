@@ -1,33 +1,39 @@
 "use client";
 import { useTools } from "@/components/ToolsProvider";
 import { useI18n } from "@/lib/i18n";
+import type { Lang } from "@/lib/i18n";
 import { ToolIcon } from "@/lib/tool-icons";
-import { CATEGORY_ORDER } from "@/lib/tools-shared";
-import { IconChevronDown, IconNews, IconSettings } from "@tabler/icons-react";
+import { CATEGORY_ORDER, type ToolCategory } from "@/lib/tools-shared";
+import { IconChevronDown } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-type MenuKey = "tools" | "blog";
+const CAT_SHORT_LABEL: Record<ToolCategory, Record<Lang, string>> = {
+  cat_text: { vi: "Văn bản", en: "Text" },
+  cat_media: { vi: "Hình ảnh", en: "Media" },
+  cat_dev: { vi: "Công cụ", en: "Dev" },
+  cat_life: { vi: "Tiện ích", en: "Utilities" },
+};
 
 export default function ToolsMenu() {
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
   const TOOLS = useTools();
   const router = useRouter();
-  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+  const [openCat, setOpenCat] = useState<ToolCategory | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const prefetched = useRef(new Set<string>());
 
-  useEffect(() => setOpenMenu(null), [pathname]);
+  useEffect(() => setOpenCat(null), [pathname]);
 
   useEffect(() => {
-    if (!openMenu) return;
+    if (!openCat) return;
     const onClick = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpenMenu(null);
+      if (!wrapRef.current?.contains(e.target as Node)) setOpenCat(null);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenMenu(null);
+      if (e.key === "Escape") setOpenCat(null);
     };
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
@@ -35,10 +41,10 @@ export default function ToolsMenu() {
       document.removeEventListener("mousedown", onClick);
       document.removeEventListener("keydown", onKey);
     };
-  }, [openMenu]);
+  }, [openCat]);
 
-  const prefetchAllTools = () => {
-    TOOLS.forEach((tool) => {
+  const prefetchCat = (cat: ToolCategory) => {
+    TOOLS.filter((tt) => tt.category === cat).forEach((tool) => {
       if (!prefetched.current.has(tool.href)) {
         prefetched.current.add(tool.href);
         router.prefetch(tool.href);
@@ -46,82 +52,56 @@ export default function ToolsMenu() {
     });
   };
 
-  const toolsOpen = openMenu === "tools";
-  const toolsActive = TOOLS.some((it) => it.href === pathname);
-  const blogActive = pathname === "/blog" || pathname.startsWith("/blog/");
-
   return (
     <div className="nav-cats" ref={wrapRef}>
-      <div className={`nav-cat${toolsOpen ? " open" : ""}`}>
-        <button
-          type="button"
-          className={`nav-cat-btn${toolsActive ? " active" : ""}`}
-          aria-expanded={toolsOpen}
-          aria-haspopup="menu"
-          onMouseEnter={prefetchAllTools}
-          onFocus={prefetchAllTools}
-          onClick={() => setOpenMenu((cur) => (cur === "tools" ? null : "tools"))}
-        >
-          <IconSettings size={14} stroke={1.8} />
-          <span>{t("nav_tools")}</span>
-          <IconChevronDown size={12} stroke={2} className="chev" />
-        </button>
+      {CATEGORY_ORDER.map((cat) => {
+        const items = TOOLS.filter((tt) => tt.category === cat);
+        if (items.length === 0) return null;
+        const isOpen = openCat === cat;
+        const isActive = items.some((it) => it.href === pathname);
+        return (
+          <div key={cat} className={`nav-cat nav-cat-${cat}${isOpen ? " open" : ""}`}>
+            <button
+              type="button"
+              className={`nav-cat-btn${isActive ? " active" : ""}`}
+              aria-expanded={isOpen}
+              aria-haspopup="menu"
+              onMouseEnter={() => prefetchCat(cat)}
+              onFocus={() => prefetchCat(cat)}
+              onClick={() => setOpenCat((cur) => (cur === cat ? null : cat))}
+            >
+              <span>{CAT_SHORT_LABEL[cat][lang]}</span>
+              <IconChevronDown size={14} stroke={2} className="chev" />
+            </button>
 
-        {toolsOpen &&
-          (() => {
-            const groups = CATEGORY_ORDER.map((cat) => ({
-              cat,
-              items: TOOLS.filter((tt) => tt.category === cat),
-            })).filter((g) => g.items.length > 0);
-            return (
-              <div
-                className="nav-cat-panel nav-cat-panel--groups"
-                role="menu"
-                style={{ ["--nav-cat-cols" as string]: groups.length } as React.CSSProperties}
-              >
-                {groups.map(({ cat, items }) => {
-                  return (
-                    <div key={cat} className={`nav-cat-group nav-cat-${cat}`}>
-                      <div className="nav-cat-group-head">{t(cat)}</div>
-                      <div className="nav-cat-list">
-                        {items.map((tool) => {
-                          const active = pathname === tool.href;
-                          return (
-                            <Link
-                              key={tool.href}
-                              href={tool.href}
-                              className={`nav-cat-item${active ? " active" : ""}`}
-                              role="menuitem"
-                            >
-                              <div className="nav-cat-item-icon">
-                                <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
-                              </div>
-                              <div className="nav-cat-item-text">
-                                <b>{tool.title}</b>
-                                <span>{tool.sub[lang]}</span>
-                              </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+            {isOpen && (
+              <div className="nav-cat-panel" role="menu">
+                <div className="nav-cat-list">
+                  {items.map((tool) => {
+                    const active = pathname === tool.href;
+                    return (
+                      <Link
+                        key={tool.href}
+                        href={tool.href}
+                        className={`nav-cat-item${active ? " active" : ""}`}
+                        role="menuitem"
+                      >
+                        <div className="nav-cat-item-icon">
+                          <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
+                        </div>
+                        <div className="nav-cat-item-text">
+                          <b>{tool.title}</b>
+                          <span>{tool.sub[lang]}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            );
-          })()}
-      </div>
-
-      <div className="nav-cat">
-        <Link
-          href="/blog"
-          className={`nav-cat-btn${blogActive ? " active" : ""}`}
-          onMouseEnter={() => router.prefetch("/blog")}
-        >
-          <IconNews size={14} stroke={1.8} />
-          <span>{t("nav_blog")}</span>
-        </Link>
-      </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
