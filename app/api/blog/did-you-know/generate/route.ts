@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/admin-auth";
+import { isSuperAdmin } from "@/lib/admin-auth";
 import { slugify, upsertDidYouKnow, type DidYouKnowImage, type DidYouKnowItem } from "@/lib/blog";
 import { callLlm, parseJsonLoose, searchImages } from "@/lib/blog-ai";
 import { AI_MODELS, type AiProvider } from "@/lib/blog-ai-shared";
@@ -20,7 +20,7 @@ type GenShape = {
 };
 
 export async function POST(req: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isSuperAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as {
     topic?: string;
     provider?: AiProvider;

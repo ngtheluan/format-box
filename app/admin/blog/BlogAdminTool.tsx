@@ -90,6 +90,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import AdminBody from "../AdminBody";
 import "./blog-admin.css";
 import ImagePicker from "./ImagePicker";
+import ImagesManager from "./ImagesManager";
+import ManualComposer from "./ManualComposer";
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -98,6 +100,7 @@ type Props = {
   initialCategories: BlogCategoryRow[];
   initialDidYouKnow?: DidYouKnowItem[];
   providers: Record<AiProvider, boolean>;
+  isSuperAdmin?: boolean;
 };
 
 type StepState = {
@@ -141,7 +144,7 @@ const STATUS_LABEL: Record<BlogStatus, string> = {
   published: "Phát hành",
 };
 
-export default function BlogAdminTool({ initialPosts, initialCategories, initialDidYouKnow, providers }: Props) {
+export default function BlogAdminTool({ initialPosts, initialCategories, initialDidYouKnow, providers, isSuperAdmin = false }: Props) {
   const toast = useToast();
   const router = useRouter();
   const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
@@ -149,7 +152,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
   const [dyk, setDyk] = useState<DidYouKnowItem[]>(initialDidYouKnow || []);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [tab, setTab] = useState<"posts" | "categories" | "knowledge">("posts");
+  const [tab, setTab] = useState<"posts" | "categories" | "knowledge" | "images">("posts");
 
   type DykDraft = {
     original?: string;
@@ -336,6 +339,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
 
   // Generate modal
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const firstProvider = (Object.keys(AI_MODELS) as AiProvider[]).find((p) => providers[p]) || "pollinations";
   const [genModel, setGenModel] = useState(`${firstProvider}|${AI_MODELS[firstProvider][0].id}`);
   const genProvider = genModel.split("|")[0] as AiProvider;
@@ -1066,31 +1070,55 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
           >
             <IconCategory size={13} stroke={1.9} /> Danh mục
           </button>
-          <button
-            type="button"
-            onClick={() => setTab("knowledge")}
-            className={`fx-btn ${tab === "knowledge" ? "fx-btn-primary" : "fx-btn-ghost"}`}
-            style={{ padding: "4px 10px", fontSize: 12 }}
-          >
-            <IconBulb size={13} stroke={1.9} /> Kiến thức
-          </button>
+          {isSuperAdmin && (
+            <button
+              type="button"
+              onClick={() => setTab("knowledge")}
+              className={`fx-btn ${tab === "knowledge" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+              style={{ padding: "4px 10px", fontSize: 12 }}
+            >
+              <IconBulb size={13} stroke={1.9} /> Kiến thức
+            </button>
+          )}
+          {isSuperAdmin && (
+            <button
+              type="button"
+              onClick={() => setTab("images")}
+              className={`fx-btn ${tab === "images" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+              style={{ padding: "4px 10px", fontSize: 12 }}
+            >
+              <IconPhoto size={13} stroke={1.9} /> Hình ảnh
+            </button>
+          )}
         </div>
         {tab === "posts" ? (
-          <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
-            <IconSparkles size={14} stroke={2.2} /> Sinh bài AI
-          </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              onClick={() => setManualOpen(true)}
+              className={isSuperAdmin ? "fx-btn" : "fx-btn fx-btn-primary"}
+            >
+              <IconWriting size={14} stroke={2.2} /> Soạn thủ công
+            </button>
+            {isSuperAdmin && (
+              <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
+                <IconSparkles size={14} stroke={2.2} /> Sinh bài AI
+              </button>
+            )}
+          </div>
         ) : tab === "categories" ? (
           <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
             <IconPlus size={14} stroke={2.2} /> Thêm danh mục
           </button>
-        ) : (
+        ) : tab === "knowledge" ? (
           <button onClick={() => setDykChooserOpen(true)} className="fx-btn fx-btn-primary">
             <IconPlus size={14} stroke={2.2} /> Thêm kiến thức
           </button>
-        )}
+        ) : null}
       </div>
 
-      {tab === "knowledge" ? (
+      {tab === "images" ? (
+        isSuperAdmin ? <ImagesManager /> : null
+      ) : tab === "knowledge" && isSuperAdmin ? (
         dyk.length === 0 ? (
           <div className="fx-empty">
             <div className="fx-empty-ico">
@@ -1325,7 +1353,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                         {p.pinned ? <IconPinFilled size={14} stroke={1.9} /> : <IconPin size={14} stroke={1.9} />}
                       </button>
                     )}
-                    {(status === "draft" || status === "rejected") && (
+                    {isSuperAdmin && (status === "draft" || status === "rejected") && (
                       <button
                         className="fx-btn fx-btn-icon"
                         onClick={() => approve(p)}
@@ -1335,7 +1363,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                         <IconCheck size={14} stroke={2} />
                       </button>
                     )}
-                    {status === "draft" && (
+                    {isSuperAdmin && status === "draft" && (
                       <button
                         className="fx-btn fx-btn-icon"
                         onClick={() => reject(p)}
@@ -1350,14 +1378,16 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                         <Link href={`/blog/${p.slug}`} target="_blank" className="fx-btn fx-btn-icon" title="Xem">
                           <IconEye size={14} stroke={1.9} />
                         </Link>
-                        <button
-                          className="fx-btn fx-btn-icon"
-                          onClick={() => unpublish(p)}
-                          title="Về nháp để sửa"
-                          style={{ color: "var(--info, #3b82f6)" }}
-                        >
-                          <IconRotateClockwise size={14} stroke={1.9} />
-                        </button>
+                        {isSuperAdmin && (
+                          <button
+                            className="fx-btn fx-btn-icon"
+                            onClick={() => unpublish(p)}
+                            title="Về nháp để sửa"
+                            style={{ color: "var(--info, #3b82f6)" }}
+                          >
+                            <IconRotateClockwise size={14} stroke={1.9} />
+                          </button>
+                        )}
                       </>
                     ) : null}
                   </div>
@@ -1369,7 +1399,17 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
       )}
 
       {/* GENERATE MODAL */}
-      {generateOpen && (
+      <ManualComposer
+        open={manualOpen}
+        categories={cats}
+        onClose={() => setManualOpen(false)}
+        onSaved={() => {
+          setManualOpen(false);
+          router.refresh();
+        }}
+      />
+
+      {isSuperAdmin && generateOpen && (
         <div className="fx-modal-bg" style={{ zIndex: 200 }}>
           <div className="fx-modal" style={{ maxWidth: 880, width: "96vw" }}>
             <div className="fx-modal-head">
@@ -2295,43 +2335,47 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
               </Link>
               {editing.status === "published" ? (
                 <>
-                  <button
-                    type="button"
-                    className="fx-btn"
-                    onClick={async () => {
-                      const p = posts.find((x) => x.slug === editing.slug);
-                      if (!p) return;
-                      await unpublish(p);
-                      setEditing((cur) => (cur ? { ...cur, status: "draft" } : cur));
-                    }}
-                    disabled={saving}
-                    title="Chuyển về nháp để chỉnh sửa"
-                  >
-                    <IconX size={14} /> Về Nháp để sửa
-                  </button>
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      className="fx-btn"
+                      onClick={async () => {
+                        const p = posts.find((x) => x.slug === editing.slug);
+                        if (!p) return;
+                        await unpublish(p);
+                        setEditing((cur) => (cur ? { ...cur, status: "draft" } : cur));
+                      }}
+                      disabled={saving}
+                      title="Chuyển về nháp để chỉnh sửa"
+                    >
+                      <IconX size={14} /> Về Nháp để sửa
+                    </button>
+                  )}
                   <button className="fx-btn fx-btn-primary" onClick={() => setEditing(null)}>
                     Đóng
                   </button>
                 </>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    className="fx-btn"
-                    onClick={() => {
-                      const p = posts.find((x) => x.slug === editing.slug);
-                      if (p) reimage(p);
-                    }}
-                    disabled={saving || reimaging === editing.slug}
-                    title="AI chọn lại ảnh liên quan trong bài (không đổi ảnh bìa)"
-                  >
-                    {reimaging === editing.slug ? (
-                      <IconLoader2 size={14} className="spin" />
-                    ) : (
-                      <IconPhotoSearch size={14} />
-                    )}{" "}
-                    AI chọn lại ảnh
-                  </button>
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      className="fx-btn"
+                      onClick={() => {
+                        const p = posts.find((x) => x.slug === editing.slug);
+                        if (p) reimage(p);
+                      }}
+                      disabled={saving || reimaging === editing.slug}
+                      title="AI chọn lại ảnh liên quan trong bài (không đổi ảnh bìa)"
+                    >
+                      {reimaging === editing.slug ? (
+                        <IconLoader2 size={14} className="spin" />
+                      ) : (
+                        <IconPhotoSearch size={14} />
+                      )}{" "}
+                      AI chọn lại ảnh
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="fx-btn fx-btn-danger"
@@ -2345,7 +2389,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                   >
                     <IconTrash size={14} /> Xoá
                   </button>
-                  {editing.status === "draft" && (
+                  {isSuperAdmin && editing.status === "draft" && (
                     <button
                       type="button"
                       className="fx-btn"
@@ -2361,7 +2405,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                       <IconX size={14} /> Từ chối
                     </button>
                   )}
-                  {(editing.status === "draft" || editing.status === "rejected") && (
+                  {isSuperAdmin && (editing.status === "draft" || editing.status === "rejected") && (
                     <button
                       type="button"
                       className="fx-btn"
@@ -2514,29 +2558,31 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                   Tự nhập tiêu đề, mô tả, URL ảnh
                 </span>
               </button>
-              <button
-                type="button"
-                className="fx-btn fx-btn-primary"
-                style={{ flexDirection: "column", padding: 16, height: "auto", gap: 6 }}
-                onClick={() => {
-                  setDykChooserOpen(false);
-                  setDykAiOpen(true);
-                  setDykAiErr("");
-                }}
-              >
-                <IconSparkles size={22} stroke={1.9} />
-                <b>AI tự sinh</b>
-                <span style={{ fontSize: 11, opacity: 0.85, textAlign: "center" }}>
-                  AI chọn chủ đề + viết nội dung + tìm ảnh
-                </span>
-              </button>
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  className="fx-btn fx-btn-primary"
+                  style={{ flexDirection: "column", padding: 16, height: "auto", gap: 6 }}
+                  onClick={() => {
+                    setDykChooserOpen(false);
+                    setDykAiOpen(true);
+                    setDykAiErr("");
+                  }}
+                >
+                  <IconSparkles size={22} stroke={1.9} />
+                  <b>AI tự sinh</b>
+                  <span style={{ fontSize: 11, opacity: 0.85, textAlign: "center" }}>
+                    AI chọn chủ đề + viết nội dung + tìm ảnh
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* DID-YOU-KNOW AI MODAL */}
-      {dykAiOpen && (
+      {isSuperAdmin && dykAiOpen && (
         <div className="fx-modal-bg" style={{ zIndex: 200 }}>
           <div className="fx-modal" style={{ maxWidth: 560 }}>
             <div className="fx-modal-head">

@@ -1,4 +1,4 @@
-import { isAdmin } from "@/lib/admin-auth";
+import { isSuperAdmin } from "@/lib/admin-auth";
 import { getAdminPost, updatePost, withCoverCredit } from "@/lib/blog";
 import { imageCaption, isAsciiQuery, pickImages, toQuery, translatePhotoQuery, type ImageSlot } from "@/lib/blog-ai";
 import { NextResponse } from "next/server";
@@ -22,7 +22,7 @@ function promptOf(src: string): string {
 }
 
 export async function POST(req: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isSuperAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { slug, cover = false } = (await req.json().catch(() => ({}))) as { slug?: string; cover?: boolean };
   if (!slug) return NextResponse.json({ error: "Thiếu slug" }, { status: 400 });
   const post = await getAdminPost(slug);

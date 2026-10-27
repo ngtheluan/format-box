@@ -1,4 +1,4 @@
-import { isAdmin } from "@/lib/admin-auth";
+import { isSuperAdmin } from "@/lib/admin-auth";
 import { listAdminCategories, listAdminPosts } from "@/lib/blog";
 import { callLlm, parseJsonLoose } from "@/lib/blog-ai";
 import { AI_MODELS, type AiProvider } from "@/lib/blog-ai-shared";
@@ -10,7 +10,7 @@ export const maxDuration = 120;
 
 // Suggest fresh topics for a category, avoiding titles the blog already has.
 export async function POST(req: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isSuperAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as {
     category?: string;
     provider?: AiProvider;

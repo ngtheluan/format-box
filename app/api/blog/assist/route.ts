@@ -1,4 +1,4 @@
-import { isAdmin } from "@/lib/admin-auth";
+import { isSuperAdmin } from "@/lib/admin-auth";
 import { callLlm, parseJsonLoose } from "@/lib/blog-ai";
 import { AI_MODELS, type AiProvider } from "@/lib/blog-ai-shared";
 import { NextResponse } from "next/server";
@@ -17,7 +17,7 @@ const ACTIONS = {
 type Action = keyof typeof ACTIONS | "meta";
 
 export async function POST(req: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isSuperAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as {
     action?: Action;
     text?: string;

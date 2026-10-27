@@ -1,4 +1,4 @@
-import { isAdmin } from "@/lib/admin-auth";
+import { isSuperAdmin } from "@/lib/admin-auth";
 import {
   getAdminPost,
   insertPost,
@@ -62,7 +62,7 @@ type Body = {
 };
 
 export async function POST(req: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isSuperAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = ((await req.json().catch(() => null)) || {}) as Body;
 
   const provider: AiProvider = body.provider && body.provider in AI_MODELS ? body.provider : "groq";
