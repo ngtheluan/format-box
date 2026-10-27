@@ -176,6 +176,43 @@ async function synthesize(text: string, voice: string): Promise<Buffer> {
   return Buffer.concat(buffers);
 }
 
+// Google Translate TTS fallback — chunks must be ≤ 200 chars, lang `vi`.
+async function synthesizeGoogle(text: string): Promise<Buffer> {
+  const chunks = splitForTts(text, 190);
+  const parts: Buffer[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const url =
+      `https://translate.google.com/translate_tts` +
+      `?ie=UTF-8&q=${encodeURIComponent(chunks[i])}` +
+      `&tl=vi&total=${chunks.length}&idx=${i}&textlen=${chunks[i].length}` +
+      `&client=tw-ob&prev=input&ttsspeed=1`;
+    let lastErr: any = null;
+    let got: Buffer | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Referer": "https://translate.google.com/",
+            "Accept": "audio/mpeg,*/*",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8",
+          },
+        });
+        if (!res.ok) throw new Error(`gtts ${res.status}`);
+        got = Buffer.from(await res.arrayBuffer());
+        break;
+      } catch (e: any) {
+        lastErr = e;
+        await new Promise((r) => setTimeout(r, 400 * Math.pow(2, attempt)));
+      }
+    }
+    if (!got) throw lastErr || new Error("gtts chunk failed");
+    parts.push(got);
+  }
+  return Buffer.concat(parts);
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug");
@@ -209,10 +246,25 @@ export async function GET(req: Request) {
   const trimmed = text.slice(0, 6000);
 
   let audio: Buffer;
+  let engine: "edge" | "google" = "edge";
   try {
     audio = await synthesize(trimmed, voice);
-  } catch (e: any) {
-    return NextResponse.json({ error: "tts failed: " + (e?.message || "unknown") }, { status: 502 });
+  } catch (edgeErr: any) {
+    try {
+      audio = await synthesizeGoogle(trimmed);
+      engine = "google";
+    } catch (gErr: any) {
+      return NextResponse.json(
+        {
+          error:
+            "tts failed: edge=" +
+            (edgeErr?.message || "unknown") +
+            " / google=" +
+            (gErr?.message || "unknown"),
+        },
+        { status: 502 },
+      );
+    }
   }
 
   const { error: upErr } = await sb.storage
@@ -221,5 +273,5 @@ export async function GET(req: Request) {
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
 
   const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
-  return NextResponse.json({ url: pub.publicUrl, cached: false, voice: voiceKey });
+  return NextResponse.json({ url: pub.publicUrl, cached: false, voice: voiceKey, engine });
 }
