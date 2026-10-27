@@ -5,9 +5,9 @@ import { IconArrowLeft, IconArrowRight, IconArrowUpRight, IconListDetails } from
 import {
   categoriesToMap,
   formatDateVi,
-  getPublicPost,
+  getPublicPostCached,
   listPublicCategories,
-  listPublicPosts,
+  listPublicPostsCached,
   parseCoverImage,
   renderMarkdown,
 } from "@/lib/blog";
@@ -18,18 +18,26 @@ import { T } from "@/components/T";
 import { BlogToc, BodyEnhancer, ReaderTools, ReadingProgress, ShareBar } from "./BlogReader";
 import "../blog.css";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-export const revalidate = 0;
+export const revalidate = 3600;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  try {
+    const posts = await listPublicPostsCached();
+    return posts.map((p) => ({ slug: p.slug }));
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const post = await getPublicPost(params.slug);
+  const post = await getPublicPostCached(params.slug);
   if (!post) return { title: "Không tìm thấy bài viết · FormatBox" };
   const cover = parseCoverImage(post.coverImage);
   const explicit = cover?.src || null;
   const url = `/blog/${post.slug}`;
   const meta: Metadata = {
-    title: `${post.title} · FormatBox Blog`,
+    title: `${post.title} — FormatBox`,
     description: post.excerpt,
     keywords: post.tags,
     alternates: { canonical: url },
@@ -53,11 +61,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function BlogDetail({ params }: { params: { slug: string } }) {
-  const post = await getPublicPost(params.slug);
+  const post = await getPublicPostCached(params.slug);
   if (!post) notFound();
 
   const { html, toc } = renderMarkdown(post.markdown);
-  const [all, cats] = await Promise.all([listPublicPosts(), listPublicCategories()]);
+  const [all, cats] = await Promise.all([listPublicPostsCached(), listPublicCategories()]);
   const catMap = categoriesToMap(cats);
   const catLabel = (slug: string) => catMap[slug] || slug;
 
@@ -78,15 +86,29 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
     .slice(0, 2)
     .toUpperCase();
 
+  const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://formatbox.site").replace(/\/$/, "");
+  const postUrl = `${SITE_URL}/blog/${post.slug}`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: post.title,
     description: post.excerpt,
     datePublished: post.date,
+    dateModified: post.date,
     author: { "@type": "Person", name: post.author },
+    publisher: { "@type": "Organization", name: "FormatBox", url: SITE_URL },
+    mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
     keywords: post.tags.join(", "),
     ...(cover ? { image: cover.src } : {}),
+  };
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "FormatBox", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog` },
+      { "@type": "ListItem", position: 3, name: post.title, item: postUrl },
+    ],
   };
 
   return (
@@ -94,6 +116,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
       <ReadingProgress />
       <BodyEnhancer slug={post.slug} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
 
       {/* HEAD TILE — breadcrumb, category + tags, title, dek, byline (200Lab style) */}
       <header className="bd-head">

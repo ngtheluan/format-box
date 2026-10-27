@@ -451,6 +451,10 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 3, delayMs = 150): Pro
 
 export async function listPublicPosts(): Promise<BlogPost[]> {
   noStore();
+  return listPublicPostsCached();
+}
+
+export async function listPublicPostsCached(): Promise<BlogPost[]> {
   const sb = supabase();
   if (!sb) return [];
   const data = await withRetry(async () => {
@@ -463,6 +467,10 @@ export async function listPublicPosts(): Promise<BlogPost[]> {
 
 export async function getPublicPost(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
   noStore();
+  return getPublicPostCached(slug);
+}
+
+export async function getPublicPostCached(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
   const sb = supabase();
   if (!sb) return null;
   const data = await withRetry(async () => {
