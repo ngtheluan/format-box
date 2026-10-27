@@ -346,6 +346,8 @@ export function ReaderTools({ slug, title, markdown }: { slug: string; title: st
 // Adds copy buttons to code blocks and opens external links in a new tab.
 export function BodyEnhancer({ slug }: { slug?: string }) {
   const { t } = useI18n();
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
+
   useEffect(() => {
     const body = document.querySelector(".bd-article .blog-body");
     if (!body) return;
@@ -376,7 +378,105 @@ export function BodyEnhancer({ slug }: { slug?: string }) {
         a.rel = "noopener noreferrer";
       }
     });
-    return () => added.forEach((b) => b.remove());
+
+    const coverFig = document.querySelector(".bd-article .bd-figure");
+    const bodyImgs = Array.from(body.querySelectorAll<HTMLImageElement>("img"));
+    const coverImgs = coverFig
+      ? Array.from(coverFig.querySelectorAll<HTMLImageElement>("img"))
+      : [];
+    const imgs = [...coverImgs, ...bodyImgs];
+    const onImgClick = (e: Event) => {
+      const img = e.currentTarget as HTMLImageElement;
+      setLightbox({ src: img.currentSrc || img.src, alt: img.alt || "" });
+    };
+    imgs.forEach((img) => {
+      if (img.closest("a")) return;
+      img.classList.add("bd-zoomable");
+      img.addEventListener("click", onImgClick);
+    });
+
+    return () => {
+      added.forEach((b) => b.remove());
+      imgs.forEach((img) => {
+        img.classList.remove("bd-zoomable");
+        img.removeEventListener("click", onImgClick);
+      });
+    };
   }, [t, slug]);
-  return null;
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("fb-lightbox-open");
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+      document.body.classList.remove("fb-lightbox-open");
+    };
+  }, [lightbox]);
+
+  if (!lightbox) return null;
+  return (
+    <div
+      className="bd-lightbox"
+      role="dialog"
+      aria-modal="true"
+      onClick={() => setLightbox(null)}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.88)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        cursor: "zoom-out",
+      }}
+    >
+      <button
+        type="button"
+        aria-label="Đóng"
+        onClick={(e) => {
+          e.stopPropagation();
+          setLightbox(null);
+        }}
+        style={{
+          position: "absolute",
+          top: 16,
+          right: 16,
+          width: 36,
+          height: 36,
+          borderRadius: "50%",
+          border: "0",
+          background: "rgba(255,255,255,0.14)",
+          color: "#fff",
+          fontSize: 22,
+          lineHeight: 1,
+          cursor: "pointer",
+        }}
+      >
+        ×
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={lightbox.src}
+        alt={lightbox.alt}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: "95vw",
+          maxHeight: "92vh",
+          objectFit: "contain",
+          borderRadius: 8,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+          cursor: "default",
+        }}
+      />
+    </div>
+  );
 }

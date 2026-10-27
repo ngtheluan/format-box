@@ -2,7 +2,7 @@
 
 import { BlogCard, Corners } from "@/components/BlogCard";
 import { BlogCover } from "@/components/BlogCover";
-import { Stack } from "@/components/ui";
+import { Input, Stack } from "@/components/ui";
 import {
   DEFAULT_CATEGORIES,
   formatDateVi,
@@ -12,7 +12,7 @@ import {
   type DidYouKnowItem,
 } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
-import { IconArrowRight, IconArticle, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconArticle, IconSearch, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DidYouKnow } from "./DidYouKnow";
@@ -43,6 +43,7 @@ export function BlogList({
   const [active, setActive] = useState<string | null>(activeTag);
   const isTagPage = !!active;
   const [limit, setLimit] = useState(PAGE);
+  const [q, setQ] = useState("");
   const catMap = categories && Object.keys(categories).length ? categories : DEFAULT_CATEGORIES;
   const catLabel = (k: string) => catMap[k] || k;
   const readLabel = t("blog_read_min");
@@ -57,7 +58,23 @@ export function BlogList({
   );
   const topics = Object.keys(catMap).filter((k) => counts[k]);
 
-  const filtered = useMemo(() => (active ? all.filter((p) => p.category === active) : all), [all, active]);
+  const filtered = useMemo(() => {
+    const byCat = active ? all.filter((p) => p.category === active) : all;
+    const needle = q.trim().toLowerCase();
+    if (!needle) return byCat;
+    return byCat.filter((p) => {
+      const hay = [
+        p.title,
+        p.slug,
+        p.excerpt || "",
+        catLabel(p.category),
+        ...(p.tags || []),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [all, active, q, catMap]);
 
   // Featured split is independent of the topic filter: pinned posts fill it
   // (first = hero, the rest beside it); with nothing pinned, fall back to the latest posts.
@@ -65,7 +82,7 @@ export function BlogList({
   const hero = pinned[0] ?? null;
   const side = pinned.slice(1, 1 + SIDE);
   // The grid skips featured posts on the default view; a topic view lists every post in it.
-  const usedSlugs = new Set<string>(!active && hero ? [hero.slug, ...side.map((p) => p.slug)] : []);
+  const usedSlugs = new Set<string>(!active && !q.trim() && hero ? [hero.slug, ...side.map((p) => p.slug)] : []);
   const rest = filtered.filter((p) => !usedSlugs.has(p.slug));
   const shown = rest.slice(0, limit);
 
@@ -110,8 +127,9 @@ export function BlogList({
     return () => window.removeEventListener("popstate", onPop);
   }, [catMap]);
 
-  const secLabel = active ? catMap[active] : t("blog_all_sub");
-  const secCount = active ? counts[active] : all.length;
+  const searching = !!q.trim();
+  const secLabel = searching ? t("blog_search_results") : active ? catMap[active] : t("blog_all_sub");
+  const secCount = searching ? filtered.length : active ? counts[active] : all.length;
 
   return (
     <Stack gap={28}>
@@ -140,7 +158,7 @@ export function BlogList({
       </header>
 
       {/* FEATURED SPLIT — big story (7) + side list (5); unaffected by the topic filter */}
-      {!isTagPage && hero && (
+      {!isTagPage && !q.trim() && hero && (
         <div className={`bz-top${side.length ? "" : " bz-top--solo"}`} aria-label={t("blog_featured")}>
           <article className="bz-tile bz-feat">
             <Corners />
@@ -192,15 +210,47 @@ export function BlogList({
         </div>
       )}
 
-      {!isTagPage && <SavedPosts posts={all} />}
+      {!isTagPage && !q.trim() && <SavedPosts posts={all} />}
 
       {/* LATEST GRID */}
-      {rest.length > 0 || active ? (
+      {rest.length > 0 || active || searching ? (
         <section className="bz-sec">
           <header className="bz-sec-head">
             <h2>
               {secLabel} ({secCount})
             </h2>
+            <div className="bz-search" style={{ flex: "1 1 240px", maxWidth: 360, minWidth: 180 }}>
+              <Input
+                inputSize="sm"
+                type="search"
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setLimit(PAGE);
+                }}
+                placeholder={t("blog_search_ph")}
+                leftIcon={<IconSearch size={14} stroke={1.8} />}
+                rightSlot={
+                  q ? (
+                    <button
+                      type="button"
+                      onClick={() => setQ("")}
+                      aria-label={t("blog_clear")}
+                      style={{
+                        background: "transparent",
+                        border: 0,
+                        padding: 2,
+                        cursor: "pointer",
+                        color: "var(--muted)",
+                        display: "inline-flex",
+                      }}
+                    >
+                      <IconX size={13} stroke={2} />
+                    </button>
+                  ) : null
+                }
+              />
+            </div>
             <nav className="bz-pills" role="tablist" aria-label={t("blog_topics")}>
               <button
                 type="button"
@@ -229,7 +279,14 @@ export function BlogList({
             <div className="bz-empty">
               <IconArticle size={22} stroke={1.7} />
               <p>{t("blog_empty")}</p>
-              <button type="button" className="bz-btn" onClick={() => pickCat(null)}>
+              <button
+                type="button"
+                className="bz-btn"
+                onClick={() => {
+                  setQ("");
+                  pickCat(null);
+                }}
+              >
                 {t("blog_clear")}
               </button>
             </div>

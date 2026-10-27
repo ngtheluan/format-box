@@ -133,6 +133,11 @@ export const DICT = {
   blog_sections: { vi: "phần", en: "sections" },
   blog_older: { vi: "Bài trước", en: "Previous" },
   blog_newer: { vi: "Bài tiếp theo", en: "Next" },
+  blog_search_ph: {
+    vi: "Tìm theo tiêu đề, slug, tag…",
+    en: "Search by title, slug, tag…",
+  },
+  blog_search_results: { vi: "Kết quả tìm kiếm", en: "Search results" },
 
   // WHY
   why_01_h: { vi: "Chạy trên trình duyệt", en: "Runs in your browser" },

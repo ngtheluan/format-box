@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
+import crypto from "crypto";
+import WebSocket from "ws";
 import { getPublicPost } from "@/lib/blog";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -12,6 +13,20 @@ const VOICES: Record<string, string> = {
   "hoaimy": "vi-VN-HoaiMyNeural",
   "namminh": "vi-VN-NamMinhNeural",
 };
+
+const TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
+const SEC_MS_GEC_VERSION = "1-130.0.2849.68";
+
+function generateSecMsGec(): string {
+  // Windows file time ticks (100ns since 1601-01-01), rounded to 5-minute boundary.
+  const ticks = BigInt(Date.now()) * 10000n + 116444736000000000n;
+  const rounded = ticks - (ticks % 3000000000n);
+  return crypto
+    .createHash("sha256")
+    .update(`${rounded.toString()}${TRUSTED_CLIENT_TOKEN}`)
+    .digest("hex")
+    .toUpperCase();
+}
 
 function stripMarkdown(md: string): string {
   return md
@@ -27,6 +42,15 @@ function stripMarkdown(md: string): string {
     .replace(/\n{2,}/g, ". ")
     .replace(/[ \t]+/g, " ")
     .trim();
+}
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 function splitForTts(text: string, max = 2200): string[] {
@@ -50,26 +74,83 @@ function splitForTts(text: string, max = 2200): string[] {
   return out;
 }
 
-async function synthesizeOnce(text: string, voice: string, timeoutMs = 30_000): Promise<Buffer> {
-  const tts = new MsEdgeTTS();
-  await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-  const { audioStream } = tts.toStream(text);
-  return await new Promise<Buffer>((resolve, reject) => {
+function synthesizeOnce(text: string, voice: string, timeoutMs = 30_000): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const connectId = crypto.randomUUID().replace(/-/g, "");
+    const gec = generateSecMsGec();
+    const url =
+      `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1` +
+      `?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}` +
+      `&Sec-MS-GEC=${gec}` +
+      `&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}` +
+      `&ConnectionId=${connectId}`;
+
+    const ws = new WebSocket(url, {
+      headers: {
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache",
+        "Origin": "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "en-US,en;q=0.9",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
+      },
+    });
+
     const chunks: Buffer[] = [];
     const timer = setTimeout(() => {
-      try {
-        (audioStream as any).destroy?.();
-      } catch {}
+      try { ws.close(); } catch {}
       reject(new Error("tts timeout"));
     }, timeoutMs);
-    audioStream.on("data", (c: Buffer) => chunks.push(c));
-    audioStream.on("end", () => {
+
+    const cleanup = (err?: Error, data?: Buffer) => {
       clearTimeout(timer);
-      resolve(Buffer.concat(chunks));
+      try { ws.close(); } catch {}
+      if (err) reject(err);
+      else resolve(data!);
+    };
+
+    ws.on("open", () => {
+      const now = new Date().toUTCString();
+      const configMsg =
+        `X-Timestamp:${now}\r\n` +
+        `Content-Type:application/json; charset=utf-8\r\n` +
+        `Path:speech.config\r\n\r\n` +
+        `{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}`;
+      ws.send(configMsg);
+
+      const ssml =
+        `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>` +
+        `<voice name='${voice}'><prosody pitch='+0Hz' rate='+0%' volume='+0%'>${escapeXml(text)}</prosody></voice></speak>`;
+      const ssmlMsg =
+        `X-RequestId:${connectId}\r\n` +
+        `Content-Type:application/ssml+xml\r\n` +
+        `X-Timestamp:${now}\r\n` +
+        `Path:ssml\r\n\r\n${ssml}`;
+      ws.send(ssmlMsg);
     });
-    audioStream.on("error", (e) => {
-      clearTimeout(timer);
-      reject(e);
+
+    ws.on("message", (data: WebSocket.RawData, isBinary: boolean) => {
+      if (isBinary) {
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+        // Binary frame: first 2 bytes = header length (big-endian), followed by header, then audio.
+        if (buf.length < 2) return;
+        const headerLen = buf.readUInt16BE(0);
+        const audio = buf.subarray(2 + headerLen);
+        if (audio.length) chunks.push(audio);
+      } else {
+        const msg = data.toString();
+        if (msg.includes("Path:turn.end")) {
+          cleanup(undefined, Buffer.concat(chunks));
+        }
+      }
+    });
+
+    ws.on("error", (e) => cleanup(e));
+    ws.on("close", (code, reason) => {
+      if (!chunks.length) {
+        cleanup(new Error(`tts closed ${code} ${reason?.toString() || ""}`.trim()));
+      }
     });
   });
 }
@@ -86,7 +167,6 @@ async function synthesize(text: string, voice: string): Promise<Buffer> {
         break;
       } catch (e: any) {
         lastErr = e;
-        // Exponential backoff: 400ms, 1200ms.
         await new Promise((r) => setTimeout(r, 400 * Math.pow(3, attempt)));
       }
     }
