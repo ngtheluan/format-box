@@ -16,11 +16,17 @@ export async function POST(req: Request) {
     provider?: AiProvider;
     trending?: boolean;
     exclude?: string[];
+    topic?: string;
   };
   const provider: AiProvider = body.provider && body.provider in AI_MODELS ? body.provider : "groq";
+  const topic = (body.topic || "").trim();
 
   const [cats, posts] = await Promise.all([listAdminCategories(), listAdminPosts()]);
-  const label = cats.find((c) => c.slug === body.category)?.label || body.category || "công nghệ";
+  const catLabel = cats.find((c) => c.slug === body.category)?.label || body.category || "";
+  const label = topic || catLabel || "công nghệ";
+  const scope = topic
+    ? `theo chủ đề/từ khoá người dùng nhập: "${topic}"`
+    : `cho danh mục "${label}"`;
   const today = new Date().toISOString().slice(0, 10);
   const avoid = [
     ...posts.slice(0, 25).map((p) => p.title),
@@ -39,7 +45,7 @@ export async function POST(req: Request) {
       system: "Bạn là biên tập viên trưởng của một blog tiếng Việt. Chỉ trả JSON hợp lệ, không giải thích.",
       user: `Hôm nay ${today}. ${
         body.trending ? "Tra cứu web xu hướng mới nhất rồi " : ""
-      }đề xuất 6 chủ đề blog tiếng Việt cho "${label}": cụ thể, có góc nhìn riêng, tiêu đề 45–75 ký tự.
+      }đề xuất 6 chủ đề blog tiếng Việt ${scope}: cụ thể, có góc nhìn riêng, tiêu đề 45–75 ký tự.
 Tránh trùng:
 ${avoid.map((t) => `- ${t}`).join("\n") || "(chưa có)"}
 

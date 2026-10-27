@@ -610,6 +610,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
           provider: genProvider,
           trending: true,
           exclude,
+          topic: topic.trim() || undefined,
         }),
       });
       const j = await r.json();
