@@ -46,6 +46,66 @@ export const toolDesc = (t: Tool, lang: Lang) => t.desc[lang];
 export const toolSearchable = (t: Tool) =>
   [t.title, t.desc.vi, t.desc.en, t.href, ...t.tags].join(" ").toLowerCase();
 
+// Generic words that appear in both blog tags and tool tags without implying
+// real relevance (e.g. an "API Security" post is not about the cURL tool just
+// because both mention "api"). A match on one of these alone is ignored.
+const TOOL_MATCH_STOPWORDS = new Set([
+  "api",
+  "app",
+  "code",
+  "css",
+  "data",
+  "file",
+  "free",
+  "html",
+  "http",
+  "https",
+  "image",
+  "jpg",
+  "online",
+  "png",
+  "svg",
+  "test",
+  "text",
+  "tool",
+  "vn",
+  "web",
+]);
+
+function toTokens(parts: string[]): Set<string> {
+  const out = new Set<string>();
+  for (const p of parts) {
+    for (const w of p.toLowerCase().split(/[^a-z0-9]+/)) {
+      if (w.length >= 3) out.add(w);
+    }
+  }
+  return out;
+}
+
+// Suggest tools genuinely related to a blog post. Precision over recall: matches
+// a post's tags against each tool's tags + slug on whole tokens, ignoring the
+// generic stopwords above. Returns [] when nothing specific overlaps so the UI
+// can hide the block rather than show a loose, irrelevant tool.
+export function relatedTools(tools: Tool[], post: { title: string; tags: string[] }, limit = 3): Tool[] {
+  const postTokens = toTokens(post.tags);
+  if (!postTokens.size) return [];
+  const scored = tools
+    .filter((t) => (t.active ?? true) !== false)
+    .map((t) => {
+      const slug = t.href.replace(/[^a-z0-9]+/gi, " ");
+      const toolTokens = toTokens([...t.tags, slug, t.title]);
+      let score = 0;
+      for (const tok of postTokens) {
+        if (!toolTokens.has(tok)) continue;
+        score += TOOL_MATCH_STOPWORDS.has(tok) ? 0 : 1;
+      }
+      return { t, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((x) => x.t);
+}
+
 export const emptyBilingual = (): Bilingual => ({ vi: "", en: "" });
 export const emptyBilingualList = (): BilingualList => ({ vi: [], en: [] });
 export const emptyBilingualFaqs = (): BilingualFaqs => ({ vi: [], en: [] });

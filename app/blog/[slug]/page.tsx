@@ -1,22 +1,35 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { IconArrowLeft, IconArrowRight, IconArrowUpRight, IconListDetails } from "@tabler/icons-react";
+import { BlogAudioPlayer } from "@/components/BlogAudioPlayer";
+import { BlogCard } from "@/components/BlogCard";
+import { BlogCover } from "@/components/BlogCover";
+import { T } from "@/components/T";
 import {
   categoriesToMap,
   formatDateVi,
   getPublicPostCached,
+  getVotes,
   listPublicCategories,
   listPublicPostsCached,
+  listReactions,
   parseCoverImage,
+  relatedPosts,
   renderMarkdown,
 } from "@/lib/blog";
-import { BlogCover } from "@/components/BlogCover";
-import { BlogCard } from "@/components/BlogCard";
-import { BlogAudioPlayer } from "@/components/BlogAudioPlayer";
-import { T } from "@/components/T";
-import { BlogToc, BodyEnhancer, ReaderTools, ReadingProgress, ShareBar } from "./BlogReader";
+import { blogVoterId } from "@/lib/blog-voter";
+import { getTools } from "@/lib/tools";
+import { relatedTools } from "@/lib/tools-shared";
+import { IconArrowLeft, IconArrowRight, IconListDetails } from "@tabler/icons-react";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import "../blog.css";
+import {
+  ArticleReaction,
+  BlogToc,
+  BodyEnhancer,
+  ReaderTools,
+  ReadingProgress,
+  RelatedTools,
+} from "./BlogReader";
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -65,13 +78,18 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
   if (!post) notFound();
 
   const { html, toc } = renderMarkdown(post.markdown);
-  const [all, cats] = await Promise.all([listPublicPostsCached(), listPublicCategories()]);
+  const [all, cats, tools, votes, popularity] = await Promise.all([
+    listPublicPostsCached(),
+    listPublicCategories(),
+    getTools().catch(() => []),
+    getVotes(post.slug, blogVoterId()).catch(() => ({ helpful: 0, unhelpful: 0, mine: null as null })),
+    listReactions().catch(() => ({}) as Record<string, number>),
+  ]);
   const catMap = categoriesToMap(cats);
   const catLabel = (slug: string) => catMap[slug] || slug;
 
-  const related = all
-    .filter((p) => p.slug !== post.slug && p.category === post.category)
-    .slice(0, 3);
+  const related = relatedPosts(all, post, 3, popularity);
+  const toolSuggestions = relatedTools(tools, post, 3);
 
   // `all` is newest first: index-1 is the newer post, index+1 the older one.
   const at = all.findIndex((p) => p.slug === post.slug);
@@ -223,18 +241,15 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
             </div>
           )}
 
+          {toolSuggestions.length > 0 && <RelatedTools tools={toolSuggestions} />}
+
           <section className="bd-end" aria-label="End of article">
             <div className="bd-end-mark" aria-hidden="true">
-              ·  ·  ·
+              · · ·
             </div>
             <h3>Cảm ơn bạn đã đọc đến đây</h3>
             <p>Nếu bài viết hữu ích, hãy chia sẻ hoặc khám phá thêm bài khác trong cùng chủ đề.</p>
-            <div className="bd-end-actions">
-              <ShareBar title={post.title} path={`/blog/${post.slug}`} />
-              <Link href="/blog" className="bd-end-btn">
-                Xem tất cả bài viết <IconArrowUpRight size={14} stroke={2} />
-              </Link>
-            </div>
+            <ArticleReaction slug={post.slug} initial={votes} />
           </section>
         </article>
 
