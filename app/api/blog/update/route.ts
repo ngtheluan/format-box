@@ -15,6 +15,7 @@ type Patch = {
   markdown?: string;
   coverImage?: string | null;
   pinned?: boolean;
+  relatedTools?: string[];
 };
 
 export async function POST(req: Request) {
@@ -33,7 +34,12 @@ export async function POST(req: Request) {
   if (patch.coverImage !== undefined) dbPatch.cover_image = patch.coverImage || null;
   if (patch.pinned !== undefined) dbPatch.pinned = !!patch.pinned;
 
-  if (!Object.keys(dbPatch).length) return NextResponse.json({ ok: true });
+  const relatedTools =
+    patch.relatedTools !== undefined
+      ? (Array.isArray(patch.relatedTools) ? patch.relatedTools.map((h) => String(h)).slice(0, 6) : [])
+      : null;
+
+  if (!Object.keys(dbPatch).length && relatedTools === null) return NextResponse.json({ ok: true });
 
   const current = await getAdminPost(slug);
   if (!current) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
@@ -45,10 +51,20 @@ export async function POST(req: Request) {
   }
 
   try {
-    await updatePost(slug, dbPatch);
+    if (Object.keys(dbPatch).length) await updatePost(slug, dbPatch);
+    // Written separately and guarded so a missing related_tools column (before
+    // the migration is run) never breaks the core save.
+    let relatedToolsSaved = true;
+    if (relatedTools !== null) {
+      try {
+        await updatePost(slug, { related_tools: relatedTools });
+      } catch {
+        relatedToolsSaved = false;
+      }
+    }
     revalidatePath("/blog");
     revalidatePath(`/blog/${slug}`);
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, relatedToolsSaved });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "DB lỗi" }, { status: 500 });
   }

@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/admin-auth";
-import { getAdminPost, insertPost, slugify, wordCount, type BlogCategory, type BlogPost } from "@/lib/blog";
+import {
+  getAdminPost,
+  insertPost,
+  slugify,
+  updatePost,
+  wordCount,
+  type BlogCategory,
+  type BlogPost,
+} from "@/lib/blog";
 
 export const runtime = "nodejs";
 
@@ -14,6 +22,7 @@ type Body = {
   readMin?: number;
   coverImage?: string;
   markdown?: string;
+  relatedTools?: string[];
 };
 
 const DEFAULT_COVER = { from: "#6366f1", to: "#a855f7" };
@@ -61,11 +70,24 @@ export async function POST(req: Request) {
     status: "draft",
   };
 
+  const relatedTools = Array.isArray(b.relatedTools)
+    ? b.relatedTools.map((h) => String(h).trim()).filter(Boolean).slice(0, 6)
+    : [];
+
   try {
     await insertPost(post, markdown);
+    // Saved separately and guarded so a missing related_tools column (before the
+    // migration is run) never breaks the core insert.
+    if (relatedTools.length) {
+      try {
+        await updatePost(slug, { related_tools: relatedTools });
+      } catch {
+        /* column not migrated yet — post is still created */
+      }
+    }
     revalidatePath("/blog");
     revalidatePath(`/blog/${slug}`);
-    return NextResponse.json({ ok: true, slug, post });
+    return NextResponse.json({ ok: true, slug, post: { ...post, relatedTools } });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "DB lỗi" }, { status: 500 });
   }

@@ -92,6 +92,7 @@ import "./blog-admin.css";
 import ImagePicker from "./ImagePicker";
 import ImagesManager from "./ImagesManager";
 import ManualComposer from "./ManualComposer";
+import RelatedToolsPicker from "./RelatedToolsPicker";
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -406,6 +407,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
     markdown: string;
     coverImage?: string;
     status?: BlogStatus;
+    relatedTools: string[];
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [editErr, setEditErr] = useState("");
@@ -831,6 +833,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
         markdown: j.markdown || "",
         coverImage: j.post.coverImage || "",
         status: j.post.status,
+        relatedTools: Array.isArray(j.post.relatedTools) ? j.post.relatedTools : [],
       });
       setEditView("write");
       setEditErr("");
@@ -859,6 +862,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
           readMin: Number(editing.readMin) || 10,
           markdown: editing.markdown,
           coverImage: editing.coverImage || null,
+          relatedTools: editing.relatedTools,
         }),
       });
       const j = await r.json();
@@ -2262,6 +2266,14 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                   <Input
                     value={editing.tags}
                     onChange={(e) => setEditing((cur) => (cur ? { ...cur, tags: e.target.value } : cur))}
+                  />
+                </Field>
+                <Field label="Công cụ liên quan">
+                  <RelatedToolsPicker
+                    value={editing.relatedTools}
+                    onChange={(next) => setEditing((cur) => (cur ? { ...cur, relatedTools: next } : cur))}
+                    title={editing.title}
+                    tags={editing.tags.split(",").map((s) => s.trim()).filter(Boolean)}
                   />
                 </Field>
                 <Field label="Slug">

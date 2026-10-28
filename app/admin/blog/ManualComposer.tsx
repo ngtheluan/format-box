@@ -23,6 +23,7 @@ import TurndownService from "turndown";
 // @ts-expect-error — package ships JS without types; we only use the GFM table plugin.
 import { tables as turndownTables } from "turndown-plugin-gfm";
 import { useEffect, useMemo, useRef, useState } from "react";
+import RelatedToolsPicker from "./RelatedToolsPicker";
 
 type Props = {
   open: boolean;
@@ -63,6 +64,7 @@ export default function ManualComposer({ open, categories, onClose, onSaved }: P
   const [tagsInput, setTagsInput] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
+  const [relatedTools, setRelatedTools] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [imageInserting, setImageInserting] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -213,6 +215,7 @@ export default function ManualComposer({ open, categories, onClose, onSaved }: P
           readMin,
           coverImage: cover || undefined,
           markdown,
+          relatedTools,
         }),
       });
       const j = await r.json();
@@ -342,6 +345,16 @@ export default function ManualComposer({ open, categories, onClose, onSaved }: P
                 placeholder="tu-dong-tu-tieu-de"
               />
             </div>
+          </div>
+
+          <div className="fx-field">
+            <label>Công cụ liên quan</label>
+            <RelatedToolsPicker
+              value={relatedTools}
+              onChange={setRelatedTools}
+              title={title}
+              tags={tagsInput.split(",").map((s) => s.trim()).filter(Boolean)}
+            />
           </div>
 
           <div className="fx-field">

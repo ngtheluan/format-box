@@ -18,6 +18,9 @@ export type BlogPost = {
   coverImage?: string;
   status: BlogStatus;
   pinned?: boolean;
+  // Tool hrefs shown in the "Công cụ liên quan" block. Empty/undefined → the
+  // reader page falls back to auto-matching via relatedTools().
+  relatedTools?: string[];
 };
 
 export type BlogCategoryRow = {
@@ -402,6 +405,9 @@ type DbRow = {
   // `pinned` is only present when the column exists in the DB (see supabase/blog.sql).
   // Treat it as optional when reading so unmigrated environments keep working.
   pinned?: boolean;
+  // `related_tools` (jsonb) is optional for the same reason — run the ALTER in
+  // supabase/schema.sql to add the column.
+  related_tools?: string[] | null;
 };
 
 function fromRow(r: DbRow): BlogPost {
@@ -418,6 +424,7 @@ function fromRow(r: DbRow): BlogPost {
     coverImage: r.cover_image || undefined,
     status: r.status,
     pinned: !!r.pinned,
+    relatedTools: Array.isArray(r.related_tools) ? r.related_tools : undefined,
   };
 }
 

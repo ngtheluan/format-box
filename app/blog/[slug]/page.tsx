@@ -89,7 +89,12 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
   const catLabel = (slug: string) => catMap[slug] || slug;
 
   const related = relatedPosts(all, post, 3, popularity);
-  const toolSuggestions = relatedTools(tools, post, 3);
+  // Prefer the admin's hand-picked tools (in their chosen order); fall back to
+  // auto-matching only when none were set.
+  const manualTools = (post.relatedTools ?? [])
+    .map((href) => tools.find((t) => t.href === href))
+    .filter((t): t is NonNullable<typeof t> => !!t && (t.active ?? true) !== false);
+  const toolSuggestions = manualTools.length ? manualTools.slice(0, 3) : relatedTools(tools, post, 3);
 
   // `all` is newest first: index-1 is the newer post, index+1 the older one.
   const at = all.findIndex((p) => p.slug === post.slug);
