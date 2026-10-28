@@ -1,6 +1,6 @@
 "use client";
 import { useToast } from "@/components/Toast";
-import { Button, Textarea } from "@/components/ui";
+import { Button, Input, Textarea } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
 import {
   IconArrowsDiagonal,
@@ -15,13 +15,17 @@ import {
   IconEraser,
   IconFoldDown,
   IconFoldUp,
+  IconKeyboard,
   IconLayoutSidebarLeftExpand,
   IconLayoutSidebarRightExpand,
+  IconLink,
+  IconSearch,
+  IconSortAZ,
   IconSparkles,
   IconUpload,
   IconX,
 } from "@tabler/icons-react";
-import { Fragment, forwardRef, memo, useMemo, useRef, useState } from "react";
+import { Fragment, forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Indent = "2" | "4" | "tab";
 type Status = { type: "ok" | "err" | "idle"; msg: string };
@@ -50,6 +54,19 @@ function maxDepth(obj: unknown, d = 0): number {
   if (typeof obj !== "object" || obj === null) return d;
   const vs = Object.values(obj as object);
   return vs.length ? Math.max(...vs.map((v) => maxDepth(v, d + 1)), d) : d;
+}
+
+function sortKeysDeep(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(sortKeysDeep);
+  if (v && typeof v === "object") {
+    return Object.keys(v as Record<string, unknown>)
+      .sort((a, b) => a.localeCompare(b))
+      .reduce<Record<string, unknown>>((acc, k) => {
+        acc[k] = sortKeysDeep((v as Record<string, unknown>)[k]);
+        return acc;
+      }, {});
+  }
+  return v;
 }
 
 function errorLine(msg: string | null, text: string): number | null {
@@ -106,7 +123,6 @@ function renderPrimitive(v: unknown) {
   return null;
 }
 
-// Collect all block ids (object/array paths) for expand-all/collapse-all.
 function collectBlockIds(value: unknown, path = "", out: string[] = []): string[] {
   const isArr = Array.isArray(value);
   const isObj = !isArr && typeof value === "object" && value !== null;
@@ -120,27 +136,82 @@ function collectBlockIds(value: unknown, path = "", out: string[] = []): string[
   return out;
 }
 
+function formatJsonPath(path: string): string {
+  if (!path || path === "$") return "$";
+  const parts = path.split(".");
+  let out = "$";
+  for (let i = 1; i < parts.length; i++) {
+    const p = parts[i];
+    if (/^\d+$/.test(p)) out += `[${p}]`;
+    else if (/^[a-zA-Z_$][\w$]*$/.test(p)) out += `.${p}`;
+    else out += `[${JSON.stringify(p)}]`;
+  }
+  return out;
+}
+
+type Visibility = { visible: Set<string>; match: Set<string> } | null;
+
+function buildVisibility(value: unknown, q: string): Visibility {
+  if (!q.trim()) return null;
+  const visible = new Set<string>();
+  const match = new Set<string>();
+  const lower = q.toLowerCase();
+
+  function walk(v: unknown, path: string, parentKeyHit: boolean): boolean {
+    const id = path || "$";
+    let hit = parentKeyHit;
+
+    if (Array.isArray(v)) {
+      v.forEach((child, i) => {
+        if (walk(child, `${id}.${i}`, false)) hit = true;
+      });
+    } else if (v !== null && typeof v === "object") {
+      for (const [k, child] of Object.entries(v as Record<string, unknown>)) {
+        const kHit = k.toLowerCase().includes(lower);
+        const sub = walk(child, `${id}.${k}`, kHit);
+        if (kHit || sub) hit = true;
+      }
+    } else {
+      const text = v === null ? "null" : String(v);
+      if (text.toLowerCase().includes(lower)) {
+        hit = true;
+        match.add(id);
+      }
+    }
+
+    if (parentKeyHit) match.add(id);
+    if (hit) visible.add(id);
+    return hit;
+  }
+  walk(value, "", false);
+  return { visible, match };
+}
+
 type LineCtx = {
   n: number;
   collapsed: Set<string>;
   toggle: (id: string) => void;
+  visibility: Visibility;
+  onCopyPath: (path: string) => void;
 };
 
 function Row({
   line,
   indent,
+  isMatch,
   children,
   toggle,
   onToggle,
 }: {
   line: number;
   indent: number;
+  isMatch?: boolean;
   children: React.ReactNode;
   toggle?: { id: string; open: boolean };
   onToggle?: (id: string) => void;
 }) {
   return (
-    <div className={`jt-line${toggle ? " jt-line-opener" : ""}`}>
+    <div className={`jt-line${toggle ? " jt-line-opener" : ""}${isMatch ? " jt-line-match" : ""}`}>
       <span className="jt-ln">{line}</span>
       <span className="jt-lc" style={{ paddingLeft: indent * 14 }}>
         {toggle && onToggle ? (
@@ -160,6 +231,23 @@ function Row({
   );
 }
 
+function KeyLabel({ path, name, onCopyPath }: { path: string; name: string; onCopyPath: (p: string) => void }) {
+  return (
+    <span
+      className="tree-key tree-key-click"
+      role="button"
+      tabIndex={0}
+      title={formatJsonPath(path)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onCopyPath(path);
+      }}
+    >
+      &quot;{name}&quot;
+    </span>
+  );
+}
+
 function renderNode({
   ctx,
   value,
@@ -175,13 +263,18 @@ function renderNode({
   prefix?: React.ReactNode;
   suffix?: string;
 }): React.ReactNode {
+  const id = path || "$";
+  const vis = ctx.visibility;
+  if (vis && !vis.visible.has(id)) return null;
+
   const isArr = Array.isArray(value);
   const isObj = !isArr && typeof value === "object" && value !== null;
+  const isMatch = vis ? vis.match.has(id) : false;
 
   if (!isArr && !isObj) {
     const ln = ++ctx.n;
     return (
-      <Row key={path || "$"} line={ln} indent={indent}>
+      <Row key={id} line={ln} indent={indent} isMatch={isMatch}>
         {prefix}
         {renderPrimitive(value)}
         {suffix}
@@ -198,7 +291,7 @@ function renderNode({
   if (entries.length === 0) {
     const ln = ++ctx.n;
     return (
-      <Row key={path || "$"} line={ln} indent={indent}>
+      <Row key={id} line={ln} indent={indent} isMatch={isMatch}>
         {prefix}
         <span className="tree-null">{open + close}</span>
         {suffix}
@@ -206,14 +299,20 @@ function renderNode({
     );
   }
 
-  const blockId = path || "$";
+  const blockId = id;
   const collapsed = ctx.collapsed.has(blockId);
   const openLine = ++ctx.n;
 
+  const visibleCount = vis
+    ? entries.filter(([k]) => vis.visible.has(`${blockId}.${k}`)).length
+    : entries.length;
+
   const openRow = (
     <Row
+      key={`${blockId}:open`}
       line={openLine}
       indent={indent}
+      isMatch={isMatch}
       toggle={{ id: blockId, open: !collapsed }}
       onToggle={ctx.toggle}
     >
@@ -235,9 +334,10 @@ function renderNode({
 
   const childNodes = entries.map(([k, v], i) => {
     const last = i === entries.length - 1;
+    const childPath = `${blockId}.${k}`;
     const childPrefix = isArr ? null : (
       <>
-        <span className="tree-key">&quot;{k}&quot;</span>
+        <KeyLabel path={childPath} name={k} onCopyPath={ctx.onCopyPath} />
         <span className="tree-colon">: </span>
       </>
     );
@@ -245,7 +345,7 @@ function renderNode({
       ctx,
       value: v,
       indent: indent + 1,
-      path: `${blockId}.${k}`,
+      path: childPath,
       prefix: childPrefix,
       suffix: last ? "" : ",",
     });
@@ -263,10 +363,12 @@ function renderNode({
       >
         {childNodes}
       </div>
-      <Row line={closeLine} indent={indent}>
-        <span className="tree-brace">{close}</span>
-        {suffix}
-      </Row>
+      {vis && visibleCount === 0 ? null : (
+        <Row key={`${blockId}:close`} line={closeLine} indent={indent} isMatch={isMatch}>
+          <span className="tree-brace">{close}</span>
+          {suffix}
+        </Row>
+      )}
     </Fragment>
   );
 }
@@ -282,7 +384,11 @@ export default function JsonTool() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [paneHide, setPaneHide] = useState<PaneHide>("none");
   const [fullscreen, setFullscreen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const toggleBlock = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -294,6 +400,7 @@ export default function JsonTool() {
   const gutterRef = useRef<HTMLDivElement>(null);
   const [strOut, setStrOut] = useState<{ src: string; out: string } | null>(null);
   const strOutText = strOut && strOut.src === value ? strOut.out : null;
+
   const canToString = useMemo(() => {
     try {
       const p = JSON.parse(value.trim());
@@ -324,25 +431,31 @@ export default function JsonTool() {
     }
   }, [status, value]);
 
-  const onChange = (v: string) => {
-    setValue(v);
-    if (!v.trim()) {
-      setStatus({ type: "idle", msg: t("json_idle") });
-      setErrDetail(null);
-      setTree(undefined);
-      return;
-    }
-    try {
-      JSON.parse(v.trim());
-      setStatus({ type: "ok", msg: t("json_valid") });
-      setErrDetail(null);
-    } catch (e) {
-      setStatus({ type: "err", msg: t("json_invalid") });
-      setErrDetail((e as Error).message);
-    }
-  };
+  const visibility = useMemo(() => (tree === undefined ? null : buildVisibility(tree, search)), [tree, search]);
+  const matchCount = visibility ? visibility.match.size : 0;
 
-  const doFormat = () => {
+  const onChange = useCallback(
+    (v: string) => {
+      setValue(v);
+      if (!v.trim()) {
+        setStatus({ type: "idle", msg: t("json_idle") });
+        setErrDetail(null);
+        setTree(undefined);
+        return;
+      }
+      try {
+        JSON.parse(v.trim());
+        setStatus({ type: "ok", msg: t("json_valid") });
+        setErrDetail(null);
+      } catch (e) {
+        setStatus({ type: "err", msg: t("json_invalid") });
+        setErrDetail((e as Error).message);
+      }
+    },
+    [t],
+  );
+
+  const doFormat = useCallback(() => {
     const v = value.trim();
     if (!v) return;
     try {
@@ -357,9 +470,9 @@ export default function JsonTool() {
       setStatus({ type: "err", msg: t("json_invalid") });
       setErrDetail((e as Error).message);
     }
-  };
+  }, [value, indentStr, t]);
 
-  const doMinify = () => {
+  const doMinify = useCallback(() => {
     const v = value.trim();
     if (!v) return;
     try {
@@ -370,6 +483,23 @@ export default function JsonTool() {
       setStatus({ type: "ok", msg: `${t("json_minified_prefix")} ${saved}%)` });
       setErrDetail(null);
       setTree(undefined);
+    } catch (e) {
+      setStatus({ type: "err", msg: t("json_invalid") });
+      setErrDetail((e as Error).message);
+    }
+  }, [value, t]);
+
+  const doSortKeys = () => {
+    const v = value.trim();
+    if (!v) return;
+    try {
+      const parsed = JSON.parse(v);
+      const sorted = sortKeysDeep(parsed);
+      setValue(JSON.stringify(sorted, null, indentStr));
+      setStatus({ type: "ok", msg: t("json_sorted") });
+      setErrDetail(null);
+      setTree(sorted);
+      setCollapsed(new Set());
     } catch (e) {
       setStatus({ type: "err", msg: t("json_invalid") });
       setErrDetail((e as Error).message);
@@ -423,15 +553,14 @@ export default function JsonTool() {
 
   const doClear = () => {
     setValue("");
+    setSearch("");
     setStatus({ type: "idle", msg: t("json_idle") });
     setErrDetail(null);
     setTree(undefined);
     setStrOut(null);
   };
 
-  const doSample = () => {
-    onChange(SAMPLE);
-  };
+  const doSample = () => onChange(SAMPLE);
 
   const doPaste = async () => {
     try {
@@ -469,6 +598,72 @@ export default function JsonTool() {
     setCollapsed(new Set(collectBlockIds(tree)));
   };
 
+  const onCopyPath = useCallback(
+    (path: string) => {
+      const jp = formatJsonPath(path);
+      navigator.clipboard.writeText(jp).then(() => toast(`${t("json_path_copied")}: ${jp}`));
+    },
+    [toast, t],
+  );
+
+  // When searching, auto-expand matched branches so results are visible.
+  useEffect(() => {
+    if (!visibility || tree === undefined) return;
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      visibility.visible.forEach((id) => {
+        if (next.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [visibility, tree]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === "Enter") {
+        e.preventDefault();
+        doFormat();
+      } else if (mod && e.shiftKey && (e.key === "M" || e.key === "m")) {
+        e.preventDefault();
+        doMinify();
+      } else if (mod && e.key === "f" && tree !== undefined) {
+        // Only hijack when tree is visible, so we don't block browser find in textarea.
+        if (document.activeElement?.tagName !== "TEXTAREA") {
+          e.preventDefault();
+          searchRef.current?.focus();
+        }
+      } else if (e.key === "Escape") {
+        if (fullscreen) setFullscreen(false);
+        else if (search) setSearch("");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [doFormat, doMinify, fullscreen, search, tree]);
+
+  // Drag & drop handlers for the input pane
+  const onDragOver = (e: React.DragEvent) => {
+    if (Array.from(e.dataTransfer.items).some((it) => it.kind === "file")) {
+      e.preventDefault();
+      setDragOver(true);
+    }
+  };
+  const onDragLeave = () => setDragOver(false);
+  const onDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    onChange(text);
+  };
+
   const inputHidden = paneHide === "input";
   const outputHidden = paneHide === "output";
 
@@ -487,6 +682,15 @@ export default function JsonTool() {
             <Button size="sm" variant="subtle" onClick={doValidate}>
               {t("act_validate")}
             </Button>
+            <Button
+              size="sm"
+              variant="subtle"
+              onClick={doSortKeys}
+              leftIcon={<IconSortAZ size={14} stroke={1.8} />}
+            >
+              {t("json_sort_keys")}
+            </Button>
+            <span className="jt-toolbar-sep" aria-hidden />
             <Button size="sm" variant="subtle" onClick={doToString} disabled={!canToString}>
               {t("act_json_to_string")}
             </Button>
@@ -495,16 +699,30 @@ export default function JsonTool() {
             </Button>
           </div>
 
-          <div className="jt-toolbar-mid">
-            <span className="jt-indent-label">{t("json_indent")}</span>
-            {(["2", "4", "tab"] as Indent[]).map((i) => (
-              <button key={i} className={`indent-btn${indent === i ? " active" : ""}`} onClick={() => setIndent(i)}>
-                {i === "tab" ? t("json_tab") : `${i}`}
-              </button>
-            ))}
-          </div>
-
           <div className="jt-toolbar-right">
+            <div className="jt-indent-pack" title={t("json_indent")}>
+              <span className="jt-indent-label">{t("json_indent")}</span>
+              {(["2", "4", "tab"] as Indent[]).map((i) => (
+                <button
+                  key={i}
+                  className={`indent-btn${indent === i ? " active" : ""}`}
+                  onClick={() => setIndent(i)}
+                >
+                  {i === "tab" ? t("json_tab") : i}
+                </button>
+              ))}
+            </div>
+            <div className="jt-kbd-wrap">
+              <button
+                className="jt-icon-btn"
+                onClick={() => setShowShortcuts((v) => !v)}
+                onBlur={() => setShowShortcuts(false)}
+                title={t("json_shortcut_hint")}
+              >
+                <IconKeyboard size={15} stroke={1.8} />
+              </button>
+              {showShortcuts && <div className="jt-kbd-pop">{t("json_shortcut_hint")}</div>}
+            </div>
             <button
               className="jt-icon-btn"
               onClick={() => setFullscreen((v) => !v)}
@@ -544,7 +762,12 @@ export default function JsonTool() {
               <span className="jt-pane-collapsed-label">{t("json_input")}</span>
             </button>
           ) : (
-            <div className={`jt-pane jt-editor${outputHidden ? " jt-pane-full" : ""}`}>
+            <div
+              className={`jt-pane jt-editor${outputHidden ? " jt-pane-full" : ""}${dragOver ? " jt-drag" : ""}`}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+            >
               <div className="jt-pane-head">
                 <div className="jt-pane-title">
                   <span className="jt-pane-dot jt-pane-dot-in" />
@@ -593,6 +816,12 @@ export default function JsonTool() {
                   monospace
                 />
               </div>
+              {dragOver && (
+                <div className="jt-drop-overlay">
+                  <IconUpload size={28} stroke={1.6} />
+                  <span>{t("json_drop_hint")}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -613,6 +842,29 @@ export default function JsonTool() {
                   {info && <span className="jt-pane-count">{info.size}</span>}
                 </div>
                 <div className="jt-pane-tools">
+                  {tree !== undefined && (
+                    <div className="jt-search">
+                      <IconSearch size={13} stroke={1.8} />
+                      <Input
+                        ref={searchRef}
+                        inputSize="sm"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder={t("json_search_placeholder")}
+                        className="jt-search-input"
+                      />
+                      {search && (
+                        <>
+                          <span className="jt-search-count">
+                            {matchCount} {t("json_matches")}
+                          </span>
+                          <button className="jt-icon-btn" onClick={() => setSearch("")} title={t("act_clear")}>
+                            <IconX size={13} stroke={1.8} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                   {tree !== undefined && (
                     <>
                       <button className="jt-icon-btn" onClick={expandAll} title={t("json_expand_all")}>
@@ -652,6 +904,12 @@ export default function JsonTool() {
                   <span className="jt-badge">
                     {t("json_depth")} {info.depth}
                   </span>
+                  {tree !== undefined && (
+                    <span className="jt-badge jt-badge-hint">
+                      <IconLink size={11} stroke={1.8} />
+                      {t("json_copy_path")}
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -673,12 +931,22 @@ export default function JsonTool() {
               ) : tree !== undefined ? (
                 <div className="jt-tree-wrap">
                   <div className="jt-tree">
-                    {renderNode({
-                      ctx: { n: 0, collapsed, toggle: toggleBlock },
-                      value: tree,
-                      indent: 0,
-                      path: "",
-                    })}
+                    {search && matchCount === 0 ? (
+                      <div className="jt-empty">{t("json_no_matches")}</div>
+                    ) : (
+                      renderNode({
+                        ctx: {
+                          n: 0,
+                          collapsed,
+                          toggle: toggleBlock,
+                          visibility,
+                          onCopyPath,
+                        },
+                        value: tree,
+                        indent: 0,
+                        path: "",
+                      })
+                    )}
                   </div>
                 </div>
               ) : (

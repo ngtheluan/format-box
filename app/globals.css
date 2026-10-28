@@ -893,7 +893,7 @@ section {
   align-items: start;
 }
 .col textarea {
-  height: 260px;
+  height: 500px;
 }
 .tabs {
   display: flex;
@@ -1011,6 +1011,121 @@ label {
   padding: 4px 10px;
   background: var(--bg3);
   border-radius: 6px;
+}
+
+/* ===== Base64 Tool ===== */
+.b64-toolbar {
+  gap: 16px;
+}
+.b64-options {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.b64-options .ui-check {
+  font-size: 0.78rem;
+}
+.b64-opt-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text);
+  font-weight: 500;
+}
+.b64-opt-label svg {
+  color: var(--dim);
+}
+.b64-icon-group {
+  display: flex;
+  gap: 6px;
+  padding-left: 12px;
+  margin-left: 2px;
+  border-left: 1px solid var(--border);
+}
+.col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-height: 24px;
+}
+.col-head label {
+  margin-bottom: 0;
+}
+.b64-mode-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: var(--bg3);
+  color: var(--dim);
+  border: 1px solid var(--border);
+}
+.b64-mode-badge.encode {
+  color: var(--accent);
+  border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+}
+.b64-mode-badge.decode {
+  color: var(--accent2);
+  border-color: color-mix(in oklab, var(--accent2) 40%, transparent);
+}
+.b64-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  font-family: var(--mono);
+  color: var(--dim);
+}
+.b64-stats span {
+  padding: 2px 8px;
+  background: var(--bg3);
+  border-radius: var(--r-sm);
+  line-height: 1.5;
+}
+.b64-mime-pill {
+  color: var(--accent) !important;
+  background: color-mix(in oklab, var(--accent) 10%, var(--bg3)) !important;
+}
+.b64-ratio {
+  color: var(--warn) !important;
+}
+.b64-preview {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.b64-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--dim);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.b64-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  margin: 0 auto;
+  border-radius: var(--r-sm);
+  background:
+    linear-gradient(45deg, var(--bg3) 25%, transparent 25%, transparent 75%, var(--bg3) 75%),
+    linear-gradient(45deg, var(--bg3) 25%, var(--bg2) 25%, var(--bg2) 75%, var(--bg3) 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    8px 8px;
 }
 .toast {
   position: fixed;
@@ -3643,8 +3758,8 @@ label {
 .jt-root {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 220px);
-  min-height: 380px;
+  height: calc(100vh - 140px);
+  min-height: 420px;
 }
 
 /* Toolbar */
@@ -3666,16 +3781,24 @@ label {
   gap: 6px;
   align-items: center;
 }
-.jt-toolbar-mid {
-  display: flex;
+.jt-toolbar-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+  display: inline-block;
+}
+.jt-indent-pack {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 4px;
-  padding-left: 10px;
-  border-left: 1px solid var(--border);
+  gap: 3px;
+  padding: 2px 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 7px;
 }
 .jt-indent-label {
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   color: var(--dim);
   margin-right: 2px;
   white-space: nowrap;
@@ -4136,6 +4259,125 @@ label {
   color: var(--dim);
 }
 
+/* ── Clickable key (copy JSONPath) ── */
+.tree-key-click {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  margin: 0 -2px;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.tree-key-click:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+.tree-key-click:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Search in output pane ── */
+.jt-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--dim);
+  margin-right: 2px;
+}
+.jt-search .jt-search-input.ui-input {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  min-width: 140px;
+  height: 20px;
+  font-size: 0.76rem;
+  color: var(--text);
+}
+.jt-search .jt-search-input.ui-input:focus {
+  box-shadow: none;
+  outline: none;
+  border: none;
+}
+.jt-search-count {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--accent);
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+/* ── Match highlight ── */
+.jt-line-match {
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+}
+.jt-line-match:hover {
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+}
+
+/* ── Keyboard shortcut popover ── */
+.jt-kbd-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.jt-kbd-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 240px;
+  max-width: 320px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  font-size: 0.74rem;
+  color: var(--text);
+  line-height: 1.5;
+  z-index: 20;
+  white-space: normal;
+}
+
+/* ── Drop overlay on input pane ── */
+.jt-pane.jt-drag {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+}
+.jt-drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+  pointer-events: none;
+  z-index: 5;
+}
+.jt-pane {
+  position: relative;
+}
+
+/* ── Hint badge in meta row ── */
+.jt-badge-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  background: transparent;
+  color: var(--dim);
+  font-size: 0.68rem;
+}
+
 @media (max-width: 820px) {
   .jt-root {
     height: auto;
@@ -4178,6 +4420,13 @@ label {
   .jt-pane-collapsed-label {
     writing-mode: horizontal-tb;
     transform: none;
+  }
+  .jt-search .jt-search-input.ui-input {
+    min-width: 100px;
+  }
+  .jt-kbd-pop {
+    right: auto;
+    left: 0;
   }
 }
 
