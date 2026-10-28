@@ -19,12 +19,61 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://formatbox.site").
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "FormatBox — Chuyển đổi dữ liệu ngay trên trình duyệt",
-  description: "FormatBox — Base64, JSON, hình ảnh và nhiều hơn. Miễn phí, xử lý 100% client-side.",
+  title: "FormatBox — Bộ công cụ chuyển đổi & định dạng dữ liệu online",
+  description:
+    "FormatBox là bộ công cụ online miễn phí cho lập trình viên: định dạng JSON, mã hoá Base64, chuyển đổi hình ảnh, tra cứu tỷ giá, giá vàng, giá xăng...",
+  keywords: ["FormatBox", "công cụ online", "JSON formatter", "Base64", "chuyển đổi dữ liệu", "developer tools"],
+  authors: [{ name: "FormatBox" }],
+  applicationName: "FormatBox",
+  alternates: { canonical: "/" },
   openGraph: {
-    title: "FormatBox — Chuyển đổi dữ liệu ngay trên trình duyệt",
-    description: "Base64, JSON, hình ảnh. Không đăng ký.",
+    type: "website",
+    siteName: "FormatBox",
+    url: SITE_URL,
+    title: "FormatBox — Bộ công cụ chuyển đổi & định dạng dữ liệu online",
+    description:
+      "Bộ công cụ online miễn phí cho lập trình viên Việt Nam: JSON, Base64, hình ảnh, tỷ giá, giá vàng, giá xăng. Xử lý ngay trên trình duyệt, không cần đăng ký.",
+    locale: "vi_VN",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "FormatBox — Bộ công cụ chuyển đổi & định dạng dữ liệu online",
+    description: "JSON, Base64, hình ảnh, tỷ giá, giá vàng, giá xăng. Miễn phí, xử lý 100% client-side.",
+  },
+};
+
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: "FormatBox",
+      inLanguage: "vi-VN",
+      description:
+        "Bộ công cụ online miễn phí cho lập trình viên: định dạng JSON, mã hoá Base64, chuyển đổi hình ảnh, tra cứu tỷ giá, giá vàng, giá xăng. Xử lý 100% trong trình duyệt.",
+      publisher: { "@id": `${SITE_URL}/#organization` },
+    },
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: "FormatBox",
+      url: SITE_URL,
+      logo: `${SITE_URL}/favicon.ico`,
+    },
+    {
+      "@type": "WebApplication",
+      name: "FormatBox",
+      url: SITE_URL,
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Any",
+      inLanguage: ["vi-VN", "en"],
+      offers: { "@type": "Offer", price: "0", priceCurrency: "VND" },
+      description:
+        "FormatBox là bộ công cụ online miễn phí cho lập trình viên Việt Nam, gồm JSON formatter, Base64, chuyển đổi hình ảnh, tra cứu tỷ giá hối đoái, giá vàng và giá xăng. Tất cả xử lý ngay trong trình duyệt, không upload dữ liệu lên server.",
+    },
+  ],
 };
 
 export const viewport: Viewport = {
@@ -52,6 +101,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         />
         <meta name="google-site-verification" content="D8R9qU3Bhqzd1ac3m68dlRnoPFpstzoG9VNMkTAvymI" />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var s=localStorage.getItem('fb-theme');var t=(s==='dark'||s==='light')?s:'dark';if(!s)localStorage.setItem('fb-theme','dark');document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`,
