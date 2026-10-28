@@ -46,6 +46,63 @@ export const toolDesc = (t: Tool, lang: Lang) => t.desc[lang];
 export const toolSearchable = (t: Tool) =>
   [t.title, t.desc.vi, t.desc.en, t.href, ...t.tags].join(" ").toLowerCase();
 
+// Curated keyword → tool map for the in-article "Công cụ liên quan" block.
+// Each tool lists strong, intent-revealing phrases (Vietnamese + English). A
+// blog post suggests a tool only when one of its phrases appears in the post's
+// tags/title — so a post gets a tool only on a real topical signal, and the
+// many posts with no matching intent (cooking, health, plants…) show nothing.
+// Phrases are matched as lowercase, accent-sensitive substrings; prefer
+// multi-word or distinctive phrases to avoid incidental hits.
+const TOOL_KEYWORDS: { href: string; phrases: string[] }[] = [
+  { href: "/json", phrases: ["json"] },
+  { href: "/base64", phrases: ["base64"] },
+  { href: "/jwt", phrases: ["jwt"] },
+  { href: "/regex", phrases: ["regex", "regexp", "biểu thức chính quy"] },
+  { href: "/uuid", phrases: ["uuid"] },
+  { href: "/markdown", phrases: ["markdown"] },
+  { href: "/text-case", phrases: ["camelcase", "snake_case", "kebab-case"] },
+  { href: "/timestamp", phrases: ["unix timestamp", "epoch"] },
+  { href: "/curl", phrases: ["curl"] },
+  { href: "/responsive", phrases: ["responsive"] },
+  {
+    href: "/color",
+    phrases: ["màu sắc", "bảng màu", "mã màu", "color palette", "hex color", "contrast", "wcag", "oklch"],
+  },
+  { href: "/image", phrases: ["chuyển đổi ảnh", "nén ảnh", "webp", "chuyển ảnh"] },
+  { href: "/favicon-export", phrases: ["favicon"] },
+  { href: "/qr", phrases: ["mã qr", "qr code", "qrcode"] },
+  { href: "/audio-studio", phrases: ["cắt nhạc", "ghép nhạc", "chỉnh audio", "cắt file mp3"] },
+  { href: "/bill", phrases: ["chia hóa đơn", "chia tiền", "split bill"] },
+  { href: "/exchange-currency", phrases: ["tỷ giá", "đổi tiền", "chuyển đổi tiền tệ", "exchange rate", "currency"] },
+  { href: "/gold", phrases: ["giá vàng", "vàng sjc", "vàng pnj"] },
+  { href: "/fuel", phrases: ["giá xăng", "xăng dầu"] },
+  { href: "/weather", phrases: ["thời tiết", "dự báo thời tiết"] },
+  { href: "/calendar", phrases: ["âm lịch", "lịch âm", "dương lịch", "lịch vạn niên"] },
+  { href: "/countdown", phrases: ["đếm ngược", "countdown"] },
+  { href: "/speed-test", phrases: ["tốc độ mạng", "speed test", "tốc độ wifi", "tốc độ internet"] },
+  { href: "/typing-test", phrases: ["gõ phím", "luyện gõ", "typing test"] },
+  { href: "/lucky-ticket", phrases: ["xổ số", "dò vé số", "dò số"] },
+  { href: "/wheel", phrases: ["vòng quay may mắn", "quay số ngẫu nhiên", "random picker"] },
+  { href: "/meme", phrases: ["chế meme", "tạo meme"] },
+  { href: "/travel-plan", phrases: ["du lịch", "lịch trình", "phượt", "check-in", "điểm đến"] },
+  { href: "/license-plate", phrases: ["biển số xe", "bấm biển số"] },
+];
+
+// Suggest tools genuinely related to a blog post, via the curated map above.
+// Returns [] when no phrase matches so the UI hides the block entirely.
+export function relatedTools(tools: Tool[], post: { title: string; tags: string[] }, limit = 3): Tool[] {
+  const haystack = [...post.tags, post.title].join(" ").toLowerCase();
+  const byHref = new Map(tools.filter((t) => (t.active ?? true) !== false).map((t) => [t.href, t]));
+  const out: Tool[] = [];
+  for (const { href, phrases } of TOOL_KEYWORDS) {
+    if (out.length >= limit) break;
+    const tool = byHref.get(href);
+    if (!tool) continue;
+    if (phrases.some((p) => haystack.includes(p))) out.push(tool);
+  }
+  return out;
+}
+
 export const emptyBilingual = (): Bilingual => ({ vi: "", en: "" });
 export const emptyBilingualList = (): BilingualList => ({ vi: [], en: [] });
 export const emptyBilingualFaqs = (): BilingualFaqs => ({ vi: [], en: [] });

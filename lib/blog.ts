@@ -526,9 +526,95 @@ export async function updateStatus(slug: string, status: BlogStatus): Promise<vo
 export async function deletePost(slug: string): Promise<void> {
   const sb = supabaseAdmin();
   await sb.from("blog_posts").delete().eq("slug", slug).throwOnError();
+  // Deleting a post also discards its votes (no orphan rows). Setting a post to
+  // draft keeps them, so updateStatus is intentionally left untouched.
+  await sb.from("blog_votes").delete().eq("slug", slug).throwOnError();
 }
 
 export function formatDateVi(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+// Pick the posts most relevant to `post`. Relevance combines several signals:
+//   • same category                → +3 (strongest)
+//   • each shared tag              → +2
+//   • recency (within ~180 days)   → up to +1
+//   • reader votes ("hữu ích")     → up to +1.5 popularity boost
+// The vote boost is what makes related "smarter from votes": among posts of
+// similar topical relevance, the ones readers marked helpful surface first.
+// `popularity` maps slug → helpful-vote count (optional; omit to skip it).
+export function relatedPosts(
+  all: BlogPost[],
+  post: BlogPost,
+  limit = 3,
+  popularity?: Record<string, number>,
+): BlogPost[] {
+  const myTags = new Set(post.tags.map((t) => t.toLowerCase()));
+  const now = Date.now();
+  const scored = all
+    .filter((p) => p.slug !== post.slug)
+    .map((p) => {
+      let score = 0;
+      if (p.category === post.category) score += 3;
+      for (const tg of p.tags) if (myTags.has(tg.toLowerCase())) score += 2;
+      // Recency nudge: up to ~1 point for posts within the last ~180 days.
+      const ageDays = (now - new Date(p.date).getTime()) / 86_400_000;
+      if (Number.isFinite(ageDays)) score += Math.max(0, 1 - ageDays / 180);
+      // Popularity nudge: helpful votes, saturating so a viral post can't swamp
+      // topical relevance (10+ helpful votes ≈ full +1.5).
+      const helpful = popularity?.[p.slug] ?? 0;
+      if (helpful > 0) score += Math.min(1.5, helpful * 0.15);
+      return { p, score };
+    })
+    .sort((a, b) => b.score - a.score || +new Date(b.p.date) - +new Date(a.p.date));
+  return scored.slice(0, limit).map((s) => s.p);
+}
+
+// Helpful-vote count per post slug — feeds the popularity boost in relatedPosts.
+export async function listReactions(): Promise<Record<string, number>> {
+  const sb = supabase();
+  if (!sb) return {};
+  const data = await withRetry(async () => {
+    const { data, error } = await sb.rpc("blog_votes_helpful_counts");
+    if (error) throw error;
+    return data as { slug: string; helpful: number }[] | null;
+  });
+  const map: Record<string, number> = {};
+  for (const r of data ?? []) map[r.slug] = r.helpful ?? 0;
+  return map;
+}
+
+// Blog votes — "bài viết có hữu ích không". One vote per reader (user id or IP),
+// stored in `blog_votes`. `mine` is the caller's current choice (or null). All
+// access goes through security-definer RPCs; see supabase/schema.sql.
+export type ReactionKind = "helpful" | "unhelpful";
+export type BlogVotes = { helpful: number; unhelpful: number; mine: ReactionKind | null };
+
+const EMPTY_VOTES: BlogVotes = { helpful: 0, unhelpful: 0, mine: null };
+
+function normalizeVotes(data: unknown): BlogVotes {
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { helpful?: number; unhelpful?: number; mine?: string | null }
+    | null;
+  const mine = row?.mine === "helpful" || row?.mine === "unhelpful" ? row.mine : null;
+  return { helpful: row?.helpful ?? 0, unhelpful: row?.unhelpful ?? 0, mine };
+}
+
+export async function getVotes(slug: string, voter: string): Promise<BlogVotes> {
+  const sb = supabase();
+  if (!sb) return { ...EMPTY_VOTES };
+  const data = await withRetry(async () => {
+    const { data, error } = await sb.rpc("blog_votes_get", { p_slug: slug, p_voter: voter });
+    if (error) throw error;
+    return data;
+  });
+  return normalizeVotes(data);
+}
+
+export async function castVote(slug: string, voter: string, kind: ReactionKind): Promise<BlogVotes> {
+  const sb = supabaseAdmin();
+  const { data, error } = await sb.rpc("blog_vote", { p_slug: slug, p_voter: voter, p_kind: kind });
+  if (error) throw error;
+  return normalizeVotes(data);
 }

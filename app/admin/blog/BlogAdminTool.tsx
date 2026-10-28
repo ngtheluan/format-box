@@ -374,6 +374,9 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchFailed, setBatchFailed] = useState<{ title: string; angle: string; error: string }[]>([]);
   const batchAbortRef = useRef(false);
+  // Khi người dùng bấm "Huỷ sinh bài", ta muốn quay lại form tuỳ chọn thay vì
+  // đứng lại ở màn tiến trình "Đã huỷ" — cờ này báo cho các nhánh async biết.
+  const userCancelRef = useRef(false);
   const lastGenErrRef = useRef("");
   const selectedCount = Object.keys(selectedIdeas).length;
 
@@ -432,9 +435,16 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
   const statActiveStyle = { border: "1.5px solid #f97316", boxShadow: "0 0 0 2px rgba(249,115,22,0.15)" } as const;
 
   function cancelGenerate() {
+    userCancelRef.current = true;
     batchAbortRef.current = true;
     genAbortRef.current?.abort();
-    setGenAborted(true);
+    // Quay về form tuỳ chọn ngay thay vì giữ lại màn tiến trình "Đã huỷ".
+    setGenLoading(false);
+    setGenAborted(false);
+    setGenSteps({});
+    setGenErr("");
+    setBatchFailed([]);
+    lastGenErrRef.current = "";
   }
 
   async function generate(override?: { topic?: string; notes?: string }) {
@@ -443,6 +453,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
     const useRandom = !t;
     const ac = new AbortController();
     genAbortRef.current = ac;
+    userCancelRef.current = false;
     setGenAborted(false);
     setGenLoading(true);
     setGenErr("");
@@ -542,6 +553,11 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
       }
     } catch (e: any) {
       if (ac.signal.aborted) {
+        // Người dùng chủ động huỷ: cancelGenerate() đã đưa về form, không hiện lỗi.
+        if (userCancelRef.current) {
+          lastGenErrRef.current = "Đã huỷ sinh bài";
+          return null;
+        }
         setGenErr("Đã huỷ sinh bài");
         lastGenErrRef.current = "Đã huỷ sinh bài";
       } else {
@@ -592,6 +608,14 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
     setBatchRunning(false);
     setBatchTotal(0);
     setBatchIdx(0);
+    // Người dùng chủ động huỷ: đã quay về form tuỳ chọn, không hiện danh sách lỗi.
+    if (userCancelRef.current) {
+      setBatchFailed([]);
+      setGenSteps({});
+      setGenErr("");
+      setGenAborted(false);
+      return;
+    }
     setBatchFailed(failed);
     if (failed.length === 0) {
       setSelectedIdeas({});

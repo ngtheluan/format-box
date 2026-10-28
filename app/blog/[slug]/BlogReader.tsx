@@ -4,17 +4,31 @@ import { useEffect, useState } from "react";
 import {
   IconArrowDown,
   IconArrowUp,
+  IconArrowUpRight,
   IconBookmark,
   IconBookmarkFilled,
   IconBrandFacebook,
-  IconBrandX,
+  IconBrandInstagram,
+  IconBrandThreads,
+  IconAlertTriangle,
   IconCheck,
+  IconDots,
+  IconFlag,
   IconLetterA,
   IconLink,
+  IconPencil,
   IconPrinter,
+  IconThumbDown,
+  IconThumbUp,
+  IconUnlink,
 } from "@tabler/icons-react";
+import type { Icon } from "@tabler/icons-react";
+import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
-import type { TocItem } from "@/lib/blog";
+import type { BlogVotes, ReactionKind, TocItem } from "@/lib/blog";
+import type { Tool } from "@/lib/tools-shared";
+import { ToolIcon } from "@/lib/tool-icons";
+import { Button, Input, Modal, Textarea } from "@/components/ui";
 
 // Thin bar at the top of the viewport showing how far the article has been read.
 export function ReadingProgress() {
@@ -144,18 +158,36 @@ export function BlogToc({ toc, title }: { toc: TocItem[]; title?: string }) {
 export function ShareBar({ title, path }: { title: string; path: string }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
+  const [igOk, setIgOk] = useState(false);
   const url = () => (typeof window !== "undefined" ? window.location.origin + path : path);
 
   function open(href: string) {
     window.open(href, "_blank", "noopener,noreferrer,width=640,height=560");
   }
 
-  async function copy() {
+  async function copyLink(): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(url());
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function copy() {
+    if (await copyLink()) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
-    } catch {}
+    }
+  }
+
+  // Instagram has no web share intent, so copy the link for the user to paste
+  // (into a story, bio or DM) and open Instagram in a new tab.
+  async function shareInstagram() {
+    await copyLink();
+    setIgOk(true);
+    setTimeout(() => setIgOk(false), 1600);
+    open("https://www.instagram.com/");
   }
 
   return (
@@ -171,13 +203,22 @@ export function ShareBar({ title, path }: { title: string; path: string }) {
       </button>
       <button
         type="button"
-        onClick={() =>
-          open(`https://x.com/intent/post?url=${encodeURIComponent(url())}&text=${encodeURIComponent(title)}`)
-        }
-        title="X"
-        aria-label="X"
+        onClick={shareInstagram}
+        title={igOk ? t("blog_share_ig_copied") : "Instagram"}
+        aria-label="Instagram"
+        className={igOk ? "is-ok" : ""}
       >
-        <IconBrandX size={16} stroke={1.8} />
+        {igOk ? <IconCheck size={16} stroke={2} /> : <IconBrandInstagram size={16} stroke={1.8} />}
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          open(`https://www.threads.net/intent/post?text=${encodeURIComponent(`${title} ${url()}`)}`)
+        }
+        title="Threads"
+        aria-label="Threads"
+      >
+        <IconBrandThreads size={16} stroke={1.8} />
       </button>
       <button
         type="button"
@@ -189,6 +230,161 @@ export function ShareBar({ title, path }: { title: string; path: string }) {
         {copied ? <IconCheck size={16} stroke={2} /> : <IconLink size={16} stroke={1.8} />}
       </button>
     </div>
+  );
+}
+
+// "Báo lỗi bài viết" — a reader flags wrong info, a typo or a broken link. Reuses
+// the site's /api/feedback endpoint (kind "bug"), tagged with the article.
+const REPORT_TYPES: {
+  key: string;
+  labelKey: Parameters<ReturnType<typeof useI18n>["t"]>[0];
+  Icon: Icon;
+}[] = [
+  { key: "wrong", labelKey: "blog_report_type_wrong", Icon: IconAlertTriangle },
+  { key: "content", labelKey: "blog_report_type_spelling", Icon: IconPencil },
+  { key: "load", labelKey: "blog_report_type_broken", Icon: IconUnlink },
+  { key: "other", labelKey: "blog_report_type_other", Icon: IconDots },
+];
+
+export function ReportError({ slug, title }: { slug: string; title: string }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [note, setNote] = useState("");
+  const [contact, setContact] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
+  const [err, setErr] = useState("");
+
+  function reset() {
+    setPicked(new Set());
+    setNote("");
+    setContact("");
+    setStatus("idle");
+    setErr("");
+  }
+
+  function toggle(key: string) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    setErr("");
+  }
+
+  async function submit() {
+    if (picked.size === 0) {
+      setErr(t("blog_report_need_type"));
+      return;
+    }
+    setStatus("sending");
+    try {
+      const fd = new FormData();
+      fd.set("kind", "bug");
+      fd.set("errorTypes", Array.from(picked).join(","));
+      const base = `Bài viết: "${title}" (/blog/${slug})`;
+      fd.set("content", note.trim() ? `${base}\n${note.trim()}` : base);
+      fd.set("pageUrl", typeof window !== "undefined" ? window.location.href : `/blog/${slug}`);
+      if (contact.trim()) {
+        fd.set("contact", contact.trim());
+        fd.set("allowContact", "1");
+      }
+      const r = await fetch("/api/feedback", { method: "POST", body: fd });
+      if (!r.ok) throw new Error(String(r.status));
+      setStatus("ok");
+      setTimeout(() => {
+        setOpen(false);
+        reset();
+      }, 1600);
+    } catch {
+      setStatus("error");
+      setErr(t("blog_report_failed"));
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="bd-tools-btn"
+        onClick={() => setOpen(true)}
+        aria-label={t("blog_report")}
+        title={t("blog_report")}
+      >
+        <IconFlag size={14} stroke={1.8} />
+      </button>
+      <Modal
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          reset();
+        }}
+        title={t("blog_report")}
+        description={t("blog_report_desc")}
+        size="md"
+      >
+        {status === "ok" ? (
+          <div className="bd-report-ok">
+            <span className="bd-report-ok-ic" aria-hidden="true">
+              <IconCheck size={26} stroke={2.4} />
+            </span>
+            <p>{t("blog_report_thanks")}</p>
+          </div>
+        ) : (
+          <div className="bd-report">
+            <div className="bd-report-types" role="group" aria-label={t("blog_report")}>
+              {REPORT_TYPES.map((rt) => {
+                const on = picked.has(rt.key);
+                return (
+                  <button
+                    key={rt.key}
+                    type="button"
+                    className={`bd-report-type${on ? " is-on" : ""}`}
+                    onClick={() => toggle(rt.key)}
+                    aria-pressed={on}
+                  >
+                    <span className="bd-report-type-ic" aria-hidden="true">
+                      <rt.Icon size={17} stroke={1.8} />
+                    </span>
+                    <span className="bd-report-type-label">{t(rt.labelKey)}</span>
+                    <span className="bd-report-type-check" aria-hidden="true">
+                      <IconCheck size={13} stroke={2.6} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <Textarea
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t("blog_report_note_ph")}
+            />
+            <Input
+              type="email"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              placeholder={t("blog_report_contact_ph")}
+            />
+            {err && (
+              <p className="bd-report-err">
+                <IconAlertTriangle size={14} stroke={2} /> {err}
+              </p>
+            )}
+            <Button
+              variant="primary"
+              block
+              loading={status === "sending"}
+              onClick={submit}
+              leftIcon={<IconFlag size={15} stroke={1.9} />}
+            >
+              {status === "sending" ? t("blog_report_sending") : t("blog_report_submit")}
+            </Button>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }
 
@@ -334,12 +530,115 @@ export function ReaderTools({ slug, title, markdown }: { slug: string; title: st
       >
         <IconPrinter size={14} stroke={1.8} />
       </button>
+      <ReportError slug={slug} title={title} />
       {toast && (
         <span className="bd-tools-toast" role="status">
           {toast}
         </span>
       )}
     </div>
+  );
+}
+
+// "Bài viết có hữu ích không" — one vote per reader (deduped server-side by user
+// id / IP). Picking the other choice switches it; clicking the active one again
+// clears it. The server is authoritative; the click is applied optimistically.
+export function ArticleReaction({ slug, initial }: { slug: string; initial?: BlogVotes }) {
+  const { t } = useI18n();
+  const [v, setV] = useState<BlogVotes>(initial ?? { helpful: 0, unhelpful: 0, mine: null });
+
+  useEffect(() => {
+    // Reconcile with the server: ISR may have cached stale counts, and the
+    // reader's own previous choice isn't known until this runs.
+    fetch(`/api/blog/react?slug=${encodeURIComponent(slug)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d?.helpful === "number") setV({ helpful: d.helpful, unhelpful: d.unhelpful, mine: d.mine ?? null });
+      })
+      .catch(() => {});
+  }, [slug]);
+
+  async function vote(kind: ReactionKind) {
+    setV((prev) => {
+      const next = { ...prev };
+      if (prev.mine === kind) {
+        next[kind] = Math.max(0, prev[kind] - 1);
+        next.mine = null;
+      } else {
+        if (prev.mine) next[prev.mine] = Math.max(0, prev[prev.mine] - 1);
+        next[kind] = prev[kind] + 1;
+        next.mine = kind;
+      }
+      return next;
+    });
+    try {
+      const r = await fetch("/api/blog/react", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, kind }),
+      });
+      const d = await r.json();
+      if (typeof d?.helpful === "number") setV({ helpful: d.helpful, unhelpful: d.unhelpful, mine: d.mine ?? null });
+    } catch {}
+  }
+
+  return (
+    <div className="bd-react" aria-label={t("blog_helpful_q")}>
+      <span className="bd-react-q">{v.mine ? t("blog_helpful_thanks") : t("blog_helpful_q")}</span>
+      <div className="bd-react-btns">
+        <button
+          type="button"
+          className={`bd-react-btn${v.mine === "helpful" ? " is-on" : ""}`}
+          onClick={() => vote("helpful")}
+          aria-pressed={v.mine === "helpful"}
+          title={t("blog_helpful_yes")}
+        >
+          <IconThumbUp size={15} stroke={1.9} />
+          <span>{t("blog_helpful_yes")}</span>
+          {v.helpful > 0 && <i className="bd-react-n">{v.helpful}</i>}
+        </button>
+        <button
+          type="button"
+          className={`bd-react-btn${v.mine === "unhelpful" ? " is-on" : ""}`}
+          onClick={() => vote("unhelpful")}
+          aria-pressed={v.mine === "unhelpful"}
+          title={t("blog_helpful_no")}
+        >
+          <IconThumbDown size={15} stroke={1.9} />
+          <span>{t("blog_helpful_no")}</span>
+          {v.unhelpful > 0 && <i className="bd-react-n">{v.unhelpful}</i>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// In-article "Công cụ liên quan" — surfaces FormatBox tools that fit the post,
+// the one thing a standalone blog can't offer. Client-side for lang-aware copy.
+export function RelatedTools({ tools }: { tools: Tool[] }) {
+  const { t, lang } = useI18n();
+  if (!tools.length) return null;
+  return (
+    <section className="bd-tools-rel" aria-label={t("blog_related_tools")}>
+      <div className="bd-tools-rel-head">
+        <span className="bd-tools-rel-eyebrow">{t("blog_related_tools")}</span>
+        <span className="bd-tools-rel-sub">{t("blog_related_tools_sub")}</span>
+      </div>
+      <div className="bd-tools-rel-grid">
+        {tools.map((tool) => (
+          <Link key={tool.href} href={tool.href} prefetch={false} className="bd-tool-card">
+            <span className="bd-tool-ic" aria-hidden="true">
+              <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
+            </span>
+            <span className="bd-tool-text">
+              <strong>{tool.title}</strong>
+              <span className="bd-tool-desc">{tool.desc[lang]}</span>
+            </span>
+            <IconArrowUpRight size={15} stroke={2} className="bd-tool-arrow" />
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 

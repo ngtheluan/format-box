@@ -15,7 +15,6 @@ import {
   IconFingerprint,
   IconHash,
   IconLink,
-  IconPalette,
   IconRuler,
   IconSparkles,
   IconTable,
@@ -31,7 +30,6 @@ const HomeBlogSection = dynamic(() => import("@/components/HomeBlogSection"), { 
 const coming = [
   { Icon: IconLink, label: "URL Encode" },
   { Icon: IconHash, label: "HTML Entities" },
-  { Icon: IconPalette, label: "Color Converter" },
   { Icon: IconFingerprint, label: "Hash (MD5 / SHA)" },
   { Icon: IconClock, label: "Unix Timestamp" },
   { Icon: IconRuler, label: "CSS Units" },
