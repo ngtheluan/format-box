@@ -3,7 +3,15 @@ import { useToast } from "@/components/Toast";
 import { useToolsState } from "@/components/ToolsProvider";
 import { ADMIN_APPS } from "@/lib/admin-apps";
 import { TOOL_ICON_NAMES, TOOL_ICONS, ToolIcon } from "@/lib/tool-icons";
-import { CATEGORY_ORDER, type Tool, type ToolCategory } from "@/lib/tools-shared";
+import {
+  CATEGORY_ORDER,
+  emptyBilingual,
+  emptyBilingualFaqs,
+  emptyBilingualList,
+  type FaqItem,
+  type Tool,
+  type ToolCategory,
+} from "@/lib/tools-shared";
 import {
   IconApps,
   IconDatabase,
@@ -25,8 +33,6 @@ type Row = {
   href: string;
   icon_name: string;
   title: string;
-  sub_vi: string;
-  sub_en: string;
   desc_vi: string;
   desc_en: string;
   tags: string[] | null;
@@ -35,6 +41,15 @@ type Row = {
   active: boolean | null;
   visible_guest: boolean | null;
   visible_user: boolean | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_keywords: string[] | null;
+  intro_vi: string | null;
+  intro_en: string | null;
+  features_vi: string[] | null;
+  features_en: string[] | null;
+  faqs_vi: FaqItem[] | null;
+  faqs_en: FaqItem[] | null;
 };
 
 type FilterCat = "all" | ToolCategory;
@@ -43,12 +58,17 @@ const emptyTool: Tool = {
   href: "",
   iconName: "IconLock",
   title: "",
-  sub: { vi: "", en: "" },
   desc: { vi: "", en: "" },
   tags: [],
   category: "cat_dev",
   sort: 0,
   active: true,
+  seoTitle: "",
+  seoDescription: "",
+  seoKeywords: [],
+  intro: emptyBilingual(),
+  features: emptyBilingualList(),
+  faqs: emptyBilingualFaqs(),
 };
 
 const catLabels: Record<ToolCategory, string> = {
@@ -63,7 +83,6 @@ function rowToTool(r: Row): Tool {
     href: r.href,
     iconName: r.icon_name,
     title: r.title,
-    sub: { vi: r.sub_vi, en: r.sub_en },
     desc: { vi: r.desc_vi, en: r.desc_en },
     tags: r.tags ?? [],
     category: r.category,
@@ -71,6 +90,12 @@ function rowToTool(r: Row): Tool {
     active: r.active ?? true,
     visibleGuest: r.visible_guest ?? true,
     visibleUser: r.visible_user ?? true,
+    seoTitle: r.seo_title ?? "",
+    seoDescription: r.seo_description ?? "",
+    seoKeywords: r.seo_keywords ?? [],
+    intro: { vi: r.intro_vi ?? "", en: r.intro_en ?? "" },
+    features: { vi: r.features_vi ?? [], en: r.features_en ?? [] },
+    faqs: { vi: r.faqs_vi ?? [], en: r.faqs_en ?? [] },
   };
 }
 
@@ -211,6 +236,71 @@ function IconPicker({ value, onChange }: { value: string; onChange: (name: strin
   );
 }
 
+function FaqEditor({
+  lang,
+  items,
+  onChange,
+}: {
+  lang: "vi" | "en";
+  items: FaqItem[];
+  onChange: (next: FaqItem[]) => void;
+}) {
+  const update = (i: number, patch: Partial<FaqItem>) => {
+    const next = items.slice();
+    next[i] = { ...next[i], ...patch };
+    onChange(next);
+  };
+  const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
+  const add = () => onChange([...items, { q: "", a: "" }]);
+  return (
+    <div className="fx-field">
+      <label style={{ opacity: 0.8 }}>FAQs ({lang.toUpperCase()})</label>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {items.map((f, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              padding: 8,
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              background: "var(--bg2)",
+            }}
+          >
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input
+                value={f.q}
+                onChange={(e) => update(i, { q: e.target.value })}
+                placeholder={lang === "vi" ? "Câu hỏi…" : "Question…"}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="fx-btn fx-btn-icon fx-btn-danger"
+                onClick={() => remove(i)}
+                title="Xoá"
+              >
+                <IconTrash size={14} stroke={1.9} />
+              </button>
+            </div>
+            <textarea
+              value={f.a}
+              onChange={(e) => update(i, { a: e.target.value })}
+              placeholder={lang === "vi" ? "Trả lời…" : "Answer…"}
+              rows={2}
+            />
+          </div>
+        ))}
+        <button type="button" className="fx-btn" onClick={add} style={{ alignSelf: "flex-start" }}>
+          <IconPlus size={14} stroke={2.2} /> Thêm FAQ
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdminMenuSection() {
   const toast = useToast();
   const [vis, setVis] = useState<Record<string, boolean>>({});
@@ -310,6 +400,8 @@ function AdminMenuSection() {
   );
 }
 
+type EditTab = "basic" | "seo" | "intro" | "features" | "faqs";
+
 export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
@@ -317,6 +409,12 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [editTab, setEditTab] = useState<EditTab>("basic");
+
+  // Reset to the first tab whenever a new editor opens.
+  useEffect(() => {
+    if (editing) setEditTab("basic");
+  }, [editing?.href]);
   const [filter, setFilter] = useState<FilterCat>("all");
   const [statFilter, setStatFilter] = useState<"all" | "active" | "hidden">("all");
   const [q, setQ] = useState("");
@@ -662,7 +760,7 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
                     <b>{t.title}</b>
                     <span className="fx-t-href">{t.href}</span>
                   </div>
-                  <span className="fx-t-sub">{t.sub.vi}</span>
+                  <span className="fx-t-sub">{t.desc.vi}</span>
                 </div>
                 <div>
                   <span className="fx-cat-cell" data-cat={t.category}>
@@ -723,7 +821,7 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
             if (e.target === e.currentTarget) setEditing(null);
           }}
         >
-          <div className="fx-modal">
+          <div className="fx-modal fx-modal-wide">
             <div className="fx-modal-head">
               <h2>
                 {isNew ? (
@@ -737,91 +835,241 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
                 )}
                 <span className="fx-badge">{isNew ? "NEW" : "EDIT"}</span>
               </h2>
-              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setEditing(null)}>
-                <IconX size={16} stroke={2} />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 12,
+                    opacity: 0.85,
+                    cursor: "pointer",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={`fx-switch${(editing.active ?? true) ? " on" : ""}`}
+                    onClick={() => set("active", !(editing.active ?? true))}
+                  />
+                  <span>{(editing.active ?? true) ? "Hiện trong menu" : "Đang ẩn"}</span>
+                </label>
+                <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setEditing(null)}>
+                  <IconX size={16} stroke={2} />
+                </button>
+              </div>
             </div>
+
+            <div className="fx-modal-tabs">
+              {([
+                ["basic", "Thông tin cơ bản"],
+                ["seo", "SEO"],
+                ["intro", "Giới thiệu"],
+                ["features", "Tính năng"],
+                ["faqs", "FAQs"],
+              ] as [EditTab, string][]).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  className={`fx-modal-tab${editTab === k ? " on" : ""}`}
+                  onClick={() => setEditTab(k)}
+                >
+                  {label}
+                  {k === "features" && (editing.features?.vi?.length || editing.features?.en?.length) ? (
+                    <span className="fx-tab-count">
+                      {Math.max(editing.features?.vi?.length ?? 0, editing.features?.en?.length ?? 0)}
+                    </span>
+                  ) : null}
+                  {k === "faqs" && (editing.faqs?.vi?.length || editing.faqs?.en?.length) ? (
+                    <span className="fx-tab-count">
+                      {Math.max(editing.faqs?.vi?.length ?? 0, editing.faqs?.en?.length ?? 0)}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+
             <div className="fx-modal-body">
-              <div className="fx-grid2">
-                <div className="fx-field">
-                  <label>href *</label>
-                  <input
-                    value={editing.href}
-                    onChange={(e) => set("href", e.target.value)}
-                    disabled={!isNew}
-                    placeholder="/tool-path"
+              {editTab === "basic" && (
+                <>
+                  <div className="fx-grid2">
+                    <div className="fx-field">
+                      <label>href *</label>
+                      <input
+                        value={editing.href}
+                        onChange={(e) => set("href", e.target.value)}
+                        disabled={!isNew}
+                        placeholder="/tool-path"
+                      />
+                    </div>
+                    <div className="fx-field">
+                      <label>Title *</label>
+                      <input value={editing.title} onChange={(e) => set("title", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="fx-grid2">
+                    <div className="fx-field">
+                      <label>Icon</label>
+                      <IconPicker value={editing.iconName} onChange={(v) => set("iconName", v)} />
+                    </div>
+                    <div className="fx-field">
+                      <label>Category</label>
+                      <select
+                        value={editing.category}
+                        onChange={(e) => set("category", e.target.value as ToolCategory)}
+                      >
+                        {CATEGORY_ORDER.map((c) => (
+                          <option key={c} value={c}>
+                            {catLabels[c]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="fx-grid2">
+                    <div className="fx-field">
+                      <label>Mô tả ngắn (VI)</label>
+                      <textarea
+                        value={editing.desc.vi}
+                        onChange={(e) => set("desc", { ...editing.desc, vi: e.target.value })}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="fx-field">
+                      <label>Mô tả ngắn (EN)</label>
+                      <textarea
+                        value={editing.desc.en}
+                        onChange={(e) => set("desc", { ...editing.desc, en: e.target.value })}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <div className="fx-field">
+                    <label>Tags (phẩy phân cách)</label>
+                    <input
+                      value={editing.tags.join(", ")}
+                      onChange={(e) =>
+                        set(
+                          "tags",
+                          e.target.value
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        )
+                      }
+                    />
+                  </div>
+                </>
+              )}
+
+              {editTab === "seo" && (
+                <>
+                  <div className="fx-field">
+                    <label>SEO Title</label>
+                    <input
+                      value={editing.seoTitle ?? ""}
+                      onChange={(e) => set("seoTitle", e.target.value)}
+                      placeholder="Tool Online - Short Pitch | FormatBox"
+                    />
+                  </div>
+                  <div className="fx-field">
+                    <label>SEO Description</label>
+                    <textarea
+                      value={editing.seoDescription ?? ""}
+                      onChange={(e) => set("seoDescription", e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                  <div className="fx-field">
+                    <label>SEO Keywords (phẩy phân cách)</label>
+                    <textarea
+                      value={(editing.seoKeywords ?? []).join(", ")}
+                      onChange={(e) =>
+                        set(
+                          "seoKeywords",
+                          e.target.value
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        )
+                      }
+                      rows={2}
+                    />
+                  </div>
+                </>
+              )}
+
+              {editTab === "intro" && (
+                <div className="fx-grid2">
+                  <div className="fx-field">
+                    <label>Giới thiệu (VI)</label>
+                    <textarea
+                      value={editing.intro?.vi ?? ""}
+                      onChange={(e) => set("intro", { vi: e.target.value, en: editing.intro?.en ?? "" })}
+                      rows={14}
+                    />
+                  </div>
+                  <div className="fx-field">
+                    <label>Intro (EN)</label>
+                    <textarea
+                      value={editing.intro?.en ?? ""}
+                      onChange={(e) => set("intro", { vi: editing.intro?.vi ?? "", en: e.target.value })}
+                      rows={14}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {editTab === "features" && (
+                <>
+                  <div className="fx-hint">Mỗi dòng là 1 tính năng. Số dòng 2 cột không cần bằng nhau.</div>
+                  <div className="fx-grid2">
+                    <div className="fx-field">
+                      <label>Tính năng (VI)</label>
+                      <textarea
+                        value={(editing.features?.vi ?? []).join("\n")}
+                        onChange={(e) =>
+                          set("features", {
+                            vi: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                            en: editing.features?.en ?? [],
+                          })
+                        }
+                        rows={14}
+                        placeholder="Mỗi dòng 1 tính năng"
+                      />
+                    </div>
+                    <div className="fx-field">
+                      <label>Features (EN)</label>
+                      <textarea
+                        value={(editing.features?.en ?? []).join("\n")}
+                        onChange={(e) =>
+                          set("features", {
+                            vi: editing.features?.vi ?? [],
+                            en: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                          })
+                        }
+                        rows={14}
+                        placeholder="One feature per line"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {editTab === "faqs" && (
+                <div className="fx-grid2">
+                  <FaqEditor
+                    lang="vi"
+                    items={editing.faqs?.vi ?? []}
+                    onChange={(next) => set("faqs", { vi: next, en: editing.faqs?.en ?? [] })}
+                  />
+                  <FaqEditor
+                    lang="en"
+                    items={editing.faqs?.en ?? []}
+                    onChange={(next) => set("faqs", { vi: editing.faqs?.vi ?? [], en: next })}
                   />
                 </div>
-                <div className="fx-field">
-                  <label>Title *</label>
-                  <input value={editing.title} onChange={(e) => set("title", e.target.value)} />
-                </div>
-              </div>
-              <div className="fx-grid2">
-                <div className="fx-field">
-                  <label>Icon</label>
-                  <IconPicker value={editing.iconName} onChange={(v) => set("iconName", v)} />
-                </div>
-                <div className="fx-field">
-                  <label>Category</label>
-                  <select value={editing.category} onChange={(e) => set("category", e.target.value as ToolCategory)}>
-                    {CATEGORY_ORDER.map((c) => (
-                      <option key={c} value={c}>
-                        {catLabels[c]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="fx-grid2">
-                <div className="fx-field">
-                  <label>Sub (VI)</label>
-                  <input value={editing.sub.vi} onChange={(e) => set("sub", { ...editing.sub, vi: e.target.value })} />
-                </div>
-                <div className="fx-field">
-                  <label>Sub (EN)</label>
-                  <input value={editing.sub.en} onChange={(e) => set("sub", { ...editing.sub, en: e.target.value })} />
-                </div>
-              </div>
-              <div className="fx-field">
-                <label>Desc (VI)</label>
-                <textarea
-                  value={editing.desc.vi}
-                  onChange={(e) => set("desc", { ...editing.desc, vi: e.target.value })}
-                />
-              </div>
-              <div className="fx-field">
-                <label>Desc (EN)</label>
-                <textarea
-                  value={editing.desc.en}
-                  onChange={(e) => set("desc", { ...editing.desc, en: e.target.value })}
-                />
-              </div>
-              <div className="fx-field">
-                <label>Tags (phẩy phân cách)</label>
-                <input
-                  value={editing.tags.join(", ")}
-                  onChange={(e) =>
-                    set(
-                      "tags",
-                      e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    )
-                  }
-                />
-              </div>
-              <div className="fx-field" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <button
-                  type="button"
-                  className={`fx-switch${(editing.active ?? true) ? " on" : ""}`}
-                  onClick={() => set("active", !(editing.active ?? true))}
-                />
-                <span style={{ fontSize: 13 }}>
-                  {(editing.active ?? true) ? "Đang bật — hiện trong menu" : "Đang tắt — ẩn khỏi menu"}
-                </span>
-              </div>
+              )}
+
               {err && <div className="fx-err">{err}</div>}
             </div>
             <div className="fx-modal-foot">

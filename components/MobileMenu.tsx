@@ -96,7 +96,7 @@ export default function MobileMenu() {
                             </div>
                             <div className="mm-item-body">
                               <b>{tool.title}</b>
-                              <span>{tool.sub[lang]}</span>
+                              <span>{tool.desc[lang]}</span>
                             </div>
                           </Link>
                         );

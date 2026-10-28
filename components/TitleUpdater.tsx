@@ -2,11 +2,10 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useTools } from "@/components/ToolsProvider";
-import { TOOL_SEO } from "@/lib/seo-tools";
+import { SEO_SLUGS } from "@/lib/tools-shared";
 
 const BASE = "FormatBox";
 const HOME_TITLE = "FormatBox — Chuyển đổi dữ liệu ngay trên trình duyệt";
-const SEO_SLUGS = new Set(Object.values(TOOL_SEO).map((s) => s.slug));
 
 export default function TitleUpdater() {
   const pathname = usePathname();

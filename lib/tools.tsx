@@ -1,15 +1,16 @@
 import { unstable_cache } from "next/cache";
 import { supabase } from "./supabase";
-import type { Tool } from "./tools-shared";
+import type { BilingualFaqs, FaqItem, Tool } from "./tools-shared";
 
 export * from "./tools-shared";
+
+type JsonList = string[] | null;
+type JsonFaqs = FaqItem[] | null;
 
 type DbRow = {
   href: string;
   icon_name: string;
   title: string;
-  sub_vi: string;
-  sub_en: string;
   desc_vi: string;
   desc_en: string;
   tags: string[] | null;
@@ -18,14 +19,30 @@ type DbRow = {
   active: boolean | null;
   visible_guest: boolean | null;
   visible_user: boolean | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_keywords: string[] | null;
+  intro_vi: string | null;
+  intro_en: string | null;
+  features_vi: JsonList;
+  features_en: JsonList;
+  faqs_vi: JsonFaqs;
+  faqs_en: JsonFaqs;
 };
 
+function cleanFaqs(list: JsonFaqs): FaqItem[] {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((f) => ({ q: (f?.q ?? "").toString(), a: (f?.a ?? "").toString() }))
+    .filter((f) => f.q || f.a);
+}
+
 function rowToTool(r: DbRow): Tool {
+  const faqs: BilingualFaqs = { vi: cleanFaqs(r.faqs_vi), en: cleanFaqs(r.faqs_en) };
   return {
     href: r.href,
     iconName: r.icon_name,
     title: r.title,
-    sub: { vi: r.sub_vi, en: r.sub_en },
     desc: { vi: r.desc_vi, en: r.desc_en },
     tags: r.tags ?? [],
     category: r.category,
@@ -33,6 +50,12 @@ function rowToTool(r: DbRow): Tool {
     active: r.active ?? true,
     visibleGuest: r.visible_guest ?? true,
     visibleUser: r.visible_user ?? true,
+    seoTitle: r.seo_title ?? undefined,
+    seoDescription: r.seo_description ?? undefined,
+    seoKeywords: r.seo_keywords ?? undefined,
+    intro: { vi: r.intro_vi ?? "", en: r.intro_en ?? "" },
+    features: { vi: r.features_vi ?? [], en: r.features_en ?? [] },
+    faqs,
   };
 }
 
@@ -41,8 +64,6 @@ export function toolToRow(t: Tool): DbRow {
     href: t.href,
     icon_name: t.iconName,
     title: t.title,
-    sub_vi: t.sub.vi,
-    sub_en: t.sub.en,
     desc_vi: t.desc.vi,
     desc_en: t.desc.en,
     tags: t.tags,
@@ -51,6 +72,15 @@ export function toolToRow(t: Tool): DbRow {
     active: t.active ?? true,
     visible_guest: t.visibleGuest ?? true,
     visible_user: t.visibleUser ?? true,
+    seo_title: t.seoTitle ?? null,
+    seo_description: t.seoDescription ?? null,
+    seo_keywords: t.seoKeywords ?? null,
+    intro_vi: t.intro?.vi ?? null,
+    intro_en: t.intro?.en ?? null,
+    features_vi: t.features?.vi ?? null,
+    features_en: t.features?.en ?? null,
+    faqs_vi: t.faqs?.vi ?? null,
+    faqs_en: t.faqs?.en ?? null,
   };
 }
 

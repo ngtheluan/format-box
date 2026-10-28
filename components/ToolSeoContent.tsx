@@ -1,35 +1,70 @@
-import { TOOL_SEO, toolJsonLd } from "@/lib/seo-tools";
+"use client";
+import { useTools } from "@/components/ToolsProvider";
+import { useI18n } from "@/lib/i18n";
+import { toolBySlug, toolJsonLd } from "@/lib/tools-shared";
+import { IconCheck, IconHelpCircle, IconInfoCircle, IconSparkles } from "@tabler/icons-react";
 
-export function ToolSeoContent({ slug }: { slug: keyof typeof TOOL_SEO }) {
-  const s = TOOL_SEO[slug];
+export function ToolSeoContent({ slug }: { slug: string }) {
+  const { t, lang } = useI18n();
+  const tools = useTools();
+  const href = `/${slug.replace(/^\//, "")}`;
+  // Prefer the live DB tool (so admin edits apply); fall back to the seed data.
+  const tool = tools.find((x) => x.href === href) ?? toolBySlug(slug);
+  if (!tool) return null;
+
+  const intro = tool.intro?.[lang] ?? "";
+  const features = tool.features?.[lang] ?? [];
+  const faqs = tool.faqs?.[lang] ?? [];
   const ld = toolJsonLd(slug);
+
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }}
-      />
-      <section className="seo-content" style={{ marginTop: "2rem", maxWidth: "860px" }}>
-        <h2 style={{ fontSize: "1.25rem", marginBottom: "0.75rem" }}>Giới thiệu</h2>
-        <p style={{ opacity: 0.85, lineHeight: 1.65 }}>{s.intro}</p>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
+      <div className="seo-block">
+        {intro && (
+          <section className="seo-section">
+            <h2>
+              <IconInfoCircle size={14} stroke={2} />
+              {t("seo_intro")}
+            </h2>
+            <p className="seo-intro">{intro}</p>
+          </section>
+        )}
 
-        <h2 style={{ fontSize: "1.25rem", marginTop: "1.5rem", marginBottom: "0.75rem" }}>Tính năng chính</h2>
-        <ul style={{ lineHeight: 1.8, paddingLeft: "1.25rem", opacity: 0.9 }}>
-          {s.features.map((f) => (
-            <li key={f}>{f}</li>
-          ))}
-        </ul>
+        {features.length > 0 && (
+          <section className="seo-section">
+            <h2>
+              <IconSparkles size={14} stroke={2} />
+              {t("seo_features")}
+            </h2>
+            <ul className="seo-features">
+              {features.map((f) => (
+                <li key={f}>
+                  <IconCheck size={16} stroke={2.2} />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-        <h2 style={{ fontSize: "1.25rem", marginTop: "1.5rem", marginBottom: "0.75rem" }}>Câu hỏi thường gặp</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-          {s.faqs.map((f) => (
-            <details key={f.q} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "0.75rem 1rem" }}>
-              <summary style={{ cursor: "pointer", fontWeight: 600 }}>{f.q}</summary>
-              <p style={{ marginTop: "0.5rem", opacity: 0.85, lineHeight: 1.6 }}>{f.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
+        {faqs.length > 0 && (
+          <section className="seo-section">
+            <h2>
+              <IconHelpCircle size={14} stroke={2} />
+              {t("seo_faqs")}
+            </h2>
+            <div className="seo-faqs">
+              {faqs.map((f) => (
+                <details key={f.q} className="seo-faq">
+                  <summary>{f.q}</summary>
+                  <p className="seo-faq-body">{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
     </>
   );
 }

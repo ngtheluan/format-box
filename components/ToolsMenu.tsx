@@ -91,7 +91,7 @@ export default function ToolsMenu() {
                         </div>
                         <div className="nav-cat-item-text">
                           <b>{tool.title}</b>
-                          <span>{tool.sub[lang]}</span>
+                          <span>{tool.desc[lang]}</span>
                         </div>
                       </Link>
                     );

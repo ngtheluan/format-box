@@ -235,7 +235,6 @@ export default function Home() {
                   <span className="tool-arrow">→</span>
                 </div>
                 <h3>{tool.title}</h3>
-                <div className="tool-sub">{tool.sub[lang]}</div>
                 <p>{tool.desc[lang]}</p>
                 <div className="bc-tags">
                   {tool.tags.map((tag) => (

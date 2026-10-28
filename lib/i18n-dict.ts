@@ -1,6 +1,11 @@
 // Auto-split from i18n.tsx — plain data module, safe to import from server routes.
 
 export const DICT = {
+  // SEO SECTIONS
+  seo_intro: { vi: "Giới thiệu", en: "Introduction" },
+  seo_features: { vi: "Tính năng chính", en: "Key Features" },
+  seo_faqs: { vi: "Câu hỏi thường gặp", en: "FAQs" },
+
   // NAV / MENU
   nav_tools: { vi: "Công cụ", en: "Tools" },
   nav_blog: { vi: "Bài viết", en: "Blog" },

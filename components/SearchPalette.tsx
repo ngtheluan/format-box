@@ -24,7 +24,7 @@ function score(tool: Tool, q: string): number {
   if (tool.title.toLowerCase().startsWith(needle)) s += 8;
   else if (tool.title.toLowerCase().includes(needle)) s += 5;
   if (tool.tags.some((x) => x.toLowerCase() === needle)) s += 4;
-  if (tool.sub.en.toLowerCase().includes(needle) || tool.sub.vi.toLowerCase().includes(needle))
+  if (tool.desc.en.toLowerCase().includes(needle) || tool.desc.vi.toLowerCase().includes(needle))
     s += 2;
   return s;
 }
@@ -132,7 +132,7 @@ export default function SearchPalette() {
       </div>
       <div className="sp-item-body">
         <b>{tool.title}</b>
-        <span>{tool.sub[lang]}</span>
+        <span>{tool.desc[lang]}</span>
       </div>
       <span className="sp-item-path">{tool.href}</span>
     </button>

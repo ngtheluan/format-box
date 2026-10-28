@@ -1,6 +1,5 @@
-import { ToolHeader } from "@/components/ToolHeader";
 import { ToolSeoContent } from "@/components/ToolSeoContent";
-import { toolMetadata } from "@/lib/seo-tools";
+import { toolMetadata } from "@/lib/tools-shared";
 import CalendarTool from "./CalendarTool";
 
 export const metadata = toolMetadata("calendar");
@@ -8,7 +7,6 @@ export const metadata = toolMetadata("calendar");
 export default function Page() {
   return (
     <div className="page">
-      <ToolHeader href="/calendar" />
       <div className="tool-card">
         <CalendarTool />
       </div>
