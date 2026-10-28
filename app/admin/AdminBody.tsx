@@ -48,7 +48,11 @@ export default function AdminBody({
       />
 
       {stats && <div className="fx-stats">{stats}</div>}
-      {tabs && <div className="fx-tabs">{tabs}</div>}
+      {tabs && (
+        <div className="fx-tabs-wrap">
+          <div className="fx-tabs">{tabs}</div>
+        </div>
+      )}
 
       <div className="fx-body" style={bodyStyle}>
         {(title || description || titleActions) && (

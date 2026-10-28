@@ -14,11 +14,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     let alive = true;
     Promise.all([
-      fetch("/api/user/me").then((r) => r.json()).catch(() => null),
-      fetch("/api/admin/admin-menu").then((r) => r.json()).catch(() => null),
+      fetch("/api/user/me")
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch("/api/admin/admin-menu")
+        .then((r) => r.json())
+        .catch(() => null),
     ]).then(([me, menu]) => {
       if (!alive) return;
-      setRole(((me?.user?.role as Role) ?? "user"));
+      setRole((me?.user?.role as Role) ?? "user");
       setVisibility(menu?.ok ? (menu.visibility as Record<string, boolean>) : {});
     });
     return () => {
@@ -40,7 +44,7 @@ export default function AdminDashboard() {
     >
       <div className="fx-app-grid">
         {apps === null
-          ? Array.from({ length: 6 }).map((_, i) => (
+          ? Array.from({ length: 10 }).map((_, i) => (
               <div
                 key={i}
                 className="fx-card fx-app-card"
