@@ -143,6 +143,7 @@ export const config = {
     "/curl",
     "/exchange-currency",
     "/favicon-export",
+    "/format-sql",
     "/fuel",
     "/gold",
     "/graph",

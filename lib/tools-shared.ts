@@ -174,6 +174,65 @@ export const SEED_TOOLS: Tool[] = [
     },
   },
   {
+    href: "/format-sql",
+    iconName: "IconDatabase",
+    title: "SQL Formatter",
+    desc: {
+      vi: "Format, beautify, minify SQL. Hỗ trợ MySQL, PostgreSQL, SQLite, SQL Server, Oracle, BigQuery.",
+      en: "Format, beautify, minify SQL. Supports MySQL, PostgreSQL, SQLite, SQL Server, Oracle, BigQuery.",
+    },
+    tags: ["sql", "format", "beautify", "minify"],
+    category: "cat_dev",
+    seoTitle: "SQL Formatter Online - Beautify, Minify SQL Miễn Phí | FormatBox",
+    seoDescription:
+      "Công cụ format SQL online miễn phí: beautify, minify, uppercase keywords. Hỗ trợ MySQL, PostgreSQL, SQLite, SQL Server, Oracle, BigQuery, Redshift. Chạy 100% trên trình duyệt.",
+    seoKeywords: [
+      "sql formatter",
+      "format sql",
+      "sql beautifier",
+      "sql online",
+      "beautify sql",
+      "minify sql",
+      "mysql formatter",
+      "postgresql formatter",
+      "định dạng sql",
+    ],
+    intro: {
+      vi: "SQL Formatter giúp bạn format (làm đẹp) và minify (nén) câu truy vấn SQL ngay trên trình duyệt. Hỗ trợ nhiều dialect: MySQL, PostgreSQL, SQLite, SQL Server, Oracle (PL/SQL), BigQuery, Redshift, DB2. Dữ liệu không rời khỏi máy.",
+      en: "SQL Formatter beautifies and minifies SQL queries directly in your browser. Supports many dialects: MySQL, PostgreSQL, SQLite, SQL Server, Oracle (PL/SQL), BigQuery, Redshift, DB2. Your data never leaves your device.",
+    },
+    features: {
+      vi: [
+        "Format SQL với indent 2/4 spaces hoặc tab",
+        "Minify SQL (xóa khoảng trắng dư)",
+        "Uppercase/lowercase từ khoá",
+        "Hỗ trợ MySQL, PostgreSQL, SQLite, SQL Server, Oracle, BigQuery, Redshift",
+        "Copy, download, clear nhanh",
+        "Hoạt động 100% offline — bảo mật tuyệt đối",
+      ],
+      en: [
+        "Format SQL with 2/4 spaces or tab indent",
+        "Minify SQL (strip extra whitespace)",
+        "Uppercase/lowercase keywords",
+        "Supports MySQL, PostgreSQL, SQLite, SQL Server, Oracle, BigQuery, Redshift",
+        "One-click copy, download, clear",
+        "Works 100% offline — fully private",
+      ],
+    },
+    faqs: {
+      vi: [
+        { q: "SQL của tôi có bị gửi lên server không?", a: "Không. Toàn bộ xử lý diễn ra trong trình duyệt. Dữ liệu không rời khỏi máy bạn." },
+        { q: "Hỗ trợ những dialect SQL nào?", a: "MySQL, PostgreSQL, SQLite, SQL Server (Transact-SQL), Oracle (PL/SQL), BigQuery, Redshift, DB2, MariaDB, Snowflake, Trino, Hive, Spark." },
+        { q: "Có giới hạn độ dài query không?", a: "Không có giới hạn cứng. Query vài MB vẫn format mượt." },
+      ],
+      en: [
+        { q: "Is my SQL sent to any server?", a: "No. Everything runs in your browser; your data never leaves your device." },
+        { q: "Which SQL dialects are supported?", a: "MySQL, PostgreSQL, SQLite, SQL Server (Transact-SQL), Oracle (PL/SQL), BigQuery, Redshift, DB2, MariaDB, Snowflake, Trino, Hive, Spark." },
+        { q: "Is there a query length limit?", a: "No hard limit. Queries of several MB still format smoothly." },
+      ],
+    },
+  },
+  {
     href: "/graph",
     iconName: "IconChartDots3",
     title: "JSON Graph",
