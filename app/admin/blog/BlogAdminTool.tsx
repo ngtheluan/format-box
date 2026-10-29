@@ -17,12 +17,13 @@ import {
   AI_PROVIDER_LABEL,
   GEN_AUDIENCES,
   GEN_CTAS,
-  GEN_EXTRAS,
   GEN_IMAGE_STYLES,
   GEN_LENGTHS,
   GEN_REGIONS,
   GEN_STRUCTURES,
   GEN_TONES,
+  pickModelForStructure,
+  type AiPreference,
   type AiProvider,
   type GenAudience,
   type GenCta,
@@ -37,13 +38,17 @@ import {
   type ImageCandidate,
 } from "@/lib/blog-ai-shared";
 import {
+  IconAdjustmentsHorizontal,
   IconAlertTriangle,
   IconArrowsLeftRight,
   IconArticle,
+  IconBook,
   IconBrain,
   IconBulb,
   IconCategory,
+  IconChartBar,
   IconCheck,
+  IconChevronDown,
   IconCircleCheckFilled,
   IconCircleDashed,
   IconCircleDashedCheck,
@@ -71,6 +76,7 @@ import {
   IconPlus,
   IconRotateClockwise,
   IconSearch,
+  IconShieldCheck,
   IconSparkles,
   IconTarget,
   IconTextGrammar,
@@ -145,7 +151,13 @@ const STATUS_LABEL: Record<BlogStatus, string> = {
   published: "Phát hành",
 };
 
-export default function BlogAdminTool({ initialPosts, initialCategories, initialDidYouKnow, providers, isSuperAdmin = false }: Props) {
+export default function BlogAdminTool({
+  initialPosts,
+  initialCategories,
+  initialDidYouKnow,
+  providers,
+  isSuperAdmin = false,
+}: Props) {
   const toast = useToast();
   const router = useRouter();
   const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
@@ -359,7 +371,30 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
   const [genImageStyle, setGenImageStyle] = useState<GenImageStyle>("mixed");
   const [genFactCheck, setGenFactCheck] = useState(true);
   const [genInternalLinks, setGenInternalLinks] = useState(true);
-  const [genTab, setGenTab] = useState("content");
+  const [genAutoAi, setGenAutoAi] = useState(true);
+  const [genAiPref, setGenAiPref] = useState<AiPreference>("balanced");
+  const [genPreset, setGenPreset] = useState<string>("");
+  const [genTab, setGenTab] = useState("info");
+
+  // SEO
+  const [genLsi, setGenLsi] = useState("");
+  const [genMetaDesc, setGenMetaDesc] = useState(true);
+  const [genSchemaHint, setGenSchemaHint] = useState(true);
+  const [genRelatedTools, setGenRelatedTools] = useState<string[]>([]);
+
+  // Advanced style
+  const [genHumanize, setGenHumanize] = useState(true);
+  const [genCreativity, setGenCreativity] = useState<"safe" | "balanced" | "creative">("balanced");
+  const [genEEAT, setGenEEAT] = useState(true);
+  const [genOriginality, setGenOriginality] = useState(true);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggleCollapsed = (id: string) => setCollapsed((c) => ({ ...c, [id]: !c[id] }));
+
+  // Auto-pick model theo structure + preference khi genAutoAi bật.
+  const applyAutoAi = (structure: GenStructure, pref: AiPreference = genAiPref) => {
+    const picked = pickModelForStructure(structure, providers, pref);
+    if (picked) setGenModel(`${picked.provider}|${picked.modelId}`);
+  };
   const [topic, setTopic] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [genErr, setGenErr] = useState("");
@@ -369,6 +404,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
   const genAbortRef = useRef<AbortController | null>(null);
   const [ideas, setIdeas] = useState<{ title: string; angle: string }[]>([]);
   const [ideasLoading, setIdeasLoading] = useState(false);
+  const ideasAbortRef = useRef<AbortController | null>(null);
   const [selectedIdeas, setSelectedIdeas] = useState<Record<string, string>>({}); // title -> angle
   const [batchIdx, setBatchIdx] = useState(0);
   const [batchTotal, setBatchTotal] = useState(0);
@@ -451,7 +487,31 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
 
   async function generate(override?: { topic?: string; notes?: string }) {
     const t = (override?.topic ?? topic).trim();
-    const noteStr = override?.notes ?? genNotes;
+    const seoBits: string[] = [];
+    if (genLsi.trim()) seoBits.push(`LSI/related keywords: ${genLsi.trim()}`);
+    if (genMetaDesc) seoBits.push("Chèn meta description 150-160 ký tự tối ưu CTR ở đầu phần tóm tắt.");
+    if (genSchemaHint) seoBits.push("Bố cục theo schema.org tương ứng (H2/H3 rõ ràng, FAQ dùng câu hỏi/đáp án).");
+
+    const styleBits: string[] = [];
+    if (genHumanize)
+      styleBits.push("Giảm 'AI tells': tránh cụm sáo, chuyển tiếp máy móc; câu đa dạng, giọng tự nhiên.");
+    styleBits.push(
+      `Mức sáng tạo: ${{ safe: "an toàn, bám sát nguồn", balanced: "cân bằng, có góc nhìn riêng", creative: "sáng tạo, nhiều liên tưởng" }[genCreativity]}`,
+    );
+    if (genEEAT)
+      styleBits.push(
+        "Tăng E-E-A-T: trích dẫn nguồn uy tín, nêu kinh nghiệm thực chiến khi phù hợp, tránh khẳng định không có bằng chứng.",
+      );
+    if (genOriginality) styleBits.push("Ưu tiên nguyên bản: không copy nguyên văn nguồn, diễn giải và tổng hợp.");
+
+    const base = (override?.notes ?? genNotes).trim();
+    const noteStr = [
+      base,
+      seoBits.length ? `[SEO] ${seoBits.join(" ")}` : "",
+      styleBits.length ? `[STYLE] ${styleBits.join(" ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
     const useRandom = !t;
     const ac = new AbortController();
     genAbortRef.current = ac;
@@ -492,6 +552,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
           imageStyle: genImageStyle,
           factCheck: genFactCheck,
           internalLinks: genInternalLinks,
+          relatedTools: genRelatedTools,
         }),
       });
       if (!r.ok || !r.body) {
@@ -629,15 +690,38 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
     toast(`Đã sinh ${ok}/${items.length} bài${failed.length ? ` · ${failed.length} lỗi` : ""}`);
   }
 
+  const ideasPrevRef = useRef<{ ideas: typeof ideas; selected: typeof selectedIdeas } | null>(null);
+
+  function cancelSuggestIdeas() {
+    ideasAbortRef.current?.abort();
+    ideasAbortRef.current = null;
+    // Restore the snapshot taken before the aborted call.
+    const prev = ideasPrevRef.current;
+    if (prev) {
+      setIdeas(prev.ideas);
+      setSelectedIdeas(prev.selected);
+      ideasPrevRef.current = null;
+    }
+    setIdeasLoading(false);
+  }
+
   async function suggestIdeas(reroll = false) {
+    ideasAbortRef.current?.abort();
+    const ac = new AbortController();
+    ideasAbortRef.current = ac;
+    const existingTitles = posts.map((p) => p.title);
+    const exclude = reroll ? [...existingTitles, ...ideas.map((i) => i.title)] : existingTitles;
+    // Snapshot current state so cancel can restore it.
+    ideasPrevRef.current = { ideas, selected: selectedIdeas };
+    // Clear old data up front so the panel does not look stale while loading.
+    setIdeas([]);
+    if (reroll) setSelectedIdeas({});
     setIdeasLoading(true);
     setGenErr("");
     try {
-      // Always tra cứu web + loại trùng với mọi bài đang có (nháp + đã phát hành + từ chối).
-      const existingTitles = posts.map((p) => p.title);
-      const exclude = reroll ? [...existingTitles, ...ideas.map((i) => i.title)] : existingTitles;
       const r = await fetch("/api/blog/ideas", {
         method: "POST",
+        signal: ac.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           category: genCategory,
@@ -650,11 +734,15 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
       const j = await r.json();
       if (!r.ok) return setGenErr(j?.error || `Lỗi ${r.status}`);
       setIdeas(j.ideas || []);
-      if (reroll) setSelectedIdeas({});
+      ideasPrevRef.current = null;
     } catch (e: any) {
+      if (e?.name === "AbortError") return;
       setGenErr(e?.message || "Lỗi");
     } finally {
-      setIdeasLoading(false);
+      if (ideasAbortRef.current === ac) {
+        ideasAbortRef.current = null;
+        setIdeasLoading(false);
+      }
     }
   }
 
@@ -1121,10 +1209,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
         </div>
         {tab === "posts" ? (
           <div style={{ display: "flex", gap: 6 }}>
-            <button
-              onClick={() => setManualOpen(true)}
-              className={isSuperAdmin ? "fx-btn" : "fx-btn fx-btn-primary"}
-            >
+            <button onClick={() => setManualOpen(true)} className={isSuperAdmin ? "fx-btn" : "fx-btn fx-btn-primary"}>
               <IconWriting size={14} stroke={2.2} /> Soạn thủ công
             </button>
             {isSuperAdmin && (
@@ -1145,7 +1230,9 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
       </div>
 
       {tab === "images" ? (
-        isSuperAdmin ? <ImagesManager /> : null
+        isSuperAdmin ? (
+          <ImagesManager />
+        ) : null
       ) : tab === "knowledge" && isSuperAdmin ? (
         dyk.length === 0 ? (
           <div className="fx-empty">
@@ -1576,7 +1663,11 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                         className="bga-topic-input"
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && !genLoading && generate()}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" || genLoading) return;
+                          if (!topic.trim() && selectedCount === 0) return;
+                          generate();
+                        }}
                         placeholder={`Chủ đề bài viết… (để trống → AI tự chọn cho ${CAT_LABEL[genCategory] || genCategory})`}
                         leftIcon={
                           topic.trim() ? (
@@ -1604,252 +1695,153 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                           </div>
                         }
                       />
-                      <div className="bga-presets" title="Preset nhanh — nạp sẵn phong cách & cấu trúc">
-                        <span className="bga-presets-lbl">Preset:</span>
-                        {(
-                          [
-                            {
-                              id: "tutorial",
-                              label: "Hướng dẫn",
-                              ic: <IconWriting size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("tutorial");
-                                setGenStructure("howto");
-                                setGenAudience("intermediate");
-                                setGenLength("long");
-                                setGenExtras(["tldr", "code"]);
-                              },
-                            },
-                            {
-                              id: "review",
-                              label: "Review",
-                              ic: <IconPalette size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("analysis");
-                                setGenStructure("review");
-                                setGenAudience("mixed");
-                                setGenLength("medium");
-                                setGenExtras(["tldr", "faq"]);
-                              },
-                            },
-                            {
-                              id: "deepdive",
-                              label: "Phân tích sâu",
-                              ic: <IconBrain size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("expert");
-                                setGenStructure("deepdive");
-                                setGenAudience("expert");
-                                setGenLength("long");
-                                setGenExtras(["stats"]);
-                              },
-                            },
-                            {
-                              id: "news",
-                              label: "Tin xu hướng",
-                              ic: <IconWorldSearch size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("friendly");
-                                setGenStructure("news");
-                                setGenAudience("mixed");
-                                setGenLength("short");
-                                setGenExtras(["tldr", "stats"]);
-                                setGenResearch(true);
-                              },
-                            },
-                            {
-                              id: "listicle",
-                              label: "Top N",
-                              ic: <IconListNumbers size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("friendly");
-                                setGenStructure("listicle");
-                                setGenAudience("mixed");
-                                setGenLength("medium");
-                                setGenExtras(["tldr"]);
-                              },
-                            },
-                            {
-                              id: "comparison",
-                              label: "So sánh",
-                              ic: <IconArrowsLeftRight size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("analysis");
-                                setGenStructure("comparison");
-                                setGenAudience("intermediate");
-                                setGenLength("medium");
-                                setGenExtras(["tldr", "stats"]);
-                              },
-                            },
-                            {
-                              id: "seo",
-                              label: "Chuẩn SEO",
-                              ic: <IconSearch size={12} stroke={1.9} />,
-                              apply: () => {
-                                setGenTone("expert");
-                                setGenStructure("auto");
-                                setGenAudience("mixed");
-                                setGenLength("medium");
-                                setGenExtras(["tldr", "faq"]);
-                                setGenCta("newsletter");
-                                setGenInternalLinks(true);
-                              },
-                            },
-                          ] as const
-                        ).map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            className="bga-preset-btn"
-                            onClick={p.apply}
-                            title={`Preset: ${p.label}`}
-                          >
-                            {p.ic} {p.label}
-                          </button>
-                        ))}
-                      </div>
                     </div>
 
-                    {ideas.length > 0 && (
-                      <>
-                        <div className="bga-ideas bga-ideas-compact">
-                          {ideas.map((i) => {
-                            const on = i.title in selectedIdeas;
-                            return (
-                              <button
-                                key={i.title}
-                                type="button"
-                                className={on ? "is-on" : ""}
-                                onClick={() => {
-                                  setSelectedIdeas((prev) => {
-                                    const next = { ...prev };
-                                    if (on) delete next[i.title];
-                                    else next[i.title] = i.angle || "";
-                                    return next;
-                                  });
-                                }}
-                              >
-                                <b>{i.title}</b>
-                                {i.angle && <span>{i.angle}</span>}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="bga-ideas-foot">
-                          <span className="bga-ideas-count">
-                            {selectedCount > 0 ? (
-                              <>
-                                Đã chọn <b>{selectedCount}</b> / {ideas.length} bài
-                                <button type="button" className="bga-ideas-clear" onClick={() => setSelectedIdeas({})}>
-                                  Bỏ chọn
-                                </button>
-                              </>
-                            ) : (
-                              <>Chọn 1 hoặc nhiều để sinh hàng loạt</>
-                            )}
+                    {(ideasLoading || ideas.length > 0) && (
+                      <div className={`bga-opt-card${collapsed.ideas ? " is-collapsed" : ""}`}>
+                        <div className="bga-opt-card-head">
+                          <span className="bga-opt-card-ic">
+                            <IconBulb size={12} stroke={2} />
+                          </span>
+                          <b>Gợi ý chủ đề</b>
+                          <span className="bga-opt-card-dim">
+                            {ideasLoading
+                              ? "Đang lấy gợi ý…"
+                              : selectedCount > 0
+                                ? `Đã chọn ${selectedCount}/${ideas.length}`
+                                : "Chọn 1 hoặc nhiều để sinh hàng loạt"}
                           </span>
                           <button
                             type="button"
-                            className="bga-ideas-reroll"
-                            onClick={() => suggestIdeas(true)}
-                            disabled={ideasLoading}
-                            title="Lấy 6 gợi ý khác"
+                            className="bga-opt-card-collapse"
+                            onClick={() => toggleCollapsed("ideas")}
+                            title={collapsed.ideas ? "Mở rộng" : "Thu gọn"}
+                            aria-label={collapsed.ideas ? "Mở rộng" : "Thu gọn"}
                           >
-                            {ideasLoading ? (
-                              <IconLoader2 size={12} className="spin" />
-                            ) : (
-                              <IconRotateClockwise size={12} stroke={2} />
-                            )}
-                            Đổi gợi ý khác
+                            <IconChevronDown size={13} stroke={2} />
+                          </button>
+                          <button
+                            type="button"
+                            className="bga-opt-card-close"
+                            onClick={() => {
+                              if (ideasLoading) cancelSuggestIdeas();
+                              setIdeas([]);
+                              setSelectedIdeas({});
+                              ideasPrevRef.current = null;
+                            }}
+                            title="Đóng gợi ý chủ đề"
+                            aria-label="Đóng gợi ý chủ đề"
+                          >
+                            <IconX size={13} stroke={2} />
                           </button>
                         </div>
-                      </>
+                        <div className="bga-opt-card-body">
+                          {ideasLoading ? (
+                            <div className="bga-ideas bga-ideas-compact">
+                              {Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="bga-idea-skel" />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="bga-ideas bga-ideas-compact">
+                              {ideas.map((i) => {
+                                const on = i.title in selectedIdeas;
+                                return (
+                                  <button
+                                    key={i.title}
+                                    type="button"
+                                    className={on ? "is-on" : ""}
+                                    onClick={() => {
+                                      setSelectedIdeas((prev) => {
+                                        const next = { ...prev };
+                                        if (on) delete next[i.title];
+                                        else next[i.title] = i.angle || "";
+                                        return next;
+                                      });
+                                    }}
+                                  >
+                                    <b>{i.title}</b>
+                                    {i.angle && <span>{i.angle}</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                          <div className="bga-ideas-foot">
+                            <span className="bga-ideas-count">
+                              {selectedCount > 0 && !ideasLoading ? (
+                                <button type="button" className="bga-ideas-clear" onClick={() => setSelectedIdeas({})}>
+                                  Bỏ chọn tất cả
+                                </button>
+                              ) : null}
+                            </span>
+                            {ideasLoading ? (
+                              <button
+                                type="button"
+                                className="bga-ideas-reroll"
+                                onClick={cancelSuggestIdeas}
+                                title="Huỷ gọi API lấy gợi ý"
+                              >
+                                <IconX size={12} stroke={2} />
+                                Huỷ
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="bga-ideas-reroll"
+                                onClick={() => suggestIdeas(true)}
+                                title="Lấy 6 gợi ý khác"
+                              >
+                                <IconRotateClockwise size={12} stroke={2} />
+                                Đổi gợi ý khác
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )}
 
-                    {/* TABS — Nội dung / Phong cách / AI & Nâng cao */}
+                    {/* TABS — Nội dung / Phong cách / SEO / Nâng cao */}
                     <Tabs value={genTab} onValueChange={setGenTab} variant="segment">
                       <TabsList>
-                        <Tab value="content">
-                          <IconArticle size={13} stroke={1.9} /> Nội dung
+                        <Tab value="info">
+                          <IconArticle size={13} stroke={1.9} /> Thông tin
                         </Tab>
                         <Tab value="style">
                           <IconPalette size={13} stroke={1.9} /> Phong cách
                         </Tab>
+                        <Tab value="seo">
+                          <IconChartBar size={13} stroke={1.9} /> SEO
+                        </Tab>
                         <Tab value="advanced">
-                          <IconBrain size={13} stroke={1.9} /> AI & Nâng cao
+                          <IconBrain size={13} stroke={1.9} /> Nâng cao
+                        </Tab>
+                        <Tab value="sources">
+                          <IconLink size={13} stroke={1.9} /> Nguồn
                         </Tab>
                       </TabsList>
 
-                      <TabPanel value="content">
-                        <div className="bga-grid-dense">
-                          <Field
-                            label={
-                              <>
-                                <IconLayoutList size={11} stroke={1.9} /> Danh mục
-                              </>
-                            }
-                          >
-                            <Select
-                              value={genCategory}
-                              onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
-                              options={CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c }))}
-                              selectSize="sm"
-                            />
-                          </Field>
-                          <Field label="Độ dài">
-                            <div className="bga-seg bga-seg-sm">
-                              {GEN_LENGTHS.map((l) => (
-                                <button
-                                  key={l.id}
-                                  type="button"
-                                  className={genLength === l.id ? "is-on" : ""}
-                                  onClick={() => setGenLength(l.id)}
-                                  title={`${l.words} từ · ${l.sections} section`}
-                                >
-                                  {l.label}
-                                </button>
-                              ))}
-                            </div>
-                          </Field>
-                          <Field
-                            label={
-                              <>
-                                <IconPhoto size={11} stroke={1.9} /> Số ảnh
-                              </>
-                            }
-                          >
-                            <div className="bga-seg bga-seg-sm">
-                              {[0, 1, 2, 3, 4].map((n) => (
-                                <button
-                                  key={n}
-                                  type="button"
-                                  className={genImages === n ? "is-on" : ""}
-                                  onClick={() => setGenImages(n)}
-                                >
-                                  {n}
-                                </button>
-                              ))}
-                            </div>
-                          </Field>
-                        </div>
-
-                        <div className="bga-opt-card">
+                      <TabPanel value="seo">
+                        <div className={`bga-opt-card${collapsed.seoKw ? " is-collapsed" : ""}`}>
                           <div className="bga-opt-card-head">
                             <span className="bga-opt-card-ic">
                               <IconSearch size={12} stroke={2} />
                             </span>
-                            <b>SEO &amp; bố cục</b>
-                            <span className="bga-opt-card-dim">Từ khoá, phần phụ, yêu cầu riêng</span>
+                            <b>Từ khoá</b>
+                            <span className="bga-opt-card-dim">Mục tiêu xếp hạng</span>
+                            <button
+                              type="button"
+                              className="bga-opt-card-collapse"
+                              onClick={() => toggleCollapsed("seoKw")}
+                              title={collapsed.seoKw ? "Mở rộng" : "Thu gọn"}
+                              aria-label="Thu gọn"
+                            >
+                              <IconChevronDown size={13} stroke={2} />
+                            </button>
                           </div>
                           <div className="bga-opt-card-body">
-                            <div className="bga-inline-row">
-                              <Field
-                                label={
-                                  <>
-                                    <IconSearch size={11} stroke={1.9} /> Từ khoá SEO
-                                  </>
-                                }
-                              >
+                            <div className="bga-grid-dense">
+                              <Field label="Từ khoá chính (focus keyword)">
                                 <Input
                                   value={genSeoKeyword}
                                   onChange={(e) => setGenSeoKeyword(e.target.value)}
@@ -1857,27 +1849,312 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                                   inputSize="sm"
                                 />
                               </Field>
-                              <Field label="Phần phụ">
-                                <div className="bga-chips">
-                                  {GEN_EXTRAS.map((x) => {
-                                    const on = genExtras.includes(x.id);
-                                    return (
-                                      <button
-                                        key={x.id}
-                                        type="button"
-                                        className={`bga-chip${on ? " is-on" : ""}`}
-                                        onClick={() =>
-                                          setGenExtras((prev) =>
-                                            on ? prev.filter((e) => e !== x.id) : [...prev, x.id],
-                                          )
-                                        }
-                                        title={x.hint}
-                                      >
-                                        {on ? <IconCheck size={11} stroke={2.4} /> : <IconPlus size={11} stroke={2} />}
-                                        {x.label}
-                                      </button>
-                                    );
-                                  })}
+                              <Field label="Từ khoá liên quan (LSI, cách bằng dấu phẩy)">
+                                <Input
+                                  value={genLsi}
+                                  onChange={(e) => setGenLsi(e.target.value)}
+                                  placeholder="webgl, three.js, canvas, gpu rendering"
+                                  inputSize="sm"
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className={`bga-opt-card${collapsed.seoTech ? " is-collapsed" : ""}`}>
+                          <div className="bga-opt-card-head">
+                            <span className="bga-opt-card-ic">
+                              <IconChartBar size={12} stroke={2} />
+                            </span>
+                            <b>Tối ưu kỹ thuật</b>
+                            <span className="bga-opt-card-dim">Meta, schema & liên kết</span>
+                            <button
+                              type="button"
+                              className="bga-opt-card-collapse"
+                              onClick={() => toggleCollapsed("seoTech")}
+                              title={collapsed.seoTech ? "Mở rộng" : "Thu gọn"}
+                              aria-label="Thu gọn"
+                            >
+                              <IconChevronDown size={13} stroke={2} />
+                            </button>
+                          </div>
+                          <div className="bga-opt-card-body">
+                            <div className="bga-toggles">
+                              <label className="bga-toggle-card" title="Chèn meta description 150-160 ký tự tối ưu CTR">
+                                <Switch checked={genMetaDesc} onChange={(e) => setGenMetaDesc(e.target.checked)} />
+                                <div className="bga-toggle-text">
+                                  <b>
+                                    <IconTextGrammar size={12} stroke={1.9} /> Meta description
+                                  </b>
+                                  <span>Mô tả 150-160 ký tự, chứa focus keyword, viral CTR</span>
+                                </div>
+                              </label>
+                              <label
+                                className="bga-toggle-card"
+                                title="Bố cục khớp schema.org (FAQPage, HowTo, Article…)"
+                              >
+                                <Switch checked={genSchemaHint} onChange={(e) => setGenSchemaHint(e.target.checked)} />
+                                <div className="bga-toggle-text">
+                                  <b>
+                                    <IconBook size={12} stroke={1.9} /> Schema-friendly
+                                  </b>
+                                  <span>H2/H3 rõ ràng, FAQ dạng Q/A — dễ snippet</span>
+                                </div>
+                              </label>
+                              <label
+                                className="bga-toggle-card"
+                                title="Chèn mục Đọc thêm với bài đã xuất bản liên quan"
+                              >
+                                <Switch
+                                  checked={genInternalLinks}
+                                  onChange={(e) => setGenInternalLinks(e.target.checked)}
+                                />
+                                <div className="bga-toggle-text">
+                                  <b>
+                                    <IconLink size={12} stroke={1.9} /> Liên kết nội bộ
+                                  </b>
+                                  <span>Chèn &quot;Đọc thêm&quot; — tăng dwell time</span>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </TabPanel>
+
+                      <TabPanel value="info">
+                        <div className={`bga-opt-card${collapsed.tongquat ? " is-collapsed" : ""}`}>
+                          <div className="bga-opt-card-head">
+                            <span className="bga-opt-card-ic">
+                              <IconSparkles size={12} stroke={2} />
+                            </span>
+                            <b>Tổng quát</b>
+                            <span className="bga-opt-card-dim">Cơ bản, preset &amp; cấu hình bài</span>
+                            <button
+                              type="button"
+                              className="bga-opt-card-collapse"
+                              onClick={() => toggleCollapsed("tongquat")}
+                              title={collapsed.tongquat ? "Mở rộng" : "Thu gọn"}
+                              aria-label={collapsed.tongquat ? "Mở rộng" : "Thu gọn"}
+                            >
+                              <IconChevronDown size={13} stroke={2} />
+                            </button>
+                          </div>
+                          <div className="bga-opt-card-body">
+                            <div className="bga-presets" title="Preset nhanh — nạp sẵn phong cách & cấu trúc">
+                              <span className="bga-presets-lbl">Preset:</span>
+                              {(
+                                [
+                                  {
+                                    id: "tutorial",
+                                    label: "Hướng dẫn",
+                                    ic: <IconWriting size={12} stroke={1.9} />,
+                                    apply: () => {
+                                      setGenTone("tutorial");
+                                      setGenStructure("howto");
+                                      setGenAudience("intermediate");
+                                      setGenLength("long");
+                                      setGenExtras(["tldr", "code", "checklist"]);
+                                      setGenRegion("vn");
+                                      setGenImageStyle("mixed");
+                                      setGenCta("readmore");
+                                      if (genAutoAi) applyAutoAi("howto");
+                                    },
+                                  },
+                                  {
+                                    id: "review",
+                                    label: "Review",
+                                    ic: <IconPalette size={12} stroke={1.9} />,
+                                    apply: () => {
+                                      setGenTone("analysis");
+                                      setGenStructure("review");
+                                      setGenAudience("mixed");
+                                      setGenLength("medium");
+                                      setGenExtras(["tldr", "faq", "takeaway"]);
+                                      setGenRegion("vn");
+                                      setGenImageStyle("photo");
+                                      setGenCta("comment");
+                                      if (genAutoAi) applyAutoAi("review");
+                                    },
+                                  },
+                                  {
+                                    id: "deepdive",
+                                    label: "Phân tích sâu",
+                                    ic: <IconBrain size={12} stroke={1.9} />,
+                                    apply: () => {
+                                      setGenTone("expert");
+                                      setGenStructure("deepdive");
+                                      setGenAudience("expert");
+                                      setGenLength("long");
+                                      setGenExtras(["stats", "takeaway", "glossary"]);
+                                      setGenRegion("global");
+                                      setGenImageStyle("illustration");
+                                      setGenCta("readmore");
+                                      if (genAutoAi) applyAutoAi("deepdive");
+                                    },
+                                  },
+                                  {
+                                    id: "news",
+                                    label: "Tin xu hướng",
+                                    ic: <IconWorldSearch size={12} stroke={1.9} />,
+                                    apply: () => {
+                                      setGenTone("friendly");
+                                      setGenStructure("news");
+                                      setGenAudience("mixed");
+                                      setGenLength("short");
+                                      setGenExtras(["tldr", "stats"]);
+                                      setGenRegion("global");
+                                      setGenImageStyle("photo");
+                                      setGenCta("share");
+                                      setGenResearch(true);
+                                      if (genAutoAi) applyAutoAi("news");
+                                    },
+                                  },
+                                  {
+                                    id: "listicle",
+                                    label: "Top N",
+                                    ic: <IconListNumbers size={12} stroke={1.9} />,
+                                    apply: () => {
+                                      setGenTone("friendly");
+                                      setGenStructure("listicle");
+                                      setGenAudience("mixed");
+                                      setGenLength("medium");
+                                      setGenExtras(["tldr", "example"]);
+                                      setGenRegion("vn");
+                                      setGenImageStyle("mixed");
+                                      setGenCta("share");
+                                      if (genAutoAi) applyAutoAi("listicle");
+                                    },
+                                  },
+                                  {
+                                    id: "comparison",
+                                    label: "So sánh",
+                                    ic: <IconArrowsLeftRight size={12} stroke={1.9} />,
+                                    apply: () => {
+                                      setGenTone("analysis");
+                                      setGenStructure("comparison");
+                                      setGenAudience("intermediate");
+                                      setGenLength("medium");
+                                      setGenExtras(["tldr", "stats", "takeaway"]);
+                                      setGenRegion("global");
+                                      setGenImageStyle("mixed");
+                                      setGenCta("comment");
+                                      if (genAutoAi) applyAutoAi("comparison");
+                                    },
+                                  },
+                                  {
+                                    id: "explainer",
+                                    label: "Giải thích",
+                                    ic: <IconBulb size={12} stroke={1.9} />,
+                                    apply: () => {
+                                      setGenTone("friendly");
+                                      setGenStructure("explainer");
+                                      setGenAudience("beginner");
+                                      setGenLength("medium");
+                                      setGenExtras(["tldr", "glossary", "example"]);
+                                      setGenRegion("vn");
+                                      setGenImageStyle("illustration");
+                                      setGenCta("readmore");
+                                      if (genAutoAi) applyAutoAi("explainer");
+                                    },
+                                  },
+                                  {
+                                    id: "story",
+                                    label: "Kể chuyện",
+                                    ic: <IconMessageCircle size={12} stroke={1.9} />,
+                                    apply: () => {
+                                      setGenTone("story");
+                                      setGenStructure("explainer");
+                                      setGenAudience("mixed");
+                                      setGenLength("medium");
+                                      setGenExtras(["tldr", "quote"]);
+                                      setGenRegion("vn");
+                                      setGenImageStyle("photo");
+                                      setGenCta("comment");
+                                      if (genAutoAi) applyAutoAi("explainer");
+                                    },
+                                  },
+                                  {
+                                    id: "seo",
+                                    label: "Chuẩn SEO",
+                                    ic: <IconSearch size={12} stroke={1.9} />,
+                                    apply: () => {
+                                      setGenTone("expert");
+                                      setGenStructure("auto");
+                                      setGenAudience("mixed");
+                                      setGenLength("medium");
+                                      setGenExtras(["tldr", "faq", "takeaway"]);
+                                      setGenRegion("vn");
+                                      setGenImageStyle("mixed");
+                                      setGenCta("newsletter");
+                                      setGenInternalLinks(true);
+                                      if (genAutoAi) applyAutoAi("auto");
+                                    },
+                                  },
+                                ] as const
+                              ).map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  className={`bga-preset-btn${genPreset === p.id ? " is-on" : ""}`}
+                                  onClick={() => {
+                                    p.apply();
+                                    setGenPreset(p.id);
+                                  }}
+                                  title={`Preset: ${p.label}`}
+                                >
+                                  {p.ic} {p.label}
+                                </button>
+                              ))}
+                            </div>
+
+                            <div className="bga-grid-dense">
+                              <Field
+                                label={
+                                  <>
+                                    <IconLayoutList size={11} stroke={1.9} /> Danh mục
+                                  </>
+                                }
+                              >
+                                <Select
+                                  value={genCategory}
+                                  onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
+                                  options={CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c }))}
+                                  selectSize="sm"
+                                />
+                              </Field>
+                              <Field label="Độ dài">
+                                <div className="bga-seg bga-seg-sm">
+                                  {GEN_LENGTHS.map((l) => (
+                                    <button
+                                      key={l.id}
+                                      type="button"
+                                      className={genLength === l.id ? "is-on" : ""}
+                                      onClick={() => setGenLength(l.id)}
+                                      title={`${l.words} từ · ${l.sections} section`}
+                                    >
+                                      {l.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </Field>
+                              <Field
+                                label={
+                                  <>
+                                    <IconPhoto size={11} stroke={1.9} /> Số ảnh
+                                  </>
+                                }
+                              >
+                                <div className="bga-seg bga-seg-sm">
+                                  {[0, 1, 2, 3, 4].map((n) => (
+                                    <button
+                                      key={n}
+                                      type="button"
+                                      className={genImages === n ? "is-on" : ""}
+                                      onClick={() => setGenImages(n)}
+                                    >
+                                      {n}
+                                    </button>
+                                  ))}
                                 </div>
                               </Field>
                             </div>
@@ -1888,166 +2165,367 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                                   <IconMessageCircle size={11} stroke={1.9} /> Yêu cầu thêm (tuỳ chọn)
                                 </>
                               }
+                              hint="Brief riêng cho bài: ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
                             >
                               <Textarea
-                                rows={2}
+                                rows={1}
                                 value={genNotes}
                                 onChange={(e) => setGenNotes(e.target.value)}
                                 placeholder="Ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
-                                autoGrow
                               />
                             </Field>
+
+                          </div>
+                        </div>
+                      </TabPanel>
+
+                      <TabPanel value="sources">
+                        <div className="bga-opt-card">
+                          <div className="bga-opt-card-head">
+                            <span className="bga-opt-card-ic">
+                              <IconLink size={12} stroke={2} />
+                            </span>
+                            <b>Công cụ liên quan (tuỳ chọn)</b>
+                            <span className="bga-opt-card-dim">Chèn block ở cuối bài</span>
+                          </div>
+                          <div className="bga-opt-card-body">
+                            <RelatedToolsPicker
+                              value={genRelatedTools}
+                              onChange={setGenRelatedTools}
+                              title={topic}
+                            />
                           </div>
                         </div>
                       </TabPanel>
 
                       <TabPanel value="style">
-                        <div className="bga-grid-dense">
-                          <Field
-                            label={
-                              <>
-                                <IconMicrophone size={11} stroke={1.9} /> Giọng văn
-                              </>
-                            }
-                            hint={GEN_TONES.find((t) => t.id === genTone)?.hint}
-                          >
-                            <Select
-                              value={genTone}
-                              onChange={(e) => setGenTone(e.target.value as GenTone)}
-                              options={GEN_TONES.map((t) => ({ value: t.id, label: t.label }))}
-                              selectSize="sm"
-                            />
-                          </Field>
-                          <Field
-                            label={
-                              <>
-                                <IconUsers size={11} stroke={1.9} /> Đối tượng
-                              </>
-                            }
-                            hint={GEN_AUDIENCES.find((a) => a.id === genAudience)?.hint}
-                          >
-                            <Select
-                              value={genAudience}
-                              onChange={(e) => setGenAudience(e.target.value as GenAudience)}
-                              options={GEN_AUDIENCES.map((a) => ({ value: a.id, label: a.label }))}
-                              selectSize="sm"
-                            />
-                          </Field>
-                          <Field
-                            label={
-                              <>
-                                <IconArticle size={11} stroke={1.9} /> Cấu trúc
-                              </>
-                            }
-                            hint={GEN_STRUCTURES.find((s) => s.id === genStructure)?.hint}
-                          >
-                            <Select
-                              value={genStructure}
-                              onChange={(e) => setGenStructure(e.target.value as GenStructure)}
-                              options={GEN_STRUCTURES.map((s) => ({ value: s.id, label: s.label }))}
-                              selectSize="sm"
-                            />
-                          </Field>
-                          <Field
-                            label={
-                              <>
-                                <IconTarget size={11} stroke={1.9} /> Vùng mục tiêu
-                              </>
-                            }
-                            hint={GEN_REGIONS.find((r) => r.id === genRegion)?.hint}
-                          >
-                            <Select
-                              value={genRegion}
-                              onChange={(e) => setGenRegion(e.target.value as GenRegion)}
-                              options={GEN_REGIONS.map((r) => ({ value: r.id, label: r.label }))}
-                              selectSize="sm"
-                            />
-                          </Field>
-                          <Field
-                            label={
-                              <>
-                                <IconMessageCircle size={11} stroke={1.9} /> Call-to-action
-                              </>
-                            }
-                            hint={GEN_CTAS.find((c) => c.id === genCta)?.hint}
-                          >
-                            <Select
-                              value={genCta}
-                              onChange={(e) => setGenCta(e.target.value as GenCta)}
-                              options={GEN_CTAS.map((c) => ({ value: c.id, label: c.label }))}
-                              selectSize="sm"
-                            />
-                          </Field>
-                          <Field
-                            label={
-                              <>
-                                <IconPhoto size={11} stroke={1.9} /> Phong cách ảnh
-                              </>
-                            }
-                            hint={GEN_IMAGE_STYLES.find((s) => s.id === genImageStyle)?.hint}
-                          >
-                            <Select
-                              value={genImageStyle}
-                              onChange={(e) => setGenImageStyle(e.target.value as GenImageStyle)}
-                              options={GEN_IMAGE_STYLES.map((s) => ({ value: s.id, label: s.label }))}
-                              selectSize="sm"
-                            />
-                          </Field>
+                        <div className={`bga-opt-card${collapsed.styleTone ? " is-collapsed" : ""}`}>
+                          <div className="bga-opt-card-head">
+                            <span className="bga-opt-card-ic">
+                              <IconMicrophone size={12} stroke={2} />
+                            </span>
+                            <b>Giọng &amp; đối tượng</b>
+                            <span className="bga-opt-card-dim">Cách viết, dành cho ai</span>
+                            <button
+                              type="button"
+                              className="bga-opt-card-collapse"
+                              onClick={() => toggleCollapsed("styleTone")}
+                              title={collapsed.styleTone ? "Mở rộng" : "Thu gọn"}
+                              aria-label="Thu gọn"
+                            >
+                              <IconChevronDown size={13} stroke={2} />
+                            </button>
+                          </div>
+                          <div className="bga-opt-card-body">
+                            <div className="bga-grid-dense">
+                              <Field
+                                label={
+                                  <>
+                                    <IconMicrophone size={11} stroke={1.9} /> Giọng văn
+                                  </>
+                                }
+                                hint={GEN_TONES.find((t) => t.id === genTone)?.hint}
+                              >
+                                <Select
+                                  value={genTone}
+                                  onChange={(e) => setGenTone(e.target.value as GenTone)}
+                                  options={GEN_TONES.map((t) => ({ value: t.id, label: t.label }))}
+                                  selectSize="sm"
+                                />
+                              </Field>
+                              <Field
+                                label={
+                                  <>
+                                    <IconUsers size={11} stroke={1.9} /> Đối tượng
+                                  </>
+                                }
+                                hint={GEN_AUDIENCES.find((a) => a.id === genAudience)?.hint}
+                              >
+                                <Select
+                                  value={genAudience}
+                                  onChange={(e) => setGenAudience(e.target.value as GenAudience)}
+                                  options={GEN_AUDIENCES.map((a) => ({ value: a.id, label: a.label }))}
+                                  selectSize="sm"
+                                />
+                              </Field>
+                              <Field
+                                label={
+                                  <>
+                                    <IconTarget size={11} stroke={1.9} /> Vùng mục tiêu
+                                  </>
+                                }
+                                hint={GEN_REGIONS.find((r) => r.id === genRegion)?.hint}
+                              >
+                                <Select
+                                  value={genRegion}
+                                  onChange={(e) => setGenRegion(e.target.value as GenRegion)}
+                                  options={GEN_REGIONS.map((r) => ({ value: r.id, label: r.label }))}
+                                  selectSize="sm"
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className={`bga-opt-card${collapsed.styleStruct ? " is-collapsed" : ""}`}>
+                          <div className="bga-opt-card-head">
+                            <span className="bga-opt-card-ic">
+                              <IconArticle size={12} stroke={2} />
+                            </span>
+                            <b>Cấu trúc &amp; phân phối</b>
+                            <span className="bga-opt-card-dim">Khung bài, CTA, ảnh minh hoạ</span>
+                            <button
+                              type="button"
+                              className="bga-opt-card-collapse"
+                              onClick={() => toggleCollapsed("styleStruct")}
+                              title={collapsed.styleStruct ? "Mở rộng" : "Thu gọn"}
+                              aria-label="Thu gọn"
+                            >
+                              <IconChevronDown size={13} stroke={2} />
+                            </button>
+                          </div>
+                          <div className="bga-opt-card-body">
+                            <div className="bga-grid-dense">
+                              <Field
+                                label={
+                                  <>
+                                    <IconArticle size={11} stroke={1.9} /> Cấu trúc
+                                  </>
+                                }
+                                hint={GEN_STRUCTURES.find((s) => s.id === genStructure)?.hint}
+                              >
+                                <Select
+                                  value={genStructure}
+                                  onChange={(e) => setGenStructure(e.target.value as GenStructure)}
+                                  options={GEN_STRUCTURES.map((s) => ({ value: s.id, label: s.label }))}
+                                  selectSize="sm"
+                                />
+                              </Field>
+                              <Field
+                                label={
+                                  <>
+                                    <IconMessageCircle size={11} stroke={1.9} /> Call-to-action
+                                  </>
+                                }
+                                hint={GEN_CTAS.find((c) => c.id === genCta)?.hint}
+                              >
+                                <Select
+                                  value={genCta}
+                                  onChange={(e) => setGenCta(e.target.value as GenCta)}
+                                  options={GEN_CTAS.map((c) => ({ value: c.id, label: c.label }))}
+                                  selectSize="sm"
+                                />
+                              </Field>
+                              <Field
+                                label={
+                                  <>
+                                    <IconPhoto size={11} stroke={1.9} /> Phong cách ảnh
+                                  </>
+                                }
+                                hint={GEN_IMAGE_STYLES.find((s) => s.id === genImageStyle)?.hint}
+                              >
+                                <Select
+                                  value={genImageStyle}
+                                  onChange={(e) => setGenImageStyle(e.target.value as GenImageStyle)}
+                                  options={GEN_IMAGE_STYLES.map((s) => ({ value: s.id, label: s.label }))}
+                                  selectSize="sm"
+                                />
+                              </Field>
+                            </div>
+                          </div>
                         </div>
                       </TabPanel>
 
                       <TabPanel value="advanced">
-                        <div className="bga-ai-bar">
-                          <IconBrain size={14} stroke={1.9} className="bga-ai-ic" />
-                          <Select
-                            value={genModel}
-                            onChange={(e) => setGenModel(e.target.value)}
-                            className="bga-ai-model"
-                            selectSize="sm"
-                            options={(Object.keys(AI_MODELS) as AiProvider[]).flatMap<SelectOption>((p) =>
-                              AI_MODELS[p].map((m) => ({
-                                value: `${p}|${m.id}`,
-                                label: `${AI_PROVIDER_LABEL[p]} · ${m.label}${m.search ? " · web" : ""}${providers[p] ? "" : " (chưa có key)"}`,
-                                disabled: !providers[p],
-                              })),
-                            )}
-                          />
+                        <div className={`bga-opt-card${collapsed.advAi ? " is-collapsed" : ""}`}>
+                          <div className="bga-opt-card-head">
+                            <span className="bga-opt-card-ic">
+                              <IconBrain size={12} stroke={2} />
+                            </span>
+                            <b>Chọn AI</b>
+                            <span className="bga-opt-card-dim">
+                              {genAutoAi ? "Tự chọn theo cấu trúc" : "Chọn thủ công"}
+                            </span>
+                            <button
+                              type="button"
+                              className="bga-opt-card-collapse"
+                              onClick={() => toggleCollapsed("advAi")}
+                              title={collapsed.advAi ? "Mở rộng" : "Thu gọn"}
+                              aria-label="Thu gọn"
+                            >
+                              <IconChevronDown size={13} stroke={2} />
+                            </button>
+                          </div>
+                          <div className="bga-opt-card-body">
+                            <label
+                              className="bga-toggle-card"
+                              title="AI tự chọn theo cấu trúc bài & độ ưu tiên; model cụ thể sẽ hiện ở bước sinh bài"
+                            >
+                              <Switch
+                                checked={genAutoAi}
+                                onChange={(e) => {
+                                  const on = e.target.checked;
+                                  setGenAutoAi(on);
+                                  if (on) applyAutoAi(genStructure);
+                                }}
+                              />
+                              <div className="bga-toggle-text">
+                                <b>
+                                  <IconSparkles size={12} stroke={1.9} /> AI tự chọn theo cấu trúc
+                                </b>
+                                <span>Model cuối cùng dùng sẽ hiện ở bước &ldquo;Viết bài&rdquo;.</span>
+                              </div>
+                            </label>
+                            <div style={{ marginTop: 8 }} />
+                            <Field label={genAutoAi ? "Độ ưu tiên" : "Model AI"}>
+                              {genAutoAi ? (
+                                <Select
+                                  value={genAiPref}
+                                  onChange={(e) => {
+                                    const pref = e.target.value as AiPreference;
+                                    setGenAiPref(pref);
+                                    applyAutoAi(genStructure, pref);
+                                  }}
+                                  selectSize="sm"
+                                  options={[
+                                    { value: "balanced", label: "Cân bằng — AI khớp cấu trúc bài" },
+                                    { value: "quality", label: "Chất lượng — ưu tiên model mạnh (tech/analysis)" },
+                                    { value: "speed", label: "Tốc độ — ưu tiên model nhanh" },
+                                  ]}
+                                />
+                              ) : (
+                                <Select
+                                  value={genModel}
+                                  onChange={(e) => setGenModel(e.target.value)}
+                                  selectSize="sm"
+                                  options={(Object.keys(AI_MODELS) as AiProvider[]).flatMap<SelectOption>((p) =>
+                                    AI_MODELS[p].map((m) => ({
+                                      value: `${p}|${m.id}`,
+                                      label: `${AI_PROVIDER_LABEL[p]} · ${m.label}${m.search ? " · web" : ""}${providers[p] ? "" : " (chưa có key)"}`,
+                                      disabled: !providers[p],
+                                    })),
+                                  )}
+                                />
+                              )}
+                            </Field>
+                          </div>
                         </div>
 
-                        <div className="bga-toggles">
-                          <label className="bga-toggle-card" title="Tra cứu web trước khi viết để có dữ kiện mới">
-                            <Switch checked={genResearch} onChange={(e) => setGenResearch(e.target.checked)} />
-                            <div className="bga-toggle-text">
-                              <b>
-                                <IconWorldSearch size={12} stroke={1.9} /> Tra cứu web
-                              </b>
-                              <span>Dữ kiện mới, kèm nguồn tham khảo trong bài</span>
+                        <div className={`bga-opt-card${collapsed.advQuality ? " is-collapsed" : ""}`}>
+                          <div className="bga-opt-card-head">
+                            <span className="bga-opt-card-ic">
+                              <IconAdjustmentsHorizontal size={12} stroke={2} />
+                            </span>
+                            <b>Chất lượng nội dung</b>
+                            <span className="bga-opt-card-dim">E-E-A-T, humanize, sáng tạo</span>
+                            <button
+                              type="button"
+                              className="bga-opt-card-collapse"
+                              onClick={() => toggleCollapsed("advQuality")}
+                              title={collapsed.advQuality ? "Mở rộng" : "Thu gọn"}
+                              aria-label="Thu gọn"
+                            >
+                              <IconChevronDown size={13} stroke={2} />
+                            </button>
+                          </div>
+                          <div className="bga-opt-card-body">
+                            <Field label="Mức sáng tạo" hint="Cân bằng độ bám nguồn và góc nhìn riêng">
+                              <div className="bga-seg bga-seg-sm">
+                                {(
+                                  [
+                                    { v: "safe", l: "An toàn" },
+                                    { v: "balanced", l: "Cân bằng" },
+                                    { v: "creative", l: "Sáng tạo" },
+                                  ] as const
+                                ).map((o) => (
+                                  <button
+                                    key={o.v}
+                                    type="button"
+                                    className={genCreativity === o.v ? "is-on" : ""}
+                                    onClick={() => setGenCreativity(o.v)}
+                                  >
+                                    {o.l}
+                                  </button>
+                                ))}
+                              </div>
+                            </Field>
+                            <div className="bga-toggles" style={{ marginTop: 8 }}>
+                              <label className="bga-toggle-card" title="Giảm giọng máy, câu đa dạng, tự nhiên hơn">
+                                <Switch checked={genHumanize} onChange={(e) => setGenHumanize(e.target.checked)} />
+                                <div className="bga-toggle-text">
+                                  <b>
+                                    <IconWand size={12} stroke={1.9} /> Humanize
+                                  </b>
+                                  <span>Giảm &ldquo;AI tells&rdquo; — tự nhiên, đa dạng câu</span>
+                                </div>
+                              </label>
+                              <label
+                                className="bga-toggle-card"
+                                title="E-E-A-T: kinh nghiệm, chuyên môn, uy tín, đáng tin"
+                              >
+                                <Switch checked={genEEAT} onChange={(e) => setGenEEAT(e.target.checked)} />
+                                <div className="bga-toggle-text">
+                                  <b>
+                                    <IconShieldCheck size={12} stroke={1.9} /> E-E-A-T boost
+                                  </b>
+                                  <span>Trích dẫn uy tín, giọng chuyên gia có bằng chứng</span>
+                                </div>
+                              </label>
+                              <label className="bga-toggle-card" title="Diễn giải lại thay vì copy nguyên văn nguồn">
+                                <Switch
+                                  checked={genOriginality}
+                                  onChange={(e) => setGenOriginality(e.target.checked)}
+                                />
+                                <div className="bga-toggle-text">
+                                  <b>
+                                    <IconSparkles size={12} stroke={1.9} /> Nguyên bản
+                                  </b>
+                                  <span>Tổng hợp &amp; diễn giải — tránh trùng nguồn</span>
+                                </div>
+                              </label>
                             </div>
-                          </label>
-                          <label className="bga-toggle-card" title="AI thứ hai rà lại bài, bỏ/làm mềm câu nghi bịa">
-                            <Switch checked={genFactCheck} onChange={(e) => setGenFactCheck(e.target.checked)} />
-                            <div className="bga-toggle-text">
-                              <b>
-                                <IconCircleCheckFilled size={12} /> Kiểm chứng dữ kiện
-                              </b>
-                              <span>Pass 2: AI bắt lỗi hallucination (chậm hơn ~15s)</span>
+                          </div>
+                        </div>
+
+                        <div className={`bga-opt-card${collapsed.advFlow ? " is-collapsed" : ""}`}>
+                          <div className="bga-opt-card-head">
+                            <span className="bga-opt-card-ic">
+                              <IconCircleCheckFilled size={12} />
+                            </span>
+                            <b>Quy trình</b>
+                            <span className="bga-opt-card-dim">Research & kiểm chứng</span>
+                            <button
+                              type="button"
+                              className="bga-opt-card-collapse"
+                              onClick={() => toggleCollapsed("advFlow")}
+                              title={collapsed.advFlow ? "Mở rộng" : "Thu gọn"}
+                              aria-label="Thu gọn"
+                            >
+                              <IconChevronDown size={13} stroke={2} />
+                            </button>
+                          </div>
+                          <div className="bga-opt-card-body">
+                            <div className="bga-toggles">
+                              <label className="bga-toggle-card" title="Tra cứu web trước khi viết để có dữ kiện mới">
+                                <Switch checked={genResearch} onChange={(e) => setGenResearch(e.target.checked)} />
+                                <div className="bga-toggle-text">
+                                  <b>
+                                    <IconWorldSearch size={12} stroke={1.9} /> Tra cứu web
+                                  </b>
+                                  <span>Dữ kiện mới, kèm nguồn tham khảo</span>
+                                </div>
+                              </label>
+                              <label className="bga-toggle-card" title="AI thứ hai rà lại bài, bỏ/làm mềm câu nghi bịa">
+                                <Switch checked={genFactCheck} onChange={(e) => setGenFactCheck(e.target.checked)} />
+                                <div className="bga-toggle-text">
+                                  <b>
+                                    <IconCircleCheckFilled size={12} /> Kiểm chứng dữ kiện
+                                  </b>
+                                  <span>Pass 2: bắt hallucination (chậm hơn ~15s)</span>
+                                </div>
+                              </label>
                             </div>
-                          </label>
-                          <label
-                            className="bga-toggle-card"
-                            title="Chèn mục Đọc thêm với 2-4 bài đã xuất bản liên quan"
-                          >
-                            <Switch
-                              checked={genInternalLinks}
-                              onChange={(e) => setGenInternalLinks(e.target.checked)}
-                            />
-                            <div className="bga-toggle-text">
-                              <b>
-                                <IconLink size={12} stroke={1.9} /> Liên kết nội bộ
-                              </b>
-                              <span>Chèn &quot;Đọc thêm&quot; đến bài liên quan — tốt cho SEO</span>
-                            </div>
-                          </label>
+                          </div>
                         </div>
                       </TabPanel>
                     </Tabs>
@@ -2136,6 +2614,8 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                   )}
                   <button
                     className="fx-btn fx-btn-primary"
+                    disabled={!topic.trim() && selectedCount === 0}
+                    title={!topic.trim() && selectedCount === 0 ? "Nhập chủ đề hoặc chọn ít nhất 1 gợi ý" : undefined}
                     onClick={() => {
                       setGenSteps({});
                       setGenErr("");
@@ -2145,11 +2625,7 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                     }}
                   >
                     <IconSparkles size={14} />
-                    {selectedCount > 1
-                      ? `Sinh ${selectedCount} bài`
-                      : selectedCount === 1 || topic.trim()
-                        ? "Sinh bài AI"
-                        : "AI chọn & sinh"}
+                    {selectedCount > 1 ? `Sinh ${selectedCount} bài` : "Sinh bài AI"}
                   </button>
                 </>
               )}
@@ -2273,7 +2749,10 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
                     value={editing.relatedTools}
                     onChange={(next) => setEditing((cur) => (cur ? { ...cur, relatedTools: next } : cur))}
                     title={editing.title}
-                    tags={editing.tags.split(",").map((s) => s.trim()).filter(Boolean)}
+                    tags={editing.tags
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)}
                   />
                 </Field>
                 <Field label="Slug">
@@ -2366,9 +2845,13 @@ export default function BlogAdminTool({ initialPosts, initialCategories, initial
               )}
             </div>
             <div className="fx-modal-foot">
-              <Link href={`/blog/${editing.slug}`} target="_blank" className="fx-btn" style={{ marginRight: "auto" }}>
-                <IconExternalLink size={14} /> Xem bài
-              </Link>
+              {editing.status === "published" ? (
+                <Link href={`/blog/${editing.slug}`} target="_blank" className="fx-btn" style={{ marginRight: "auto" }}>
+                  <IconExternalLink size={14} /> Xem bài
+                </Link>
+              ) : (
+                <span style={{ marginRight: "auto" }} />
+              )}
               {editing.status === "published" ? (
                 <>
                   {isSuperAdmin && (

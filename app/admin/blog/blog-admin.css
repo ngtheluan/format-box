@@ -86,6 +86,22 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
+.bga-idea-skel {
+  height: 36px;
+  border-radius: 9px;
+  background: linear-gradient(90deg, var(--bg2) 0%, var(--bg3) 50%, var(--bg2) 100%);
+  background-size: 200% 100%;
+  animation: bga-skel 1.1s ease-in-out infinite;
+  border: 1px solid var(--border);
+}
+@keyframes bga-skel {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
 @media (max-width: 640px) {
   .bga-ideas {
     grid-template-columns: 1fr;
@@ -973,7 +989,10 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -981,6 +1000,18 @@
   color: var(--fx-accent, #7565f6);
   border-color: color-mix(in srgb, var(--fx-accent, #7565f6) 55%, transparent);
   background: color-mix(in srgb, var(--fx-accent, #7565f6) 8%, var(--bg2));
+}
+.bga-preset-btn {
+  font-weight: 500;
+}
+.bga-preset-btn.is-on {
+  color: #fff;
+  border-color: var(--fx-accent, #7565f6);
+  background: var(--fx-accent, #7565f6);
+}
+.bga-preset-btn.is-on:hover {
+  color: #fff;
+  background: color-mix(in srgb, var(--fx-accent, #7565f6) 88%, #000);
 }
 
 @media (max-width: 520px) {
@@ -1054,6 +1085,54 @@
   border-radius: 6px;
   box-shadow: 0 2px 6px -1px color-mix(in srgb, var(--fx-accent, #7565f6) 50%, transparent);
 }
+.bga-opt-card.is-collapsed .bga-opt-card-body {
+  display: none;
+}
+.bga-opt-card-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg2);
+  color: var(--dim);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s,
+    transform 0.2s;
+}
+.bga-opt-card-collapse:hover {
+  color: var(--fx-accent, #7565f6);
+  border-color: color-mix(in srgb, var(--fx-accent, #7565f6) 55%, transparent);
+  background: color-mix(in srgb, var(--fx-accent, #7565f6) 10%, var(--bg2));
+}
+.bga-opt-card.is-collapsed .bga-opt-card-collapse {
+  transform: rotate(-90deg);
+}
+.bga-opt-card-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg2);
+  color: var(--dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bga-opt-card-close:hover {
+  color: var(--err, #e5484d);
+  border-color: color-mix(in srgb, var(--err, #e5484d) 55%, transparent);
+  background: color-mix(in srgb, var(--err, #e5484d) 10%, var(--bg2));
+}
 .bga-opt-card-dim {
   margin-left: auto;
   font-size: 11px;
@@ -1076,9 +1155,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px 12px;
-  padding: 12px;
   background: var(--bg2);
-  border: 1px solid var(--border);
   border-radius: 10px;
 }
 .bga-grid-dense .ui-field {
@@ -1759,7 +1836,9 @@
   color: var(--text);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 .bga-reltools-opt:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));

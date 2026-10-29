@@ -5,12 +5,23 @@ import {
   listAdminCategories,
   listAdminPosts,
   slugify,
+  updatePost,
   withCoverCredit,
   wordCount,
   type BlogCategory,
   type BlogPost,
 } from "@/lib/blog";
-import { callLlm, imageCaption, isAsciiQuery, parseJsonLoose, pickImages, researchTopic, toQuery, translatePhotoQueriesBatch, type ImageSlot } from "@/lib/blog-ai";
+import {
+  callLlm,
+  imageCaption,
+  isAsciiQuery,
+  parseJsonLoose,
+  pickImages,
+  researchTopic,
+  toQuery,
+  translatePhotoQueriesBatch,
+  type ImageSlot,
+} from "@/lib/blog-ai";
 import {
   AI_MODELS,
   GEN_AUDIENCES,
@@ -59,6 +70,7 @@ type Body = {
   imageStyle?: GenImageStyle;
   factCheck?: boolean;
   internalLinks?: boolean;
+  relatedTools?: string[];
 };
 
 export async function POST(req: Request) {
@@ -74,13 +86,18 @@ export async function POST(req: Request) {
   const audience = GEN_AUDIENCES.find((a) => a.id === body.audience) || GEN_AUDIENCES[1];
   const structure = GEN_STRUCTURES.find((s) => s.id === body.structure) || GEN_STRUCTURES[0];
   const seoKeyword = (body.seoKeyword || "").toString().trim().slice(0, 120);
-  const extraIds = new Set((Array.isArray(body.extras) ? body.extras : []).filter((e) => GEN_EXTRAS.some((g) => g.id === e)));
+  const extraIds = new Set(
+    (Array.isArray(body.extras) ? body.extras : []).filter((e) => GEN_EXTRAS.some((g) => g.id === e)),
+  );
   const extras = GEN_EXTRAS.filter((e) => extraIds.has(e.id));
   const cta = GEN_CTAS.find((c) => c.id === body.cta) || GEN_CTAS[0];
   const region = GEN_REGIONS.find((r) => r.id === body.region) || GEN_REGIONS[0];
   const imageStyle = GEN_IMAGE_STYLES.find((s) => s.id === body.imageStyle) || GEN_IMAGE_STYLES[2];
   const factCheck = !!body.factCheck;
   const internalLinks = !!body.internalLinks;
+  const relatedTools = Array.isArray(body.relatedTools)
+    ? body.relatedTools.map((h) => String(h)).slice(0, 6)
+    : [];
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -88,7 +105,9 @@ export async function POST(req: Request) {
       let closed = false;
       const send = (e: GenEvent) => {
         if (closed) return;
-        try { controller.enqueue(encoder.encode(JSON.stringify(e) + "\n")); } catch {}
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(e) + "\n"));
+        } catch {}
       };
       // Heartbeat every 10s keeps the HTTP connection alive during long LLM calls
       // (fetch failed on proxy idle timeout is the usual culprit).
@@ -159,7 +178,9 @@ export async function POST(req: Request) {
             ? `Từ khoá SEO chính: "${seoKeyword}" — xuất hiện tự nhiên ở title, hook, ít nhất 2 heading con và 2–3 lần trong thân bài; không nhồi.`
             : null,
           `Vùng mục tiêu: ${region.label} — ${region.hint}.`,
-          cta.id !== "none" ? `Call-to-action cuối bài (sau "## Kết luận"): ${cta.label} — ${cta.hint}. 1–2 câu, không hô khẩu hiệu.` : null,
+          cta.id !== "none"
+            ? `Call-to-action cuối bài (sau "## Kết luận"): ${cta.label} — ${cta.hint}. 1–2 câu, không hô khẩu hiệu.`
+            : null,
           extras.length
             ? `Phần phụ bắt buộc:\n${extras
                 .map((e) => {
@@ -181,7 +202,7 @@ export async function POST(req: Request) {
                     case "quote":
                       return "- Chèn 1–2 blockquote `>` trích lời chuyên gia hoặc nguồn uy tín, kèm tên người/nguồn ở dòng dưới. Chỉ dùng câu nói có thể kiểm chứng, không bịa.";
                     case "warning":
-                      return '- Có ít nhất 1 callout dạng `> ⚠️ **Lưu ý:** ...` cảnh báo lỗi phổ biến, cạm bẫy hoặc điểm người đọc hay bỏ sót.';
+                      return "- Có ít nhất 1 callout dạng `> ⚠️ **Lưu ý:** ...` cảnh báo lỗi phổ biến, cạm bẫy hoặc điểm người đọc hay bỏ sót.";
                     case "glossary":
                       return '- Trước "## Kết luận", thêm "## Thuật ngữ" định nghĩa 3–6 từ chuyên môn xuất hiện trong bài theo dạng **Term** — nghĩa ngắn 1 câu.';
                     default:
@@ -208,7 +229,10 @@ export async function POST(req: Request) {
         });
         send({ type: "step", step: "write", status: "done", detail: `${written.provider} · ${written.model}` });
 
-        const trimmed = written.text.replace(/^```[a-z]*\s*/i, "").replace(/```\s*$/, "").trim();
+        const trimmed = written.text
+          .replace(/^```[a-z]*\s*/i, "")
+          .replace(/```\s*$/, "")
+          .trim();
         const metaMatch = trimmed.match(/META\s*=\s*(\{[^\n]*\})\s*\n/);
         if (!metaMatch) throw new Error("AI không trả dòng META hợp lệ — thử lại hoặc đổi model");
         const meta = parseJsonLoose<{
@@ -224,7 +248,10 @@ export async function POST(req: Request) {
         }>(metaMatch[1]);
         if (!meta?.title) throw new Error("META không parse được");
         const metaTitle = meta.title;
-        let md = trimmed.slice((metaMatch.index ?? 0) + metaMatch[0].length).trim().replace(/^#\s+.+\n+/, "");
+        let md = trimmed
+          .slice((metaMatch.index ?? 0) + metaMatch[0].length)
+          .trim()
+          .replace(/^#\s+.+\n+/, "");
         if (md.length < 400) throw new Error("Nội dung bài quá ngắn");
 
         const finalCat =
@@ -271,7 +298,7 @@ export async function POST(req: Request) {
               type: "step",
               step: "factcheck",
               status: "skip",
-              detail: "Tắt — bật trong AI & Nâng cao",
+              detail: "Tắt — bật trong Nâng cao",
             }),
             Promise.resolve(null));
 
@@ -318,14 +345,19 @@ export async function POST(req: Request) {
         const slots: ImageSlot[] = [];
         const imgRe = /!\[([^\]]*)\]\(IMG::([^)]+)\)/g;
         const sectionAt = (src: string, offset: number) =>
-          src.slice(0, offset).match(/##\s+(.+)\n/g)?.pop()?.replace(/^##\s+/, "") || "";
+          src
+            .slice(0, offset)
+            .match(/##\s+(.+)\n/g)
+            ?.pop()
+            ?.replace(/^##\s+/, "") || "";
         let m: RegExpExecArray | null;
         let n = 0;
         while ((m = imgRe.exec(md))) {
           if (n >= Math.max(nImages, 0)) break;
           slots.push({ key: `img${++n}`, alt: m[1], query: m[2].trim(), context: sectionAt(md, m.index) });
         }
-        const styleSuffix = imageStyle.id === "illustration" ? " illustration vector" : imageStyle.id === "photo" ? " photo" : "";
+        const styleSuffix =
+          imageStyle.id === "illustration" ? " illustration vector" : imageStyle.id === "photo" ? " photo" : "";
         const rawCover = (meta.imageQuery || meta.imagePrompt || "").toString().trim();
         slots.unshift({ key: "cover", alt: meta.title, query: rawCover, context: meta.excerpt || meta.title });
 
@@ -398,6 +430,14 @@ export async function POST(req: Request) {
           status: "draft",
         };
         await insertPost(post, md);
+        if (relatedTools.length) {
+          try {
+            await updatePost(slug, { related_tools: relatedTools });
+            post.relatedTools = relatedTools;
+          } catch {
+            // Older schemas may lack the related_tools column; ignore silently.
+          }
+        }
         send({ type: "step", step: "save", status: "done" });
         send({ type: "done", post });
       } catch (e: any) {
@@ -405,7 +445,9 @@ export async function POST(req: Request) {
       } finally {
         clearInterval(heartbeat);
         closed = true;
-        try { controller.close(); } catch {}
+        try {
+          controller.close();
+        } catch {}
       }
     },
   });

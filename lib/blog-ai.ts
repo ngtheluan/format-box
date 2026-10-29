@@ -93,30 +93,42 @@ function cleanText(s: string) {
 }
 
 async function callGroq(o: LlmOpts, model: string, search: boolean): Promise<string> {
-  const body: Record<string, unknown> = {
-    model,
-    temperature: o.temperature ?? 0.7,
-    messages: [
-      { role: "system", content: o.system },
-      { role: "user", content: o.user },
-    ],
+  const build = (useSearch: boolean) => {
+    const body: Record<string, unknown> = {
+      model,
+      temperature: o.temperature ?? 0.7,
+      messages: [
+        { role: "system", content: o.system },
+        { role: "user", content: o.user },
+      ],
+    };
+    const maxTokGroq = o.maxTokens ?? (o.long ? 8000 : undefined);
+    if (maxTokGroq) body.max_completion_tokens = maxTokGroq;
+    if (useSearch) body.tools = [{ type: "browser_search" }];
+    else if (o.json) body.response_format = { type: "json_object" };
+    return body;
   };
-  const maxTokGroq = o.maxTokens ?? (o.long ? 8000 : undefined);
-  if (maxTokGroq) body.max_completion_tokens = maxTokGroq;
-  if (search) body.tools = [{ type: "browser_search" }];
-  else if (o.json) body.response_format = { type: "json_object" };
-  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
-  });
-  if (!r.ok) throw new Error(`Groq ${r.status}: ${(await r.text()).slice(0, 240)}`);
-  const j: any = await r.json();
-  if (o.long && j?.choices?.[0]?.finish_reason === "length") {
-    throw new Error(`Groq bị cắt (max_tokens)`);
-  }
-  return j?.choices?.[0]?.message?.content ?? "";
+  const call = async (useSearch: boolean) => {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+      body: JSON.stringify(build(useSearch)),
+      signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
+    });
+    if (!r.ok) {
+      const txt = (await r.text()).slice(0, 400);
+      // Groq's browser_search occasionally produces malformed tool args; retry
+      // the same model without search so the chain doesn't lose the attempt.
+      if (useSearch && /tool_use_failed|Failed to parse tool call/i.test(txt)) return null;
+      throw new Error(`Groq ${r.status}: ${txt.slice(0, 240)}`);
+    }
+    const j: any = await r.json();
+    if (o.long && j?.choices?.[0]?.finish_reason === "length") throw new Error(`Groq bị cắt (max_tokens)`);
+    return j?.choices?.[0]?.message?.content ?? "";
+  };
+  let out = await call(search);
+  if (out === null) out = await call(false);
+  return out ?? "";
 }
 
 async function callGemini(o: LlmOpts, model: string, search: boolean): Promise<string> {

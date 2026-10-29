@@ -1,47 +1,181 @@
 // Plain data shared by the admin UI and the blog AI routes (no server imports).
 
-export type AiProvider =
-  | "groq"
-  | "gemini"
-  | "pollinations"
-  | "openrouter"
-  | "deepseek"
-  | "mistral"
-  | "cerebras";
+export type AiProvider = "groq" | "gemini" | "pollinations" | "openrouter" | "deepseek" | "mistral" | "cerebras";
 
-export type AiModel = { id: string; label: string; search?: boolean };
+export type AiSpecialty =
+  | "tech"       // deep-dive kỹ thuật, code, kiến trúc
+  | "news"       // tin tức/thời sự (ưu tiên model có web search)
+  | "review"     // review sản phẩm, so sánh, trade-off
+  | "tutorial"   // how-to, hướng dẫn từng bước
+  | "explainer"  // giải thích khái niệm cho người không chuyên
+  | "story"      // kể chuyện, văn phong tự nhiên
+  | "analysis"   // phân tích, deep-dive học thuật
+  | "fast"       // tác vụ ngắn, low-latency
+  | "general";   // dùng chung, cân bằng
+
+export type AiModel = {
+  id: string;
+  label: string;
+  search?: boolean;
+  specialties?: AiSpecialty[];
+};
 
 export const AI_MODELS: Record<AiProvider, AiModel[]> = {
   groq: [
-    { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B", search: true },
-    { id: "qwen/qwen3.8-27b", label: "Qwen 3.8 27B" },
-    { id: "openai/gpt-oss-20b", label: "GPT-OSS 20B (nhanh)", search: true },
+    {
+      id: "openai/gpt-oss-120b",
+      label: "GPT-OSS 120B",
+      search: true,
+      specialties: ["tech", "news", "review", "tutorial", "analysis", "general"],
+    },
+    {
+      id: "openai/gpt-oss-20b",
+      label: "GPT-OSS 20B (nhanh)",
+      search: true,
+      specialties: ["news", "explainer", "fast"],
+    },
   ],
   gemini: [
-    { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash", search: true },
-    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash", search: true },
+    {
+      id: "gemini-3.8-flash",
+      label: "Gemini 3.8 Flash",
+      search: true,
+      specialties: ["news", "explainer", "general", "fast"],
+    },
   ],
   openrouter: [
-    { id: "deepseek/deepseek-chat-v3.1:free", label: "DeepSeek V3.1 (free)" },
-    { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B (free)" },
-    { id: "qwen/qwen-2.5-72b-instruct:free", label: "Qwen 2.5 72B (free)" },
-    { id: "google/gemma-2-9b-it:free", label: "Gemma 2 9B (free, nhanh)" },
+    {
+      id: "deepseek/deepseek-chat-v3.1:free",
+      label: "DeepSeek V3.1 (free)",
+      search: true,
+      specialties: ["tech", "news", "review", "analysis", "general"],
+    },
+    {
+      id: "meta-llama/llama-3.3-70b-instruct:free",
+      label: "Llama 3.3 70B (free)",
+      specialties: ["story", "tutorial", "general"],
+    },
+    {
+      id: "qwen/qwen-2.5-72b-instruct:free",
+      label: "Qwen 2.5 72B (free)",
+      specialties: ["tech", "analysis"],
+    },
+    {
+      id: "google/gemma-2-9b-it:free",
+      label: "Gemma 2 9B (free, nhanh)",
+      specialties: ["explainer", "fast"],
+    },
   ],
   deepseek: [
-    { id: "deepseek-chat", label: "DeepSeek V3 Chat (rẻ)" },
-    { id: "deepseek-reasoner", label: "DeepSeek R1 Reasoner" },
+    {
+      id: "deepseek-chat",
+      label: "DeepSeek V3 Chat (rẻ)",
+      specialties: ["review", "tutorial", "story", "general"],
+    },
+    {
+      id: "deepseek-reasoner",
+      label: "DeepSeek R1 Reasoner",
+      specialties: ["tech", "analysis", "review"],
+    },
   ],
   mistral: [
-    { id: "mistral-large-latest", label: "Mistral Large" },
-    { id: "mistral-small-latest", label: "Mistral Small (nhanh)" },
-    { id: "open-mistral-nemo", label: "Mistral Nemo (free)" },
+    {
+      id: "mistral-large-latest",
+      label: "Mistral Large",
+      specialties: ["tech", "review", "story", "analysis", "general"],
+    },
+    {
+      id: "mistral-small-latest",
+      label: "Mistral Small (nhanh)",
+      specialties: ["explainer", "fast"],
+    },
+    {
+      id: "open-mistral-nemo",
+      label: "Mistral Nemo (free)",
+      specialties: ["story", "fast"],
+    },
   ],
   cerebras: [
-    { id: "llama-3.3-70b", label: "Llama 3.3 70B (siêu nhanh)" },
-    { id: "llama3.1-8b", label: "Llama 3.1 8B (nhanh nhất)" },
+    {
+      id: "llama-3.3-70b",
+      label: "Llama 3.3 70B (siêu nhanh)",
+      specialties: ["tutorial", "story", "general", "fast"],
+    },
+    {
+      id: "llama3.1-8b",
+      label: "Llama 3.1 8B (nhanh nhất)",
+      specialties: ["fast", "explainer"],
+    },
   ],
-  pollinations: [{ id: "openai", label: "Pollinations (không key, tác vụ ngắn)" }],
+  pollinations: [
+    { id: "openai", label: "Pollinations (không key, tác vụ ngắn)", specialties: ["fast"] },
+  ],
 };
+
+export const AI_SPECIALTY_LABEL: Record<AiSpecialty, string> = {
+  tech: "Công nghệ",
+  news: "Tin tức / Thời sự",
+  review: "Review / So sánh",
+  tutorial: "Hướng dẫn",
+  explainer: "Giải thích",
+  story: "Kể chuyện",
+  analysis: "Phân tích",
+  fast: "Siêu nhanh",
+  general: "Đa dụng",
+};
+
+// Map cấu trúc bài → chuyên môn AI ưu tiên (dùng trong routing của blog-ai.ts).
+export const STRUCTURE_TO_SPECIALTY: Record<GenStructure, AiSpecialty[]> = {
+  auto: ["general"],
+  howto: ["tutorial", "tech"],
+  listicle: ["review", "general"],
+  deepdive: ["tech", "analysis"],
+  comparison: ["review", "analysis"],
+  news: ["news"],
+  review: ["review"],
+  explainer: ["explainer", "general"],
+};
+
+// Liệt kê (provider, model) phù hợp với một chuyên môn, theo đúng thứ tự trong AI_MODELS.
+export function modelsBySpecialty(
+  specialty: AiSpecialty,
+): { provider: AiProvider; model: AiModel }[] {
+  const out: { provider: AiProvider; model: AiModel }[] = [];
+  (Object.keys(AI_MODELS) as AiProvider[]).forEach((p) => {
+    AI_MODELS[p].forEach((m) => {
+      if (m.specialties?.includes(specialty)) out.push({ provider: p, model: m });
+    });
+  });
+  return out;
+}
+
+export type AiPreference = "balanced" | "quality" | "speed";
+
+// Chọn model tốt nhất cho một cấu trúc bài, có xét provider đang khả dụng (có API key).
+// prefer: balanced (mặc định), quality (ưu tiên tech/analysis), speed (ưu tiên fast).
+export function pickModelForStructure(
+  structure: GenStructure,
+  available: Partial<Record<AiProvider, boolean>>,
+  prefer: AiPreference = "balanced",
+): { provider: AiProvider; modelId: string } | null {
+  const baseSpecs = STRUCTURE_TO_SPECIALTY[structure] || ["general"];
+  const specs: AiSpecialty[] =
+    prefer === "quality"
+      ? ["tech", "analysis", ...baseSpecs]
+      : prefer === "speed"
+        ? ["fast", ...baseSpecs]
+        : baseSpecs;
+
+  for (const sp of specs) {
+    for (const { provider, model } of modelsBySpecialty(sp)) {
+      if (available[provider]) return { provider, modelId: model.id };
+    }
+  }
+  // Fallback: provider khả dụng đầu tiên, model đầu tiên.
+  const firstProvider = (Object.keys(AI_MODELS) as AiProvider[]).find((p) => available[p]);
+  if (firstProvider) return { provider: firstProvider, modelId: AI_MODELS[firstProvider][0].id };
+  return null;
+}
 
 export const AI_PROVIDER_LABEL: Record<AiProvider, string> = {
   groq: "Groq",
@@ -126,9 +260,21 @@ export const GEN_EXTRAS: { id: GenExtra; label: string; hint: string }[] = [
 export const GEN_TONES: { id: GenTone; label: string; hint: string }[] = [
   { id: "expert", label: "Chuyên gia", hint: "chuyên sâu, chính xác, giọng chuyên gia chia sẻ thực chiến" },
   { id: "friendly", label: "Thân thiện", hint: "gần gũi, dễ hiểu, như trò chuyện với bạn bè, vẫn chính xác" },
-  { id: "tutorial", label: "Hướng dẫn", hint: "hướng dẫn từng bước, có điều kiện tiên quyết, bước kiểm chứng và xử lý lỗi" },
-  { id: "analysis", label: "Phân tích", hint: "phân tích so sánh, trade-off, ưu nhược điểm, có bảng so sánh khi phù hợp" },
-  { id: "story", label: "Kể chuyện", hint: "dẫn dắt bằng tình huống thực tế, giàu hình ảnh nhưng không bịa trải nghiệm cá nhân" },
+  {
+    id: "tutorial",
+    label: "Hướng dẫn",
+    hint: "hướng dẫn từng bước, có điều kiện tiên quyết, bước kiểm chứng và xử lý lỗi",
+  },
+  {
+    id: "analysis",
+    label: "Phân tích",
+    hint: "phân tích so sánh, trade-off, ưu nhược điểm, có bảng so sánh khi phù hợp",
+  },
+  {
+    id: "story",
+    label: "Kể chuyện",
+    hint: "dẫn dắt bằng tình huống thực tế, giàu hình ảnh nhưng không bịa trải nghiệm cá nhân",
+  },
 ];
 
 export const GEN_LENGTHS: { id: GenLength; label: string; words: string; sections: string }[] = [
