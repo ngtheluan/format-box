@@ -1,6 +1,6 @@
 // Plain data shared by the admin UI and the blog AI routes (no server imports).
 
-export type AiProvider = "groq" | "gemini" | "pollinations" | "openrouter" | "deepseek" | "mistral" | "cerebras";
+export type AiProvider = "groq" | "gemini" | "pollinations";
 
 export type AiSpecialty =
   | "tech"       // deep-dive kỹ thuật, code, kiến trúc
@@ -34,6 +34,11 @@ export const AI_MODELS: Record<AiProvider, AiModel[]> = {
       search: true,
       specialties: ["news", "explainer", "fast"],
     },
+    {
+      id: "qwen/qwen3.8-27b",
+      label: "Qwen 3.8 27B",
+      specialties: ["tech", "review", "tutorial", "analysis", "general"],
+    },
   ],
   gemini: [
     {
@@ -41,70 +46,6 @@ export const AI_MODELS: Record<AiProvider, AiModel[]> = {
       label: "Gemini 3.8 Flash",
       search: true,
       specialties: ["news", "explainer", "general", "fast"],
-    },
-  ],
-  openrouter: [
-    {
-      id: "deepseek/deepseek-chat-v3.1:free",
-      label: "DeepSeek V3.1 (free)",
-      search: true,
-      specialties: ["tech", "news", "review", "analysis", "general"],
-    },
-    {
-      id: "meta-llama/llama-3.3-70b-instruct:free",
-      label: "Llama 3.3 70B (free)",
-      specialties: ["story", "tutorial", "general"],
-    },
-    {
-      id: "qwen/qwen-2.5-72b-instruct:free",
-      label: "Qwen 2.5 72B (free)",
-      specialties: ["tech", "analysis"],
-    },
-    {
-      id: "google/gemma-2-9b-it:free",
-      label: "Gemma 2 9B (free, nhanh)",
-      specialties: ["explainer", "fast"],
-    },
-  ],
-  deepseek: [
-    {
-      id: "deepseek-chat",
-      label: "DeepSeek V3 Chat (rẻ)",
-      specialties: ["review", "tutorial", "story", "general"],
-    },
-    {
-      id: "deepseek-reasoner",
-      label: "DeepSeek R1 Reasoner",
-      specialties: ["tech", "analysis", "review"],
-    },
-  ],
-  mistral: [
-    {
-      id: "mistral-large-latest",
-      label: "Mistral Large",
-      specialties: ["tech", "review", "story", "analysis", "general"],
-    },
-    {
-      id: "mistral-small-latest",
-      label: "Mistral Small (nhanh)",
-      specialties: ["explainer", "fast"],
-    },
-    {
-      id: "open-mistral-nemo",
-      label: "Mistral Nemo (free)",
-      specialties: ["story", "fast"],
-    },
-  ],
-  cerebras: [
-    {
-      id: "llama-3.3-70b",
-      label: "Llama 3.3 70B (siêu nhanh)",
-      specialties: ["tutorial", "story", "general", "fast"],
-    },
-    {
-      id: "llama3.1-8b",
-      label: "Llama 3.1 8B (nhanh nhất)",
-      specialties: ["fast", "explainer"],
     },
   ],
   pollinations: [
@@ -180,10 +121,6 @@ export function pickModelForStructure(
 export const AI_PROVIDER_LABEL: Record<AiProvider, string> = {
   groq: "Groq",
   gemini: "Google Gemini",
-  openrouter: "OpenRouter",
-  deepseek: "DeepSeek",
-  mistral: "Mistral",
-  cerebras: "Cerebras",
   pollinations: "Pollinations",
 };
 

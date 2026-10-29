@@ -24,61 +24,8 @@ export function availableProviders(): Record<AiProvider, boolean> {
   return {
     groq: !!process.env.GROQ_API_KEY,
     gemini: !!process.env.GEMINI_API_KEY,
-    openrouter: !!process.env.OPENROUTER_API_KEY,
-    deepseek: !!process.env.DEEPSEEK_API_KEY,
-    mistral: !!process.env.MISTRAL_API_KEY,
-    cerebras: !!process.env.CEREBRAS_API_KEY,
     pollinations: true,
   };
-}
-
-// OpenAI-compatible endpoints: OpenRouter, DeepSeek, Mistral, Cerebras.
-type OaiEndpoint = { url: string; key: string | undefined; headers?: Record<string, string> };
-
-const OAI_ENDPOINTS: Record<"openrouter" | "deepseek" | "mistral" | "cerebras", () => OaiEndpoint> = {
-  openrouter: () => ({
-    url: "https://openrouter.ai/api/v1/chat/completions",
-    key: process.env.OPENROUTER_API_KEY,
-    headers: {
-      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "https://formatbox.online",
-      "X-Title": "FormatBox Blog",
-    },
-  }),
-  deepseek: () => ({ url: "https://api.deepseek.com/v1/chat/completions", key: process.env.DEEPSEEK_API_KEY }),
-  mistral: () => ({ url: "https://api.mistral.ai/v1/chat/completions", key: process.env.MISTRAL_API_KEY }),
-  cerebras: () => ({ url: "https://api.cerebras.ai/v1/chat/completions", key: process.env.CEREBRAS_API_KEY }),
-};
-
-async function callOpenAICompat(
-  o: LlmOpts,
-  provider: keyof typeof OAI_ENDPOINTS,
-  model: string,
-): Promise<string> {
-  const ep = OAI_ENDPOINTS[provider]();
-  if (!ep.key) throw new Error(`${provider}: thiếu API key`);
-  const body: Record<string, unknown> = {
-    model,
-    temperature: o.temperature ?? 0.7,
-    messages: [
-      { role: "system", content: o.system },
-      { role: "user", content: o.user },
-    ],
-  };
-  const maxTok = o.maxTokens ?? (o.long ? 8000 : undefined);
-  if (maxTok) body.max_tokens = maxTok;
-  if (o.json) body.response_format = { type: "json_object" };
-  const r = await fetch(ep.url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${ep.key}`, ...(ep.headers || {}) },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
-  });
-  if (!r.ok) throw new Error(`${provider} ${r.status}: ${(await r.text()).slice(0, 240)}`);
-  const j: any = await r.json();
-  if (o.long && j?.choices?.[0]?.finish_reason === "length") {
-    throw new Error(`${provider} bị cắt (max_tokens)`);
-  }
-  return j?.choices?.[0]?.message?.content ?? "";
 }
 
 function supportsSearch(provider: AiProvider, model: string) {
@@ -90,6 +37,18 @@ function cleanText(s: string) {
     .replace(/<think>[\s\S]*?<\/think>/gi, "")
     .replace(/【[^】]*】/g, "")
     .trim();
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Parse Retry-After header (seconds or HTTP date). Returns ms, clamped to [0, 10s].
+function parseRetryAfter(h: string | null): number {
+  if (!h) return 0;
+  const sec = Number(h);
+  if (Number.isFinite(sec)) return Math.min(10_000, Math.max(0, sec * 1000));
+  const date = Date.parse(h);
+  if (!Number.isNaN(date)) return Math.min(10_000, Math.max(0, date - Date.now()));
+  return 0;
 }
 
 async function callGroq(o: LlmOpts, model: string, search: boolean): Promise<string> {
@@ -109,22 +68,28 @@ async function callGroq(o: LlmOpts, model: string, search: boolean): Promise<str
     return body;
   };
   const call = async (useSearch: boolean) => {
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
-      body: JSON.stringify(build(useSearch)),
-      signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
-    });
-    if (!r.ok) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+        body: JSON.stringify(build(useSearch)),
+        signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
+      });
+      if (r.ok) {
+        const j: any = await r.json();
+        if (o.long && j?.choices?.[0]?.finish_reason === "length") throw new Error(`Groq bị cắt (max_tokens)`);
+        return j?.choices?.[0]?.message?.content ?? "";
+      }
       const txt = (await r.text()).slice(0, 400);
-      // Groq's browser_search occasionally produces malformed tool args; retry
-      // the same model without search so the chain doesn't lose the attempt.
       if (useSearch && /tool_use_failed|Failed to parse tool call/i.test(txt)) return null;
+      if ((r.status === 429 || r.status === 503) && attempt < 2) {
+        const wait = parseRetryAfter(r.headers.get("retry-after")) || 500 * Math.pow(2, attempt);
+        await sleep(wait);
+        continue;
+      }
       throw new Error(`Groq ${r.status}: ${txt.slice(0, 240)}`);
     }
-    const j: any = await r.json();
-    if (o.long && j?.choices?.[0]?.finish_reason === "length") throw new Error(`Groq bị cắt (max_tokens)`);
-    return j?.choices?.[0]?.message?.content ?? "";
+    return "";
   };
   let out = await call(search);
   if (out === null) out = await call(false);
@@ -139,21 +104,33 @@ async function callGemini(o: LlmOpts, model: string, search: boolean): Promise<s
   const maxTokGem = o.maxTokens ?? (o.long ? 8000 : undefined);
   if (maxTokGem) generationConfig.maxOutputTokens = maxTokGem;
   if (o.json && !search) generationConfig.responseMimeType = "application/json";
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { role: "system", parts: [{ text: o.system }] },
-      contents: [{ role: "user", parts: [{ text: o.user }] }],
-      generationConfig,
-      ...(search ? { tools: [{ google_search: {} }] } : {}),
-    }),
-    signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
+  const body = JSON.stringify({
+    systemInstruction: { role: "system", parts: [{ text: o.system }] },
+    contents: [{ role: "user", parts: [{ text: o.user }] }],
+    generationConfig,
+    ...(search ? { tools: [{ google_search: {} }] } : {}),
   });
-  if (!r.ok) throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 240)}`);
-  const j: any = await r.json();
-  const parts = j?.candidates?.[0]?.content?.parts;
-  return Array.isArray(parts) ? parts.map((p: any) => p?.text || "").join("") : "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const r = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
+    });
+    if (r.ok) {
+      const j: any = await r.json();
+      const parts = j?.candidates?.[0]?.content?.parts;
+      return Array.isArray(parts) ? parts.map((p: any) => p?.text || "").join("") : "";
+    }
+    const txt = (await r.text()).slice(0, 240);
+    if ((r.status === 429 || r.status === 503) && attempt < 2) {
+      const wait = parseRetryAfter(r.headers.get("retry-after")) || 800 * Math.pow(2, attempt);
+      await sleep(wait);
+      continue;
+    }
+    throw new Error(`Gemini ${r.status}: ${txt}`);
+  }
+  return "";
 }
 
 // Anonymous tier: ~1500 completion tokens and 1 reply / 30s per IP — fine for small
@@ -184,8 +161,7 @@ async function callOnce(o: LlmOpts, provider: AiProvider, model: string): Promis
   let raw: string;
   if (provider === "groq") raw = await callGroq(o, model, search);
   else if (provider === "gemini") raw = await callGemini(o, model, search);
-  else if (provider === "pollinations") raw = await callPollinations(o, model);
-  else raw = await callOpenAICompat(o, provider, model);
+  else raw = await callPollinations(o, model);
   const text = cleanText(raw);
   if (!text) throw new Error(`${provider} trả về rỗng`);
   return { text, provider, model, searched: search };
@@ -204,7 +180,7 @@ export async function callLlm(o: LlmOpts): Promise<LlmResult> {
   push(o.provider, o.model || models(o.provider)[0].id);
   for (const m of models(o.provider)) push(o.provider, m.id);
   // Try providers in order of generation quality / cost efficiency.
-  for (const p of ["groq", "cerebras", "gemini", "deepseek", "mistral", "openrouter", "pollinations"] as AiProvider[]) {
+  for (const p of ["groq", "gemini", "pollinations"] as AiProvider[]) {
     if (p === o.provider || (o.long && p === "pollinations")) continue;
     for (const m of models(p)) push(p, m.id);
   }
