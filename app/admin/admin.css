@@ -1496,6 +1496,12 @@ body:has(.fx-modal-bg) {
 .atab-sheet-overlay {
   display: none;
 }
+body:has(.fx-modal-bg) .atab,
+body:has(.ui-modal-overlay) .atab,
+body.ui-modal-open .atab,
+body.modal-open .atab {
+  display: none !important;
+}
 @media (max-width: 640px) {
   .atab {
     display: inline-flex;
