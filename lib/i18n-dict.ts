@@ -623,6 +623,69 @@ export const DICT = {
   fp_kind_diesel: { vi: "Diesel", en: "Diesel" },
   fp_kind_kerosene: { vi: "Dầu hoả", en: "Kerosene" },
   fp_kind_mazut: { vi: "Mazut", en: "Mazut" },
+  fp_notify_title: { vi: "Thông báo biến động giá", en: "Price change alerts" },
+  fp_notify_desc: {
+    vi: "Bật để trình duyệt báo khi giá xăng/dầu có kỳ điều chỉnh mới — kể cả khi tab FormatBox đã đóng, miễn là trình duyệt còn chạy.",
+    en: "Turn on to get a browser alert when a new price adjustment cycle is published — even when the FormatBox tab is closed, as long as the browser is running.",
+  },
+  fp_notify_browser: { vi: "Thông báo trình duyệt", en: "Browser notification" },
+  fp_notify_browser_hint: {
+    vi: "Trình duyệt sẽ hỏi quyền lần đầu.",
+    en: "Browser will ask for permission the first time.",
+  },
+  fp_notify_bg_ok: {
+    vi: "Đã bật nền — nhận được cả khi tab FormatBox đóng.",
+    en: "Background enabled — works even with the FormatBox tab closed.",
+  },
+  fp_notify_bg_fallback: {
+    vi: "Trình duyệt không hỗ trợ chạy nền — chỉ thông báo khi tab mở.",
+    en: "This browser doesn't support background sync — only alerts while the tab is open.",
+  },
+  fp_notify_bg_denied: {
+    vi: "Quyền chạy nền bị từ chối. Cài FormatBox như PWA rồi bật lại để kích hoạt.",
+    en: "Background permission denied. Install FormatBox as a PWA then toggle again.",
+  },
+  fp_notify_install_pwa: { vi: "Cài FormatBox làm app", en: "Install FormatBox as app" },
+  fp_notify_install_hint: {
+    vi: "Trình duyệt chưa đề xuất cài. Mở menu Chrome (⋮) → \"Cài FormatBox\" / \"Add to Home screen\".",
+    en: "Install prompt not available. Open the Chrome menu (⋮) → \"Install FormatBox\" / \"Add to Home screen\".",
+  },
+  fp_notify_pwa_ok: {
+    vi: "Đang chạy ở chế độ app — periodic sync sẽ được trình duyệt kích hoạt khi đủ điều kiện.",
+    en: "Running as an installed app — periodic sync will be eligible after enough engagement.",
+  },
+  fp_region_group: { vi: "Chọn vùng áp dụng", en: "Select region" },
+  fp_region_1: { vi: "Vùng 1", en: "Region 1" },
+  fp_region_2: { vi: "Vùng 2", en: "Region 2" },
+  fp_region_1_short: { vi: "V1", en: "R1" },
+  fp_region_2_short: { vi: "V2", en: "R2" },
+  fp_details_days_since: { vi: "Sau kỳ trước {n} ngày", en: "{n} days after previous" },
+  fp_details_same_day: { vi: "Cùng ngày kỳ trước", en: "Same day as previous" },
+  fp_details_latest: { vi: "Mới nhất", en: "Latest" },
+  fp_details_window: { vi: "Khoảng dữ liệu", en: "Window" },
+  fp_details_days: { vi: "ngày", en: "days" },
+  fp_details_article: { vi: "Bài gốc VnExpress", en: "VnExpress article" },
+  fp_notify_on: { vi: "Đang bật", en: "Enabled" },
+  fp_notify_off: { vi: "Đã tắt", en: "Disabled" },
+  fp_notify_test: { vi: "Gửi thông báo thử", en: "Send test notification" },
+  fp_notify_test_sent: { vi: "Đã gửi — kiểm tra khay thông báo.", en: "Sent — check your notification tray." },
+  fp_notify_test_body: {
+    vi: "Đây là thông báo kiểm thử — nếu bạn thấy nó, cấu hình đã OK.",
+    en: "This is a test notification — if you see it, the setup is OK.",
+  },
+  fp_notify_browser_denied: {
+    vi: "Bạn đã chặn thông báo. Mở Cài đặt trình duyệt để bật lại.",
+    en: "Notifications are blocked. Enable them in your browser settings.",
+  },
+  fp_notify_browser_unsupported: {
+    vi: "Trình duyệt không hỗ trợ Notification API.",
+    en: "This browser doesn't support the Notification API.",
+  },
+  fp_notify_sample_title: { vi: "Giá xăng vừa cập nhật", en: "Fuel price updated" },
+  fp_notify_sample_body: {
+    vi: "Có kỳ điều chỉnh giá xăng/dầu mới. Mở trang để xem chi tiết.",
+    en: "A new fuel price adjustment is out. Open the page for details.",
+  },
 
   // EXCHANGE CURRENCY
   xc_refresh: { vi: "Làm mới", en: "Refresh" },

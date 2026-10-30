@@ -190,6 +190,7 @@ export default function MobileTabBar() {
       const d = await r.json();
       if (r.ok && d.ok) {
         setUser(d.user);
+        window.dispatchEvent(new CustomEvent("fb:user-changed", { detail: { user: d.user } }));
         closeAccount();
         toast(`${t("acct_hello")} ${d.user.firstname || d.user.accountname}!`);
         afterAuth();
@@ -223,6 +224,7 @@ export default function MobileTabBar() {
       const d = await r.json();
       if (r.ok && d.ok) {
         setUser(d.user);
+        window.dispatchEvent(new CustomEvent("fb:user-changed", { detail: { user: d.user } }));
         closeAccount();
         toast(`${t("acct_created_hello")} ${d.user.firstname || d.user.accountname}!`);
         afterAuth();
@@ -243,6 +245,7 @@ export default function MobileTabBar() {
     if (pathname.startsWith("/admin")) router.replace("/");
     router.refresh();
     setUser(null);
+    window.dispatchEvent(new CustomEvent("fb:user-changed", { detail: { user: null } }));
     closeAccount();
     toast(t("acct_logged_out"));
   }

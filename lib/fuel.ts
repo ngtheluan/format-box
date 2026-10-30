@@ -1,11 +1,15 @@
 export type FuelKind = "e10_ron95" | "e5_ron92" | "diesel" | "kerosene" | "mazut";
 
+export type FuelRegion = 1 | 2;
+
 export type FuelItem = {
   kind: FuelKind;
   name: string;
-  price: number; // VND per unit
+  price: number; // VND per unit — vùng 1
   unit: "L" | "kg";
   change?: number; // signed: positive = up, negative = down (VND)
+  priceR2?: number; // vùng 2 (nếu có trong bài)
+  changeR2?: number;
 };
 
 export type FuelSnapshot = {
@@ -66,8 +70,12 @@ const FUEL_PATTERNS: { kind: FuelKind; regex: RegExp }[] = [
 const CHANGE_RE = /(tăng|thêm|giảm|hạ)\s+([0-9]{1,3}(?:\.[0-9]{3})*)\s*đồng/i;
 const PRICE_RE = /([0-9]{2}(?:\.[0-9]{3})+)\s*đồng/g;
 
-function findPriceFor(text: string, matchIdx: number, matchLen: number): { price: number; change?: number } | null {
-  const window = text.slice(matchIdx, matchIdx + matchLen + 220);
+function findPriceFor(
+  text: string,
+  matchIdx: number,
+  matchLen: number,
+): { price: number; change?: number; priceR2?: number; changeR2?: number } | null {
+  const window = text.slice(matchIdx, matchIdx + matchLen + 260);
   // Find first plausible price in the window
   const priceMatch = new RegExp(PRICE_RE.source).exec(window);
   if (!priceMatch) return null;
@@ -87,7 +95,38 @@ function findPriceFor(text: string, matchIdx: number, matchLen: number): { price
       change = dir * amount;
     }
   }
-  return { price, change };
+
+  // Vùng 2: tìm giá tiếp theo trong window (sau giá vùng 1), chỉ chấp nhận nếu
+  // trong 160 ký tự sau và cao hơn vùng 1 (vùng 2 ở VN luôn đắt hơn ~2%).
+  let priceR2: number | undefined;
+  let changeR2: number | undefined;
+  const after = window.slice(priceMatch.index + priceMatch[0].length);
+  // Giới hạn phạm vi tìm vùng 2 đến hết câu / dấu chấm để không trộn với fuel kế tiếp
+  const sentenceEnd = after.search(/[.;]\s/);
+  const r2Window = sentenceEnd > 0 ? after.slice(0, Math.min(sentenceEnd + 1, 180)) : after.slice(0, 180);
+  const r2Match = new RegExp(PRICE_RE.source).exec(r2Window);
+  if (r2Match) {
+    const p2 = Number(r2Match[1].replace(/\./g, ""));
+    if (
+      Number.isFinite(p2) &&
+      p2 >= 5000 &&
+      p2 <= 100000 &&
+      p2 >= price && // vùng 2 ≥ vùng 1
+      p2 <= price * 1.1 // không chênh > 10%
+    ) {
+      priceR2 = p2;
+      const pre2 = r2Window.slice(0, r2Match.index);
+      const ch2 = CHANGE_RE.exec(pre2);
+      if (ch2) {
+        const amount2 = Number(ch2[2].replace(/\./g, ""));
+        if (Number.isFinite(amount2)) {
+          changeR2 = (/tăng|thêm/i.test(ch2[1]) ? 1 : -1) * amount2;
+        }
+      }
+    }
+  }
+
+  return { price, change, priceR2, changeR2 };
 }
 
 export function extractPricesFromArticle(text: string): FuelItem[] {
@@ -108,6 +147,8 @@ export function extractPricesFromArticle(text: string): FuelItem[] {
           unit: UNITS[kind],
           price: got.price,
           change: got.change,
+          priceR2: got.priceR2,
+          changeR2: got.changeR2,
         });
         seen.add(kind);
         break;

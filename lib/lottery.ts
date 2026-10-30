@@ -70,6 +70,13 @@ function tierRank(t: PrizeTier) {
   return i < 0 ? 99 : i;
 }
 
+// Display order: G8 → G7 → ... → G1 → ĐB (ĐB cuối cùng).
+const DISPLAY_ORDER: PrizeTier[] = ["g8", "g7", "g6", "g5", "g4", "g3", "g2", "g1", "special"];
+function displayRank(t: PrizeTier) {
+  const i = DISPLAY_ORDER.indexOf(t);
+  return i < 0 ? 99 : i;
+}
+
 export function matchTicket(ticket: string, snapshot: LotterySnapshot): TicketMatch[] {
   const cleaned = ticket.replace(/\D/g, "");
   if (!cleaned) return [];
@@ -213,6 +220,7 @@ function parseMbBlock(html: string): ProvinceResult | null {
     prizes.push({ tier, label: TIER_LABEL[tier], numbers: filtered });
   }
   if (prizes.length === 0) return null;
+  prizes.sort((a, b) => displayRank(a.tier) - displayRank(b.tier));
   return { province: "Miền Bắc", code: "XSMB", date, prizes };
 }
 
@@ -256,8 +264,7 @@ function parseProvinceTable(tableHtml: string, date?: string): ProvinceResult | 
     if (filtered.length === 0) continue;
     prizes.push({ tier, label: TIER_LABEL[tier], numbers: filtered });
   }
-  // Display order: ĐB first, then G1..G8
-  prizes.sort((a, b) => tierRank(a.tier) - tierRank(b.tier));
+  prizes.sort((a, b) => displayRank(a.tier) - displayRank(b.tier));
   if (prizes.length < 3) return null;
   return { province, code, date, prizes };
 }
@@ -351,14 +358,14 @@ function mkFallback(region: Region): LotterySnapshot {
           code: "XSMB",
           date: "**/**/****",
           prizes: [
-            { tier: "special", label: "ĐB", numbers: ["*****"] },
-            { tier: "g1", label: "G1", numbers: ["*****"] },
-            { tier: "g2", label: "G2", numbers: ["*****", "*****"] },
-            { tier: "g3", label: "G3", numbers: ["*****", "*****", "*****", "*****", "*****", "*****"] },
-            { tier: "g4", label: "G4", numbers: ["****", "****", "****", "****"] },
-            { tier: "g5", label: "G5", numbers: ["****", "****", "****", "****", "****", "****"] },
-            { tier: "g6", label: "G6", numbers: ["***", "***", "***"] },
             { tier: "g7", label: "G7", numbers: ["**", "**", "**", "**"] },
+            { tier: "g6", label: "G6", numbers: ["***", "***", "***"] },
+            { tier: "g5", label: "G5", numbers: ["****", "****", "****", "****", "****", "****"] },
+            { tier: "g4", label: "G4", numbers: ["****", "****", "****", "****"] },
+            { tier: "g3", label: "G3", numbers: ["*****", "*****", "*****", "*****", "*****", "*****"] },
+            { tier: "g2", label: "G2", numbers: ["*****", "*****"] },
+            { tier: "g1", label: "G1", numbers: ["*****"] },
+            { tier: "special", label: "ĐB", numbers: ["*****"] },
           ],
         },
       ],
@@ -375,15 +382,15 @@ function mkFallback(region: Region): LotterySnapshot {
       province,
       date: "**/**/****",
       prizes: [
-        { tier: "special", label: "ĐB", numbers: ["******"] },
-        { tier: "g1", label: "G1", numbers: ["*****"] },
-        { tier: "g2", label: "G2", numbers: ["*****"] },
-        { tier: "g3", label: "G3", numbers: ["*****", "*****"] },
-        { tier: "g4", label: "G4", numbers: ["*****", "*****", "*****", "*****", "*****", "*****", "*****"] },
-        { tier: "g5", label: "G5", numbers: ["****"] },
-        { tier: "g6", label: "G6", numbers: ["****", "****", "****"] },
-        { tier: "g7", label: "G7", numbers: ["***"] },
         { tier: "g8", label: "G8", numbers: ["**"] },
+        { tier: "g7", label: "G7", numbers: ["***"] },
+        { tier: "g6", label: "G6", numbers: ["****", "****", "****"] },
+        { tier: "g5", label: "G5", numbers: ["****"] },
+        { tier: "g4", label: "G4", numbers: ["*****", "*****", "*****", "*****", "*****", "*****", "*****"] },
+        { tier: "g3", label: "G3", numbers: ["*****", "*****"] },
+        { tier: "g2", label: "G2", numbers: ["*****"] },
+        { tier: "g1", label: "G1", numbers: ["*****"] },
+        { tier: "special", label: "ĐB", numbers: ["******"] },
       ],
     })),
     note: "Dữ liệu mẫu — không lấy được feed live.",

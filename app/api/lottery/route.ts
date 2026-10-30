@@ -8,7 +8,10 @@ import {
   parseMinhngoc,
 } from "@/lib/lottery";
 
-export const revalidate = 300; // 5 min — latest-day feed. Older dates are static.
+export const revalidate = 0; // Never statically cache this route — latest draws
+// change intra-day (MN ~16:15, MT ~17:15, MB ~18:15). Upstream fetches below
+// pick their own TTL based on whether the request is for the latest draw or an
+// archived date.
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -30,14 +33,16 @@ function normalizeDate(raw: string | null): string | undefined {
 
 async function fetchLive(region: Region, date?: string): Promise<LotterySnapshot> {
   const url = date ? minhngocUrlForDate(region, date) : MINHNGOC_URLS[region];
+  // Archived date is static → cache 1h. Latest-draw page changes intra-day
+  // around the draw window → cache only 30s so new results surface quickly.
+  const upstreamRevalidate = date ? 3600 : 30;
   const res = await fetch(url, {
     headers: {
       "User-Agent": UA,
       Accept: "text/html,application/xhtml+xml,application/javascript,*/*",
       "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
     },
-    // Older dates are static; latest gets a short revalidate. Both fine at 300s.
-    next: { revalidate: 300 },
+    next: { revalidate: upstreamRevalidate },
   });
   if (!res.ok) throw new Error(`minhngoc HTTP ${res.status}`);
   const body = await res.text();
@@ -53,7 +58,11 @@ export async function GET(req: NextRequest) {
   try {
     const snap = await fetchLive(region, date);
     return NextResponse.json(snap, {
-      headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=3600" },
+      headers: {
+        "Cache-Control": date
+          ? "s-maxage=3600, stale-while-revalidate=86400"
+          : "s-maxage=30, stale-while-revalidate=120",
+      },
     });
   } catch (err) {
     return NextResponse.json(

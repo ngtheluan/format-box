@@ -117,6 +117,7 @@ export default function AccountMenu() {
       const d = await r.json();
       if (r.ok && d.ok) {
         setUser(d.user);
+        window.dispatchEvent(new CustomEvent("fb:user-changed", { detail: { user: d.user } }));
         close();
         toast(`${t("acct_hello")} ${d.user.firstname || d.user.accountname}!`);
         afterAuth();
@@ -150,6 +151,7 @@ export default function AccountMenu() {
       const d = await r.json();
       if (r.ok && d.ok) {
         setUser(d.user);
+        window.dispatchEvent(new CustomEvent("fb:user-changed", { detail: { user: d.user } }));
         close();
         toast(`${t("acct_created_hello")} ${d.user.firstname || d.user.accountname}!`);
         afterAuth();
@@ -168,6 +170,7 @@ export default function AccountMenu() {
       await fetch("/api/user/logout", { method: "POST" });
     } catch {}
     setUser(null);
+    window.dispatchEvent(new CustomEvent("fb:user-changed", { detail: { user: null } }));
     close();
     toast(t("acct_logged_out"));
     if (pathname.startsWith("/admin")) router.replace("/");

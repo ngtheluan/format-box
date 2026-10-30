@@ -426,11 +426,15 @@ export default function BlogAdminTool({
   }, [genLoading]);
 
   // Image picker + AI assist in the editor
-  const [picker, setPicker] = useState<null | { target: "cover" | "inline"; query: string }>(null);
+  const [picker, setPicker] = useState<
+    | null
+    | { target: "cover" | "inline"; query: string }
+    | { target: "replace"; query: string; replaceUrl: string }
+  >(null);
   const [assisting, setAssisting] = useState<string | null>(null);
   const [editView, setEditView] = useState<"write" | "preview">("write");
   const mdRef = useRef<HTMLTextAreaElement>(null);
-  const [reimaging, setReimaging] = useState<string | null>(null);
+  const [reimageList, setReimageList] = useState<null | Array<{ url: string; alt: string }>>(null);
 
   // Edit modal
   const [editing, setEditing] = useState<{
@@ -772,23 +776,24 @@ export default function BlogAdminTool({
     }
   }
 
-  async function reimage(p: BlogPost) {
-    setReimaging(p.slug);
-    try {
-      const r = await fetch("/api/blog/reimage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: p.slug }),
-      });
-      const j = await r.json();
-      if (!r.ok) return toast(j?.error || "Không chọn lại được ảnh");
-      setPosts((prev) => prev.map((x) => (x.slug === p.slug ? { ...x, coverImage: j.coverImage || x.coverImage } : x)));
-      toast(`Đã thay ${j.found}/${j.total} ảnh liên quan`);
-    } catch (e: any) {
-      toast(e?.message || "Lỗi");
-    } finally {
-      setReimaging(null);
+  function openReimageList() {
+    if (!editing) return;
+    const md = editing.markdown;
+    const re = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
+    const seen = new Set<string>();
+    const items: Array<{ url: string; alt: string }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(md))) {
+      const url = m[2];
+      if (seen.has(url)) continue;
+      seen.add(url);
+      items.push({ alt: m[1], url });
     }
+    if (!items.length) {
+      toast("Bài chưa có ảnh để chọn lại");
+      return;
+    }
+    setReimageList(items);
   }
 
   function pickImage(c: ImageCandidate) {
@@ -797,6 +802,15 @@ export default function BlogAdminTool({
     if (picker.target === "cover") {
       const credit = encodeURIComponent(JSON.stringify({ name: c.credit, url: c.creditUrl, source: src }));
       setEditing((cur) => (cur ? { ...cur, coverImage: `${c.url}#credit=${credit}` } : cur));
+    } else if (picker.target === "replace") {
+      const md = editing.markdown;
+      const oldUrl = picker.replaceUrl;
+      const escaped = oldUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`!\\[[^\\]]*\\]\\(${escaped}\\)(\\n\\*Ảnh:[^\\n]*\\*)?`, "g");
+      const alt = (c.alt.split(" · ")[0] || editing.title).replace(/[[\]]/g, "");
+      const snippet = `![${alt}](${c.url})\n*Ảnh: [${c.credit.replace(/[[\]]/g, "")}](${c.creditUrl}) / ${src}*`;
+      setEditing((cur) => (cur ? { ...cur, markdown: md.replace(re, snippet) } : cur));
+      toast("Đã thay ảnh");
     } else {
       const ta = mdRef.current;
       const md = editing.markdown;
@@ -2690,10 +2704,11 @@ export default function BlogAdminTool({
                   </div>
                 </div>
                 <Field
-                  required
                   label={
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, width: "100%" }}>
-                      Title
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
+                      <span>
+                        Title <span className="ui-field-req">*</span>
+                      </span>
                       <button
                         type="button"
                         className="bga-inline-ai"
@@ -2880,19 +2895,11 @@ export default function BlogAdminTool({
                     <button
                       type="button"
                       className="fx-btn"
-                      onClick={() => {
-                        const p = posts.find((x) => x.slug === editing.slug);
-                        if (p) reimage(p);
-                      }}
-                      disabled={saving || reimaging === editing.slug}
-                      title="AI chọn lại ảnh liên quan trong bài (không đổi ảnh bìa)"
+                      onClick={openReimageList}
+                      disabled={saving}
+                      title="Chọn ảnh hiện có trong bài và thay thế bằng ảnh khác"
                     >
-                      {reimaging === editing.slug ? (
-                        <IconLoader2 size={14} className="spin" />
-                      ) : (
-                        <IconPhotoSearch size={14} />
-                      )}{" "}
-                      AI chọn lại ảnh
+                      <IconPhotoSearch size={14} /> AI chọn lại ảnh
                     </button>
                   )}
                   <button
@@ -2940,9 +2947,6 @@ export default function BlogAdminTool({
                       <IconCheck size={14} /> Duyệt
                     </button>
                   )}
-                  <button className="fx-btn" onClick={() => setEditing(null)} disabled={saving}>
-                    Huỷ
-                  </button>
                   <button className="fx-btn fx-btn-primary" onClick={saveEdit} disabled={saving}>
                     {saving ? (
                       <>
@@ -2963,11 +2967,56 @@ export default function BlogAdminTool({
 
       {picker && editing && (
         <ImagePicker
-          title={picker.target === "cover" ? "Chọn ảnh bìa" : "Chèn ảnh vào bài"}
+          title={
+            picker.target === "cover"
+              ? "Chọn ảnh bìa"
+              : picker.target === "replace"
+                ? "Chọn ảnh thay thế"
+                : "Chèn ảnh vào bài"
+          }
           initialQuery={picker.query}
           onPick={pickImage}
           onClose={() => setPicker(null)}
         />
+      )}
+
+      {reimageList && editing && (
+        <div className="fx-modal-bg" style={{ zIndex: 255 }} onClick={() => setReimageList(null)}>
+          <div className="fx-modal" style={{ maxWidth: 820, width: "95vw" }} onClick={(e) => e.stopPropagation()}>
+            <div className="fx-modal-head">
+              <h2>
+                <IconPhotoSearch size={16} stroke={2} /> Ảnh trong bài — chọn ảnh để thay thế
+              </h2>
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setReimageList(null)}>
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body">
+              <div className="bga-picker-grid">
+                {reimageList.map((it) => (
+                  <button
+                    key={it.url}
+                    type="button"
+                    className="bga-picker-item"
+                    onClick={() => {
+                      setReimageList(null);
+                      setPicker({
+                        target: "replace",
+                        query: photoQuery(it.alt || editing.title, editing.tags.split(",").map((t) => t.trim()).filter(Boolean)),
+                        replaceUrl: it.url,
+                      });
+                    }}
+                    title={it.alt}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={it.url} alt={it.alt} loading="lazy" referrerPolicy="no-referrer" />
+                    <span>{it.alt || "(không có mô tả)"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* CATEGORY EDIT MODAL */}
