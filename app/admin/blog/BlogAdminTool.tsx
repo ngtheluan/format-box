@@ -164,6 +164,8 @@ export default function BlogAdminTool({
   const [cats, setCats] = useState<BlogCategoryRow[]>(initialCategories);
   const [dyk, setDyk] = useState<DidYouKnowItem[]>(initialDidYouKnow || []);
   const [q, setQ] = useState("");
+  const [pinPickerOpen, setPinPickerOpen] = useState(false);
+  const [pinPickerQ, setPinPickerQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [tab, setTab] = useState<"posts" | "categories" | "knowledge" | "images">("posts");
 
@@ -1399,15 +1401,153 @@ export default function BlogAdminTool({
             })}
           </div>
         )
-      ) : visible.length === 0 ? (
-        <div className="fx-empty">
-          <div className="fx-empty-ico">
-            <IconArticle size={22} stroke={1.7} />
-          </div>
-          {posts.length === 0 ? 'Chưa có bài. Bấm "Sinh bài" để tạo bài AI đầu tiên.' : "Không có kết quả phù hợp."}
-        </div>
       ) : (
-        <div className="fx-table">
+        <>
+          {(() => {
+            const pinned = posts.filter((x) => x.pinned);
+            const canAdd = pinned.length < MAX_PINNED;
+            const candidates = posts
+              .filter((x) => !x.pinned && (x.status || "published") === "published")
+              .filter((x) => {
+                const s = pinPickerQ.trim().toLowerCase();
+                if (!s) return true;
+                return (
+                  x.title.toLowerCase().includes(s) ||
+                  x.slug.toLowerCase().includes(s) ||
+                  (x.excerpt || "").toLowerCase().includes(s)
+                );
+              })
+              .slice(0, 30);
+            return (
+              <div className="bga-pinned-strip">
+                <div className="bga-pinned-head">
+                  <IconPinFilled size={13} stroke={2} />
+                  <span>
+                    Đang ghim ({pinned.length}/{MAX_PINNED})
+                  </span>
+                  {canAdd && (
+                    <button
+                      type="button"
+                      className="bga-pinned-add"
+                      onClick={() => setPinPickerOpen((v) => !v)}
+                      title="Chọn bài để ghim"
+                    >
+                      <IconPlus size={12} stroke={2.2} /> Chọn bài
+                    </button>
+                  )}
+                </div>
+                {pinPickerOpen && canAdd && (
+                  <div className="bga-pinned-picker">
+                    <input
+                      type="text"
+                      value={pinPickerQ}
+                      onChange={(e) => setPinPickerQ(e.target.value)}
+                      placeholder="Tìm theo tiêu đề, slug…"
+                      className="bga-pinned-picker-input"
+                      autoFocus
+                    />
+                    <div className="bga-pinned-picker-list">
+                      {candidates.length === 0 ? (
+                        <div className="bga-pinned-picker-empty">Không có bài phù hợp</div>
+                      ) : (
+                        candidates.map((p) => (
+                          <button
+                            key={p.slug}
+                            type="button"
+                            className="bga-pinned-picker-item"
+                            onClick={async () => {
+                              await togglePin(p);
+                              setPinPickerQ("");
+                            }}
+                          >
+                            <div className="bga-pinned-thumb">
+                              {p.coverImage ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={rewriteImgUrl(
+                                    p.coverImage
+                                      .split("#")[0]
+                                      .replace(/([?&])w=\d+/, "$1w=120")
+                                      .replace(/([?&])h=\d+/, "$1h=80"),
+                                  )}
+                                  alt=""
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span
+                                  style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }}
+                                />
+                              )}
+                            </div>
+                            <div className="bga-pinned-picker-text">
+                              <b>{p.title}</b>
+                              <span>/blog/{p.slug}</span>
+                            </div>
+                            <IconPin size={13} stroke={1.9} />
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+                {pinned.length === 0 ? (
+                  <div className="bga-pinned-empty">Chưa có bài nào được ghim. Bấm &quot;Chọn bài&quot; để thêm.</div>
+                ) : (
+                <div className="bga-pinned-list">
+                  {pinned.map((p) => (
+                    <div key={p.slug} className="bga-pinned-item">
+                      <div className="bga-pinned-thumb">
+                        {p.coverImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={rewriteImgUrl(
+                              p.coverImage
+                                .split("#")[0]
+                                .replace(/([?&])w=\d+/, "$1w=120")
+                                .replace(/([?&])h=\d+/, "$1h=80"),
+                            )}
+                            alt=""
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
+                        )}
+                      </div>
+                      <button
+                        className="bga-pinned-title"
+                        onClick={() => startEdit(p)}
+                        title="Sửa"
+                        type="button"
+                      >
+                        {p.title}
+                      </button>
+                      <button
+                        className="fx-btn fx-btn-icon"
+                        onClick={() => togglePin(p)}
+                        title="Bỏ ghim"
+                        style={{ color: "var(--warn, #f59e0b)" }}
+                        type="button"
+                      >
+                        <IconPinFilled size={13} stroke={2} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                )}
+              </div>
+            );
+          })()}
+          {visible.length === 0 ? (
+            <div className="fx-empty">
+              <div className="fx-empty-ico">
+                <IconArticle size={22} stroke={1.7} />
+              </div>
+              {posts.length === 0 ? 'Chưa có bài. Bấm "Sinh bài" để tạo bài AI đầu tiên.' : "Không có kết quả phù hợp."}
+            </div>
+          ) : (
+            <div className="fx-table">
           <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "56px 1fr 100px 110px 100px 190px" }}>
             <div />
             <div>Bài viết</div>
@@ -1416,11 +1556,8 @@ export default function BlogAdminTool({
             <div>Ngày</div>
             <div style={{ textAlign: "right" }}>Actions</div>
           </div>
-          {(() => {
-            const pinnedCount = posts.filter((x) => x.pinned).length;
-            return visible.map((p) => {
+          {visible.map((p) => {
               const status = (p.status || "published") as BlogStatus;
-              const canShowPin = p.pinned || pinnedCount < MAX_PINNED;
               return (
                 <div
                   key={p.slug}
@@ -1472,16 +1609,6 @@ export default function BlogAdminTool({
                   </div>
                   <div style={{ fontSize: 12, color: "var(--fg-muted, #888)" }}>{p.date}</div>
                   <div className="fx-row-actions">
-                    {canShowPin && (
-                      <button
-                        className="fx-btn fx-btn-icon"
-                        onClick={() => togglePin(p)}
-                        title={p.pinned ? "Bỏ ghim" : "Ghim lên đầu /blog"}
-                        style={p.pinned ? { color: "var(--warn, #f59e0b)" } : undefined}
-                      >
-                        {p.pinned ? <IconPinFilled size={14} stroke={1.9} /> : <IconPin size={14} stroke={1.9} />}
-                      </button>
-                    )}
                     {isSuperAdmin && (status === "draft" || status === "rejected") && (
                       <button
                         className="fx-btn fx-btn-icon"
@@ -1522,9 +1649,10 @@ export default function BlogAdminTool({
                   </div>
                 </div>
               );
-            });
-          })()}
-        </div>
+            })}
+            </div>
+          )}
+        </>
       )}
 
       {/* GENERATE MODAL */}
