@@ -88,7 +88,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const allTools = await getTools();
   const initialTools = allTools.filter((t) => isToolVisible(t, role));
   return (
-    <html lang="vi" data-theme="dark" suppressHydrationWarning>
+    <html lang="vi" data-theme="light" suppressHydrationWarning>
       <head>
         <meta
           name="viewport"
@@ -104,7 +104,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('fb-theme');var t=(s==='dark'||s==='light')?s:'dark';if(!s)localStorage.setItem('fb-theme','dark');document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`,
+            __html: `(function(){try{var s=localStorage.getItem('fb-theme');var t=(s==='dark'||s==='light')?s:'light';if(!s)localStorage.setItem('fb-theme','light');document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='light';}})();`,
           }}
         />
       </head>
