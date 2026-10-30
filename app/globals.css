@@ -9999,11 +9999,55 @@ body:has(.fx-modal-bg) .margin-ruler {
   padding-top: 10px;
   border-top: 1px dashed var(--border);
   font-size: 0.78rem;
+  flex-wrap: wrap;
 }
-@media (max-width: 720px) {
-  .fp-topbar-notify {
-    flex-wrap: wrap;
+@media (max-width: 900px) {
+  .fp-topbar {
+    padding: 10px 12px !important;
     gap: 8px;
+  }
+  .fp-head-meta {
+    font-size: 0.72rem;
+    width: 100%;
+    order: 10;
+  }
+}
+@media (max-width: 640px) {
+  .fp-head {
+    gap: 8px;
+  }
+  .fp-head-actions {
+    width: 100%;
+    justify-content: space-between;
+    order: 20;
+  }
+  .fp-topbar-notify {
+    padding-top: 8px;
+    font-size: 0.74rem;
+    column-gap: 10px;
+    row-gap: 8px;
+  }
+  .fp-notify-label {
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+  .fp-notify-status {
+    flex-basis: 100%;
+    order: 5;
+    min-width: 0;
+  }
+  .fp-notify-toggle-btn,
+  .fp-notify-test-btn {
+    flex: 1 1 140px;
+    min-width: 140px;
+    white-space: nowrap;
+    justify-content: center;
+  }
+}
+@media (max-width: 420px) {
+  .fp-region-btn {
+    padding: 4px 10px;
+    font-size: 0.7rem;
   }
 }
 .fp-head {
