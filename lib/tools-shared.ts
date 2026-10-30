@@ -233,6 +233,68 @@ export const SEED_TOOLS: Tool[] = [
     },
   },
   {
+    href: "/workflow-timeline",
+    iconName: "IconTimeline",
+    title: "Workflow Timeline",
+    desc: {
+      vi: "Trực quan hoá log workflow BPM/CRM từ JSON — timeline node, hand-off, bảng log entries.",
+      en: "Visualize BPM/CRM workflow logs from JSON — node timeline, hand-offs, log entries table.",
+    },
+    tags: ["workflow", "timeline", "bpm", "json", "log"],
+    category: "cat_text",
+    seoTitle: "Workflow Timeline Viewer - Trực quan hoá log workflow từ JSON | FormatBox",
+    seoDescription:
+      "Upload JSON log workflow (nodeinstancelog) để xem timeline node, hand-off, assignee và bảng log entries. Xử lý client-side, không upload server.",
+    seoKeywords: [
+      "workflow timeline",
+      "workflow viewer",
+      "bpm log viewer",
+      "nodeinstancelog",
+      "workflow json visualizer",
+      "trực quan workflow",
+    ],
+    intro: {
+      vi: "Workflow Timeline giúp bạn upload JSON log workflow (dạng danh sách nodeinstancelog) và xem toàn bộ dòng chảy xử lý: mỗi node là một hàng trên timeline, các log entry hiện dưới dạng dot, hand-off giữa node vẽ bằng mũi tên đứt nét. Phù hợp để debug workflow BPM/CRM.",
+      en: "Workflow Timeline lets you upload a workflow log JSON (nodeinstancelog list) and inspect the full processing flow: each node is a row on the timeline, log entries render as dots, hand-offs between nodes show as dashed arrows. Great for debugging BPM/CRM workflows.",
+    },
+    features: {
+      vi: [
+        "Upload file JSON hoặc paste trực tiếp",
+        "Danh sách workflow kèm trạng thái & số node",
+        "Timeline Equal steps hoặc Proportional time",
+        "Hand-off giữa node vẽ bằng mũi tên đứt nét",
+        "Bảng log entries với thời gian chênh lệch",
+        "Chạy 100% trên trình duyệt — dữ liệu không rời khỏi máy",
+      ],
+      en: [
+        "Upload JSON file or paste directly",
+        "Workflow list with status and node count",
+        "Timeline in Equal steps or Proportional time",
+        "Hand-offs between nodes drawn as dashed arrows",
+        "Log entries table with time deltas",
+        "Runs 100% in the browser — data never leaves your device",
+      ],
+    },
+    faqs: {
+      vi: [
+        {
+          q: "Định dạng JSON cần như thế nào?",
+          a: "Object có key `data` là mảng các log entry, mỗi entry gồm workflowinstanceid, nodeinstancelogid, nodeinstanceid, nodeinstancestatus, useraction, assigneduser, createddate, createduser.",
+        },
+        { q: "Dữ liệu có bị upload lên server không?", a: "Không. Toàn bộ parse và render trong trình duyệt." },
+        { q: "Có giới hạn kích thước không?", a: "Giới hạn theo RAM trình duyệt. Vài MB vẫn mượt." },
+      ],
+      en: [
+        {
+          q: "What JSON shape is expected?",
+          a: "An object with a `data` array of log entries. Each entry has workflowinstanceid, nodeinstancelogid, nodeinstanceid, nodeinstancestatus, useraction, assigneduser, createddate, createduser.",
+        },
+        { q: "Is data uploaded to a server?", a: "No. All parsing and rendering happens in the browser." },
+        { q: "Is there a size limit?", a: "Bounded by browser RAM. Several MB stays smooth." },
+      ],
+    },
+  },
+  {
     href: "/graph",
     iconName: "IconChartDots3",
     title: "JSON Graph",

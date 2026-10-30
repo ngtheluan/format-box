@@ -164,5 +164,6 @@ export const config = {
     "/uuid",
     "/weather",
     "/wheel",
+    "/workflow-timeline",
   ],
 };
