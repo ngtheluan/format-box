@@ -60,14 +60,12 @@ export default function AccountMenu() {
   }, [pathname]);
 
   function switchMode(next: AppMode) {
-    setMode(next);
     try {
       localStorage.setItem(MODE_KEY, next);
     } catch {}
-    window.dispatchEvent(new CustomEvent("fb:mode-change", { detail: { mode: next } }));
     close();
-    if (next === "admin") router.push("/admin");
-    else if (pathname.startsWith("/admin")) router.push("/");
+    const target = next === "admin" ? "/admin" : "/";
+    window.open(target, "_blank", "noopener,noreferrer");
   }
 
   useEffect(() => {
