@@ -371,17 +371,33 @@ export const SEED_TOOLS: Tool[] = [
       en: "An online photobooth that uses your webcam to take photos with filters, stickers, and Korean-style 4-cut photo strips. No app install — runs right in the browser.",
     },
     features: {
-      vi: ["Filter màu đa dạng", "Sticker và khung ảnh", "Ghép strip 2/4/6 ảnh", "Đếm ngược trước khi chụp", "Download PNG chất lượng cao", "Không lưu ảnh lên server"],
-      en: ["Many color filters", "Stickers and frames", "2/4/6-cut photo strips", "Countdown before each shot", "High-quality PNG download", "No photos stored on any server"],
+      vi: [
+        "Filter màu đa dạng",
+        "Sticker và khung ảnh",
+        "Ghép strip 2/4/6 ảnh",
+        "Đếm ngược trước khi chụp",
+        "Download PNG chất lượng cao — ảnh không rời khỏi máy bạn",
+        "Tuỳ chọn tạo link + QR chia sẻ 24 giờ (chỉ khi bạn chủ động chọn)",
+      ],
+      en: [
+        "Many color filters",
+        "Stickers and frames",
+        "2/4/6-cut photo strips",
+        "Countdown before each shot",
+        "High-quality PNG download — photos never leave your device",
+        "Opt-in share link + QR for 24 hours (only when you choose it)",
+      ],
     },
     faqs: {
       vi: [
-        { q: "Ảnh của tôi có bị gửi đi đâu không?", a: "Không. Ảnh xử lý và lưu trong trình duyệt của bạn." },
+        { q: "Ảnh của tôi có bị gửi đi đâu không?", a: "Mặc định là KHÔNG. Khi bạn chọn \"Tải ảnh\", mọi thứ xử lý trong trình duyệt — không có bản sao nào trên máy chủ. Ảnh chỉ được tải lên khi bạn chủ động bấm \"Tạo link & QR chia sẻ 24h\"; sau 24 giờ bản sao đó tự xoá." },
+        { q: "Link chia sẻ sống bao lâu?", a: "24 giờ kể từ lúc tạo. Sau đó link ngừng hoạt động và file sẽ bị xoá vĩnh viễn khỏi máy chủ." },
         { q: "Cần cho phép webcam không?", a: "Có, bạn cần cấp quyền camera để tool hoạt động." },
         { q: "Dùng trên điện thoại được không?", a: "Được, hỗ trợ camera trước và sau trên mobile." },
       ],
       en: [
-        { q: "Are my photos sent anywhere?", a: "No. Photos are processed and kept in your browser." },
+        { q: "Are my photos uploaded anywhere?", a: "By default, NO. When you choose \"Tải ảnh\" (download), everything is processed in your browser — no server copy. A photo is only uploaded if you explicitly click \"Tạo link & QR chia sẻ 24h\" (create a share link + QR), and that copy is deleted after 24 hours." },
+        { q: "How long does a share link last?", a: "24 hours from creation. After that the link stops working and the file is permanently removed from the server." },
         { q: "Do I need to allow webcam access?", a: "Yes, camera permission is required for the tool to work." },
         { q: "Does it work on mobile?", a: "Yes, both front and rear cameras are supported on phones." },
       ],
