@@ -23,6 +23,7 @@ import RoleBadge from "./RoleBadge";
 import SkinPicker from "./SkinPicker";
 import ThemeToggle from "./ThemeToggle";
 import { useToast } from "./Toast";
+import { invokePhotoboothMobileAction, usePhotoboothMobileUI } from "@/lib/photobooth-mobile-ui";
 
 type AccountView = "user-auth" | null;
 type AuthMode = "login" | "register";
@@ -256,60 +257,104 @@ export default function MobileTabBar() {
   const isBlog = pathname === "/blog";
   const isBlogPost = pathname.startsWith("/blog/");
 
+  // When Photobooth takes over the mobile tab bar, replace the default tabs
+  // with its per-step actions (shutter / edit tabs / result actions).
+  const pbUI = usePhotoboothMobileUI();
+
   return (
     <>
       <nav
-        className="mtab"
+        className={`mtab${pbUI.active ? " mtab--pb" : ""}`}
         aria-label="Mobile"
-        style={{
-          transition: "transform 220ms ease, opacity 220ms ease",
-          transform: hidden ? "translateY(calc(100% + 32px))" : "translateY(0)",
-          opacity: hidden ? 0 : 1,
-          pointerEvents: hidden ? "none" : undefined,
-        }}
+        style={
+          pbUI.active
+            ? (() => {
+                const n = Math.max(1, pbUI.actions.length);
+                const primaryCount = pbUI.actions.filter((a) => a.primary).length;
+                const nonPrimary = n - primaryCount;
+                // All primary (setup 2 primary / result 3 primary): equal 1fr.
+                // Mixed (edit 5 compact tabs + 1 primary Xong): keep tabs
+                // compact at 56px, let the primary pill fill the rest.
+                const cols =
+                  nonPrimary === 0
+                    ? `repeat(${n}, 1fr)`
+                    : pbUI.actions
+                        .map((a) => (a.primary ? "minmax(90px, 2fr)" : "minmax(0, 50px)"))
+                        .join(" ");
+                return {
+                  transition: "transform 220ms ease, opacity 220ms ease",
+                  gridTemplateColumns: cols,
+                };
+              })()
+            : {
+                transition: "transform 220ms ease, opacity 220ms ease",
+                transform: hidden ? "translateY(calc(100% + 32px))" : "translateY(0)",
+                opacity: hidden ? 0 : 1,
+                pointerEvents: hidden ? "none" : undefined,
+              }
+        }
       >
-        <button
-          type="button"
-          className={`mtab-btn${menuOpen || isBlogPost ? " active" : ""}`}
-          onClick={() => dispatch("fb:open-search")}
-          aria-label="Menu"
-          aria-expanded={menuOpen}
-        >
-          <IconMenu4 size={22} stroke={1.8} />
-          <span>{t("mtab_menu")}</span>
-        </button>
+        {pbUI.active ? (
+          pbUI.actions.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              className={`mtab-btn${a.active ? " active" : ""}${a.primary ? " mtab-btn--primary" : ""}`}
+              onClick={() => invokePhotoboothMobileAction(a.id)}
+              disabled={a.disabled}
+              aria-label={a.label}
+              aria-pressed={a.active}
+            >
+              {a.icon}
+              <span>{a.label}</span>
+            </button>
+          ))
+        ) : (
+          <>
+            <button
+              type="button"
+              className={`mtab-btn${menuOpen || isBlogPost ? " active" : ""}`}
+              onClick={() => dispatch("fb:open-search")}
+              aria-label="Menu"
+              aria-expanded={menuOpen}
+            >
+              <IconMenu4 size={22} stroke={1.8} />
+              <span>{t("mtab_menu")}</span>
+            </button>
 
-        <Link href="/blog" className={`mtab-btn${isBlog ? " active" : ""}`} aria-label={t("mtab_blog")}>
-          <IconNews size={22} stroke={1.8} />
-          <span>{t("mtab_blog")}</span>
-        </Link>
+            <Link href="/blog" className={`mtab-btn${isBlog ? " active" : ""}`} aria-label={t("mtab_blog")}>
+              <IconNews size={22} stroke={1.8} />
+              <span>{t("mtab_blog")}</span>
+            </Link>
 
-        <Link href="/" className={`mtab-btn${isHome ? " active" : ""}`} aria-label={t("mtab_home")}>
-          <IconHome size={22} stroke={1.8} />
-          <span>{t("mtab_home")}</span>
-        </Link>
+            <Link href="/" className={`mtab-btn${isHome ? " active" : ""}`} aria-label={t("mtab_home")}>
+              <IconHome size={22} stroke={1.8} />
+              <span>{t("mtab_home")}</span>
+            </Link>
 
-        <button
-          type="button"
-          className={`mtab-btn${accountView ? " active" : ""}`}
-          onClick={() => setAccountView("user-auth")}
-          aria-label={t("mtab_account")}
-          aria-expanded={!!accountView}
-        >
-          <IconUser size={22} stroke={1.8} />
-          <span>{t("mtab_account")}</span>
-        </button>
+            <button
+              type="button"
+              className={`mtab-btn${accountView ? " active" : ""}`}
+              onClick={() => setAccountView("user-auth")}
+              aria-label={t("mtab_account")}
+              aria-expanded={!!accountView}
+            >
+              <IconUser size={22} stroke={1.8} />
+              <span>{t("mtab_account")}</span>
+            </button>
 
-        <button
-          type="button"
-          className={`mtab-btn${settingsOpen ? " active" : ""}`}
-          onClick={() => setSettingsOpen(true)}
-          aria-label={t("mtab_setting")}
-          aria-expanded={settingsOpen}
-        >
-          <IconSettings size={22} stroke={1.8} />
-          <span>{t("mtab_setting")}</span>
-        </button>
+            <button
+              type="button"
+              className={`mtab-btn${settingsOpen ? " active" : ""}`}
+              onClick={() => setSettingsOpen(true)}
+              aria-label={t("mtab_setting")}
+              aria-expanded={settingsOpen}
+            >
+              <IconSettings size={22} stroke={1.8} />
+              <span>{t("mtab_setting")}</span>
+            </button>
+          </>
+        )}
       </nav>
 
       {settingsOpen &&

@@ -1044,6 +1044,73 @@ export const DICT = {
   pb_allow_camera: { vi: "Cho phép truy cập camera", en: "Allow camera access" },
   pb_start_camera: { vi: "Bật camera", en: "Start camera" },
   pb_no_camera: { vi: "Không truy cập được camera", en: "Camera unavailable" },
+  pb_grant_access: { vi: "Bật quyền truy cập", en: "Grant access" },
+  pb_grant_access_requesting: { vi: "Đang xin quyền…", en: "Requesting permission…" },
+  pb_grant_access_hint: {
+    vi: "Trình duyệt sẽ hỏi quyền camera và micro để chụp ảnh kèm video có tiếng.",
+    en: "Your browser will ask for camera and microphone access to record photos with sound.",
+  },
+  pb_perm_say_cheese: { vi: "Say cheese!", en: "Say cheese!" },
+  pb_perm_retry: { vi: "Thử lại", en: "Try again" },
+  pb_perm_open_settings_hint: {
+    vi: "Nếu bạn đã từ chối trước đó, hãy mở biểu tượng ổ khoá cạnh thanh địa chỉ để cho phép lại.",
+    en: "If you denied before, click the lock icon in the address bar to re-enable access.",
+  },
+  pb_cam_err_denied: {
+    vi: "Bạn đã từ chối quyền camera. Hãy mở lại quyền camera trong cài đặt trình duyệt.",
+    en: "Camera permission was denied. Please re-enable camera access in your browser settings.",
+  },
+  pb_cam_err_not_found: {
+    vi: "Không tìm thấy camera trên thiết bị này.",
+    en: "No camera was found on this device.",
+  },
+  pb_cam_err_in_use: {
+    vi: "Camera đang được ứng dụng khác sử dụng. Hãy đóng app đó rồi thử lại.",
+    en: "The camera is in use by another app. Close it and try again.",
+  },
+  pb_cam_err_overconstrained: {
+    vi: "Camera không hỗ trợ cấu hình yêu cầu. Thử camera khác xem sao.",
+    en: "The camera doesn't support the requested configuration. Try a different camera.",
+  },
+  pb_cam_err_insecure: {
+    vi: "Trình duyệt chặn camera trên trang không bảo mật (HTTP). Hãy mở trang qua HTTPS.",
+    en: "Your browser blocked camera on an insecure page (HTTP). Please use HTTPS.",
+  },
+  pb_cam_err_generic: {
+    vi: "Không truy cập được camera: {msg}",
+    en: "Camera error: {msg}",
+  },
+  pb_mic_err_denied: {
+    vi: "Bạn đã từ chối quyền micro. Hãy mở lại quyền micro trong cài đặt trình duyệt.",
+    en: "Microphone permission was denied. Please re-enable microphone access in your browser settings.",
+  },
+  pb_mic_err_not_found: {
+    vi: "Không tìm thấy micro trên thiết bị này.",
+    en: "No microphone was found on this device.",
+  },
+  pb_mic_err_in_use: {
+    vi: "Micro đang được ứng dụng khác sử dụng. Hãy đóng app đó rồi thử lại.",
+    en: "The microphone is in use by another app. Close it and try again.",
+  },
+  pb_mic_err_insecure: {
+    vi: "Trình duyệt chặn micro trên trang không bảo mật (HTTP). Hãy mở trang qua HTTPS.",
+    en: "Your browser blocked microphone on an insecure page (HTTP). Please use HTTPS.",
+  },
+  pb_mic_err_generic: {
+    vi: "Không truy cập được micro: {msg}",
+    en: "Microphone error: {msg}",
+  },
+  pb_mic_label: { vi: "Mic", en: "Mic" },
+  pb_mic_missing: { vi: "Chưa có mic", en: "No mic" },
+  pb_mic_cta_grant: { vi: "Cấp quyền mic để chụp", en: "Grant mic access to shoot" },
+  pb_mic_cta_requesting: { vi: "Đang xin quyền mic…", en: "Requesting microphone…" },
+  pb_capture_waiting_camera: { vi: "Bật camera để bắt đầu", en: "Enable camera to start" },
+  pb_capture_starting_camera: { vi: "Đang khởi động camera…", en: "Starting camera…" },
+  pb_capture_waiting_mic: { vi: "Bật mic để bắt đầu", en: "Enable microphone to start" },
+  pb_mic_missing_warn: {
+    vi: "Không có quyền micro — video quay không có tiếng. Hãy cho phép micro trong trình duyệt rồi chụp lại.",
+    en: "Microphone permission is missing — the recorded video has no sound. Allow mic access and reshoot.",
+  },
   pb_shots: { vi: "Số ảnh", en: "Shots" },
   pb_timer: { vi: "Hẹn giờ", en: "Timer" },
   pb_mirror: { vi: "Lật gương", en: "Mirror" },

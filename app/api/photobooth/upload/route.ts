@@ -30,9 +30,13 @@ async function sweepExpired() {
   }
 }
 
-// Accepts the finished strip as a raw binary image body (e.g. image/jpeg) — not a
-// base64 data URL inside JSON — so the payload stays small and well under the
-// serverless request-body limit. Falls back to the legacy JSON { dataUrl } shape.
+// Accepts the finished strip as a raw binary image body (e.g. image/jpeg) or a
+// capture-session video (e.g. video/mp4). The content-type header selects the
+// branch and sets the TTL/size cap. Falls back to the legacy JSON { dataUrl }
+// shape for images only.
+const IMG_MAX = 8 * 1024 * 1024;
+const VID_MAX = 50 * 1024 * 1024;
+
 export async function POST(req: Request) {
   try {
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -42,10 +46,14 @@ export async function POST(req: Request) {
     const reqType = (req.headers.get("content-type") || "").split(";")[0].trim();
     let buf: Buffer;
     let contentType: string;
+    let isVideo = false;
 
     if (reqType.startsWith("image/")) {
-      // Preferred path: raw binary image.
       contentType = reqType;
+      buf = Buffer.from(await req.arrayBuffer());
+    } else if (reqType.startsWith("video/")) {
+      contentType = reqType;
+      isVideo = true;
       buf = Buffer.from(await req.arrayBuffer());
     } else {
       // Legacy path: JSON { dataUrl: "data:image/...;base64,..." }.
@@ -59,16 +67,21 @@ export async function POST(req: Request) {
     }
 
     if (buf.length === 0) {
-      return NextResponse.json({ error: "empty image" }, { status: 400 });
+      return NextResponse.json({ error: "empty payload" }, { status: 400 });
     }
-    if (buf.length > 8 * 1024 * 1024) {
-      return NextResponse.json({ error: "image too large (max 8MB)" }, { status: 413 });
+    const max = isVideo ? VID_MAX : IMG_MAX;
+    if (buf.length > max) {
+      return NextResponse.json(
+        { error: `${isVideo ? "video" : "image"} too large (max ${Math.round(max / 1024 / 1024)}MB)` },
+        { status: 413 },
+      );
     }
 
-    const ext = (contentType.split("/")[1] || "png").replace(/[^a-z0-9]/gi, "") || "png";
+    const rawExt = (contentType.split("/")[1] || (isVideo ? "mp4" : "png")).replace(/[^a-z0-9]/gi, "");
+    const ext = rawExt || (isVideo ? "mp4" : "png");
     const name = `photobooth/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
     const blob = await put(name, buf, { access: "public", contentType });
-    await sweepExpired(); // purge anything already past its 24h TTL
+    await sweepExpired();
     return NextResponse.json({ url: blob.url });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "upload failed" }, { status: 500 });

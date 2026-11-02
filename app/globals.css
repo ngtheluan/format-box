@@ -781,6 +781,56 @@ section {
 .seo-section h2 svg {
   flex-shrink: 0;
 }
+/* --- Collapsible section (details/summary) --- */
+.seo-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  margin: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.seo-section-head::-webkit-details-marker {
+  display: none;
+}
+.seo-section-head:focus {
+  outline: none;
+}
+/* Keyboard-only focus ring (not on tap/click) for accessibility. */
+.seo-section-head:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.seo-section-head h2 {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.seo-section-chev {
+  flex-shrink: 0;
+  color: var(--dim, var(--text));
+  opacity: 0.6;
+  transition: transform 0.2s ease, opacity 0.15s ease;
+}
+.seo-section[open] .seo-section-chev {
+  transform: rotate(180deg);
+  opacity: 0.85;
+}
+.seo-section[open] .seo-section-head {
+  margin-bottom: 14px;
+}
+.seo-section-body {
+  animation: seoSectionFade 0.2s ease-out;
+}
+@keyframes seoSectionFade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .seo-intro {
   color: var(--text);
   line-height: 1.7;
@@ -835,6 +885,13 @@ section {
   gap: 12px;
   list-style: none;
   user-select: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.seo-faq summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -2px;
+  border-radius: 10px;
 }
 .seo-faq summary::-webkit-details-marker {
   display: none;

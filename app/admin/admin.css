@@ -1153,6 +1153,10 @@ body:has(.fx-modal-bg) {
   }
 }
 @media (max-width: 700px) {
+  .fx-stripe,
+  .fx-top {
+    display: none;
+  }
   /* Keep full 6-column layout; horizontal scroll when content is too wide */
   .fx-table {
     overflow-x: auto;

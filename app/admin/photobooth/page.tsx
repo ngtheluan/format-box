@@ -7,6 +7,7 @@ import {
   IconLoader2,
   IconRefresh,
   IconTrash,
+  IconVideo,
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import AdminBody from "../AdminBody";
@@ -136,10 +137,13 @@ export default function AdminPhotoboothPage() {
     }
   };
 
-  const summary = useMemo(
-    () => `${items.length} ảnh · ${formatBytes(totalBytes)}`,
-    [items.length, totalBytes],
-  );
+  const isVideoPath = (p: string) => /\.(mp4|webm|mov|m4v|ogg)$/i.test(p);
+
+  const summary = useMemo(() => {
+    const videos = items.filter((i) => isVideoPath(i.pathname)).length;
+    const photos = items.length - videos;
+    return `${photos} ảnh · ${videos} video · ${formatBytes(totalBytes)}`;
+  }, [items, totalBytes]);
 
   return (
     <AdminBody
@@ -148,7 +152,7 @@ export default function AdminPhotoboothPage() {
         { label: "Photobooth", icon: <IconCamera size={13} stroke={1.8} />, current: true },
       ]}
       title="Photobooth uploads"
-      description="Ảnh user chụp xong được upload lên Vercel Blob, tự xoá sau 24 giờ."
+      description="Ảnh và video user upload lên Vercel Blob, tự xoá sau 24 giờ."
     >
       <div className="pbadm-toolbar">
         <div className="pbadm-summary">{summary}</div>
@@ -193,15 +197,27 @@ export default function AdminPhotoboothPage() {
           <div className="pbadm-grid">
             {items.map((it) => {
               const picked = selected.has(it.url);
+              const isVid = isVideoPath(it.pathname);
               return (
                 <div key={it.url} className={`pbadm-card${picked ? " on" : ""}`}>
                   <label className="pbadm-pick">
                     <input type="checkbox" checked={picked} onChange={() => toggle(it.url)} />
                   </label>
-                  <a href={it.url} target="_blank" rel="noreferrer" className="pbadm-thumb">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={it.url} alt={it.pathname} loading="lazy" />
-                  </a>
+                  {isVid && (
+                    <span className="pbadm-kind">
+                      <IconVideo size={11} stroke={2} /> VIDEO
+                    </span>
+                  )}
+                  {isVid ? (
+                    <div className="pbadm-thumb">
+                      <video src={it.url} controls preload="metadata" playsInline />
+                    </div>
+                  ) : (
+                    <a href={it.url} target="_blank" rel="noreferrer" className="pbadm-thumb">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={it.url} alt={it.pathname} loading="lazy" />
+                    </a>
+                  )}
                   <div className="pbadm-meta">
                     <div className="pbadm-name" title={it.pathname}>
                       {it.pathname.replace(/^photobooth\//, "")}
@@ -317,7 +333,14 @@ export default function AdminPhotoboothPage() {
         .pbadm-pick { position: absolute; top: 6px; left: 6px; z-index: 2; background: rgba(0,0,0,0.5); border-radius: 4px; padding: 2px 4px; }
         .pbadm-pick input { cursor: pointer; }
         .pbadm-thumb { display: block; aspect-ratio: 4/5; background: #000; overflow: hidden; }
-        .pbadm-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pbadm-thumb img, .pbadm-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pbadm-kind {
+          position: absolute; top: 6px; right: 6px; z-index: 2;
+          display: inline-flex; align-items: center; gap: 3px;
+          background: rgba(0,0,0,0.65); color: #fff;
+          padding: 2px 6px; border-radius: 4px;
+          font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+        }
         .pbadm-meta { padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
         .pbadm-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; font-size: 10px; opacity: 0.85; }
         .pbadm-row { display: flex; justify-content: space-between; opacity: 0.75; }

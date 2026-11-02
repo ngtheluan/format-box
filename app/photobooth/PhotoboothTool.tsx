@@ -1,9 +1,10 @@
 "use client";
 
 import { Button, Input } from "@/components/ui";
+import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n";
+import { setPhotoboothMobileHandler, setPhotoboothMobileUI, type PBAction } from "@/lib/photobooth-mobile-ui";
 import {
-  IconArrowLeft,
   IconArrowsDiagonal,
   IconBorderCorners,
   IconCamera,
@@ -12,16 +13,19 @@ import {
   IconCheck,
   IconChevronLeft,
   IconChevronRight,
+  IconClockHour3,
   IconCopy,
   IconDownload,
   IconFlipHorizontal,
   IconLayoutGrid,
-  IconClockHour3,
+  IconMicrophone,
+  IconMicrophoneOff,
   IconMoodSmile,
   IconPalette,
   IconPhotoFilled,
   IconQrcode,
   IconRefresh,
+  IconShieldLock,
   IconSparkles,
   IconTrash,
   IconTypography,
@@ -653,7 +657,7 @@ const PHOTO_H = 360;
 const PHOTO_GAP = 12;
 const STRIP_PAD = 20;
 const CAPTION_H = 70;
-const SHOT_OPTIONS = [2, 4, 6] as const;
+const SHOT_OPTIONS = [2, 4, 6, 8] as const;
 
 // Grid layouts: 2x2 photos, overall aspect tuned per social-media target.
 type GridLayout = "tall" | "square" | "portrait";
@@ -678,8 +682,7 @@ const GRID_LAYOUTS: GridLayoutDef[] = [
 ];
 
 const isGridLayout = (l: Layout): l is GridLayout => l !== "strip";
-const gridDef = (l: Layout): GridLayoutDef | null =>
-  GRID_LAYOUTS.find((g) => g.id === l) ?? null;
+const gridDef = (l: Layout): GridLayoutDef | null => GRID_LAYOUTS.find((g) => g.id === l) ?? null;
 
 function stripHeight(shots: number) {
   return STRIP_PAD + shots * PHOTO_H + (shots - 1) * PHOTO_GAP + CAPTION_H + STRIP_PAD;
@@ -762,6 +765,142 @@ function todayString() {
   return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
 }
 
+// --- WebM EBML Duration patcher ---
+// MediaRecorder outputs a WebM where Segment/Info/Duration is missing or zero,
+// so native <video> controls can't scrub correctly (progress bar jumps, seeking
+// fails). This writes the real recording duration into the Info element so
+// `<video>` picks up a proper duration and can build a seek index from it.
+function fixWebmDuration(blob: Blob, durationMs: number): Promise<Blob> {
+  return blob.arrayBuffer().then((ab) => {
+    const buf = new Uint8Array(ab);
+    const ID_SEGMENT = [0x18, 0x53, 0x80, 0x67];
+    const ID_INFO = [0x15, 0x49, 0xa9, 0x66];
+    const ID_DURATION = [0x44, 0x89];
+
+    const findBytes = (needle: number[], from: number): number => {
+      outer: for (let i = from; i <= buf.length - needle.length; i++) {
+        for (let j = 0; j < needle.length; j++) if (buf[i + j] !== needle[j]) continue outer;
+        return i;
+      }
+      return -1;
+    };
+    const readVintSize = (pos: number): { value: number; length: number } | null => {
+      if (pos >= buf.length) return null;
+      const first = buf[pos];
+      if (first === 0) return null;
+      let len = 1;
+      while (len <= 8 && !(first & (0x80 >> (len - 1)))) len++;
+      if (len > 8 || pos + len > buf.length) return null;
+      const mask = (1 << (8 - len)) - 1;
+      let v = first & mask;
+      // "unknown size" marker: all content bits set
+      let unknown = v === mask;
+      for (let i = 1; i < len; i++) {
+        v = v * 256 + buf[pos + i];
+        if (buf[pos + i] !== 0xff) unknown = false;
+      }
+      return { value: unknown ? -1 : v, length: len };
+    };
+    const encodeVint = (value: number): Uint8Array => {
+      let len = 1;
+      while (value >= Math.pow(2, 7 * len) - 1 && len < 8) len++;
+      const out = new Uint8Array(len);
+      let v = value;
+      for (let i = len - 1; i > 0; i--) {
+        out[i] = v & 0xff;
+        v = Math.floor(v / 256);
+      }
+      out[0] = v | (0x80 >> (len - 1));
+      return out;
+    };
+
+    const segPos = findBytes(ID_SEGMENT, 0);
+    if (segPos < 0) return blob;
+    const segSize = readVintSize(segPos + ID_SEGMENT.length);
+    if (!segSize) return blob;
+    const segContentStart = segPos + ID_SEGMENT.length + segSize.length;
+
+    const infoPos = findBytes(ID_INFO, segContentStart);
+    if (infoPos < 0) return blob;
+    const infoSize = readVintSize(infoPos + ID_INFO.length);
+    if (!infoSize || infoSize.value < 0) return blob;
+    const infoContentStart = infoPos + ID_INFO.length + infoSize.length;
+    const infoContentEnd = infoContentStart + infoSize.value;
+
+    // Encoded Duration (float64, ticks of TimecodeScale which defaults to 1ms).
+    const durBytes = new Uint8Array(8);
+    new DataView(durBytes.buffer).setFloat64(0, durationMs);
+    const durVintSize = encodeVint(8);
+    const newDurElem = new Uint8Array(ID_DURATION.length + durVintSize.length + 8);
+    newDurElem.set(ID_DURATION, 0);
+    newDurElem.set(durVintSize, ID_DURATION.length);
+    newDurElem.set(durBytes, ID_DURATION.length + durVintSize.length);
+
+    // Look for an existing Duration inside Info.
+    let existingPos = -1;
+    let existingLen = 0;
+    for (let i = infoContentStart; i <= infoContentEnd - 2; i++) {
+      if (buf[i] === 0x44 && buf[i + 1] === 0x89) {
+        const sz = readVintSize(i + 2);
+        if (!sz) break;
+        existingPos = i;
+        existingLen = 2 + sz.length + Math.max(0, sz.value);
+        break;
+      }
+    }
+
+    // Build a new Info body (replace or prepend Duration).
+    let newInfoContent: Uint8Array;
+    if (existingPos >= 0) {
+      newInfoContent = new Uint8Array(infoSize.value - existingLen + newDurElem.length);
+      let p = 0;
+      newInfoContent.set(buf.subarray(infoContentStart, existingPos), p);
+      p += existingPos - infoContentStart;
+      newInfoContent.set(newDurElem, p);
+      p += newDurElem.length;
+      newInfoContent.set(buf.subarray(existingPos + existingLen, infoContentEnd), p);
+    } else {
+      newInfoContent = new Uint8Array(infoSize.value + newDurElem.length);
+      newInfoContent.set(newDurElem, 0);
+      newInfoContent.set(buf.subarray(infoContentStart, infoContentEnd), newDurElem.length);
+    }
+
+    const newInfoSizeVint = encodeVint(newInfoContent.length);
+    const newInfoElem = new Uint8Array(ID_INFO.length + newInfoSizeVint.length + newInfoContent.length);
+    newInfoElem.set(ID_INFO, 0);
+    newInfoElem.set(newInfoSizeVint, ID_INFO.length);
+    newInfoElem.set(newInfoContent, ID_INFO.length + newInfoSizeVint.length);
+
+    const oldInfoLen = ID_INFO.length + infoSize.length + infoSize.value;
+    const out = new Uint8Array(buf.length - oldInfoLen + newInfoElem.length);
+    out.set(buf.subarray(0, infoPos), 0);
+    out.set(newInfoElem, infoPos);
+    out.set(buf.subarray(infoPos + oldInfoLen), infoPos + newInfoElem.length);
+
+    // Segment size: MediaRecorder usually uses "unknown size" (segSize.value === -1),
+    // so no patch needed. If it isn't unknown, we skip patching it: a slightly stale
+    // Segment size doesn't break playback for a WebM served as a Blob URL.
+    return new Blob([out], { type: blob.type });
+  });
+}
+
+// Classify a getUserMedia failure into a stable code we can map to an i18n key.
+// Browsers differ on exact names and messages, but the DOMException.name is
+// mostly standardized: NotAllowedError / NotFoundError / NotReadableError /
+// OverconstrainedError / SecurityError are what the spec defines.
+type MediaErrCode = "denied" | "not_found" | "in_use" | "overconstrained" | "insecure" | "generic";
+function classifyMediaError(err: unknown): { code: MediaErrCode; raw: string } {
+  const raw = err instanceof Error ? err.message || err.name : String(err);
+  const name = err instanceof Error ? err.name : "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") return { code: "denied", raw };
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") return { code: "not_found", raw };
+  if (name === "NotReadableError" || name === "TrackStartError") return { code: "in_use", raw };
+  if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError")
+    return { code: "overconstrained", raw };
+  if (name === "SecurityError") return { code: "insecure", raw };
+  return { code: "generic", raw };
+}
+
 async function waitForVideo(v: HTMLVideoElement, timeoutMs = 4000): Promise<void> {
   if (v.readyState >= 2 && v.videoWidth > 0) return;
   return new Promise<void>((resolve) => {
@@ -781,6 +920,7 @@ async function waitForVideo(v: HTMLVideoElement, timeoutMs = 4000): Promise<void
 
 export default function PhotoboothTool() {
   const { t } = useI18n();
+  const toast = useToast();
 
   const [step, setStep] = useState<Step>("setup");
   // Move to a step and reflect it in the URL so browser back/forward works.
@@ -795,6 +935,13 @@ export default function PhotoboothTool() {
     } catch {}
   }, []);
 
+  // Mobile bottom-sheet: on phones all controls live in the site's MobileTabBar
+  // and open as a bottom sheet. `mobileSheet` is which panel is currently shown.
+  type MobileSheet = "settings" | "filter" | "theme" | "frame" | "sticker" | "text" | null;
+  const [mobileSheet, setMobileSheet] = useState<MobileSheet>(null);
+  // Centered modal shown when the user taps "Mã QR" in the result tab bar.
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+
   const [shots, setShots] = useState(4);
   const [timer, setTimer] = useState(5);
   const [mirror, setMirror] = useState(true);
@@ -808,9 +955,13 @@ export default function PhotoboothTool() {
   const captureRootRef = useRef<HTMLDivElement | null>(null);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<{ code: MediaErrCode; raw: string } | null>(null);
   const [facing, setFacing] = useState<"user" | "environment">("user");
   const [camInfo, setCamInfo] = useState<{ w: number; h: number; label?: string } | null>(null);
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const [micError, setMicError] = useState<{ code: MediaErrCode; raw: string } | null>(null);
+  const [micRequesting, setMicRequesting] = useState(false);
+  const [camRequesting, setCamRequesting] = useState(false);
   // Count physical video inputs so phones (front+back) show the flip button but a laptop
   // with a single webcam does not. Labels appear only after camera permission is granted,
   // but the device count itself is accurate before that too.
@@ -832,10 +983,22 @@ export default function PhotoboothTool() {
 
   const [captures, setCaptures] = useState<string[]>([]);
   const [sessionVideoUrl, setSessionVideoUrl] = useState<string | null>(null);
+  const [sessionVideoMirrored, setSessionVideoMirrored] = useState(false);
+  const sessionVideoBlobRef = useRef<Blob | null>(null);
   const [resultView, setResultView] = useState<"photo" | "video">("photo");
+  const [micMissing, setMicMissing] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordRafRef = useRef<number | null>(null);
+  const recordStartMsRef = useRef<number>(0);
+  const recorderAudioNodesRef = useRef<{
+    ctx: AudioContext;
+    dest: MediaStreamAudioDestinationNode;
+    src?: MediaStreamAudioSourceNode;
+  } | null>(null);
+  const recorderCancelledRef = useRef(false);
+  const captureCancelRef = useRef(false);
+  const soundTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // --- Lightweight sound helpers (Web Audio) ---
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -844,8 +1007,7 @@ export default function PhotoboothTool() {
     if (!audioCtxRef.current) {
       try {
         const AC: typeof AudioContext | undefined =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+          window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         if (AC) audioCtxRef.current = new AC();
       } catch {
         audioCtxRef.current = null;
@@ -876,6 +1038,22 @@ export default function PhotoboothTool() {
     [getAudioCtx],
   );
   const playTickSound = useCallback(() => playTone(880, 0.06, "square", 0.08), [playTone]);
+
+  // Hard-stop every sound this component scheduled: close the AudioContext (any
+  // oscillator / buffer source still playing or waiting on setTimeout fallbacks
+  // becomes a no-op) and clear the setTimeout handles that would otherwise fire
+  // a new tick or crackle after the user already asked to exit.
+  const stopAllSounds = useCallback(() => {
+    for (const h of soundTimersRef.current) clearTimeout(h);
+    soundTimersRef.current = [];
+    const ctx = audioCtxRef.current;
+    if (ctx) {
+      try {
+        ctx.close();
+      } catch {}
+      audioCtxRef.current = null;
+    }
+  }, []);
 
   // Noise helper: a filtered burst that decays over `dur` seconds.
   const playNoise = useCallback(
@@ -911,58 +1089,98 @@ export default function PhotoboothTool() {
     [getAudioCtx],
   );
 
-  // iPhone-style camera shutter: a quick "schlick" — short highpassed noise burst
-  // for the mirror snap + brief high ping for the aperture click.
+  // Shutter sound: a soft "chime" — pleasant two-note bell instead of the
+  // mechanical click, so it reads as a cheerful photobooth beat. All tones
+  // are scheduled on the AudioContext timeline so stopAllSounds (which closes
+  // the ctx) silences any still-pending notes immediately.
   const playShutterSound = useCallback(() => {
-    // Mechanical schlick: band-passed noise around 3kHz
-    playNoise({ dur: 0.07, gain: 0.35, filter: "highpass", freq: 2200, q: 0.9, decay: 3 });
-    // Second half: softer trailing noise around 1.5kHz, slight delay
-    setTimeout(
-      () => playNoise({ dur: 0.09, gain: 0.22, filter: "bandpass", freq: 1500, q: 1.4, decay: 2.5 }),
-      55,
-    );
-    // Tiny click tone at the very start
-    playTone(3200, 0.012, "square", 0.08);
-  }, [playNoise, playTone]);
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const bell = (freq: number, when: number, dur: number, gain: number) => {
+      try {
+        const now = ctx.currentTime + when;
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(gain, now + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + dur + 0.02);
+      } catch {}
+    };
+    // Rising two-note chime: C6 → E6
+    bell(1046.5, 0, 0.22, 0.2);
+    bell(1318.5, 0.09, 0.3, 0.22);
+    // A tiny sparkle on top
+    bell(2093, 0.14, 0.18, 0.1);
+  }, [getAudioCtx]);
 
-  // Firework "shoot" sound: rising whistle (rocket launch) → sharp sparkle pop
-  // → cluster of high crackles drifting into silence. No bass drum / boom.
+  // Firework sound: deep BOOM (low rumble + mid thump) followed by a wide
+  // crackle tail, so the celebration on the result screen feels substantial.
   const playFireworkSound = useCallback(() => {
     const ctx = getAudioCtx();
     if (!ctx) return;
+    const now = ctx.currentTime;
     try {
-      // Rising whistle: sawtooth sliding up quickly for the "shoot" effect
+      // Low rumble: long low-passed noise fading out slowly
+      const boomBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.55), ctx.sampleRate);
+      const bd = boomBuf.getChannelData(0);
+      for (let i = 0; i < bd.length; i++) {
+        bd[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bd.length, 2.2);
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = boomBuf;
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 180;
+      lp.Q.value = 0.9;
+      const bg = ctx.createGain();
+      bg.gain.setValueAtTime(0.0001, now);
+      bg.gain.exponentialRampToValueAtTime(0.55, now + 0.01);
+      bg.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+      src.connect(lp);
+      lp.connect(bg);
+      bg.connect(ctx.destination);
+      src.start(now);
+    } catch {}
+    try {
+      // Mid-range sub thump: a sine that drops in pitch, giving the "whump"
       const osc = ctx.createOscillator();
       const og = ctx.createGain();
-      osc.type = "sawtooth";
-      const startFreq = 500 + Math.random() * 300;
-      osc.frequency.setValueAtTime(startFreq, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(startFreq * 3.2, ctx.currentTime + 0.28);
-      // Band-pass to make it thin and whistle-like
-      const bp = ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.value = 1800;
-      bp.Q.value = 6;
-      og.gain.setValueAtTime(0, ctx.currentTime);
-      og.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.05);
-      og.gain.setValueAtTime(0.08, ctx.currentTime + 0.22);
-      og.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-      osc.connect(bp);
-      bp.connect(og);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(55, now + 0.22);
+      og.gain.setValueAtTime(0.0001, now);
+      og.gain.exponentialRampToValueAtTime(0.5, now + 0.015);
+      og.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+      osc.connect(og);
       og.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.32);
+      osc.start(now);
+      osc.stop(now + 0.32);
     } catch {}
-    // Sparkle pop right at explosion (bright highpassed noise, no low end)
-    setTimeout(
-      () => playNoise({ dur: 0.18, gain: 0.22, filter: "highpass", freq: 2600, q: 0.7, decay: 2.8 }),
-      280,
+    // Sizzle burst right after boom (tracked so cancelling the show stops it)
+    soundTimersRef.current.push(
+      setTimeout(() => playNoise({ dur: 0.3, gain: 0.18, filter: "bandpass", freq: 3000, q: 1.2, decay: 2.4 }), 120),
     );
-    // Crackle tail: many tiny high ticks
-    for (let i = 0; i < 14; i++) {
-      setTimeout(
-        () => playNoise({ dur: 0.035, gain: 0.06 + Math.random() * 0.07, filter: "highpass", freq: 3800, q: 0.6, decay: 3 }),
-        320 + Math.random() * 900,
+    // Scattered high crackles trailing off
+    for (let i = 0; i < 18; i++) {
+      soundTimersRef.current.push(
+        setTimeout(
+          () =>
+            playNoise({
+              dur: 0.04,
+              gain: 0.08 + Math.random() * 0.08,
+              filter: "highpass",
+              freq: 4200,
+              q: 0.6,
+              decay: 3,
+            }),
+          180 + Math.random() * 1100,
+        ),
       );
     }
   }, [getAudioCtx, playNoise]);
@@ -984,9 +1202,13 @@ export default function PhotoboothTool() {
   const [photoDragIndex, setPhotoDragIndex] = useState<number | null>(null);
   const [photoDropIndex, setPhotoDropIndex] = useState<number | null>(null);
   const dragStateRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
-  const resizeStateRef = useRef<{ id: string; cx: number; cy: number; startDist: number; startSize: number } | null>(null);
+  const resizeStateRef = useRef<{ id: string; cx: number; cy: number; startDist: number; startSize: number } | null>(
+    null,
+  );
   // Dragging from the palette (sticker/text picker) → drop onto strip
-  const paletteDragRef = useRef<{ stickerId: string; isText: boolean; sx: number; sy: number; moved: boolean } | null>(null);
+  const paletteDragRef = useRef<{ stickerId: string; isText: boolean; sx: number; sy: number; moved: boolean } | null>(
+    null,
+  );
   const suppressClickRef = useRef(false);
   const [ghost, setGhost] = useState<{ stickerId: string; x: number; y: number; isText: boolean } | null>(null);
   const [dropHot, setDropHot] = useState(false);
@@ -1001,7 +1223,8 @@ export default function PhotoboothTool() {
   // video and the first shot is empty.
   const [videoLive, setVideoLive] = useState(false);
   const cameraReady = !!stream;
-  const canCapture = cameraReady && videoLive;
+  const micReady = !!micStream;
+  const canCapture = cameraReady && videoLive && micReady;
 
   // Attach stream to video element whenever either changes.
   useEffect(() => {
@@ -1040,32 +1263,16 @@ export default function PhotoboothTool() {
   }, [stream, step]);
 
   const startCamera = useCallback(
-    async (which?: "user" | "environment") => {
+    async (which?: "user" | "environment"): Promise<MediaStream | null> => {
       const target = which ?? facing;
       try {
         setCameraError(null);
-        // Request audio alongside video so the recorded capture-session video has
-        // sound. If the mic is denied/unavailable, fall back to video-only.
-        let s: MediaStream;
-        try {
-          s = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: target, width: { ideal: 1280 }, height: { ideal: 960 } },
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
-          });
-        } catch {
-          s = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: target, width: { ideal: 1280 }, height: { ideal: 960 } },
-            audio: false,
-          });
-        }
-        // Mute the local preview's audio playback so the user doesn't hear themselves
-        // live — but the audio tracks still exist on the stream for MediaRecorder.
-        // Replace existing stream — stop old tracks first so the hardware is released
-        // (two concurrent getUserMedia calls on the same device fail on iOS).
+        setCamRequesting(true);
+        // Camera-only: the mic is requested separately via startMic so the two
+        // permissions are independent and the user can see each one's state.
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: target, width: { ideal: 1280 }, height: { ideal: 960 } },
+        });
         setStream((prev) => {
           prev?.getTracks().forEach((tr) => tr.stop());
           return s;
@@ -1080,9 +1287,13 @@ export default function PhotoboothTool() {
           });
         }
         setFacing(target);
+        return s;
       } catch (e) {
         setStream(null);
-        setCameraError(e instanceof Error ? e.message : "camera error");
+        setCameraError(classifyMediaError(e));
+        return null;
+      } finally {
+        setCamRequesting(false);
       }
     },
     [facing],
@@ -1098,9 +1309,122 @@ export default function PhotoboothTool() {
     setCamInfo(null);
   }, [stream]);
 
+  const startMic = useCallback(async (): Promise<MediaStream | null> => {
+    try {
+      setMicError(null);
+      setMicRequesting(true);
+      const s = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      setMicStream((prev) => {
+        prev?.getTracks().forEach((tr) => tr.stop());
+        return s;
+      });
+      return s;
+    } catch (e) {
+      setMicStream(null);
+      setMicError(classifyMediaError(e));
+      return null;
+    } finally {
+      setMicRequesting(false);
+    }
+  }, []);
+
+  const stopMic = useCallback(() => {
+    micStream?.getTracks().forEach((tr) => tr.stop());
+    setMicStream(null);
+  }, [micStream]);
+
+  // Request camera + mic together with a single native permission prompt.
+  // Falls back to requesting each one separately when the combined call fails
+  // (e.g. one of the two is denied or unavailable).
+  const grantAccess = useCallback(async () => {
+    try {
+      setCamRequesting(true);
+      setMicRequesting(true);
+      setCameraError(null);
+      setMicError(null);
+      let combined: MediaStream | null = null;
+      let combinedErr: unknown = null;
+      try {
+        combined = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 960 } },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (e) {
+        combinedErr = e;
+        combined = null;
+      }
+      if (combined) {
+        const vTracks = combined.getVideoTracks();
+        const aTracks = combined.getAudioTracks();
+        if (vTracks.length > 0) {
+          const vs = new MediaStream(vTracks);
+          setStream((prev) => {
+            prev?.getTracks().forEach((tr) => tr.stop());
+            return vs;
+          });
+          const settings = vTracks[0].getSettings();
+          setCamInfo({
+            w: settings.width ?? 0,
+            h: settings.height ?? 0,
+            label: vTracks[0].label || undefined,
+          });
+        }
+        if (aTracks.length > 0) {
+          const as = new MediaStream(aTracks);
+          setMicStream((prev) => {
+            prev?.getTracks().forEach((tr) => tr.stop());
+            return as;
+          });
+        } else {
+          // Combined succeeded for video but mic missing — ask mic explicitly.
+          try {
+            const audioOnly = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            });
+            setMicStream((prev) => {
+              prev?.getTracks().forEach((tr) => tr.stop());
+              return audioOnly;
+            });
+          } catch (e) {
+            setMicError(classifyMediaError(e));
+          }
+        }
+      } else {
+        // Combined failed — try each individually so user still gets whichever
+        // is granted, and we can show a specific error per device.
+        const cls = combinedErr ? classifyMediaError(combinedErr) : null;
+        const [camRes, micRes] = await Promise.allSettled([startCamera(), startMic()]);
+        if (camRes.status === "rejected") {
+          setCameraError(classifyMediaError(camRes.reason) ?? cls ?? { code: "generic", raw: "" });
+        } else if (camRes.value === null && !cameraError && cls) {
+          setCameraError(cls);
+        }
+        if (micRes.status === "rejected") {
+          setMicError(classifyMediaError(micRes.reason) ?? cls ?? { code: "generic", raw: "" });
+        } else if (micRes.value === null && !micError && cls) {
+          setMicError(cls);
+        }
+      }
+    } finally {
+      setCamRequesting(false);
+      setMicRequesting(false);
+    }
+  }, [facing, startCamera, startMic, cameraError, micError]);
+
   useEffect(() => {
     return () => {
       stream?.getTracks().forEach((tr) => tr.stop());
+      micStream?.getTracks().forEach((tr) => tr.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1144,7 +1468,7 @@ export default function PhotoboothTool() {
         ctx.getImageData(10, 10, 1, 1).data,
         ctx.getImageData(c.width - 10, c.height - 10, 1, 1).data,
       ];
-      const hasPixels = samples.some((s) => s[3] > 0 && (s[0] + s[1] + s[2]) > 0);
+      const hasPixels = samples.some((s) => s[3] > 0 && s[0] + s[1] + s[2] > 0);
       if (hasPixels) return c.toDataURL("image/jpeg", 0.92);
       await new Promise((r) => setTimeout(r, 120));
     }
@@ -1163,6 +1487,8 @@ export default function PhotoboothTool() {
   const runCaptureSequence = useCallback(async () => {
     if (capturingRef.current) return;
     capturingRef.current = true;
+    captureCancelRef.current = false;
+    recorderCancelledRef.current = false;
 
     // Decide which slots to fill. Retake queue = partial refill of specific indexes.
     const isRetake = retakeQueue.length > 0;
@@ -1177,83 +1503,122 @@ export default function PhotoboothTool() {
     if (v) await waitForVideo(v);
 
     // Start recording the camera stream for the whole capture session, so the user
-    // ends up with a short clip alongside the strip. Only when auto + timer > 0 and
-    // not a partial retake — matches the "Tắt = no video" rule.
-    const shouldRecord =
-      !isRetake && captureMode === "auto" && timer > 0 && !!stream && typeof MediaRecorder !== "undefined";
+    // ends up with a short clip alongside the strip. Record on retakes too — the
+    // onstop handler replaces the previous session video, so the user's video
+    // self-adjusts for the retaken segment.
+    const shouldRecord = captureMode === "auto" && timer > 0 && !!stream && typeof MediaRecorder !== "undefined";
     if (shouldRecord && stream) {
       try {
-        const hasAudio = stream.getAudioTracks().length > 0;
+        // Build the audio track for recording from the dedicated mic stream
+        // (requested up-front via "Bật mic" in setup). We route it through an
+        // AudioContext MediaStreamDestination because MediaRecorder is finicky
+        // about audio tracks added to a stream after construction, especially
+        // on Safari and when combined with canvas.captureStream.
+        const micTracks = micStream ? micStream.getAudioTracks() : [];
+        let audioTrack: MediaStreamTrack | null = null;
+        try {
+          if (micTracks.length > 0) {
+            const ac = getAudioCtx();
+            if (ac) {
+              const dest = ac.createMediaStreamDestination();
+              const micOnly = new MediaStream([micTracks[0]]);
+              const src = ac.createMediaStreamSource(micOnly);
+              src.connect(dest);
+              recorderAudioNodesRef.current = { ctx: ac, dest, src };
+              audioTrack = dest.stream.getAudioTracks()[0] ?? null;
+            } else {
+              audioTrack = micTracks[0];
+            }
+          }
+        } catch {
+          audioTrack = micTracks[0] ?? null;
+        }
+        setMicMissing(!audioTrack);
+
+        const hasAudio = !!audioTrack;
+        // Prefer MP4 (H.264/AAC) first: it plays natively on iOS Safari and
+        // modern Android. WebM is the fallback for desktop Chromium/Firefox
+        // where MediaRecorder has no MP4 encoder.
         const candidates = hasAudio
           ? [
+              "video/mp4;codecs=h264,aac",
+              "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+              "video/mp4;codecs=avc1,mp4a",
+              "video/mp4",
               "video/webm;codecs=vp9,opus",
               "video/webm;codecs=vp8,opus",
               "video/webm;codecs=h264,opus",
               "video/webm;codecs=opus",
               "video/webm",
-              "video/mp4",
             ]
           : [
+              "video/mp4;codecs=h264",
+              "video/mp4;codecs=avc1",
+              "video/mp4",
               "video/webm;codecs=vp9",
               "video/webm;codecs=vp8",
               "video/webm",
-              "video/mp4",
             ];
         const mime = candidates.find((m) => MediaRecorder.isTypeSupported(m));
 
-        // When mirror is on, bake the horizontal flip into the recorded file by
-        // feeding a canvas (drawn mirrored each frame) + the original audio tracks
-        // into MediaRecorder. This way the saved video is already correctly mirrored
-        // and the native player controls stay the right way around.
-        let recordStream: MediaStream = stream;
-        if (mirror && v) {
-          const canvas = document.createElement("canvas");
-          const srcW = v.videoWidth || 1280;
-          const srcH = v.videoHeight || 960;
-          canvas.width = srcW;
-          canvas.height = srcH;
-          const cctx = canvas.getContext("2d");
-          if (cctx) {
-            const draw = () => {
-              try {
-                cctx.save();
-                cctx.setTransform(-1, 0, 0, 1, canvas.width, 0);
-                cctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-                cctx.restore();
-              } catch {}
-              recordRafRef.current = requestAnimationFrame(draw);
-            };
-            draw();
-            const captured = (
-              canvas as HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream }
-            ).captureStream?.(30);
-            if (captured) {
-              for (const t of stream.getAudioTracks()) captured.addTrack(t);
-              recordStream = captured;
-            }
-          }
-        }
+        const recordWasMirrored = mirror;
+        // Always record the raw camera track so the output keeps its native
+        // frame timing. A canvas.captureStream mirror track would be rate-limited
+        // and often ends up with a shorter duration than the audio, which makes
+        // the player speed the video up on playback. Mirror is reapplied as a
+        // CSS transform on the preview and share page when sessionVideoMirrored
+        // is true.
+        const videoTrack: MediaStreamTrack | null = stream.getVideoTracks()[0] ?? null;
+
+        const tracks: MediaStreamTrack[] = [];
+        if (videoTrack) tracks.push(videoTrack);
+        if (audioTrack) tracks.push(audioTrack);
+        const recordStream = new MediaStream(tracks);
 
         const rec = new MediaRecorder(recordStream, mime ? { mimeType: mime } : undefined);
         recordedChunksRef.current = [];
         rec.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
         };
-        rec.onstop = () => {
+        rec.onstop = async () => {
           if (recordRafRef.current != null) {
             cancelAnimationFrame(recordRafRef.current);
             recordRafRef.current = null;
           }
-          const blob = new Blob(recordedChunksRef.current, { type: rec.mimeType || "video/webm" });
+          const cancelled = recorderCancelledRef.current;
+          const durationMs = Math.max(0, performance.now() - recordStartMsRef.current);
+          let blob = cancelled
+            ? new Blob([], { type: rec.mimeType || "video/webm" })
+            : new Blob(recordedChunksRef.current, { type: rec.mimeType || "video/webm" });
           recordedChunksRef.current = [];
-          if (blob.size > 0) {
+          // Patch the WebM Duration so the native player's scrubber works.
+          if (!cancelled && blob.size > 0 && (rec.mimeType || "").includes("webm")) {
+            try {
+              blob = await fixWebmDuration(blob, durationMs);
+            } catch {
+              // leave the raw blob
+            }
+          }
+          // Tear down the audio graph so the ctx is free for other uses.
+          try {
+            const nodes = recorderAudioNodesRef.current;
+            if (nodes) {
+              nodes.src?.disconnect();
+              nodes.dest.disconnect();
+            }
+          } catch {}
+          recorderAudioNodesRef.current = null;
+          if (!cancelled && blob.size > 0) {
             const url = URL.createObjectURL(blob);
+            sessionVideoBlobRef.current = blob;
+            setSessionVideoMirrored(recordWasMirrored);
             setSessionVideoUrl((prev) => {
               if (prev) URL.revokeObjectURL(prev);
               return url;
             });
           }
         };
+        recordStartMsRef.current = performance.now();
         rec.start(1000);
         recorderRef.current = rec;
       } catch {
@@ -1262,23 +1627,29 @@ export default function PhotoboothTool() {
     }
 
     for (const idx of indexes) {
+      if (captureCancelRef.current) break;
       if (captureMode === "manual") {
         setAwaitingShutter(true);
         await new Promise<void>((resolve) => {
           shutterResolveRef.current = resolve;
         });
         setAwaitingShutter(false);
+        if (captureCancelRef.current) break;
       } else if (timer > 0) {
         for (let s = timer; s > 0; s--) {
+          if (captureCancelRef.current) break;
           setCountdown(s);
           playTickSound();
           await new Promise((r) => setTimeout(r, 1000));
         }
+        if (captureCancelRef.current) break;
       }
       setCountdown(null);
+      if (captureCancelRef.current) break;
       if (flashOnShot) setFlashKey((k) => k + 1);
       playShutterSound();
       const frame = await grabFrame();
+      if (captureCancelRef.current) break;
       if (frame) {
         working[idx] = frame;
         setCaptures(working.map((c) => c ?? "") as string[]);
@@ -1288,13 +1659,21 @@ export default function PhotoboothTool() {
 
     capturingRef.current = false;
     setRetakeQueue([]);
-    // Filter out any empty slots just in case
-    setCaptures(working.filter((c): c is string => !!c));
     // Stop recording before killing the stream so the final blob flushes.
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
-      try { recorderRef.current.stop(); } catch {}
+      try {
+        recorderRef.current.stop();
+      } catch {}
     }
     recorderRef.current = null;
+    // If the user hit X mid-shoot, exit without producing a strip or navigating
+    // to the edit step — the X handler already navigated back to setup.
+    if (captureCancelRef.current) {
+      captureCancelRef.current = false;
+      return;
+    }
+    // Filter out any empty slots just in case
+    setCaptures(working.filter((c): c is string => !!c));
     navStep("edit");
     stopCamera();
   }, [
@@ -1308,9 +1687,11 @@ export default function PhotoboothTool() {
     captures,
     flashOnShot,
     stream,
+    micStream,
     playTickSound,
     playShutterSound,
     mirror,
+    getAudioCtx,
   ]);
 
   const beginCapture = useCallback(async () => {
@@ -1320,38 +1701,23 @@ export default function PhotoboothTool() {
     // and nothing plays.
     const ac = getAudioCtx();
     if (ac && ac.state === "suspended") {
-      try { await ac.resume(); } catch {}
+      try {
+        await ac.resume();
+      } catch {}
     }
-    if (!stream) {
-      await startCamera();
-    }
-    // If the current stream has no audio track (user originally granted camera
-    // but not mic, or the first getUserMedia call fell back to video-only), ask
-    // for the mic now so the recording actually has sound. We ADD the audio track
-    // into the existing stream so the <video> preview element doesn't need to
-    // re-attach.
-    try {
-      const current = (stream ?? null) as MediaStream | null;
-      if (current && current.getAudioTracks().length === 0) {
-        const audioStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-        for (const track of audioStream.getAudioTracks()) current.addTrack(track);
-      }
-    } catch {
-      // Mic denied — carry on with video-only; recorder will produce a silent video.
-    }
+    // Guard: canCapture should already prevent this, but double-check so we never
+    // start a shoot without both camera + mic ready.
+    if (!stream || !micStream) return;
     // Starting a fresh capture session — drop any video from the previous one.
+    sessionVideoBlobRef.current = null;
+    setSessionVideoMirrored(false);
     setSessionVideoUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
+    setMicMissing(false);
     navStep("capture");
-  }, [stream, startCamera, navStep, getAudioCtx]);
+  }, [stream, micStream, navStep, getAudioCtx]);
 
   // Kick off the sequence when entering the capture step (ensures video is mounted).
   useEffect(() => {
@@ -1390,9 +1756,12 @@ export default function PhotoboothTool() {
       setRetakeQueue(indexes);
       setCountdown(null);
       navStep("capture");
-      if (!stream) await startCamera();
+      await Promise.all([
+        stream ? Promise.resolve(stream) : startCamera(),
+        micStream ? Promise.resolve(micStream) : startMic(),
+      ]);
     },
-    [stream, startCamera, navStep],
+    [stream, micStream, startCamera, startMic, navStep],
   );
 
   const backToSetup = useCallback(async () => {
@@ -1412,12 +1781,80 @@ export default function PhotoboothTool() {
     setShareUrl(null);
     setQrDataUrl(null);
     setUploadState("idle");
+    sessionVideoBlobRef.current = null;
+    setSessionVideoMirrored(false);
     setSessionVideoUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
+    setMobileSheet(null);
+    setQrModalOpen(false);
     navStep("setup", true);
   }, [navStep]);
+
+  // Close any open mobile sheet / QR modal whenever the step changes.
+  useEffect(() => {
+    setMobileSheet(null);
+    setQrModalOpen(false);
+  }, [step]);
+
+  // Lock the page scroll while a mobile sheet or the QR modal is open,
+  // so finger swipes inside the sheet don't accidentally drag the article
+  // content behind it.
+  useEffect(() => {
+    if (!mobileSheet && !qrModalOpen) return;
+    if (typeof document === "undefined") return;
+    const body = document.body;
+    const prevOverflow = body.style.overflow;
+    const prevOverscroll = body.style.overscrollBehavior;
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "contain";
+    return () => {
+      body.style.overflow = prevOverflow;
+      body.style.overscrollBehavior = prevOverscroll;
+    };
+  }, [mobileSheet, qrModalOpen]);
+
+  // Track the actual sheet height so the floating grabber + close button
+  // sit on the sheet's real top edge (the sheet shrinks to fit content).
+  useEffect(() => {
+    if (!mobileSheet) return;
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const measure = () => {
+      const sheet = document.querySelector(".pb-wrap[data-sheet] .pb-side") as HTMLElement | null;
+      if (!sheet) return;
+      const h = sheet.getBoundingClientRect().height;
+      root.style.setProperty("--pb-sheet-h", `${h}px`);
+    };
+    measure();
+    const raf = requestAnimationFrame(measure);
+    const t1 = window.setTimeout(measure, 350); // after slide-up animation
+    const sheet = document.querySelector(".pb-wrap[data-sheet] .pb-side");
+    let obs: ResizeObserver | null = null;
+    if (sheet && "ResizeObserver" in window) {
+      obs = new ResizeObserver(measure);
+      obs.observe(sheet);
+    }
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t1);
+      obs?.disconnect();
+      window.removeEventListener("resize", measure);
+      root.style.removeProperty("--pb-sheet-h");
+    };
+  }, [mobileSheet]);
+
+  // Camera + mic lifecycle: only setup and capture need them. On edit/result,
+  // release both so the browser's recording indicator turns off and the user
+  // doesn't feel watched while decorating or sharing.
+  useEffect(() => {
+    if (step === "edit" || step === "result") {
+      stopCamera();
+      stopMic();
+    }
+  }, [step, stopCamera, stopMic]);
 
   // Keep the current step in sync with browser back/forward, preserving all in-memory
   // work (photos, stickers, caption). Steps that need captures fall back to setup.
@@ -1646,8 +2083,18 @@ export default function PhotoboothTool() {
     if (typeof window === "undefined") return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     const palette = [
-      "#f72585", "#b5179e", "#7209b7", "#4cc9f0", "#4895ef", "#4361ee",
-      "#ffd166", "#ff9f1c", "#06d6a0", "#ff6b9d", "#f7b801", "#ff5c7a",
+      "#f72585",
+      "#b5179e",
+      "#7209b7",
+      "#4cc9f0",
+      "#4895ef",
+      "#4361ee",
+      "#ffd166",
+      "#ff9f1c",
+      "#06d6a0",
+      "#ff6b9d",
+      "#f7b801",
+      "#ff5c7a",
     ];
     const bursts: { bx: number; by: number; delay: number }[] = [];
     // Waves across the viewport — spread over ~3.5s
@@ -1676,9 +2123,7 @@ export default function PhotoboothTool() {
       for (let i = 0; i < perBurst; i++) {
         const angle = (i / perBurst) * Math.PI * 2 + Math.random() * 0.3;
         const dist = 120 + Math.random() * 180;
-        const alt = Math.random() > 0.6
-          ? palette[Math.floor(Math.random() * palette.length)]
-          : color;
+        const alt = Math.random() > 0.6 ? palette[Math.floor(Math.random() * palette.length)] : color;
         particles.push({
           id: id++,
           x: b.bx,
@@ -1695,9 +2140,7 @@ export default function PhotoboothTool() {
     setRockets(rocketList);
     setFireworks(particles);
     // Fire burst sounds roughly in sync with each wave's visual explosion.
-    const soundTimers = bursts.map((b) =>
-      setTimeout(() => playFireworkSound(), b.delay + 480),
-    );
+    const soundTimers = bursts.map((b) => setTimeout(() => playFireworkSound(), b.delay + 480));
     const t = setTimeout(() => {
       setFireworks([]);
       setRockets([]);
@@ -1862,34 +2305,59 @@ export default function PhotoboothTool() {
 
   // Upload the finished strip in the background so the result view can show a QR / share link
   // once it's ready — without blocking the user from viewing or downloading the image.
-  const startShareUpload = useCallback(async (dataUrl: string) => {
-    setUploadState("uploading");
-    setUploadError(null);
-    setShareUrl(null);
-    setQrDataUrl(null);
-    try {
-      const blob = await pngDataUrlToJpegBlob(dataUrl);
-      const r = await fetch("/api/photobooth/upload", {
-        method: "POST",
-        headers: { "content-type": blob.type || "image/jpeg" },
-        body: blob,
-      });
-      const json = (await r.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!r.ok || !json.url) throw new Error(json.error || `HTTP ${r.status}`);
-      const qr = await QRCode.toDataURL(json.url, {
-        width: 480,
-        margin: 1,
-        errorCorrectionLevel: "M",
-        color: { dark: "#111111", light: "#ffffff" },
-      });
-      setShareUrl(json.url);
-      setQrDataUrl(qr);
-      setUploadState("success");
-    } catch (err) {
-      setUploadState("error");
-      setUploadError(err instanceof Error ? err.message : "upload failed");
-    }
-  }, []);
+  const startShareUpload = useCallback(
+    async (dataUrl: string) => {
+      setUploadState("uploading");
+      setUploadError(null);
+      setShareUrl(null);
+      setQrDataUrl(null);
+      try {
+        const imgBlob = await pngDataUrlToJpegBlob(dataUrl);
+        const vidBlob = sessionVideoBlobRef.current;
+        // Fire the two uploads in parallel so a long video doesn't delay the QR.
+        const uploads: Promise<{ url?: string; error?: string }>[] = [
+          fetch("/api/photobooth/upload", {
+            method: "POST",
+            headers: { "content-type": imgBlob.type || "image/jpeg" },
+            body: imgBlob,
+          }).then((r) => r.json().catch(() => ({}))),
+        ];
+        if (vidBlob && vidBlob.size > 0) {
+          uploads.push(
+            fetch("/api/photobooth/upload", {
+              method: "POST",
+              headers: { "content-type": vidBlob.type || "video/mp4" },
+              body: vidBlob,
+            }).then((r) => r.json().catch(() => ({}))),
+          );
+        }
+        const [imgRes, vidRes] = await Promise.all(uploads);
+        if (!imgRes?.url) throw new Error(imgRes?.error || "image upload failed");
+        // Video upload is best-effort: if it fails, we still share the photo.
+        const videoUrl = vidRes?.url || null;
+        // Build a share page URL only when we also have a video; otherwise the
+        // QR can point straight at the photo like before.
+        const shareTarget = videoUrl
+          ? `${window.location.origin}/photobooth/s?p=${encodeURIComponent(imgRes.url)}&v=${encodeURIComponent(videoUrl)}${
+              sessionVideoMirrored ? "&m=1" : ""
+            }`
+          : imgRes.url;
+        const qr = await QRCode.toDataURL(shareTarget, {
+          width: 480,
+          margin: 1,
+          errorCorrectionLevel: "M",
+          color: { dark: "#111111", light: "#ffffff" },
+        });
+        setShareUrl(shareTarget);
+        setQrDataUrl(qr);
+        setUploadState("success");
+      } catch (err) {
+        setUploadState("error");
+        setUploadError(err instanceof Error ? err.message : "upload failed");
+      }
+    },
+    [sessionVideoMirrored],
+  );
 
   // "Hoàn tất": build the final strip and move to the result view. The result view
   // itself lets the user choose between downloading privately (no upload) or
@@ -1941,10 +2409,139 @@ export default function PhotoboothTool() {
     }
   }, [resultUrl, sessionVideoUrl]);
 
+  // --- Mobile tab bar wiring --------------------------------------------
+  // The site's MobileTabBar renders the photobooth's actions on phones so
+  // the main viewport can be pure camera / strip. Each action id maps to
+  // either a direct trigger or opens a bottom-sheet panel.
+  useEffect(() => {
+    const handle = (id: string) => {
+      if (step === "setup") {
+        if (id === "capture") beginCapture();
+        else if (id === "settings") setMobileSheet("settings");
+      } else if (step === "edit") {
+        if (id === "finish") finishEdit();
+        else if (id === "filter" || id === "theme" || id === "frame" || id === "sticker" || id === "text") {
+          setEditTab(id as EditTab);
+          setMobileSheet(id as MobileSheet);
+        }
+      } else if (step === "result") {
+        if (id === "download") downloadResult();
+        else if (id === "qr") {
+          // Open the QR modal. Reuse the previously generated QR when we
+          // already have one; otherwise kick off a fresh upload (or retry
+          // after a failure).
+          setQrModalOpen(true);
+          if (!qrDataUrl && uploadState !== "uploading") {
+            requestShareLink();
+          }
+        } else if (id === "new") resetAll();
+      }
+    };
+    setPhotoboothMobileHandler(handle);
+    return () => setPhotoboothMobileHandler(null);
+  }, [step, beginCapture, finishEdit, downloadResult, requestShareLink, resetAll, qrDataUrl, uploadState]);
 
+  useEffect(() => {
+    // Setup step keeps the site's default MobileTabBar — its Cài đặt / Chụp
+    // actions render as a dedicated bar above the mtab (see JSX below).
+    const actions: PBAction[] =
+      step === "edit"
+          ? [
+              {
+                id: "filter",
+                label: "Lọc",
+                icon: <IconPhotoFilled size={20} stroke={1.8} />,
+                active: mobileSheet === "filter",
+              },
+              {
+                id: "theme",
+                label: "Theme",
+                icon: <IconPalette size={20} stroke={1.8} />,
+                active: mobileSheet === "theme",
+              },
+              {
+                id: "frame",
+                label: "Viền",
+                icon: <IconBorderCorners size={20} stroke={1.8} />,
+                active: mobileSheet === "frame",
+              },
+              {
+                id: "sticker",
+                label: "Sticker",
+                icon: <IconMoodSmile size={20} stroke={1.8} />,
+                active: mobileSheet === "sticker",
+              },
+              {
+                id: "text",
+                label: "Text",
+                icon: <IconTypography size={20} stroke={1.8} />,
+                active: mobileSheet === "text",
+              },
+              {
+                id: "finish",
+                label: "Xong",
+                icon: <IconCheck size={22} stroke={2.2} />,
+                primary: true,
+                disabled: exporting,
+              },
+            ]
+          : step === "result"
+            ? [
+                {
+                  id: "download",
+                  label: "Tải ảnh",
+                  icon: <IconDownload size={20} stroke={1.8} />,
+                  primary: true,
+                },
+                {
+                  id: "qr",
+                  label: "Mã QR",
+                  icon: <IconQrcode size={20} stroke={1.8} />,
+                  primary: true,
+                },
+                {
+                  id: "new",
+                  label: "Chụp mới",
+                  icon: <IconRefresh size={20} stroke={1.8} />,
+                  primary: true,
+                },
+              ]
+            : [];
+    // Only take over the site's MobileTabBar when we actually have actions
+    // (edit / result). Setup falls through so the default 5-tab menu stays.
+    setPhotoboothMobileUI({ active: actions.length > 0, actions });
+    return () => setPhotoboothMobileUI({ active: false, actions: [] });
+    // canCapture / exporting also drive the disabled flags on primary buttons.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, mobileSheet, canCapture, exporting]);
+
+  const sheetTitles: Record<Exclude<MobileSheet, null>, string> = {
+    settings: "Chuẩn bị",
+    filter: "Lọc màu",
+    theme: "Theme",
+    frame: "Viền & khung",
+    sticker: "Sticker",
+    text: "Text & caption",
+  };
 
   return (
-    <div className="pb-wrap">
+    <div
+      className="pb-wrap"
+      data-sheet={mobileSheet ?? undefined}
+      style={
+        mobileSheet
+          ? ({ ["--pb-sheet-title" as string]: `"${sheetTitles[mobileSheet]}"` } as React.CSSProperties)
+          : undefined
+      }
+    >
+      {mobileSheet && (
+        <>
+          <div className="pb-m-sheet-backdrop" onClick={() => setMobileSheet(null)} aria-hidden="true" />
+          <button type="button" className="pb-m-sheet-close" onClick={() => setMobileSheet(null)} aria-label="Đóng">
+            <IconX size={18} stroke={2.2} />
+          </button>
+        </>
+      )}
       {step === "setup" && (
         <div className="pb-grid-setup">
           <div className="pb-camera-card">
@@ -1969,12 +2566,39 @@ export default function PhotoboothTool() {
                     {cameraError ? <IconCameraOff size={38} stroke={1.5} /> : <IconCamera size={38} stroke={1.5} />}
                     <span className="pb-cam-pulse" />
                   </div>
-                  <h3 className="pb-empty-title">{cameraError ? t("pb_no_camera") : "Say cheese!"}</h3>
-                  <p className="pb-empty-sub">{cameraError ? cameraError : t("pb_allow_camera")}</p>
-                  <Button onClick={() => startCamera()} size="lg">
-                    <IconCamera size={16} stroke={1.8} />
-                    {t("pb_start_camera")}
-                  </Button>
+                  <h3 className="pb-empty-title">{cameraError ? t("pb_no_camera") : t("pb_perm_say_cheese")}</h3>
+                  <p className="pb-empty-sub">{t("pb_grant_access_hint")}</p>
+                  <div className="pb-perm-row">
+                    <Button onClick={grantAccess} size="lg" disabled={camRequesting || micRequesting}>
+                      <IconShieldLock size={16} stroke={1.8} />
+                      {camRequesting || micRequesting
+                        ? t("pb_grant_access_requesting")
+                        : cameraError || micError
+                          ? t("pb_perm_retry")
+                          : t("pb_grant_access")}
+                    </Button>
+                  </div>
+                  {cameraError || micError ? (
+                    <div className="pb-perm-err-block">
+                      {cameraError && (
+                        <p className="pb-perm-err">
+                          <strong>Camera:</strong>{" "}
+                          {cameraError.code === "generic"
+                            ? t("pb_cam_err_generic").replace("{msg}", cameraError.raw || "unknown")
+                            : t(`pb_cam_err_${cameraError.code}` as never)}
+                        </p>
+                      )}
+                      {micError && (
+                        <p className="pb-perm-err">
+                          <strong>Mic:</strong>{" "}
+                          {micError.code === "generic"
+                            ? t("pb_mic_err_generic").replace("{msg}", micError.raw || "unknown")
+                            : t(`pb_mic_err_${micError.code}` as never)}
+                        </p>
+                      )}
+                      <p className="pb-perm-hint">{t("pb_perm_open_settings_hint")}</p>
+                    </div>
+                  ) : null}
                   <div className="pb-empty-sparkles">
                     <IconSparkles size={14} />
                     <span>HD · 4:3 · browser-only</span>
@@ -1985,6 +2609,15 @@ export default function PhotoboothTool() {
               {cameraReady && (
                 <div className="pb-live-badge">
                   <span className="pb-live-dot" /> LIVE
+                </div>
+              )}
+              {cameraReady && (
+                <div
+                  className={`pb-mic-badge ${micReady ? "on" : "off"}`}
+                  title={micReady ? t("pb_mic_label") : t("pb_mic_missing")}
+                >
+                  {micReady ? <IconMicrophone size={13} stroke={2} /> : <IconMicrophoneOff size={13} stroke={2} />}
+                  <span>{micReady ? t("pb_mic_label") : t("pb_mic_missing")}</span>
                 </div>
               )}
               {cameraReady && camInfo && camInfo.w > 0 && (
@@ -2062,14 +2695,67 @@ export default function PhotoboothTool() {
             </div>
 
             <div className="pb-cta">
+              {cameraReady && !micReady && (
+                <div className="pb-mic-cta-row">
+                  <Button onClick={() => startMic()} size="md" block disabled={micRequesting} variant="subtle">
+                    <IconMicrophone size={16} stroke={1.8} />
+                    {micRequesting ? t("pb_mic_cta_requesting") : t("pb_mic_cta_grant")}
+                  </Button>
+                  {micError && (
+                    <p className="pb-perm-err">
+                      <strong>Mic:</strong>{" "}
+                      {micError.code === "generic"
+                        ? t("pb_mic_err_generic").replace("{msg}", micError.raw || "unknown")
+                        : t(`pb_mic_err_${micError.code}` as never)}
+                    </p>
+                  )}
+                </div>
+              )}
               <Button onClick={beginCapture} disabled={!canCapture} block size="lg">
                 <IconCamera size={18} stroke={1.8} />
                 {!cameraReady
-                  ? "Bật camera để bắt đầu"
+                  ? t("pb_capture_waiting_camera")
                   : !videoLive
-                    ? "Đang khởi động camera…"
-                    : t("pb_capture")}
+                    ? t("pb_capture_starting_camera")
+                    : !micReady
+                      ? t("pb_capture_waiting_mic")
+                      : t("pb_capture")}
               </Button>
+            </div>
+
+            {/* Mobile-only CTA bar — inline inside .pb-camera-card so Cài đặt
+                and Chụp sit right under the preview. */}
+            <div className="pb-setup-cta-mobile" role="toolbar" aria-label="Chụp ảnh">
+              <button
+                type="button"
+                className="pb-setup-cta-btn"
+                onClick={() => setMobileSheet("settings")}
+                aria-pressed={mobileSheet === "settings"}
+              >
+                <IconWand size={20} stroke={1.8} />
+                <span>Cài đặt</span>
+              </button>
+              <button
+                type="button"
+                className={`pb-setup-cta-btn primary${!canCapture ? " not-ready" : ""}`}
+                onClick={() => {
+                  if (canCapture) {
+                    beginCapture();
+                    return;
+                  }
+                  // Camera / mic not ready — explain why instead of silently failing.
+                  const msg = !cameraReady
+                    ? "Vui lòng bật quyền truy cập camera trước khi chụp."
+                    : !videoLive
+                      ? "Camera đang khởi động, chờ chút rồi chụp lại nhé."
+                      : "Vui lòng bật quyền truy cập micro để chụp kèm video có tiếng.";
+                  toast(msg);
+                }}
+                aria-label="Chụp"
+              >
+                <IconCamera size={24} stroke={1.9} />
+                <span>Chụp</span>
+              </button>
             </div>
           </div>
 
@@ -2115,39 +2801,40 @@ export default function PhotoboothTool() {
                   Nhấn nút
                 </button>
               </div>
-              {captureMode === "auto" && (() => {
-                const timerStops = [0, 5, 15, 30, 45, 60] as const;
-                return (
-                  <div className="pb-setup-sub">
-                    <div className="pb-setup-sub-title">
-                      <IconClockHour3 size={13} stroke={2} /> {t("pb_timer")}
-                      <span className="pb-timer-value">
-                        {timer === 0 ? "Tắt" : `${timer}s`}
-                      </span>
+              <p className="pb-setup-note">
+                <IconVideo size={12} stroke={1.9} />
+                <span>
+                  <b>Tự động</b> + <b>hẹn giờ</b>: có quay video kèm theo. <b>Nhấn nút</b>: chỉ ảnh.
+                </span>
+              </p>
+              {captureMode === "auto" &&
+                (() => {
+                  const timerStops = [0, 5, 15, 30, 45, 60] as const;
+                  return (
+                    <div className="pb-setup-sub">
+                      <div className="pb-setup-sub-title">
+                        <IconClockHour3 size={13} stroke={2} /> {t("pb_timer")}
+                        <span className="pb-timer-value">{timer === 0 ? "Tắt" : `${timer}s`}</span>
+                      </div>
+                      <div className="pb-timer-pills" role="radiogroup" aria-label="Thời gian đếm ngược">
+                        {timerStops.map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            className={`pb-timer-pill ${timer === n ? "on" : ""} ${n === 0 ? "off" : ""}`}
+                            onClick={() => setTimer(n)}
+                            role="radio"
+                            aria-checked={timer === n}
+                            aria-label={n === 0 ? "Tắt" : `${n} giây`}
+                          >
+                            <span className="pb-timer-pill-num">{n === 0 ? "✕" : n}</span>
+                            <span className="pb-timer-pill-unit">{n === 0 ? "Tắt" : "giây"}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div
-                      className="pb-timer-pills"
-                      role="radiogroup"
-                      aria-label="Thời gian đếm ngược"
-                    >
-                      {timerStops.map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          className={`pb-timer-pill ${timer === n ? "on" : ""} ${n === 0 ? "off" : ""}`}
-                          onClick={() => setTimer(n)}
-                          role="radio"
-                          aria-checked={timer === n}
-                          aria-label={n === 0 ? "Tắt" : `${n} giây`}
-                        >
-                          <span className="pb-timer-pill-num">{n === 0 ? "✕" : n}</span>
-                          <span className="pb-timer-pill-unit">{n === 0 ? "Tắt" : "giây"}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
             </div>
 
             <div className="pb-setup-card">
@@ -2193,7 +2880,6 @@ export default function PhotoboothTool() {
                 </button>
               </div>
             </div>
-
           </div>
         </div>
       )}
@@ -2223,11 +2909,32 @@ export default function PhotoboothTool() {
               className="pb-cap-close"
               aria-label="Thoát"
               onClick={() => {
+                // Hard-stop everything the capture sequence has in flight: the
+                // for-loop checks captureCancelRef after each await and breaks,
+                // the recorder's onstop sees recorderCancelledRef and discards
+                // the clip, and stopAllSounds silences any ticks/shutter still
+                // scheduled on the audio context or via setTimeout.
+                captureCancelRef.current = true;
+                recorderCancelledRef.current = true;
                 capturingRef.current = false;
+                // Unblock a manual-mode wait so the loop can observe the flag.
+                const r = shutterResolveRef.current;
                 shutterResolveRef.current = null;
+                if (r) r();
                 setAwaitingShutter(false);
                 setCountdown(null);
                 setRetakeQueue([]);
+                setCaptures([]);
+                if (recorderRef.current && recorderRef.current.state !== "inactive") {
+                  try {
+                    recorderRef.current.stop();
+                  } catch {}
+                }
+                if (recordRafRef.current != null) {
+                  cancelAnimationFrame(recordRafRef.current);
+                  recordRafRef.current = null;
+                }
+                stopAllSounds();
                 navStep("setup", true);
               }}
             >
@@ -2269,10 +2976,8 @@ export default function PhotoboothTool() {
                 // sticky preview container.
                 maxWidth: isGridLayout(layout)
                   ? gridDef(layout)!.w
-                  : `min(${STRIP_W}px, calc((100vh - 110px) * ${(STRIP_W / stripHeight(captures.length || 1)).toFixed(4)}))`,
-                aspectRatio: gridDef(layout)
-                  ? `${gridDef(layout)!.w} / ${gridDef(layout)!.h}`
-                  : undefined,
+                  : `min(${STRIP_W}px, calc(var(--pb-strip-vh, calc(100vh - 110px)) * ${(STRIP_W / stripHeight(captures.length || 1)).toFixed(4)}))`,
+                aspectRatio: gridDef(layout) ? `${gridDef(layout)!.w} / ${gridDef(layout)!.h}` : undefined,
                 background: theme.background,
                 color: theme.text,
                 border: theme.border ? `1px solid ${theme.border}` : "none",
@@ -2346,15 +3051,17 @@ export default function PhotoboothTool() {
                           aspectRatio: isGridLayout(layout) ? undefined : `${PHOTO_W} / ${PHOTO_H}`,
                           filter: filter.css,
                           borderRadius: frame.radius,
-                          boxShadow: frame.border
-                            ? `inset 0 0 0 ${frame.border}px ${frame.borderColor}`
-                            : undefined,
+                          boxShadow: frame.border ? `inset 0 0 0 ${frame.border}px ${frame.borderColor}` : undefined,
                           objectPosition: "center",
                         }}
                         draggable={false}
                       />
-                      <span className="pb-photo-order" aria-hidden="true">{i + 1}</span>
-                      <span className="pb-photo-drag-hint" aria-hidden="true">Kéo để sắp xếp</span>
+                      <span className="pb-photo-order" aria-hidden="true">
+                        {i + 1}
+                      </span>
+                      <span className="pb-photo-drag-hint" aria-hidden="true">
+                        Kéo để sắp xếp
+                      </span>
                       <button
                         type="button"
                         className="pb-photo-retake"
@@ -2483,7 +3190,9 @@ export default function PhotoboothTool() {
                         <span className="pb-layout-chip-title">
                           {g.label} <span className="pb-layout-chip-ratio">{g.ratio}</span>
                         </span>
-                        <span className="pb-layout-chip-sub">{captures.length} ảnh · {g.hint}</span>
+                        <span className="pb-layout-chip-sub">
+                          {captures.length} ảnh · {g.hint}
+                        </span>
                       </span>
                     </button>
                   );
@@ -2544,44 +3253,51 @@ export default function PhotoboothTool() {
               <div className="pb-theme-grid">
                 {THEMES.map((th, idx) => {
                   // vary tiny preview photo gradients for visual richness
-                  const g1 = ["linear-gradient(135deg,#ffd1a1,#c9e8ff)", "linear-gradient(135deg,#ffb3d1,#ffd1a1)", "linear-gradient(135deg,#c9e8ff,#c3f0ca)", "linear-gradient(135deg,#f0d1ff,#ffd1a1)"][idx % 4];
-                  const g2 = ["linear-gradient(135deg,#c9e8ff,#ffb3d1)", "linear-gradient(135deg,#c3f0ca,#ffd1a1)", "linear-gradient(135deg,#ffd1a1,#f0d1ff)", "linear-gradient(135deg,#ffb3d1,#c9e8ff)"][idx % 4];
+                  const g1 = [
+                    "linear-gradient(135deg,#ffd1a1,#c9e8ff)",
+                    "linear-gradient(135deg,#ffb3d1,#ffd1a1)",
+                    "linear-gradient(135deg,#c9e8ff,#c3f0ca)",
+                    "linear-gradient(135deg,#f0d1ff,#ffd1a1)",
+                  ][idx % 4];
+                  const g2 = [
+                    "linear-gradient(135deg,#c9e8ff,#ffb3d1)",
+                    "linear-gradient(135deg,#c3f0ca,#ffd1a1)",
+                    "linear-gradient(135deg,#ffd1a1,#f0d1ff)",
+                    "linear-gradient(135deg,#ffb3d1,#c9e8ff)",
+                  ][idx % 4];
                   return (
-                  <button
-                    key={th.id}
-                    className={`pb-theme ${themeId === th.id ? "on" : ""}`}
-                    onClick={() => setThemeId(th.id)}
-                  >
-                    <div
-                      className="pb-theme-mini"
-                      style={{
-                        background: th.background,
-                        border: th.border ? `1px solid ${th.border}` : "none",
-                      }}
+                    <button
+                      key={th.id}
+                      className={`pb-theme ${themeId === th.id ? "on" : ""}`}
+                      onClick={() => setThemeId(th.id)}
                     >
-                      {th.decoration && (
-                        <div
-                          className="pb-theme-mini-deco"
-                          style={{ backgroundImage: `url("${svgToDataURL(th.decoration)}")` }}
-                        />
-                      )}
-                      <div className="pb-theme-mini-inner">
-                        <div className="pb-theme-mini-ph" style={{ background: g1 }} />
-                        <div className="pb-theme-mini-ph" style={{ background: g2 }} />
-                        <div
-                          className="pb-theme-mini-cap"
-                          style={{ color: th.text, fontFamily: th.captionFont }}
-                        >
-                          {th.label}
+                      <div
+                        className="pb-theme-mini"
+                        style={{
+                          background: th.background,
+                          border: th.border ? `1px solid ${th.border}` : "none",
+                        }}
+                      >
+                        {th.decoration && (
+                          <div
+                            className="pb-theme-mini-deco"
+                            style={{ backgroundImage: `url("${svgToDataURL(th.decoration)}")` }}
+                          />
+                        )}
+                        <div className="pb-theme-mini-inner">
+                          <div className="pb-theme-mini-ph" style={{ background: g1 }} />
+                          <div className="pb-theme-mini-ph" style={{ background: g2 }} />
+                          <div className="pb-theme-mini-cap" style={{ color: th.text, fontFamily: th.captionFont }}>
+                            {th.label}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    {themeId === th.id && (
-                      <div className="pb-theme-check">
-                        <IconCheck size={12} stroke={2.6} />
-                      </div>
-                    )}
-                  </button>
+                      {themeId === th.id && (
+                        <div className="pb-theme-check">
+                          <IconCheck size={12} stroke={2.6} />
+                        </div>
+                      )}
+                    </button>
                   );
                 })}
               </div>
@@ -2590,7 +3306,8 @@ export default function PhotoboothTool() {
             {editTab === "frame" && (
               <>
                 <p className="pb-drag-hint">
-                  <IconBorderCorners size={12} stroke={1.8} /> Chọn kiểu <b>viền ảnh</b> — bo góc & đường viền cho từng tấm
+                  <IconBorderCorners size={12} stroke={1.8} /> Chọn kiểu <b>viền ảnh</b> — bo góc & đường viền cho từng
+                  tấm
                 </p>
                 <div className="pb-frame-grid">
                   {FRAMES.map((fr) => (
@@ -2634,7 +3351,8 @@ export default function PhotoboothTool() {
             {editTab === "sticker" && (
               <>
                 <p className="pb-drag-hint">
-                  <IconSparkles size={12} stroke={1.8} /> Click để thêm hoặc <b>kéo thả</b> vào vị trí mong muốn trên khung
+                  <IconSparkles size={12} stroke={1.8} /> Click để thêm hoặc <b>kéo thả</b> vào vị trí mong muốn trên
+                  khung
                 </p>
                 <div className="pb-sticker-grid">
                   {STICKERS.map((s) => (
@@ -2790,6 +3508,25 @@ export default function PhotoboothTool() {
                       autoPlay
                       playsInline
                       preload="metadata"
+                      style={sessionVideoMirrored ? { transform: "scaleX(-1)" } : undefined}
+                      onLoadedMetadata={(e) => {
+                        // Fallback for browsers where even a Duration-patched WebM still
+                        // reports Infinity: force a scan by seeking to a huge time, then
+                        // back to 0. Harmless when duration is already finite.
+                        const el = e.currentTarget;
+                        if (!isFinite(el.duration) || el.duration === 0) {
+                          const onTime = () => {
+                            el.removeEventListener("timeupdate", onTime);
+                            try {
+                              el.currentTime = 0;
+                            } catch {}
+                          };
+                          el.addEventListener("timeupdate", onTime);
+                          try {
+                            el.currentTime = 1e101;
+                          } catch {}
+                        }
+                      }}
                     />
                   )}
                   {sessionVideoUrl && (
@@ -2825,6 +3562,11 @@ export default function PhotoboothTool() {
                       </button>
                     </div>
                   )}
+                  {sessionVideoUrl && resultView === "video" && micMissing && (
+                    <div className="pb-mic-warn" role="status">
+                      {t("pb_mic_missing_warn")}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2849,9 +3591,7 @@ export default function PhotoboothTool() {
                         {sessionVideoUrl ? "Tải ảnh (kèm video)" : t("pb_download")}
                       </span>
                       <span className="pb-result-btn-sub">
-                        {sessionVideoUrl
-                          ? "Lưu PNG + video riêng tư về máy"
-                          : "Tải PNG riêng tư về máy"}
+                        {sessionVideoUrl ? "Lưu PNG + video riêng tư về máy" : "Tải PNG riêng tư về máy"}
                       </span>
                     </span>
                   </button>
@@ -2875,11 +3615,7 @@ export default function PhotoboothTool() {
                       <span className="pb-result-btn-sub">Chia sẻ online · tự xoá sau 24h</span>
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    className="pb-result-btn retake"
-                    onClick={resetAll}
-                  >
+                  <button type="button" className="pb-result-btn retake" onClick={resetAll}>
                     <span className="pb-result-btn-ic">
                       <IconCamera size={20} stroke={2.2} />
                     </span>
@@ -2899,7 +3635,8 @@ export default function PhotoboothTool() {
                 {shareEnabled && uploadState === "error" && (
                   <div className="pb-share-err-wrap">
                     <p className="pb-share-err">
-                      Chưa tạo được link chia sẻ{uploadError ? `: ${uploadError}` : ""}. Bạn vẫn tải ảnh về máy được bình thường.
+                      Chưa tạo được link chia sẻ{uploadError ? `: ${uploadError}` : ""}. Bạn vẫn tải ảnh về máy được
+                      bình thường.
                     </p>
                     <Button
                       size="sm"
@@ -2942,22 +3679,121 @@ export default function PhotoboothTool() {
         </div>
       )}
 
-      {ghost && (() => {
-        const def = ALL_STICKERS.find((s) => s.id === ghost.stickerId);
-        if (!def) return null;
-        return (
-          <div
-            className="pb-ghost"
-            style={{
-              left: ghost.x,
-              top: ghost.y,
-              width: ghost.isText ? 160 : 72,
-              height: ghost.isText ? "auto" : 72,
-            }}
-            dangerouslySetInnerHTML={{ __html: def.svg }}
-          />
-        );
-      })()}
+      {ghost &&
+        (() => {
+          const def = ALL_STICKERS.find((s) => s.id === ghost.stickerId);
+          if (!def) return null;
+          return (
+            <div
+              className="pb-ghost"
+              style={{
+                left: ghost.x,
+                top: ghost.y,
+                width: ghost.isText ? 160 : 72,
+                height: ghost.isText ? "auto" : 72,
+              }}
+              dangerouslySetInnerHTML={{ __html: def.svg }}
+            />
+          );
+        })()}
+
+      {qrModalOpen && (
+        <div
+          className="pb-qr-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setQrModalOpen(false);
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mã QR chia sẻ"
+        >
+          <div className="pb-qr-modal">
+            <button type="button" className="pb-qr-close" onClick={() => setQrModalOpen(false)} aria-label="Đóng">
+              <IconX size={14} stroke={2.4} />
+            </button>
+            <div className="pb-qr-head">
+              <div className="pb-qr-head-ic">
+                <IconQrcode size={20} stroke={2} />
+              </div>
+              <div>
+                <h3>Chia sẻ qua mã QR</h3>
+                <p>Link tự xoá sau 24 giờ · không cần đăng nhập</p>
+              </div>
+            </div>
+
+            {uploadState === "uploading" && (
+              <div className="pb-qr-loading">
+                <span className="pb-qr-spin" />
+                <h3>Đang tạo mã QR…</h3>
+                <p>Đang tải ảnh lên máy chủ, chỉ mất vài giây.</p>
+              </div>
+            )}
+
+            {uploadState === "error" && (
+              <div className="pb-qr-err">
+                <h3>Không tạo được mã QR</h3>
+                <p>{uploadError || "Mạng chưa ổn định. Thử lại ngay nhé."}</p>
+                <p className="pb-qr-err-sub">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (resultUrl) {
+                        setShareEnabled(true);
+                        startShareUpload(resultUrl);
+                      }
+                    }}
+                    disabled={!resultUrl}
+                    leftIcon={<IconRefresh size={14} stroke={2} />}
+                  >
+                    Thử lại
+                  </Button>
+                </p>
+              </div>
+            )}
+
+            {uploadState === "success" && shareUrl && qrDataUrl && (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qrDataUrl} alt="QR code" className="pb-qr-img" />
+                <div className="pb-qr-link">
+                  <Input inputSize="sm" readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
+                  <button
+                    type="button"
+                    className="pb-qr-copy"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(shareUrl);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1600);
+                      } catch {}
+                    }}
+                  >
+                    {copied ? (
+                      <>
+                        <IconCheck size={13} stroke={2.6} /> Đã copy
+                      </>
+                    ) : (
+                      <>
+                        <IconCopy size={13} stroke={2} /> Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+                <a href={shareUrl} target="_blank" rel="noreferrer" className="pb-qr-open">
+                  Mở link trong tab mới ↗
+                </a>
+              </>
+            )}
+
+            {uploadState === "idle" && !qrDataUrl && (
+              <div className="pb-qr-loading">
+                <h3>Đang chuẩn bị…</h3>
+                <p>Khởi tạo quá trình chia sẻ.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .pb-wrap {
@@ -3194,6 +4030,79 @@ export default function PhotoboothTool() {
           box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.3);
           animation: pbPulse 1.4s ease-in-out infinite;
         }
+        .pb-mic-badge {
+          position: absolute;
+          top: 10px;
+          left: 72px;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 600;
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          color: #fff;
+        }
+        .pb-mic-badge.on {
+          background: rgba(34, 197, 94, 0.65);
+        }
+        .pb-mic-badge.off {
+          background: rgba(220, 38, 38, 0.72);
+        }
+        .pb-perm-row {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: center;
+          margin-top: 4px;
+        }
+        .pb-perm-err {
+          margin: 4px 0 0;
+          font-size: 12px;
+          color: #ef4444;
+          max-width: 360px;
+          text-align: center;
+          line-height: 1.45;
+        }
+        .pb-perm-err strong {
+          font-weight: 700;
+          color: #fca5a5;
+        }
+        .pb-perm-err-block {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          margin-top: 10px;
+          padding: 10px 14px;
+          background: rgba(220, 38, 38, 0.08);
+          border: 1px solid rgba(220, 38, 38, 0.25);
+          border-radius: 10px;
+          max-width: 380px;
+        }
+        .pb-perm-err-block .pb-perm-hint {
+          margin-top: 6px;
+          color: rgba(252, 165, 165, 0.9);
+        }
+        .pb-perm-hint {
+          margin-top: 10px;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.72);
+          max-width: 340px;
+          text-align: center;
+          line-height: 1.5;
+        }
+        .pb-perm-hint strong {
+          color: #fff;
+          font-weight: 600;
+        }
+        .pb-mic-cta-row {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-bottom: 8px;
+        }
         .pb-cam-info {
           position: absolute;
           top: 10px;
@@ -3246,7 +4155,10 @@ export default function PhotoboothTool() {
           border: 1px solid rgba(255, 255, 255, 0.14);
           cursor: pointer;
           z-index: 3;
-          transition: background 0.15s ease, transform 0.2s ease, box-shadow 0.2s ease;
+          transition:
+            background 0.15s ease,
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
         }
         .pb-cam-flip:hover {
           background: rgba(10, 10, 14, 0.75);
@@ -3295,7 +4207,10 @@ export default function PhotoboothTool() {
           border: 1px solid rgba(255, 255, 255, 0.18);
           cursor: pointer;
           z-index: 3;
-          transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.2s ease;
+          transition:
+            background 0.15s ease,
+            transform 0.15s ease,
+            box-shadow 0.2s ease;
         }
         .pb-cam-stop:hover {
           background: rgba(229, 56, 75, 0.9);
@@ -3465,7 +4380,10 @@ export default function PhotoboothTool() {
           appearance: none;
           -webkit-appearance: none;
           overflow: hidden;
-          transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease,
+          transition:
+            transform 0.15s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease,
             background 0.2s ease;
         }
         .pb-timer-pill:focus,
@@ -3632,15 +4550,20 @@ export default function PhotoboothTool() {
           cursor: pointer;
           text-align: left;
           outline: none;
-          transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+          transition:
+            background 0.15s ease,
+            border-color 0.15s ease,
+            transform 0.1s ease;
         }
         .pb-switch-row:hover {
           border-color: color-mix(in srgb, #9b5de5 45%, var(--border));
         }
         .pb-switch-row.on {
-          background: linear-gradient(90deg,
+          background: linear-gradient(
+            90deg,
             color-mix(in srgb, #9b5de5 14%, var(--bg)),
-            color-mix(in srgb, #4cc9f0 10%, var(--bg)));
+            color-mix(in srgb, #4cc9f0 10%, var(--bg))
+          );
           border-color: color-mix(in srgb, #9b5de5 55%, var(--border));
         }
         .pb-switch-row-ic {
@@ -3729,35 +4652,55 @@ export default function PhotoboothTool() {
           cursor: pointer;
           background: linear-gradient(135deg, #9b5de5 0%, #f15bb5 50%, #ff8c42 100%);
           background-size: 200% 200%;
-          box-shadow: 0 10px 26px -10px rgba(241, 91, 181, 0.65), 0 4px 12px -4px rgba(155, 93, 229, 0.4);
-          transition: transform 0.18s ease, box-shadow 0.18s ease, background-position 0.4s ease;
+          box-shadow:
+            0 10px 26px -10px rgba(241, 91, 181, 0.65),
+            0 4px 12px -4px rgba(155, 93, 229, 0.4);
+          transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            background-position 0.4s ease;
           overflow: hidden;
         }
         .pb-new-session::before {
           content: "";
-          position: absolute; inset: 0;
-          background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
           transform: translateX(-100%);
           transition: transform 0.6s ease;
         }
         .pb-new-session:hover {
           transform: translateY(-2px);
           background-position: 100% 0;
-          box-shadow: 0 14px 32px -10px rgba(241, 91, 181, 0.75), 0 6px 16px -4px rgba(155, 93, 229, 0.5);
+          box-shadow:
+            0 14px 32px -10px rgba(241, 91, 181, 0.75),
+            0 6px 16px -4px rgba(155, 93, 229, 0.5);
         }
-        .pb-new-session:hover::before { transform: translateX(100%); }
-        .pb-new-session:active { transform: translateY(0); }
+        .pb-new-session:hover::before {
+          transform: translateX(100%);
+        }
+        .pb-new-session:active {
+          transform: translateY(0);
+        }
         .pb-new-session-ic {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 30px; height: 30px;
+          width: 30px;
+          height: 30px;
           border-radius: 50%;
           background: rgba(255, 255, 255, 0.22);
           backdrop-filter: blur(6px);
         }
-        .pb-new-session-label { position: relative; z-index: 1; }
-        .pb-new-session-spk { opacity: 0.9; position: relative; z-index: 1; }
+        .pb-new-session-label {
+          position: relative;
+          z-index: 1;
+        }
+        .pb-new-session-spk {
+          opacity: 0.9;
+          position: relative;
+          z-index: 1;
+        }
         .pb-chip {
           display: inline-flex;
           align-items: center;
@@ -3938,7 +4881,9 @@ export default function PhotoboothTool() {
           color: #fff;
           border: 1px solid rgba(255, 255, 255, 0.14);
           cursor: pointer;
-          transition: background 0.15s, transform 0.1s;
+          transition:
+            background 0.15s,
+            transform 0.1s;
         }
         .pb-cam-fx-arr:hover {
           background: rgba(255, 255, 255, 0.18);
@@ -3986,7 +4931,10 @@ export default function PhotoboothTool() {
           cursor: pointer;
           text-align: left;
           font-family: inherit;
-          transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease,
+          transition:
+            transform 0.15s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease,
             background 0.2s ease;
           overflow: hidden;
           min-width: 0;
@@ -4002,10 +4950,13 @@ export default function PhotoboothTool() {
         }
         .pb-layout-chip.on {
           border-color: transparent;
-          background: linear-gradient(135deg,
+          background: linear-gradient(
+            135deg,
             color-mix(in srgb, #9b5de5 18%, var(--bg)),
-            color-mix(in srgb, #4cc9f0 14%, var(--bg)));
-          box-shadow: 0 10px 26px -14px rgba(155, 93, 229, 0.5),
+            color-mix(in srgb, #4cc9f0 14%, var(--bg))
+          );
+          box-shadow:
+            0 10px 26px -14px rgba(155, 93, 229, 0.5),
             inset 0 0 0 1px rgba(155, 93, 229, 0.5);
         }
         .pb-layout-chip-prev {
@@ -4197,13 +5148,17 @@ export default function PhotoboothTool() {
         .pb-tab.on {
           background: linear-gradient(135deg, #ffffff, #f5f0ff);
           opacity: 1;
-          box-shadow: 0 4px 12px -4px rgba(155, 93, 229, 0.3), 0 0 0 1px rgba(155, 93, 229, 0.2);
+          box-shadow:
+            0 4px 12px -4px rgba(155, 93, 229, 0.3),
+            0 0 0 1px rgba(155, 93, 229, 0.2);
           color: #5a2e8c;
         }
         :global([data-theme="dark"]) .pb-tab.on {
           background: linear-gradient(135deg, #2a1f45, #1f1935);
           color: #d6b8ff;
-          box-shadow: 0 4px 12px -4px rgba(155, 93, 229, 0.5), 0 0 0 1px rgba(155, 93, 229, 0.4);
+          box-shadow:
+            0 4px 12px -4px rgba(155, 93, 229, 0.5),
+            0 0 0 1px rgba(155, 93, 229, 0.4);
         }
         .pb-tab-badge {
           font-size: 9px;
@@ -4277,7 +5232,9 @@ export default function PhotoboothTool() {
           justify-content: center;
           backdrop-filter: blur(6px);
           -webkit-backdrop-filter: blur(6px);
-          transition: transform 0.15s ease, opacity 0.2s ease;
+          transition:
+            transform 0.15s ease,
+            opacity 0.2s ease;
         }
         .pb-shutter:disabled {
           opacity: 0.45;
@@ -4297,15 +5254,23 @@ export default function PhotoboothTool() {
           animation: pbShutterPulse 1.6s ease-in-out infinite;
         }
         @keyframes pbShutterPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); }
-          50% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); }
+          0%,
+          100% {
+            box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+          }
+          50% {
+            box-shadow: 0 0 0 14px rgba(255, 255, 255, 0);
+          }
         }
         .pb-strip-photo-wrap {
           position: relative;
           width: 100%;
           display: block;
           cursor: grab;
-          transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+          transition:
+            transform 0.15s ease,
+            opacity 0.15s ease,
+            box-shadow 0.15s ease;
         }
         .pb-strip-photo-wrap:active {
           cursor: grabbing;
@@ -4315,7 +5280,9 @@ export default function PhotoboothTool() {
           transform: scale(0.97);
         }
         .pb-strip-photo-wrap.drop-target {
-          box-shadow: 0 0 0 3px #9b5de5, 0 10px 24px -8px rgba(155, 93, 229, 0.5);
+          box-shadow:
+            0 0 0 3px #9b5de5,
+            0 10px 24px -8px rgba(155, 93, 229, 0.5);
           transform: scale(1.02);
         }
         .pb-strip-photo-wrap .pb-strip-photo {
@@ -4383,7 +5350,9 @@ export default function PhotoboothTool() {
           color: #fff;
           cursor: pointer;
           opacity: 0;
-          transition: opacity 0.15s ease, transform 0.15s ease;
+          transition:
+            opacity 0.15s ease,
+            transform 0.15s ease;
           z-index: 2;
         }
         .pb-strip-photo-wrap:hover .pb-photo-retake,
@@ -4394,7 +5363,9 @@ export default function PhotoboothTool() {
           transform: scale(0.9);
         }
         @media (hover: none) {
-          .pb-photo-retake { opacity: 0.85; }
+          .pb-photo-retake {
+            opacity: 0.85;
+          }
         }
         .pb-countdown {
           position: absolute;
@@ -4506,8 +5477,9 @@ export default function PhotoboothTool() {
           width: 100%;
           box-sizing: border-box;
           padding: 20px;
-          background: radial-gradient(ellipse at top, color-mix(in srgb, var(--accent) 6%, transparent), transparent 70%),
-                      linear-gradient(145deg, var(--panel), color-mix(in srgb, var(--panel) 90%, #000));
+          background:
+            radial-gradient(ellipse at top, color-mix(in srgb, var(--accent) 6%, transparent), transparent 70%),
+            linear-gradient(145deg, var(--panel), color-mix(in srgb, var(--panel) 90%, #000));
           border: 1px solid var(--border);
           border-radius: 20px;
           box-shadow: 0 10px 40px -20px rgba(0, 0, 0, 0.25);
@@ -4777,7 +5749,9 @@ export default function PhotoboothTool() {
           background: #fff;
         }
         .pb-theme.on .pb-theme-mini {
-          box-shadow: 0 12px 28px -8px rgba(155, 93, 229, 0.6), 0 0 0 2px #9b5de5;
+          box-shadow:
+            0 12px 28px -8px rgba(155, 93, 229, 0.6),
+            0 0 0 2px #9b5de5;
         }
         .pb-theme-mini-deco {
           position: absolute;
@@ -4825,7 +5799,9 @@ export default function PhotoboothTool() {
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 4px 10px -2px rgba(155, 93, 229, 0.6), 0 0 0 2px var(--panel);
+          box-shadow:
+            0 4px 10px -2px rgba(155, 93, 229, 0.6),
+            0 0 0 2px var(--panel);
           z-index: 2;
         }
         .pb-frame-grid {
@@ -4922,11 +5898,19 @@ export default function PhotoboothTool() {
           height: 100%;
         }
         @keyframes pbGhostIn {
-          from { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
-          to { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+          from {
+            transform: translate(-50%, -50%) scale(0.6);
+            opacity: 0;
+          }
+          to {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.9;
+          }
         }
         .pb-strip.drop-hot {
-          box-shadow: 0 0 0 3px #9b5de5, 0 20px 60px -15px rgba(155, 93, 229, 0.6) !important;
+          box-shadow:
+            0 0 0 3px #9b5de5,
+            0 20px 60px -15px rgba(155, 93, 229, 0.6) !important;
           outline: none;
         }
         .pb-strip.drop-hot::after {
@@ -4939,8 +5923,13 @@ export default function PhotoboothTool() {
           animation: pbHotPulse 1.2s ease-in-out infinite;
         }
         @keyframes pbHotPulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
+          0%,
+          100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.4;
+          }
         }
         .pb-sticker-grid {
           display: grid;
@@ -5051,7 +6040,10 @@ export default function PhotoboothTool() {
           text-align: left;
           color: var(--text);
           overflow: hidden;
-          transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+          transition:
+            transform 0.15s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
           font-family: inherit;
         }
         .pb-sec-btn::before {
@@ -5097,12 +6089,14 @@ export default function PhotoboothTool() {
         }
         .pb-sec-btn.retake .pb-sec-btn-ic {
           background: linear-gradient(135deg, #4cc9f0, #4361ee);
-          box-shadow: 0 6px 14px -6px rgba(67, 97, 238, 0.55),
+          box-shadow:
+            0 6px 14px -6px rgba(67, 97, 238, 0.55),
             inset 0 1px 0 rgba(255, 255, 255, 0.25);
         }
         .pb-sec-btn.fresh .pb-sec-btn-ic {
           background: linear-gradient(135deg, #ff6b9d, #c44569);
-          box-shadow: 0 6px 14px -6px rgba(255, 107, 157, 0.55),
+          box-shadow:
+            0 6px 14px -6px rgba(255, 107, 157, 0.55),
             inset 0 1px 0 rgba(255, 255, 255, 0.25);
         }
         .pb-sec-btn-text {
@@ -5132,27 +6126,34 @@ export default function PhotoboothTool() {
         .pb-qr-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.65);
-          backdrop-filter: blur(6px);
+          background: rgba(0, 0, 0, 0.5);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 10000;
           padding: 20px;
-          animation: pbQrFade 0.2s ease-out;
+          animation: pbQrFade 0.22s ease;
+          overscroll-behavior: contain;
         }
         @keyframes pbQrFade {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
         .pb-qr-modal {
           position: relative;
-          background: var(--panel);
+          background: var(--bg2);
           border: 1px solid var(--border);
           border-radius: 20px;
           padding: 24px;
           max-width: 360px;
           width: 100%;
+          max-height: 85vh;
+          overflow-y: auto;
+          overscroll-behavior: contain;
           box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.5);
           display: flex;
           flex-direction: column;
@@ -5160,8 +6161,14 @@ export default function PhotoboothTool() {
           animation: pbQrIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         @keyframes pbQrIn {
-          from { opacity: 0; transform: scale(0.92) translateY(10px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
+          from {
+            opacity: 0;
+            transform: scale(0.92) translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
         }
         .pb-qr-close {
           position: absolute;
@@ -5179,7 +6186,10 @@ export default function PhotoboothTool() {
           cursor: pointer;
           opacity: 0.75;
         }
-        .pb-qr-close:hover { opacity: 1; border-color: var(--accent); }
+        .pb-qr-close:hover {
+          opacity: 1;
+          border-color: var(--accent);
+        }
         .pb-qr-head {
           display: flex;
           align-items: center;
@@ -5196,8 +6206,17 @@ export default function PhotoboothTool() {
           justify-content: center;
           flex-shrink: 0;
         }
-        .pb-qr-head h3 { margin: 0; font-size: 15px; color: var(--text); }
-        .pb-qr-head p { margin: 2px 0 0; font-size: 12px; color: var(--text); opacity: 0.6; }
+        .pb-qr-head h3 {
+          margin: 0;
+          font-size: 15px;
+          color: var(--text);
+        }
+        .pb-qr-head p {
+          margin: 2px 0 0;
+          font-size: 12px;
+          color: var(--text);
+          opacity: 0.6;
+        }
         .pb-qr-img {
           width: 100%;
           max-width: 280px;
@@ -5246,23 +6265,31 @@ export default function PhotoboothTool() {
           opacity: 0.65;
           text-decoration: none;
         }
-        .pb-qr-open:hover { opacity: 1; color: var(--accent); }
-        .pb-qr-loading, .pb-qr-err {
+        .pb-qr-open:hover {
+          opacity: 1;
+          color: var(--accent);
+        }
+        .pb-qr-loading,
+        .pb-qr-err {
           text-align: center;
           padding: 20px 0;
         }
-        .pb-qr-loading h3, .pb-qr-err h3 {
+        .pb-qr-loading h3,
+        .pb-qr-err h3 {
           margin: 10px 0 4px;
           font-size: 15px;
           color: var(--text);
         }
-        .pb-qr-loading p, .pb-qr-err p {
+        .pb-qr-loading p,
+        .pb-qr-err p {
           margin: 0;
           font-size: 12px;
           color: var(--text);
           opacity: 0.65;
         }
-        .pb-qr-err-sub { margin-top: 8px !important; }
+        .pb-qr-err-sub {
+          margin-top: 8px !important;
+        }
         .pb-qr-spin {
           width: 36px;
           height: 36px;
@@ -5278,15 +6305,20 @@ export default function PhotoboothTool() {
           border-width: 2px;
           margin: 0;
         }
-        @keyframes pbQrSpin { to { transform: rotate(360deg); } }
+        @keyframes pbQrSpin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
 
         /* --- Result / detail view --- */
         .pb-result {
           display: flex;
           flex-direction: column;
           gap: 14px;
-          background: radial-gradient(ellipse at top, color-mix(in srgb, var(--accent) 6%, transparent), transparent 70%),
-                      linear-gradient(145deg, var(--panel), color-mix(in srgb, var(--panel) 92%, #000));
+          background:
+            radial-gradient(ellipse at top, color-mix(in srgb, var(--accent) 6%, transparent), transparent 70%),
+            linear-gradient(145deg, var(--panel), color-mix(in srgb, var(--panel) 92%, #000));
           border: 1px solid var(--border);
           border-radius: 20px;
           padding: 18px;
@@ -5529,6 +6561,500 @@ export default function PhotoboothTool() {
           }
         }
 
+        /* ================================================================
+           MOBILE REDESIGN v3 — site MobileTabBar drives everything.
+           ≤ 640px: viewport = pure camera/strip; controls = bottom sheet
+                    opened from the site tab bar.
+           641–960px landscape: setup still goes fullscreen (previous bar).
+           ================================================================ */
+
+        /* On phones, the capture step shares the same inline layout as the
+           setup camera-card so the preview size doesn't jump when the user
+           goes from "Bật quyền truy cập" into the shoot. */
+        @media (max-width: 640px) {
+          .pb-capture.immersive {
+            position: relative;
+            inset: auto;
+            z-index: auto;
+            background: transparent;
+            padding: 0;
+            gap: 10px;
+            min-height: calc(100dvh - 160px);
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+          }
+          .pb-capture.immersive .pb-preview.big {
+            width: 100%;
+            max-width: 100%;
+            max-height: none;
+            aspect-ratio: auto;
+            flex: 1 1 auto;
+            margin: 0;
+            border-radius: 18px;
+            background: #0a0a0a;
+            box-shadow: none;
+          }
+          .pb-capture.immersive .pb-thumbs {
+            flex-shrink: 0;
+          }
+        }
+
+        /* --- Setup landscape (fullscreen camera app, tablet range) --- */
+        @media (min-width: 641px) and (max-width: 960px) and (orientation: landscape) {
+          .pb-grid-setup {
+            position: fixed;
+            inset: 0;
+            z-index: 999;
+            grid-template-columns: minmax(0, 1fr) 220px;
+            gap: 0;
+            padding: 0;
+            background: #000;
+            align-items: stretch;
+          }
+          .pb-camera-card {
+            background: #000;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+          }
+          .pb-camera-card::before {
+            display: none;
+          }
+          .pb-preview.setup {
+            flex: 1 1 auto;
+            max-height: none;
+            aspect-ratio: auto;
+            height: auto;
+            border-radius: 0;
+          }
+          .pb-preview video {
+            object-fit: contain;
+            background: #000;
+          }
+          .pb-side.setup-side {
+            background: rgba(10, 10, 14, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0;
+            padding: 10px;
+            max-height: 100vh;
+            overflow-y: auto;
+            color: #fff;
+          }
+          .pb-side.setup-side::before {
+            display: none;
+          }
+          .pb-setup-hero {
+            display: none;
+          }
+        }
+
+        /* ================================================================
+           ≤ 640px — phone layout; site MobileTabBar owns the controls.
+           ================================================================ */
+        /* Setup-only CTA bar for mobile — floats above the site's default
+           MobileTabBar; the mtab keeps its 5-item menu untouched. */
+        .pb-setup-cta-mobile {
+          display: none;
+        }
+        .pb-setup-cta-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 14px;
+          border-radius: 14px;
+          border: 1px solid var(--border);
+          background: var(--bg2);
+          color: var(--text);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
+          outline: none;
+          transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
+        }
+        .pb-setup-cta-btn:not(:disabled):active {
+          transform: translateY(1px);
+        }
+        .pb-setup-cta-btn.primary:not(:disabled) {
+          color: #fff;
+          background: linear-gradient(135deg, #9b5de5 0%, #f15bb5 100%);
+          border-color: transparent;
+          box-shadow:
+            0 8px 20px -8px rgba(155, 93, 229, 0.55),
+            inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
+        .pb-setup-cta-btn.primary:not(:disabled):hover {
+          filter: brightness(1.05);
+        }
+        .pb-setup-cta-btn:disabled {
+          opacity: 0.45;
+          pointer-events: none;
+        }
+
+        @media (max-width: 640px) {
+          /* Show the setup CTA bar on phones only — it sits inline inside
+             .pb-wrap, right below the camera-card. */
+          .pb-setup-cta-mobile {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin: 10px 0 0;
+            padding: 8px;
+            border-radius: 20px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 24px -14px rgba(0, 0, 0, 0.25);
+          }
+          /* The viewport shows the camera (setup) or the strip (edit/result).
+             Everything else lives in a bottom-sheet opened from MobileTabBar. */
+          .pb-grid-setup,
+          .pb-grid-edit {
+            display: block;
+            gap: 0;
+          }
+          /* The camera-card fills most of the viewport (preview grows to
+             fill via flex: 1) with the inline CTA bar stacked below. */
+          .pb-camera-card {
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            border-radius: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            gap: 10px;
+            min-height: calc(100dvh - 160px);
+            overflow: visible;
+          }
+          .pb-camera-card::before {
+            display: none;
+          }
+          .pb-preview.setup {
+            width: 100%;
+            max-width: 100%;
+            max-height: none;
+            aspect-ratio: auto;
+            flex: 1 1 auto;
+            border-radius: 18px;
+            background: #0a0a0a;
+          }
+          /* Hide the inline CTA/hint/sticky bars — all surfaced via MobileTabBar now. */
+          .pb-cta,
+          .pb-tabs,
+          .pb-actions,
+          .pb-edit-hero,
+          .pb-setup-hero,
+          .pb-hint {
+            display: none !important;
+          }
+          /* Side panels aren't shown inline — they appear as a bottom sheet. */
+          .pb-side.setup-side,
+          .pb-side.edit-side {
+            display: none;
+          }
+          /* The strip preview takes the whole content area for edit. */
+          .pb-grid-edit {
+            --pb-strip-vh: calc(100vh - 180px);
+          }
+          .pb-strip-wrap {
+            padding: 12px;
+            border-radius: 18px;
+            position: static;
+            top: auto;
+          }
+          /* Per-photo retake button always visible. */
+          .pb-photo-retake {
+            opacity: 1;
+            width: 32px;
+            height: 32px;
+          }
+          .pb-photo-drag-hint {
+            display: none;
+          }
+          .pb-photo-order {
+            width: 22px;
+            height: 22px;
+            font-size: 11px;
+          }
+          /* Result card compact — hide hero + side actions (surfaced via MobileTabBar). */
+          .pb-result {
+            padding: 10px;
+            border-radius: 16px;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+          }
+          .pb-result-hero {
+            display: none !important;
+          }
+          .pb-result-grid {
+            grid-template-columns: 1fr !important;
+            gap: 0 !important;
+          }
+          .pb-result-side {
+            display: none !important;
+          }
+          .pb-result-left,
+          .pb-result-photo {
+            width: 100%;
+          }
+
+          /* --- Bottom-sheet panel: show the side when a sheet is open ---
+             Styled to match the site's mtab-sheet (feedback popup) for
+             consistency: solid var(--bg2) background, no blur backdrop.
+             Height auto (max 85vh) — JS writes --pb-sheet-h so the grabber
+             and close button follow the sheet's actual top edge. */
+          .pb-wrap[data-sheet] .pb-side {
+            display: flex !important;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: auto;
+            z-index: 220;
+            flex-direction: column;
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            max-height: 85vh;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+            padding: 0 16px calc(24px + env(safe-area-inset-bottom, 0px));
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-bottom: 0;
+            border-radius: 22px 22px 0 0;
+            box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.35);
+            animation: pb-m-sheet-up 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.05);
+          }
+          /* Sticker / text-sticker tiles start a drag on pointerdown; let
+             vertical touch gestures scroll the sheet instead of latching
+             into a drag the moment the finger lands on a tile. */
+          .pb-wrap[data-sheet] .pb-sticker-btn,
+          .pb-wrap[data-sheet] .pb-text-btn {
+            touch-action: pan-y;
+          }
+          /* Sticky in-sheet title bar — content comes from --pb-sheet-title
+             set inline when a sheet opens. Overrides the base decorative
+             ::before (which is a radial gradient blob with explicit size). */
+          .pb-wrap[data-sheet] .pb-side::before {
+            content: var(--pb-sheet-title, "") !important;
+            display: block !important;
+            position: sticky !important;
+            top: 0 !important;
+            right: auto !important;
+            left: auto !important;
+            width: auto !important;
+            height: auto !important;
+            min-height: 0 !important;
+            z-index: 2 !important;
+            margin: 0 -16px 10px !important;
+            padding: 18px 48px 12px !important;
+            background: var(--bg2) !important;
+            background-image: none !important;
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+            text-align: center !important;
+            font-size: 15px !important;
+            font-weight: 700 !important;
+            color: var(--text) !important;
+            letter-spacing: -0.01em !important;
+            line-height: 1.3 !important;
+            filter: none !important;
+            pointer-events: auto !important;
+          }
+          /* Grabber pill — fixed, anchored to the sheet's actual top edge
+             via --pb-sheet-h (written from JS so it matches the real height). */
+          .pb-wrap[data-sheet] .pb-side::after {
+            content: "" !important;
+            position: fixed !important;
+            left: 50% !important;
+            bottom: calc(var(--pb-sheet-h, 85vh) - 12px) !important;
+            top: auto !important;
+            right: auto !important;
+            transform: translateX(-50%) !important;
+            width: 42px !important;
+            height: 4px !important;
+            border-radius: 10px !important;
+            background: color-mix(in srgb, var(--dim) 55%, transparent) !important;
+            background-image: none !important;
+            z-index: 223 !important;
+            pointer-events: none !important;
+            filter: none !important;
+            display: block !important;
+          }
+          /* Hide clutter inside the sheet. */
+          .pb-wrap[data-sheet] .pb-side > .pb-edit-hero,
+          .pb-wrap[data-sheet] .pb-side > .pb-setup-hero,
+          .pb-wrap[data-sheet] .pb-side > .pb-tabs,
+          .pb-wrap[data-sheet] .pb-side > .pb-actions {
+            display: none !important;
+          }
+          /* Layout picker (the .pb-section that wraps .pb-layout-grid)
+             only belongs with the "frame" sheet. Other sheets still show
+             their own .pb-section children (e.g. the "text" sheet wraps
+             the caption input + word stickers in two .pb-section blocks). */
+          .pb-wrap[data-sheet]:not([data-sheet="frame"]) .pb-side.edit-side > .pb-section:has(.pb-layout-grid) {
+            display: none !important;
+          }
+          /* Make the content cards full-width and comfortable to tap. */
+          .pb-wrap[data-sheet] .pb-side .pb-section {
+            margin: 0 0 12px;
+            padding: 0;
+            background: transparent;
+            border: none;
+          }
+          .pb-wrap[data-sheet] .pb-filter-grid,
+          .pb-wrap[data-sheet] .pb-theme-grid,
+          .pb-wrap[data-sheet] .pb-frame-grid {
+            grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)) !important;
+            gap: 10px !important;
+          }
+          .pb-wrap[data-sheet] .pb-sticker-grid {
+            grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)) !important;
+            gap: 10px !important;
+          }
+          .pb-wrap[data-sheet] .pb-layout-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px !important;
+          }
+          .pb-wrap[data-sheet] .pb-text-grid {
+            grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)) !important;
+            gap: 10px !important;
+          }
+          .pb-wrap[data-sheet] .pb-sticker-btn,
+          .pb-wrap[data-sheet] .pb-text-btn {
+            min-height: 58px;
+            padding: 8px;
+          }
+          .pb-wrap[data-sheet] .pb-ctrl-row {
+            padding: 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            gap: 6px;
+            flex-wrap: wrap;
+          }
+          .pb-wrap[data-sheet] .pb-ctrl-row :global(button) {
+            min-width: 44px;
+            min-height: 42px;
+          }
+
+          /* --- Sheet chrome: backdrop + fixed close button --- */
+          .pb-m-sheet-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 210;
+            animation: pb-m-sheet-fade 0.22s ease;
+          }
+          .pb-m-sheet-close {
+            position: fixed;
+            right: 14px;
+            bottom: calc(var(--pb-sheet-h, 85vh) - 44px);
+            top: auto;
+            z-index: 224;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: transparent;
+            border: 0;
+            color: var(--dim);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+          }
+          .pb-m-sheet-close:hover {
+            color: var(--text);
+            background: color-mix(in srgb, var(--text) 10%, transparent);
+          }
+          @keyframes pb-m-sheet-up {
+            from {
+              transform: translateY(100%);
+              opacity: 0.6;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+          @keyframes pb-m-sheet-fade {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+
+          /* The site tab bar on photobooth: give the primary button more weight. */
+          :global(.mtab.mtab--pb) {
+            z-index: 150;
+          }
+          :global(.mtab.mtab--pb .mtab-btn) {
+            padding: 8px 2px;
+          }
+          :global(.mtab.mtab--pb .mtab-btn > svg) {
+            width: 22px;
+            height: 22px;
+          }
+          :global(.mtab.mtab--pb .mtab-btn > span) {
+            font-size: 10.5px;
+          }
+          /* Primary action (Xong / Tải ảnh / Mã QR / Chụp mới): styled to
+             match the setup "Chụp" button — horizontal icon + label pill,
+             accent gradient when enabled. */
+          :global(.mtab.mtab--pb .mtab-btn--primary) {
+            flex-direction: row !important;
+            gap: 6px !important;
+            padding: 10px 8px !important;
+            border-radius: 14px;
+            font-size: 12.5px !important;
+            font-weight: 600;
+            min-width: 0;
+          }
+          :global(.mtab.mtab--pb .mtab-btn--primary > svg) {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+          }
+          :global(.mtab.mtab--pb .mtab-btn--primary > span) {
+            font-size: 12.5px !important;
+            line-height: 1 !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          :global(.mtab.mtab--pb .mtab-btn--primary:not(:disabled)) {
+            color: #fff;
+            background: linear-gradient(135deg, #9b5de5 0%, #f15bb5 100%);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            box-shadow:
+              0 8px 20px -8px rgba(155, 93, 229, 0.55),
+              inset 0 1px 0 rgba(255, 255, 255, 0.25);
+          }
+          :global(.mtab.mtab--pb .mtab-btn--primary:not(:disabled):hover) {
+            filter: brightness(1.05);
+          }
+          :global(.mtab.mtab--pb .mtab-btn:disabled) {
+            opacity: 0.45;
+            pointer-events: none;
+          }
+        }
+
         /* --- Share modal (prettier redesign) --- */
         .pb-share-ask-overlay {
           position: fixed;
@@ -5544,8 +7070,12 @@ export default function PhotoboothTool() {
           animation: pb-fade-in 0.18s ease-out;
         }
         @keyframes pb-fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
         .pb-share-ask {
           position: relative;
@@ -5556,14 +7086,21 @@ export default function PhotoboothTool() {
           border: 1px solid var(--border, #e5e7eb);
           border-radius: 22px;
           padding: 28px 24px 22px;
-          box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.5),
+          box-shadow:
+            0 30px 80px -20px rgba(0, 0, 0, 0.5),
             0 0 0 1px rgba(155, 93, 229, 0.15) inset;
           overflow: hidden;
           animation: pb-pop-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         @keyframes pb-pop-in {
-          from { opacity: 0; transform: translateY(8px) scale(0.96); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
+          from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
         }
         .pb-share-ask::before {
           content: "";
@@ -5591,7 +7128,9 @@ export default function PhotoboothTool() {
           cursor: pointer;
           border-radius: 10px;
           z-index: 2;
-          transition: background 0.15s ease, transform 0.15s ease;
+          transition:
+            background 0.15s ease,
+            transform 0.15s ease;
         }
         .pb-share-ask-close:hover {
           background: color-mix(in srgb, var(--text) 10%, var(--bg));
@@ -5645,7 +7184,11 @@ export default function PhotoboothTool() {
           color: var(--text);
           cursor: pointer;
           font-family: inherit;
-          transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+          transition:
+            transform 0.15s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease,
+            background 0.2s ease;
         }
         .pb-share-opt:hover {
           transform: translateY(-1px);
@@ -5749,6 +7292,22 @@ export default function PhotoboothTool() {
           z-index: 3;
           user-select: none;
         }
+        .pb-mic-warn {
+          position: absolute;
+          left: 50%;
+          top: 14px;
+          transform: translateX(-50%);
+          max-width: calc(100% - 32px);
+          padding: 8px 14px;
+          background: rgba(220, 38, 38, 0.92);
+          color: #fff;
+          font-size: 12px;
+          font-weight: 500;
+          border-radius: 999px;
+          box-shadow: 0 8px 24px -8px rgba(220, 38, 38, 0.6);
+          z-index: 4;
+          text-align: center;
+        }
         .pb-media-stage img,
         .pb-media-stage video {
           width: auto;
@@ -5779,7 +7338,10 @@ export default function PhotoboothTool() {
           text-align: left;
           cursor: pointer;
           overflow: hidden;
-          transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease,
+          transition:
+            transform 0.15s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease,
             background 0.2s ease;
         }
         .pb-result-btn:disabled {
@@ -5818,9 +7380,11 @@ export default function PhotoboothTool() {
           line-height: 1.3;
         }
         .pb-result-btn.primary {
-          background: linear-gradient(135deg,
+          background: linear-gradient(
+            135deg,
             color-mix(in srgb, #4cc9f0 20%, var(--bg)),
-            color-mix(in srgb, #4895ef 10%, var(--bg)));
+            color-mix(in srgb, #4895ef 10%, var(--bg))
+          );
           border-color: color-mix(in srgb, #4cc9f0 55%, var(--border));
         }
         .pb-result-btn.primary:hover:not(:disabled) {
@@ -5831,9 +7395,11 @@ export default function PhotoboothTool() {
           box-shadow: 0 8px 18px -6px rgba(76, 201, 240, 0.55);
         }
         .pb-result-btn.share {
-          background: linear-gradient(135deg,
+          background: linear-gradient(
+            135deg,
             color-mix(in srgb, #f72585 18%, var(--bg)),
-            color-mix(in srgb, #9b5de5 12%, var(--bg)));
+            color-mix(in srgb, #9b5de5 12%, var(--bg))
+          );
           border-color: color-mix(in srgb, #f72585 50%, var(--border));
         }
         .pb-result-btn.share:hover:not(:disabled) {
