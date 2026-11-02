@@ -21,6 +21,7 @@ import { createPortal } from "react-dom";
 import LangToggle from "./LangToggle";
 import RoleBadge from "./RoleBadge";
 import SkinPicker from "./SkinPicker";
+import { useEnabledThemes } from "./ThemesProvider";
 import ThemeToggle from "./ThemeToggle";
 import { useToast } from "./Toast";
 import { invokePhotoboothMobileAction, usePhotoboothMobileUI } from "@/lib/photobooth-mobile-ui";
@@ -53,6 +54,8 @@ export default function MobileTabBar() {
   const [hidden, setHidden] = useState(false);
   const toast = useToast();
   const { t } = useI18n();
+  const enabledThemes = useEnabledThemes();
+  const showSkin = enabledThemes.length >= 2;
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -384,10 +387,12 @@ export default function MobileTabBar() {
                 <span>{t("settings_theme")}</span>
                 <ThemeToggle />
               </div>
-              <div className="mtab-sheet-row">
-                <span>{t("settings_skin")}</span>
-                <SkinPicker />
-              </div>
+              {showSkin && (
+                <div className="mtab-sheet-row">
+                  <span>{t("settings_skin")}</span>
+                  <SkinPicker />
+                </div>
+              )}
               <div className="mtab-sheet-row">
                 <span>{t("settings_language")}</span>
                 <LangToggle />

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { categoriesToMap, listPublicCategories, listPublicPosts, slugifyLabel } from "@/lib/blog";
+import { categoriesToMap, listPublicCategories, listPublicPosts, listReactions, slugifyLabel } from "@/lib/blog";
 import { BlogList } from "../../BlogList";
 import "../../blog.css";
 
@@ -25,14 +25,18 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function BlogTagPage({ params }: { params: { slug: string } }) {
-  const [posts, cats] = await Promise.all([listPublicPosts(), listPublicCategories()]);
+  const [posts, cats, popularity] = await Promise.all([
+    listPublicPosts(),
+    listPublicCategories(),
+    listReactions(),
+  ]);
   const map = categoriesToMap(cats);
   const key = resolveCat(map, params.slug);
   if (!key) notFound();
 
   return (
     <div className="blog-wrap">
-      <BlogList posts={posts} categories={map} activeTag={key} />
+      <BlogList posts={posts} categories={map} activeTag={key} popularity={popularity} />
     </div>
   );
 }

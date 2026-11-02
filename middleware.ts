@@ -1,9 +1,9 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
-import { SEED_TOOLS } from "@/lib/tools-shared";
+import { TOOL_HREFS as TOOL_HREF_LIST } from "@/lib/tool-hrefs";
 import { ADMIN_APP_ALWAYS_ON, ADMIN_APP_HREFS } from "@/lib/admin-apps";
 import { USER_COOKIE, authSecret, verifyUserTokenEdge, type UserRole } from "@/lib/user-auth-edge";
 
-const TOOL_HREFS = new Set(SEED_TOOLS.map((t) => t.href));
+const TOOL_HREFS = new Set(TOOL_HREF_LIST);
 
 type Visibility = { active: Set<string>; guest: Set<string>; user: Set<string> };
 

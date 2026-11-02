@@ -14,6 +14,7 @@ import {
 } from "@/lib/tools-shared";
 import {
   IconApps,
+  IconArrowsSort,
   IconDatabase,
   IconEdit,
   IconEyeOff,
@@ -22,6 +23,8 @@ import {
   IconPlus,
   IconSearch,
   IconShieldLock,
+  IconSortAscendingLetters,
+  IconSortDescendingLetters,
   IconToggleRight,
   IconTrash,
   IconX,
@@ -401,6 +404,7 @@ function AdminMenuSection() {
 }
 
 type EditTab = "basic" | "seo" | "intro" | "features" | "faqs";
+type SortMode = "custom" | "alpha-asc" | "alpha-desc";
 
 export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const [tools, setTools] = useState<Tool[]>([]);
@@ -420,6 +424,29 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
   const [q, setQ] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const [sortMode, setSortModeState] = useState<SortMode>("custom");
+
+  useEffect(() => {
+    fetch("/api/admin/settings?key=menu_sort_mode", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const v = j?.value;
+        if (v === "custom" || v === "alpha-asc" || v === "alpha-desc") setSortModeState(v);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function setSortMode(m: SortMode) {
+    setSortModeState(m);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "menu_sort_mode", value: m }),
+      });
+      reloadPublicTools();
+    } catch {}
+  }
   const toast = useToast();
   const { reload: reloadPublicTools } = useToolsState();
 
@@ -458,6 +485,13 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
       );
     });
   }, [tools, filter, statFilter, q]);
+
+  const sortedVisible = useMemo(() => {
+    if (sortMode === "custom") return visible;
+    const arr = [...visible].sort((a, b) => a.title.localeCompare(b.title, "vi"));
+    if (sortMode === "alpha-desc") arr.reverse();
+    return arr;
+  }, [visible, sortMode]);
 
   const statActiveStyle = { border: "1.5px solid #f97316", boxShadow: "0 0 0 2px rgba(249,115,22,0.15)" } as const;
 
@@ -702,7 +736,7 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
       {isSuperAdmin && <AdminMenuSection />}
       {loading ? (
         <div className="fx-empty">Đang tải…</div>
-      ) : visible.length === 0 ? (
+      ) : sortedVisible.length === 0 ? (
         <div className="fx-empty">
           <div className="fx-empty-ico">
             <IconDatabase size={22} stroke={1.7} />
@@ -710,8 +744,59 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
           {tools.length === 0 ? "Chưa có tool nào. Bấm Seed để nạp 23 tools mặc định." : "Không có kết quả phù hợp."}
         </div>
       ) : (
-        <div className="fx-table">
-          <div className="fx-row fx-row-head">
+        <>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <div
+              role="group"
+              aria-label="Sắp xếp"
+              style={{
+                display: "inline-flex",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                overflow: "hidden",
+              }}
+            >
+              <button
+                type="button"
+                className={`fx-btn${sortMode === "custom" ? " fx-btn-primary" : ""}`}
+                onClick={() => setSortMode("custom")}
+                title="Thủ công (kéo thả để đổi thứ tự)"
+                style={{ borderRadius: 0, borderWidth: 0 }}
+              >
+                <IconArrowsSort size={14} stroke={1.9} /> Thủ công
+              </button>
+              <button
+                type="button"
+                className={`fx-btn${sortMode === "alpha-asc" ? " fx-btn-primary" : ""}`}
+                onClick={() => setSortMode("alpha-asc")}
+                title="Sắp xếp A→Z"
+                style={{ borderRadius: 0, borderWidth: 0, borderLeft: "1px solid var(--border)" }}
+              >
+                <IconSortAscendingLetters size={14} stroke={1.9} /> A→Z
+              </button>
+              <button
+                type="button"
+                className={`fx-btn${sortMode === "alpha-desc" ? " fx-btn-primary" : ""}`}
+                onClick={() => setSortMode("alpha-desc")}
+                title="Sắp xếp Z→A"
+                style={{ borderRadius: 0, borderWidth: 0, borderLeft: "1px solid var(--border)" }}
+              >
+                <IconSortDescendingLetters size={14} stroke={1.9} /> Z→A
+              </button>
+            </div>
+            <small style={{ opacity: 0.6 }}>{sortedVisible.length} / {tools.length} tools</small>
+          </div>
+          <div className="fx-table">
+            <div className="fx-row fx-row-head">
             <div />
             <div />
             <div>Tool</div>
@@ -721,22 +806,27 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
             <div title="User đã login thấy tool">User</div>
             <div style={{ textAlign: "right" }}>Actions</div>
           </div>
-          {visible.map((t, i) => {
+          {sortedVisible.map((t, i) => {
             const active = t.active ?? true;
-            const isDragging = dragIdx === i;
-            const isOver = dropIdx === i && dragIdx !== null && dragIdx !== i;
+            const canDrag = sortMode === "custom";
+            const isDragging = canDrag && dragIdx === i;
+            const isOver = canDrag && dropIdx === i && dragIdx !== null && dragIdx !== i;
             return (
               <div
                 key={t.href}
                 className={`fx-row${active ? "" : " dim"}`}
-                draggable
-                onDragStart={() => handleDragStart(i)}
-                onDragOver={(e) => handleDragOver(e, i)}
-                onDrop={(e) => handleDrop(e)}
-                onDragEnd={() => {
-                  setDragIdx(null);
-                  setDropIdx(null);
-                }}
+                draggable={canDrag}
+                onDragStart={canDrag ? () => handleDragStart(i) : undefined}
+                onDragOver={canDrag ? (e) => handleDragOver(e, i) : undefined}
+                onDrop={canDrag ? (e) => handleDrop(e) : undefined}
+                onDragEnd={
+                  canDrag
+                    ? () => {
+                        setDragIdx(null);
+                        setDropIdx(null);
+                      }
+                    : undefined
+                }
                 style={{
                   opacity: isDragging ? 0.4 : 1,
                   borderTop: isOver ? "2px solid var(--accent, #6366f1)" : undefined,
@@ -745,10 +835,12 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
                 <div
                   style={{
                     color: "var(--fg-muted, #888)",
-                    cursor: "grab",
+                    cursor: canDrag ? "grab" : "not-allowed",
+                    opacity: canDrag ? 1 : 0.3,
                     display: "flex",
                     alignItems: "center",
                   }}
+                  title={canDrag ? "Kéo để đổi thứ tự" : "Chuyển về chế độ Thủ công để kéo thả"}
                 >
                   <IconGripVertical size={14} stroke={1.8} />
                 </div>
@@ -811,7 +903,8 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
 
       {editing && (

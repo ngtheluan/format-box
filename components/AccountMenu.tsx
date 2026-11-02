@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import LangToggle from "./LangToggle";
 import RoleBadge from "./RoleBadge";
 import SkinPicker from "./SkinPicker";
+import { useEnabledThemes } from "./ThemesProvider";
 import ThemeToggle from "./ThemeToggle";
 import { useToast } from "./Toast";
 
@@ -35,6 +36,8 @@ export default function AccountMenu() {
   const [authErr, setAuthErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
+  const enabledThemes = useEnabledThemes();
+  const showSkin = enabledThemes.length >= 2;
 
   useEffect(() => {
     fetch("/api/user/me")
@@ -242,10 +245,12 @@ export default function AccountMenu() {
                   <span>{t("settings_theme")}</span>
                   <ThemeToggle />
                 </div>
-                <div className="account-pop-setting">
-                  <span>{t("settings_skin")}</span>
-                  <SkinPicker />
-                </div>
+                {showSkin && (
+                  <div className="account-pop-setting">
+                    <span>{t("settings_skin")}</span>
+                    <SkinPicker />
+                  </div>
+                )}
                 <div className="account-pop-setting">
                   <span>{t("settings_language")}</span>
                   <LangToggle />

@@ -311,7 +311,13 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
           </div>
           <div className="bz-grid">
             {related.map((p) => (
-              <BlogCard key={p.slug} post={p} catLabel={catLabel(p.category)} readLabel={<T k="blog_read_min" />} />
+              <BlogCard
+                key={p.slug}
+                post={p}
+                catLabel={catLabel(p.category)}
+                readLabel={<T k="blog_read_min" />}
+                helpful={popularity?.[p.slug] ?? 0}
+              />
             ))}
           </div>
         </section>

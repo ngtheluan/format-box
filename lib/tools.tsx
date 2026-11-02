@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { supabase } from "./supabase";
+import { supabase, supabaseAdmin, hasSupabase } from "./supabase";
 import type { BilingualFaqs, FaqItem, Tool } from "./tools-shared";
 
 export * from "./tools-shared";
@@ -84,6 +84,21 @@ export function toolToRow(t: Tool): DbRow {
   };
 }
 
+async function fetchSortMode(): Promise<"custom" | "alpha-asc" | "alpha-desc"> {
+  if (!hasSupabase()) return "custom";
+  try {
+    const { data } = await supabaseAdmin()
+      .from("app_settings")
+      .select("value")
+      .eq("key", "menu_sort_mode")
+      .maybeSingle();
+    const v = data?.value;
+    return v === "alpha-asc" || v === "alpha-desc" || v === "custom" ? v : "custom";
+  } catch {
+    return "custom";
+  }
+}
+
 async function fetchTools(): Promise<Tool[]> {
   const sb = supabase();
   if (!sb) {
@@ -100,7 +115,12 @@ async function fetchTools(): Promise<Tool[]> {
     console.warn("[tools] Supabase fetch failed:", error.message);
     return [];
   }
-  return (data as DbRow[]).map(rowToTool);
+  const tools = (data as DbRow[]).map(rowToTool);
+  const mode = await fetchSortMode();
+  if (mode === "custom") return tools;
+  const sorted = [...tools].sort((a, b) => a.title.localeCompare(b.title, "vi"));
+  if (mode === "alpha-desc") sorted.reverse();
+  return sorted;
 }
 
 const cached = unstable_cache(fetchTools, ["tools:list"], {

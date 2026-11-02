@@ -26,14 +26,27 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/translations")
-      .then((r) => r.json())
-      .then((j) => {
-        if (alive && j?.dict) setRemote(j.dict as Dict);
-      })
-      .catch(() => {});
+    // Defer remote overrides to idle time — DICT is already bundled, so the
+    // UI renders fully with no network round-trip; admin overrides fold in
+    // once the browser is idle.
+    const run = () => {
+      if (!alive) return;
+      fetch("/api/translations")
+        .then((r) => r.json())
+        .then((j) => {
+          if (alive && j?.dict) setRemote(j.dict as Dict);
+        })
+        .catch(() => {});
+    };
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    const handle = ric
+      ? ric(run, { timeout: 2000 })
+      : (window.setTimeout(run, 1500) as unknown as number);
     return () => {
       alive = false;
+      const cic = (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback;
+      if (cic) cic(handle);
+      else window.clearTimeout(handle);
     };
   }, []);
 

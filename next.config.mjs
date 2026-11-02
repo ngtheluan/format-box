@@ -20,10 +20,6 @@ const nextConfig = {
     NEXT_PUBLIC_APP_COMMIT: shortSha,
   },
   experimental: {
-    staleTimes: {
-      dynamic: 0,
-      static: 0,
-    },
     // Keep the Node WebSocket stack intact; Next's server bundler can
     // transform ws internals used by msedge-tts and break frame masking.
     serverComponentsExternalPackages: ["msedge-tts", "isomorphic-ws", "ws"],

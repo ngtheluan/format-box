@@ -12,7 +12,8 @@ const ToolsCtx = createContext<Ctx>({ tools: [], loading: false, reload: () => {
 
 export function ToolsProvider({ children, initialTools = [] }: { children: ReactNode; initialTools?: Tool[] }) {
   const [tools, setTools] = useState<Tool[]>(initialTools);
-  const [loading, setLoading] = useState(true);
+  // When SSR already seeded tools we start non-loading; otherwise fetch kicks in.
+  const [loading, setLoading] = useState(initialTools.length === 0);
 
   // `silent` refreshes (tab focus / visibility) skip the loading flag and keep
   // the current array when nothing changed, so the whole tree doesn't re-render.
@@ -36,7 +37,9 @@ export function ToolsProvider({ children, initialTools = [] }: { children: React
   };
 
   useEffect(() => {
-    load();
+    // Skip the first-mount fetch when the server already seeded tools —
+    // avoids a redundant `/api/tools` round-trip on every page load.
+    if (initialTools.length === 0) load();
     const onFocus = () => load(false, true);
     const onVis = () => { if (document.visibilityState === "visible") load(false, true); };
     const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("fb-tools") : null;
@@ -48,6 +51,7 @@ export function ToolsProvider({ children, initialTools = [] }: { children: React
       document.removeEventListener("visibilitychange", onVis);
       bc?.close();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

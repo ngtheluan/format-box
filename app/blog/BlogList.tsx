@@ -12,13 +12,36 @@ import {
   type DidYouKnowItem,
 } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
-import { IconArrowRight, IconArticle, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconArticle, IconFlame, IconSparkles, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DidYouKnow } from "./DidYouKnow";
 
 const PAGE = 12;
 const SIDE = 4; // recent posts shown beside the featured story
+
+function PostBadges({ date, helpful }: { date: string; helpful: number }) {
+  const ageDays = (Date.now() - new Date(date).getTime()) / 86400000;
+  const isNew = Number.isFinite(ageDays) && ageDays >= 0 && ageDays <= 7;
+  const isHot = helpful > 10;
+  if (!isNew && !isHot) return null;
+  return (
+    <span className="bzc-badges" aria-hidden="true">
+      {isNew && (
+        <span className="bzc-badge is-new">
+          <IconSparkles size={11} stroke={2.2} />
+          Mới
+        </span>
+      )}
+      {isHot && (
+        <span className="bzc-badge is-hot" title={`${helpful} lượt đánh giá hữu ích`}>
+          <IconFlame size={11} stroke={2.2} />
+          Hữu ích
+        </span>
+      )}
+    </span>
+  );
+}
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -33,11 +56,13 @@ export function BlogList({
   categories,
   didYouKnow,
   activeTag = null,
+  popularity,
 }: {
   posts: BlogPost[];
   categories?: BlogCategoryMap;
   didYouKnow?: DidYouKnowItem[];
   activeTag?: string | null;
+  popularity?: Record<string, number>;
 }) {
   const { t } = useI18n();
   const [active, setActive] = useState<string | null>(activeTag);
@@ -165,6 +190,7 @@ export function BlogList({
             <Link href={`/blog/${hero.slug}`} prefetch={false} className="bz-feat-link">
               <span className="bz-media">
                 <BlogCover post={hero} variant="hero" size={[1200, 675]} />
+                <PostBadges date={hero.date} helpful={popularity?.[hero.slug] ?? 0} />
               </span>
               <span className="bz-feat-body">
                 <span className="bz-feat-cats">
@@ -196,6 +222,7 @@ export function BlogList({
                   <Link href={`/blog/${p.slug}`} prefetch={false}>
                     <span className="bz-media">
                       <BlogCover post={p} size={[480, 270]} />
+                      <PostBadges date={p.date} helpful={popularity?.[p.slug] ?? 0} />
                     </span>
                     <span className="bz-side-text">
                       <h2>{p.title}</h2>
@@ -210,7 +237,7 @@ export function BlogList({
         </div>
       )}
 
-      {!isTagPage && !q.trim() && <SavedPosts posts={all} />}
+      {!isTagPage && !q.trim() && <SavedPosts posts={all} popularity={popularity} />}
 
       {/* LATEST GRID */}
       {rest.length > 0 || active || searching ? (
@@ -261,7 +288,13 @@ export function BlogList({
           ) : (
             <div className="bz-grid">
               {shown.map((p) => (
-                <BlogCard key={p.slug} post={p} catLabel={catLabel(p.category)} readLabel={readLabel} />
+                <BlogCard
+                  key={p.slug}
+                  post={p}
+                  catLabel={catLabel(p.category)}
+                  readLabel={readLabel}
+                  helpful={popularity?.[p.slug] ?? 0}
+                />
               ))}
             </div>
           )}
@@ -280,7 +313,7 @@ export function BlogList({
   );
 }
 
-function SavedPosts({ posts }: { posts: BlogPost[] }) {
+function SavedPosts({ posts, popularity }: { posts: BlogPost[]; popularity?: Record<string, number> }) {
   const [slugs, setSlugs] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
 
@@ -324,11 +357,31 @@ function SavedPosts({ posts }: { posts: BlogPost[] }) {
         <span className="bz-saved-count">{items.length}</span>
       </header>
       <ul className="bz-saved-list">
-        {items.map((p) => (
+        {items.map((p) => {
+          const now = Date.now();
+          const published = new Date(p.date).getTime();
+          const ageDays = Number.isFinite(published) ? (now - published) / 86400000 : Infinity;
+          const isNew = ageDays >= 0 && ageDays <= 7;
+          const helpful = popularity?.[p.slug] ?? 0;
+          const isHot = helpful > 10;
+          return (
           <li key={p.slug}>
             <Link href={`/blog/${p.slug}`} prefetch={false} className="bz-saved-link">
               <span className="bz-saved-title">{p.title}</span>
-              <span className="bz-saved-meta">{formatDateVi(p.date)}</span>
+              <span className="bz-saved-meta">
+                {isNew && (
+                  <span className="bz-saved-badge is-new" title="Đăng trong 7 ngày qua">
+                    <i>Mới</i>
+                  </span>
+                )}
+                {isHot && (
+                  <span className="bz-saved-badge is-hot" title={`${helpful} lượt đánh giá hữu ích`}>
+                    <IconFlame size={11} stroke={2} />
+                    <i>Hữu ích</i>
+                  </span>
+                )}
+                <span className="bz-saved-date">{formatDateVi(p.date)}</span>
+              </span>
             </Link>
             <button
               type="button"
@@ -340,7 +393,8 @@ function SavedPosts({ posts }: { posts: BlogPost[] }) {
               <IconX size={13} stroke={2} />
             </button>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );

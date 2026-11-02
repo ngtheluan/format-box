@@ -2180,6 +2180,36 @@
   border: 1px solid var(--border);
   background: var(--bg3);
 }
+.bzc-badges {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+  pointer-events: none;
+}
+.bzc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.bzc-badge.is-new {
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 85%, transparent);
+}
+.bzc-badge.is-hot {
+  color: #fff;
+  background: color-mix(in srgb, var(--warn) 88%, transparent);
+}
 .bzc-body {
   display: flex;
   flex: 1;
@@ -2803,6 +2833,40 @@
 .bz-saved-meta {
   font-size: 0.7rem;
   color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bz-saved-date {
+  color: var(--dim);
+}
+.bz-saved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--dim);
+}
+.bz-saved-badge i {
+  font-style: normal;
+}
+.bz-saved-badge.is-new {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.bz-saved-badge.is-hot {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
 }
 .bz-saved-rm {
   display: grid;

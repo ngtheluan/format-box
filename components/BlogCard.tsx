@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { IconFlame, IconSparkles } from "@tabler/icons-react";
 import { formatDateVi, type BlogPost } from "@/lib/blog";
 import { BlogCover } from "@/components/BlogCover";
 
@@ -7,6 +8,7 @@ type Props = {
   post: BlogPost;
   catLabel: string;
   readLabel: ReactNode;
+  helpful?: number;
 };
 
 // Decorative corner brackets — the blueprint crop marks on each boxed section.
@@ -30,12 +32,31 @@ function initials(name: string) {
 }
 
 // Blueprint tile: framed 16:9 photo, category, title, date · read time, author.
-export function BlogCard({ post: p, catLabel, readLabel }: Props) {
+export function BlogCard({ post: p, catLabel, readLabel, helpful = 0 }: Props) {
+  const ageDays = (Date.now() - new Date(p.date).getTime()) / 86400000;
+  const isNew = Number.isFinite(ageDays) && ageDays >= 0 && ageDays <= 7;
+  const isHot = helpful > 10;
   return (
     <Link href={`/blog/${p.slug}`} prefetch={false} className="bzc">
       <Corners />
       <span className="bzc-media">
         <BlogCover post={p} size={[800, 450]} />
+        {(isNew || isHot) && (
+          <span className="bzc-badges" aria-hidden="true">
+            {isNew && (
+              <span className="bzc-badge is-new">
+                <IconSparkles size={11} stroke={2.2} />
+                Mới
+              </span>
+            )}
+            {isHot && (
+              <span className="bzc-badge is-hot" title={`${helpful} lượt đánh giá hữu ích`}>
+                <IconFlame size={11} stroke={2.2} />
+                Hữu ích
+              </span>
+            )}
+          </span>
+        )}
       </span>
       <span className="bzc-body">
         <span className="bzc-cat">{catLabel}</span>
