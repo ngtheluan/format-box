@@ -1,7 +1,9 @@
 "use client";
 
 import { Corners } from "@/components/BlogCard";
-import type { BlogCategoryMap, BlogPost, SeriesGroup } from "@/lib/blog";
+import { Stack } from "@/components/ui";
+import type { BlogCategoryMap, SeriesGroup } from "@/lib/blog";
+import { useI18n } from "@/lib/i18n";
 import { IconArticle, IconListNumbers } from "@tabler/icons-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -14,16 +16,6 @@ export type SeriesRow = SeriesGroup & {
   categoryLabel: string;
 };
 
-type Sort = "newest" | "most-parts" | "most-helpful" | "a-z";
-type Filter = "all" | string;
-
-const SORT_LABEL: Record<Sort, string> = {
-  newest: "Mới nhất",
-  "most-parts": "Nhiều phần nhất",
-  "most-helpful": "Hữu ích nhất",
-  "a-z": "A → Z",
-};
-
 export function SeriesCatalog({
   groups,
   categoryMap,
@@ -33,125 +25,99 @@ export function SeriesCatalog({
   categoryMap: BlogCategoryMap;
   popularity?: Record<string, number>;
 }) {
-  const [sort, setSort] = useState<Sort>("newest");
-  const [filter, setFilter] = useState<Filter>("all");
+  const { t } = useI18n();
+  const [active, setActive] = useState<string | null>(null);
 
-  const availableCategories = useMemo(() => {
-    const seen = new Set<string>();
-    const list: { slug: string; label: string; count: number }[] = [];
+  const topics = useMemo(() => {
+    const seen = new Map<string, number>();
     for (const g of groups) {
       const cat = g.parts[0]?.category;
-      if (!cat || seen.has(cat)) continue;
-      seen.add(cat);
-      const count = groups.filter((x) => x.parts[0]?.category === cat).length;
-      list.push({ slug: cat, label: categoryMap[cat] || cat, count });
+      if (!cat) continue;
+      seen.set(cat, (seen.get(cat) || 0) + 1);
     }
-    return list;
+    return Array.from(seen.entries()).map(([slug, count]) => ({
+      slug,
+      label: categoryMap[slug] || slug,
+      count,
+    }));
   }, [groups, categoryMap]);
 
   const visible = useMemo(() => {
-    let list = groups.slice();
-    if (filter !== "all") list = list.filter((g) => g.parts[0]?.category === filter);
-    switch (sort) {
-      case "newest":
-        list.sort((a, b) => (a.lastDate < b.lastDate ? 1 : a.lastDate > b.lastDate ? -1 : 0));
-        break;
-      case "most-parts":
-        list.sort((a, b) => b.parts.length - a.parts.length);
-        break;
-      case "most-helpful":
-        list.sort((a, b) => b.totalHelpful - a.totalHelpful);
-        break;
-      case "a-z":
-        list.sort((a, b) => a.label.localeCompare(b.label, "vi"));
-        break;
-    }
+    const list = active ? groups.filter((g) => g.parts[0]?.category === active) : groups.slice();
+    list.sort((a, b) => (a.lastDate < b.lastDate ? 1 : a.lastDate > b.lastDate ? -1 : 0));
     return list;
-  }, [groups, filter, sort]);
+  }, [groups, active]);
+
+  const secLabel = active ? categoryMap[active] || active : t("blog_series_title");
 
   return (
-    <>
-      <header className="bz-hero bz-series-hero" aria-labelledby="series-index-h1">
+    <Stack gap={28}>
+      <header className="bz-hero" aria-labelledby="series-index-h1">
         <Corners />
         <nav className="bz-crumb" aria-label="Breadcrumb">
           <Link href="/" prefetch={false}>FormatBox</Link>
           <i>/</i>
           <Link href="/blog" prefetch={false}>Blog</Link>
           <i>/</i>
-          <span>Chuỗi bài</span>
+          <span>Series</span>
         </nav>
         <span className="bz-eyebrow">
-          <IconListNumbers size={14} stroke={2} /> Catalog
+          <IconListNumbers size={14} stroke={2} /> {t("blog_series_title")}
         </span>
         <h1 id="series-index-h1" className="bz-title">
-          Tất cả chuỗi bài
+          Tất cả Series Bài viết
         </h1>
         <p className="bz-dek">
           Những series được biên soạn theo thứ tự — đọc trọn từ phần 1 đến hết.
         </p>
       </header>
 
-      <section className="bz-sec bz-series-catalog" aria-label="Danh sách chuỗi bài">
-        <div className="bz-catalog-toolbar">
-          <div className="bz-catalog-count">
-            <b>{visible.length}</b> <span>kết quả</span>
-          </div>
-          <div className="bz-catalog-sort" role="tablist" aria-label="Sắp xếp">
-            {(Object.keys(SORT_LABEL) as Sort[]).map((k) => (
+      <section className="bz-sec" aria-label={secLabel}>
+        <header className="bz-sec-head">
+          <h2>
+            {secLabel} ({visible.length})
+          </h2>
+          {topics.length > 1 && (
+            <nav className="bz-pills" role="tablist" aria-label={t("blog_topics")}>
               <button
-                key={k}
                 type="button"
                 role="tab"
-                aria-selected={sort === k}
-                onClick={() => setSort(k)}
-                className={`bz-catalog-sort-btn${sort === k ? " is-active" : ""}`}
+                aria-selected={!active}
+                onClick={() => setActive(null)}
+                className={`bz-pill${!active ? " is-active" : ""}`}
               >
-                {SORT_LABEL[k]}
+                {t("blog_all")} ({groups.length})
               </button>
-            ))}
-          </div>
-        </div>
-
-        {availableCategories.length > 1 && (
-          <nav className="bz-pills bz-catalog-filters" aria-label="Lọc theo chủ đề">
-            <button
-              type="button"
-              onClick={() => setFilter("all")}
-              className={`bz-pill${filter === "all" ? " is-active" : ""}`}
-            >
-              Tất cả ({groups.length})
-            </button>
-            {availableCategories.map((c) => (
-              <button
-                key={c.slug}
-                type="button"
-                onClick={() => setFilter(c.slug)}
-                className={`bz-pill${filter === c.slug ? " is-active" : ""}`}
-              >
-                {c.label} ({c.count})
-              </button>
-            ))}
-          </nav>
-        )}
+              {topics.map((c) => (
+                <button
+                  key={c.slug}
+                  type="button"
+                  role="tab"
+                  aria-selected={active === c.slug}
+                  onClick={() => setActive(active === c.slug ? null : c.slug)}
+                  className={`bz-pill${active === c.slug ? " is-active" : ""}`}
+                >
+                  {c.label} ({c.count})
+                </button>
+              ))}
+            </nav>
+          )}
+        </header>
 
         {visible.length === 0 ? (
           <div className="bz-empty">
             <IconArticle size={22} stroke={1.7} />
-            <p>Chưa có chuỗi bài phù hợp.</p>
+            <p>Chưa có Series Bài viết phù hợp.</p>
           </div>
         ) : (
           <div className="bz-series-list">
             {visible.map((g) => (
-              <SeriesCard
-                key={g.slug}
-                group={g}
-                catLabel={g.categoryLabel}
-                popularity={popularity}
-              />
+              <SeriesCard key={g.slug} group={g} catLabel={g.categoryLabel} popularity={popularity} />
             ))}
           </div>
         )}
       </section>
-    </>
+    </Stack>
   );
 }
+

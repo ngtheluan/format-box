@@ -12,9 +12,9 @@ import "../blog.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Chuỗi bài · FormatBox",
+  title: "Series Bài viết · FormatBox",
   description:
-    "Tất cả chuỗi bài trên FormatBox Blog — những series được biên soạn theo thứ tự, đọc trọn từ phần 1 đến hết.",
+    "Tất cả Series Bài viết trên FormatBox Blog — những series được biên soạn theo thứ tự, đọc trọn từ phần 1 đến hết.",
 };
 
 export default async function BlogSeriesIndex() {

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Corners } from "@/components/BlogCard";
 import { BlogCover } from "@/components/BlogCover";
 import { T } from "@/components/T";
+import { Stack } from "@/components/ui";
 import {
   categoriesToMap,
   formatDateVi,
@@ -11,7 +13,7 @@ import {
   listPublicPosts,
   listReactions,
 } from "@/lib/blog";
-import { IconArrowRight, IconListNumbers } from "@tabler/icons-react";
+import { IconArrowRight, IconClock, IconListNumbers, IconUsers } from "@tabler/icons-react";
 import "../../blog.css";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +31,10 @@ async function loadSeries(slugParam: string) {
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const { group } = await loadSeries(params.slug);
-  if (!group) return { title: "Chuỗi bài · FormatBox" };
+  if (!group) return { title: "Series Bài viết · FormatBox" };
   return {
     title: `${group.label} · FormatBox`,
-    description: `Chuỗi bài "${group.label}" gồm ${group.parts.length} phần trên FormatBox Blog.`,
+    description: `Series Bài viết "${group.label}" gồm ${group.parts.length} phần trên FormatBox Blog.`,
   };
 }
 
@@ -44,6 +46,7 @@ export default async function BlogSeriesPage({ params }: { params: { slug: strin
 
   return (
     <div className="blog-wrap">
+      <Stack gap={28}>
       <header className="bz-hero" aria-labelledby="series-h1">
         <i className="bl-corners" aria-hidden="true">
           <span />
@@ -51,6 +54,15 @@ export default async function BlogSeriesPage({ params }: { params: { slug: strin
           <span />
           <span />
         </i>
+        <nav className="bz-crumb" aria-label="Breadcrumb">
+          <Link href="/" prefetch={false}>FormatBox</Link>
+          <i>/</i>
+          <Link href="/blog" prefetch={false}>Blog</Link>
+          <i>/</i>
+          <Link href="/blog/series" prefetch={false}>Series</Link>
+          <i>/</i>
+          <span>{group.label}</span>
+        </nav>
         <span className="bz-eyebrow">
           <IconListNumbers size={14} stroke={2} /> <T k="blog_series_title" />
         </span>
@@ -63,52 +75,63 @@ export default async function BlogSeriesPage({ params }: { params: { slug: strin
         </p>
       </header>
 
-      <section className="bz-sec bz-series-page" aria-label={group.label}>
-        <ol className="bz-series-rows">
+      <section className="bz-sec" aria-label={group.label}>
+        <header className="bz-sec-head">
+          <h2>
+            <T k="blog_series_title" /> ({group.parts.length})
+          </h2>
+        </header>
+        <div className="bz-series-list">
           {group.parts.map((p, i) => {
             const helpful = popularity?.[p.slug] ?? 0;
             return (
-              <li key={p.slug} className="bz-series-row">
-                <Link href={`/blog/${p.slug}`} prefetch={false} className="bz-series-row-link">
-                  <span className="bz-series-row-n" aria-hidden="true">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span className="bz-series-row-media">
-                    <BlogCover post={p} size={[320, 180]} />
-                  </span>
-                  <span className="bz-series-row-body">
-                    <span className="bz-series-row-eyebrow">
-                      <T k="blog_series_part" /> {i + 1}{" "}
-                      <i aria-hidden="true">·</i>{" "}
-                      <span>{catMap[p.category] || p.category}</span>
+              <article key={p.slug} className="bz-tile bz-series-card">
+                <Corners />
+                <Link href={`/blog/${p.slug}`} prefetch={false} className="bz-series-card-link">
+                  <span className="bz-series-cover">
+                    <BlogCover post={p} size={[640, 360]} />
+                    <span className="bz-series-badge">
+                      <IconListNumbers size={12} stroke={2.2} />
+                      <T k="blog_series_part" /> {i + 1}
                     </span>
-                    <strong>{p.title}</strong>
-                    {p.excerpt && <span className="bz-series-row-ex">{p.excerpt}</span>}
-                    <span className="bz-series-row-meta">
-                      <time dateTime={p.date}>{formatDateVi(p.date)}</time>
-                      <i aria-hidden="true">·</i>
-                      <span>
-                        {p.readMin} <T k="blog_read_min" />
-                      </span>
+                  </span>
+                  <span className="bz-series-body">
+                    <span className="bz-series-cat">{catMap[p.category] || p.category}</span>
+                    <h3 className="bz-series-title">{p.title}</h3>
+                    <ul className="bz-series-meta">
+                      <li>
+                        <IconClock size={14} stroke={2} />
+                        <span>
+                          {p.readMin} <T k="blog_read_min" />
+                        </span>
+                      </li>
+                      <li>
+                        <time dateTime={p.date}>{formatDateVi(p.date)}</time>
+                      </li>
                       {helpful > 0 && (
-                        <>
-                          <i aria-hidden="true">·</i>
+                        <li>
+                          <IconUsers size={14} stroke={2} />
                           <span>
                             {helpful} <T k="blog_helpful_count" />
                           </span>
-                        </>
+                        </li>
                       )}
+                    </ul>
+                    {p.excerpt && <p className="bz-series-ex">{p.excerpt}</p>}
+                  </span>
+                  <span className="bz-series-cta-slot">
+                    <span className="bz-series-cta-btn">
+                      Đọc phần {i + 1}
+                      <IconArrowRight size={16} stroke={2.2} />
                     </span>
                   </span>
-                  <span className="bz-series-row-arrow" aria-hidden="true">
-                    <IconArrowRight size={16} stroke={2} />
-                  </span>
                 </Link>
-              </li>
+              </article>
             );
           })}
-        </ol>
+        </div>
       </section>
+      </Stack>
     </div>
   );
 }

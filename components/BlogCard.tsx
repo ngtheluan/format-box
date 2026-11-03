@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { IconFlame, IconSparkles } from "@tabler/icons-react";
+import { IconFlame, IconListNumbers, IconSparkles } from "@tabler/icons-react";
 import { formatDateVi, type BlogPost } from "@/lib/blog";
 import { BlogCover } from "@/components/BlogCover";
 
@@ -9,6 +9,7 @@ type Props = {
   catLabel: string;
   readLabel: ReactNode;
   helpful?: number;
+  seriesSlug?: string | null;
 };
 
 // Decorative corner brackets — the blueprint crop marks on each boxed section.
@@ -32,7 +33,7 @@ function initials(name: string) {
 }
 
 // Blueprint tile: framed 16:9 photo, category, title, date · read time, author.
-export function BlogCard({ post: p, catLabel, readLabel, helpful = 0 }: Props) {
+export function BlogCard({ post: p, catLabel, readLabel, helpful = 0, seriesSlug = null }: Props) {
   const ageDays = (Date.now() - new Date(p.date).getTime()) / 86400000;
   const isNew = Number.isFinite(ageDays) && ageDays >= 0 && ageDays <= 7;
   const isHot = helpful > 10;
@@ -41,6 +42,12 @@ export function BlogCard({ post: p, catLabel, readLabel, helpful = 0 }: Props) {
       <Corners />
       <span className="bzc-media">
         <BlogCover post={p} size={[800, 450]} />
+        {seriesSlug && (
+          <span className="bzc-series-badge" aria-label="Thuộc series">
+            <IconListNumbers size={11} stroke={2.2} />
+            Series
+          </span>
+        )}
         {(isNew || isHot) && (
           <span className="bzc-badges" aria-hidden="true">
             {isNew && (

@@ -7,7 +7,9 @@ import {
   formatDateVi,
   getPublicPostCached,
   getSeriesContext,
+  parseSeriesFromPost,
   getVotes,
+  type BlogPost,
   listPublicCategories,
   listPublicPostsCached,
   listReactions,
@@ -98,10 +100,18 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
     .filter((t): t is NonNullable<typeof t> => !!t && (t.active ?? true) !== false);
   const toolSuggestions = manualTools.length ? manualTools.slice(0, 3) : relatedTools(tools, post, 3);
 
-  // `all` is newest first: index-1 is the newer post, index+1 the older one.
-  const at = all.findIndex((p) => p.slug === post.slug);
-  const newer = at > 0 ? all[at - 1] : null;
-  const older = at >= 0 && at < all.length - 1 ? all[at + 1] : null;
+  // When the post is part of a series, prev/next walks the series order; otherwise
+  // fall back to global newest-first navigation across all posts.
+  let newer: BlogPost | null;
+  let older: BlogPost | null;
+  if (seriesCtx) {
+    older = seriesCtx.prev;
+    newer = seriesCtx.next;
+  } else {
+    const at = all.findIndex((p) => p.slug === post.slug);
+    newer = at > 0 ? all[at - 1] : null;
+    older = at >= 0 && at < all.length - 1 ? all[at + 1] : null;
+  }
 
   const cover = parseCoverImage(post.coverImage);
   const initials = post.author
@@ -263,38 +273,6 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
                   );
                 })}
               </ol>
-              {(seriesCtx.prev || seriesCtx.next) && (
-                <nav className="bd-series-nav" aria-label="Series navigation">
-                  {seriesCtx.prev ? (
-                    <Link href={`/blog/${seriesCtx.prev.slug}`} prefetch={false} className="bd-series-navlink">
-                      <IconArrowLeft size={14} stroke={2} />
-                      <span>
-                        <i>
-                          <T k="blog_series_prev" />
-                        </i>
-                        <strong>{seriesCtx.prev.title}</strong>
-                      </span>
-                    </Link>
-                  ) : (
-                    <span />
-                  )}
-                  {seriesCtx.next && (
-                    <Link
-                      href={`/blog/${seriesCtx.next.slug}`}
-                      prefetch={false}
-                      className="bd-series-navlink is-next"
-                    >
-                      <span>
-                        <i>
-                          <T k="blog_series_next" />
-                        </i>
-                        <strong>{seriesCtx.next.title}</strong>
-                      </span>
-                      <IconArrowRight size={14} stroke={2} />
-                    </Link>
-                  )}
-                </nav>
-              )}
             </aside>
           )}
 
@@ -398,6 +376,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
                 catLabel={catLabel(p.category)}
                 readLabel={<T k="blog_read_min" />}
                 helpful={popularity?.[p.slug] ?? 0}
+                seriesSlug={parseSeriesFromPost(p)?.slug ?? null}
               />
             ))}
           </div>

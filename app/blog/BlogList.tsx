@@ -7,6 +7,7 @@ import {
   DEFAULT_CATEGORIES,
   formatDateVi,
   groupPostsBySeries,
+  parseSeriesFromPost,
   slugifyLabel,
   type BlogCategoryMap,
   type BlogPost,
@@ -101,15 +102,7 @@ export function BlogList({
     const needle = q.trim().toLowerCase();
     if (!needle) return byCat;
     return byCat.filter((p) => {
-      const hay = [
-        p.title,
-        p.slug,
-        p.excerpt || "",
-        catLabel(p.category),
-        ...(p.tags || []),
-      ]
-        .join(" ")
-        .toLowerCase();
+      const hay = [p.title, p.slug, p.excerpt || "", catLabel(p.category), ...(p.tags || [])].join(" ").toLowerCase();
       return hay.includes(needle);
     });
   }, [all, active, q, catMap]);
@@ -307,6 +300,7 @@ export function BlogList({
                   catLabel={catLabel(p.category)}
                   readLabel={readLabel}
                   helpful={popularity?.[p.slug] ?? 0}
+                  seriesSlug={parseSeriesFromPost(p)?.slug ?? null}
                 />
               ))}
             </div>
@@ -321,9 +315,7 @@ export function BlogList({
         </section>
       ) : null}
 
-      {!isTagPage && !q.trim() && (
-        <SeriesSection posts={all} categories={catMap} popularity={popularity} />
-      )}
+      {!isTagPage && !q.trim() && <SeriesSection posts={all} categories={catMap} popularity={popularity} />}
 
       {!isTagPage && <DidYouKnow items={didYouKnow} />}
     </Stack>
@@ -350,18 +342,20 @@ function SeriesSection({
     <section className="bz-sec bz-series" aria-label={t("blog_series_title")}>
       <header className="bz-sec-head">
         <div>
-          <span className="bz-series-eyebrow">
-            <IconListNumbers size={14} stroke={2} /> {t("blog_series_title")}
-          </span>
           <h2>
-            {t("blog_series_title")} <span className="bz-series-count">({groups.length})</span>
+            {t("blog_series_title")} ({groups.length})
           </h2>
           <p className="bz-series-sub">{t("blog_series_sub")}</p>
         </div>
       </header>
       <div className="bz-series-list">
         {shown.map((g) => (
-          <SeriesCard key={g.slug} group={g} catLabel={categories[g.parts[0].category] || g.parts[0].category} popularity={popularity} />
+          <SeriesCard
+            key={g.slug}
+            group={g}
+            catLabel={categories[g.parts[0].category] || g.parts[0].category}
+            popularity={popularity}
+          />
         ))}
       </div>
       {hasMore && (
@@ -392,16 +386,12 @@ export function SeriesCard({
   return (
     <article className="bz-tile bz-series-card">
       <Corners />
-      <Link
-        href={`/blog/series/${encodeURIComponent(group.slug)}`}
-        prefetch={false}
-        className="bz-series-card-link"
-      >
+      <Link href={`/blog/series/${encodeURIComponent(group.slug)}`} prefetch={false} className="bz-series-card-link">
         <span className="bz-series-cover">
           <BlogCover post={head} size={[640, 360]} />
           <span className="bz-series-badge">
             <IconListNumbers size={12} stroke={2.2} />
-            Chuỗi bài
+            Series
           </span>
         </span>
         <span className="bz-series-body">
@@ -426,9 +416,7 @@ export function SeriesCard({
             )}
             <li className="bz-series-meta-pills">
               <IconListNumbers size={14} stroke={2} />
-              <span>
-                Phần 1 → {group.parts.length}
-              </span>
+              <span>Phần 1 → {group.parts.length}</span>
             </li>
           </ul>
           {head.excerpt && <p className="bz-series-ex">{head.excerpt}</p>}
@@ -504,34 +492,34 @@ function SavedPosts({ posts, popularity }: { posts: BlogPost[]; popularity?: Rec
           const helpful = popularity?.[p.slug] ?? 0;
           const isHot = helpful > 10;
           return (
-          <li key={p.slug}>
-            <Link href={`/blog/${p.slug}`} prefetch={false} className="bz-saved-link">
-              <span className="bz-saved-title">{p.title}</span>
-              <span className="bz-saved-meta">
-                {isNew && (
-                  <span className="bz-saved-badge is-new" title="Đăng trong 7 ngày qua">
-                    <i>Mới</i>
-                  </span>
-                )}
-                {isHot && (
-                  <span className="bz-saved-badge is-hot" title={`${helpful} lượt đánh giá hữu ích`}>
-                    <IconFlame size={11} stroke={2} />
-                    <i>Hữu ích</i>
-                  </span>
-                )}
-                <span className="bz-saved-date">{formatDateVi(p.date)}</span>
-              </span>
-            </Link>
-            <button
-              type="button"
-              className="bz-saved-rm"
-              onClick={() => remove(p.slug)}
-              aria-label={`Bỏ lưu ${p.title}`}
-              title="Bỏ lưu"
-            >
-              <IconX size={13} stroke={2} />
-            </button>
-          </li>
+            <li key={p.slug}>
+              <Link href={`/blog/${p.slug}`} prefetch={false} className="bz-saved-link">
+                <span className="bz-saved-title">{p.title}</span>
+                <span className="bz-saved-meta">
+                  {isNew && (
+                    <span className="bz-saved-badge is-new" title="Đăng trong 7 ngày qua">
+                      <i>Mới</i>
+                    </span>
+                  )}
+                  {isHot && (
+                    <span className="bz-saved-badge is-hot" title={`${helpful} lượt đánh giá hữu ích`}>
+                      <IconFlame size={11} stroke={2} />
+                      <i>Hữu ích</i>
+                    </span>
+                  )}
+                  <span className="bz-saved-date">{formatDateVi(p.date)}</span>
+                </span>
+              </Link>
+              <button
+                type="button"
+                className="bz-saved-rm"
+                onClick={() => remove(p.slug)}
+                aria-label={`Bỏ lưu ${p.title}`}
+                title="Bỏ lưu"
+              >
+                <IconX size={13} stroke={2} />
+              </button>
+            </li>
           );
         })}
       </ul>

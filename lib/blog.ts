@@ -581,13 +581,33 @@ export function relatedPosts(
 // Series / Chuỗi bài — gộp các bài cùng chủ đề thành một chuỗi có thứ tự. Admin
 // gắn 2 tag vào mỗi bài: `series/<slug>` (bắt buộc) và `part/<n>` (số thứ tự);
 // không cần migrate DB. Series không có tag `part/<n>` sẽ sort theo ngày đăng.
-export type SeriesInfo = { slug: string; order: number };
+export type SeriesInfo = { slug: string; order: number; label?: string };
 export type SeriesGroup = { slug: string; label: string; parts: BlogPost[] };
 export type SeriesContext = SeriesGroup & { index: number; prev: BlogPost | null; next: BlogPost | null };
+
+// Series display name (with diacritics, spaces, case) is persisted per-part as
+// `sname/<base64url>` so the admin-typed title survives the slug/tag round-trip.
+export function encodeSeriesLabel(label: string): string {
+  const b64 = typeof Buffer !== "undefined"
+    ? Buffer.from(label, "utf8").toString("base64")
+    : btoa(unescape(encodeURIComponent(label)));
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+export function decodeSeriesLabel(encoded: string): string | null {
+  try {
+    const b64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "===".slice((b64.length + 3) % 4);
+    if (typeof Buffer !== "undefined") return Buffer.from(padded, "base64").toString("utf8");
+    return decodeURIComponent(escape(atob(padded)));
+  } catch {
+    return null;
+  }
+}
 
 export function parseSeriesFromPost(post: BlogPost): SeriesInfo | null {
   let slug: string | null = null;
   let order = Number.POSITIVE_INFINITY;
+  let label: string | undefined;
   for (const raw of post.tags || []) {
     const t = raw.toLowerCase();
     if (t.startsWith("series/")) {
@@ -596,46 +616,41 @@ export function parseSeriesFromPost(post: BlogPost): SeriesInfo | null {
     } else if (t.startsWith("part/")) {
       const n = parseInt(t.slice("part/".length), 10);
       if (Number.isFinite(n)) order = n;
+    } else if (t.startsWith("sname/")) {
+      // Lower-casing the full tag only sits inside this comparison; take the
+      // label payload from the ORIGINAL tag so base64 case is preserved.
+      const payload = raw.slice("sname/".length).trim();
+      const decoded = decodeSeriesLabel(payload);
+      if (decoded) label = decoded;
     }
   }
-  return slug ? { slug, order } : null;
+  return slug ? { slug, order, label } : null;
 }
 
-function commonPrefix(a: string, b: string): string {
-  let i = 0;
-  const n = Math.min(a.length, b.length);
-  while (i < n && a[i] === b[i]) i++;
-  return a.slice(0, i);
-}
-
-function deriveSeriesLabel(slug: string, parts: BlogPost[]): string {
-  if (parts.length >= 2) {
-    let pref = parts[0].title;
-    for (let i = 1; i < parts.length; i++) pref = commonPrefix(pref, parts[i].title);
-    pref = pref.replace(/[\s\-–—:·|]+$/u, "").trim();
-    if (pref.length >= 4) return pref;
-  }
+function deriveSeriesLabel(slug: string): string {
+  // Fallback for legacy series without a stored `sname/<...>` tag: title-case
+  // the slug so pages still have something readable.
   return slug.replace(/[-_]+/g, " ").replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 }
 
 export function groupPostsBySeries(posts: BlogPost[]): SeriesGroup[] {
-  const buckets = new Map<string, Array<{ post: BlogPost; order: number }>>();
+  const buckets = new Map<string, Array<{ post: BlogPost; order: number; label?: string }>>();
   for (const p of posts) {
     const s = parseSeriesFromPost(p);
     if (!s) continue;
     const arr = buckets.get(s.slug) || [];
-    arr.push({ post: p, order: s.order });
+    arr.push({ post: p, order: s.order, label: s.label });
     buckets.set(s.slug, arr);
   }
   const out: SeriesGroup[] = [];
   for (const [slug, arr] of buckets.entries()) {
-    const sorted = arr
-      .sort((a, b) => {
-        if (a.order !== b.order) return a.order - b.order;
-        return +new Date(a.post.date) - +new Date(b.post.date);
-      })
-      .map((x) => x.post);
-    out.push({ slug, label: deriveSeriesLabel(slug, sorted), parts: sorted });
+    const sorted = arr.sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order;
+      return +new Date(a.post.date) - +new Date(b.post.date);
+    });
+    const stored = sorted.find((x) => x.label)?.label;
+    const parts = sorted.map((x) => x.post);
+    out.push({ slug, label: stored || deriveSeriesLabel(slug), parts });
   }
   // Chuỗi có nhiều phần hoặc có bài mới nhất lên trên.
   out.sort((a, b) => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/admin-auth";
 import {
+  encodeSeriesLabel,
   groupPostsBySeries,
   listAdminPosts,
   parseSeriesFromPost,
@@ -20,12 +21,14 @@ export const runtime = "nodejs";
 function stripSeriesTags(tags: string[]): string[] {
   return (tags || []).filter((t) => {
     const l = t.toLowerCase();
-    return !l.startsWith("series/") && !l.startsWith("part/");
+    return !l.startsWith("series/") && !l.startsWith("part/") && !l.startsWith("sname/");
   });
 }
 
-function withSeriesTags(tags: string[], slug: string, order: number): string[] {
-  return [...stripSeriesTags(tags), `series/${slug}`, `part/${order}`];
+function withSeriesTags(tags: string[], slug: string, order: number, label?: string): string[] {
+  const base = [...stripSeriesTags(tags), `series/${slug}`, `part/${order}`];
+  if (label && label.trim()) base.push(`sname/${encodeSeriesLabel(label.trim())}`);
+  return base;
 }
 
 export async function GET() {
@@ -47,7 +50,7 @@ export async function GET() {
   return NextResponse.json({ groups });
 }
 
-type PutBody = { slug?: string; previousSlug?: string | null; slugs?: string[] };
+type PutBody = { slug?: string; label?: string; previousSlug?: string | null; slugs?: string[] };
 
 export async function PUT(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -57,7 +60,8 @@ export async function PUT(req: Request) {
     .trim()
     .replace(/[^a-z0-9-]/g, "-")
     .replace(/^-+|-+$/g, "");
-  if (!slug) return NextResponse.json({ error: "Thiếu slug chuỗi" }, { status: 400 });
+  if (!slug) return NextResponse.json({ error: "Thiếu slug series" }, { status: 400 });
+  const label = typeof body.label === "string" ? body.label.trim() : "";
   const incoming = Array.isArray(body.slugs) ? body.slugs.filter((s) => typeof s === "string") : [];
   const previousSlug = body.previousSlug ? String(body.previousSlug) : null;
 
@@ -95,7 +99,7 @@ export async function PUT(req: Request) {
     for (let i = 0; i < incoming.length; i++) {
       const postSlug = incoming[i];
       const p = bySlug.get(postSlug)!;
-      await updatePost(postSlug, { tags: withSeriesTags(p.tags, slug, i + 1) });
+      await updatePost(postSlug, { tags: withSeriesTags(p.tags, slug, i + 1, label) });
       touched.push(postSlug);
     }
   } catch (e: any) {
@@ -107,7 +111,12 @@ export async function PUT(req: Request) {
   if (previousSlug && previousSlug !== slug) revalidatePath(`/blog/series/${previousSlug}`);
   for (const s of touched) revalidatePath(`/blog/${s}`);
 
-  return NextResponse.json({ ok: true, slug, count: incoming.length });
+  return NextResponse.json({
+    ok: true,
+    slug,
+    count: incoming.length,
+    snameTag: label ? `sname/${encodeSeriesLabel(label)}` : null,
+  });
 }
 
 export async function DELETE(req: Request) {
