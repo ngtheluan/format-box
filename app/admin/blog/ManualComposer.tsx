@@ -231,7 +231,7 @@ export default function ManualComposer({ open, categories, onClose, onSaved }: P
   }
 
   return (
-    <div className="fx-modal-bg" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fx-modal-bg fx-modal-sheet" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div
         className="fx-modal"
         style={{ maxWidth: 1100, width: "95vw", maxHeight: "92vh", display: "flex", flexDirection: "column" }}

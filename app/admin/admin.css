@@ -846,6 +846,48 @@ body:has(.fx-modal-bg) {
   max-width: 1040px;
   max-height: 92vh;
 }
+/* Photobooth-style bottom sheet modifier. Marks a modal that should slide
+   up from the bottom on mobile instead of popping as a centered dialog. */
+@media (max-width: 640px) {
+  .fx-modal-bg.fx-modal-sheet {
+    padding: 0;
+    place-items: end stretch;
+    align-items: end;
+  }
+  .fx-modal-bg.fx-modal-sheet .fx-modal {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 90vh !important;
+    border-radius: 22px 22px 0 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.35);
+    animation: fx-modal-sheet-up 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.05);
+  }
+  .fx-modal-bg.fx-modal-sheet .fx-modal::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 42px;
+    height: 4px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--dim, #94a3b8) 55%, transparent);
+    z-index: 3;
+    pointer-events: none;
+  }
+  .fx-modal-bg.fx-modal-sheet .fx-modal-head {
+    padding-top: 18px;
+  }
+}
+@keyframes fx-modal-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
 .fx-modal-tabs {
   position: sticky;
   top: 50px;

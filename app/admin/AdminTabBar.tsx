@@ -3,14 +3,23 @@ import LangToggle from "@/components/LangToggle";
 import RoleBadge from "@/components/RoleBadge";
 import SkinPicker from "@/components/SkinPicker";
 import ThemeToggle from "@/components/ThemeToggle";
-import { IconHome, IconLogout, IconSettings, IconUser, IconUserCircle, IconX } from "@tabler/icons-react";
+import {
+  IconHome,
+  IconLogout,
+  IconSettings,
+  IconSparkles,
+  IconUser,
+  IconUserCircle,
+  IconWriting,
+  IconX,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 type AppMode = "user" | "admin";
-type AppRole = "user" | "admin";
+type AppRole = "user" | "admin" | "superadmin";
 type AppUser = { id: string; accountname: string; firstname: string; lastname: string; role?: AppRole };
 const MODE_KEY = "fb-mode";
 
@@ -88,6 +97,11 @@ export default function AdminTabBar() {
   }
 
   const isHome = pathname === "/admin";
+  const isBlogAdmin = pathname === "/admin/blog";
+
+  function dispatchBlogAction(kind: "manual" | "generate") {
+    window.dispatchEvent(new CustomEvent("fb:blog-admin-action", { detail: { kind } }));
+  }
 
   return (
     <>
@@ -107,6 +121,30 @@ export default function AdminTabBar() {
           <IconHome size={22} stroke={1.8} />
           <span>Home</span>
         </Link>
+        {isBlogAdmin && (
+          <>
+            <button
+              type="button"
+              className="atab-btn"
+              onClick={() => dispatchBlogAction("manual")}
+              aria-label="Soạn thủ công"
+            >
+              <IconWriting size={22} stroke={1.8} />
+              <span>Soạn</span>
+            </button>
+            {user?.role === "superadmin" && (
+              <button
+                type="button"
+                className="atab-btn"
+                onClick={() => dispatchBlogAction("generate")}
+                aria-label="Sinh bài AI"
+              >
+                <IconSparkles size={22} stroke={1.8} />
+                <span>AI</span>
+              </button>
+            )}
+          </>
+        )}
         <button
           type="button"
           className={`atab-btn${accountOpen ? " active" : ""}`}

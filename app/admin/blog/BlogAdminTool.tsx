@@ -358,6 +358,17 @@ export default function BlogAdminTool({
   // Generate modal
   const [generateOpen, setGenerateOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+
+  // AdminTabBar dispatches these so the bottom bar can trigger the modals.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const kind = (e as CustomEvent<{ kind: "manual" | "generate" }>).detail?.kind;
+      if (kind === "manual") setManualOpen(true);
+      else if (kind === "generate" && isSuperAdmin) setGenerateOpen(true);
+    };
+    window.addEventListener("fb:blog-admin-action", handler);
+    return () => window.removeEventListener("fb:blog-admin-action", handler);
+  }, [isSuperAdmin]);
   const firstProvider = (Object.keys(AI_MODELS) as AiProvider[]).find((p) => providers[p]) || "pollinations";
   const [genModel, setGenModel] = useState(`${firstProvider}|${AI_MODELS[firstProvider][0].id}`);
   const genProvider = genModel.split("|")[0] as AiProvider;
@@ -1295,21 +1306,7 @@ export default function BlogAdminTool({
           )}
         </div>
         <div className="bga-top-actions">
-          {tab === "posts" ? (
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                onClick={() => setManualOpen(true)}
-                className={isSuperAdmin ? "fx-btn" : "fx-btn fx-btn-primary"}
-              >
-                <IconWriting size={14} stroke={2.2} /> Soạn thủ công
-              </button>
-              {isSuperAdmin && (
-                <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
-                  <IconSparkles size={14} stroke={2.2} /> Sinh bài AI
-                </button>
-              )}
-            </div>
-          ) : tab === "categories" ? (
+          {tab === "categories" ? (
             <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
               <IconPlus size={14} stroke={2.2} /> Thêm danh mục
             </button>
@@ -1802,7 +1799,7 @@ export default function BlogAdminTool({
       />
 
       {isSuperAdmin && generateOpen && (
-        <div className="fx-modal-bg" style={{ zIndex: 200 }}>
+        <div className="fx-modal-bg fx-modal-sheet" style={{ zIndex: 200 }}>
           <div className="fx-modal" style={{ maxWidth: 880, width: "96vw" }}>
             <div className="fx-modal-head">
               <h2>
@@ -3856,9 +3853,10 @@ export default function BlogAdminTool({
             font-size: 15px !important;
             line-height: 1.35 !important;
             display: block;
-            white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 100%;
           }
           .blog-row .fx-title-cell .fx-t-href {
             display: none;
