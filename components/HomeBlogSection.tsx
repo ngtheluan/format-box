@@ -15,7 +15,7 @@ export default function HomeBlogSection() {
   useEffect(() => {
     let alive = true;
     Promise.all([
-      fetch("/api/blog/latest?limit=4").then((r) => r.json()),
+      fetch("/api/blog/latest?limit=8").then((r) => r.json()),
       fetch("/api/blog/categories").then((r) => r.json()),
     ])
       .then(([latestJ, catsJ]) => {
@@ -48,7 +48,7 @@ export default function HomeBlogSection() {
 
         {loading ? (
           <div className="home-blog-grid">
-            {[0, 1, 2, 3].map((i) => (
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
               <div key={i} className="home-blog-card is-skeleton" aria-hidden="true">
                 <div className="home-blog-media" />
                 <div className="home-blog-body">
