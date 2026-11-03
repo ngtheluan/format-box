@@ -174,6 +174,86 @@ export const SEED_TOOLS: Tool[] = [
     },
   },
   {
+    href: "/format-file",
+    iconName: "IconFileSpreadsheet",
+    title: "Excel Merger",
+    desc: {
+      vi: "Gộp nhiều file Excel/CSV thành 1 file. Nối theo hàng hoặc tách riêng từng sheet.",
+      en: "Merge multiple Excel/CSV files into one. Append rows or keep each file as its own sheet.",
+    },
+    tags: ["excel", "xlsx", "csv", "merge", "gộp file"],
+    category: "cat_dev",
+    seoTitle: "Gộp File Excel Online - Merge XLSX, CSV Thành 1 File | FormatBox",
+    seoDescription:
+      "Công cụ gộp nhiều file Excel/CSV thành 1 file online miễn phí. Hỗ trợ .xlsx, .xls, .csv, .ods. Nối theo hàng hoặc tách sheet riêng. Xử lý 100% trên trình duyệt, không upload server.",
+    seoKeywords: [
+      "gộp file excel",
+      "merge excel",
+      "ghép file excel",
+      "excel merger",
+      "merge xlsx online",
+      "gộp nhiều file excel thành 1",
+      "combine csv",
+      "merge csv online",
+    ],
+    intro: {
+      vi: "Excel Merger giúp bạn upload nhiều file bảng tính (.xlsx, .xls, .csv, .ods, .tsv) và gộp chúng thành 1 file duy nhất. Hai chế độ: nối toàn bộ hàng vào 1 sheet (phù hợp khi các file cùng schema), hoặc giữ mỗi file thành một sheet riêng. Toàn bộ xử lý diễn ra trên trình duyệt, dữ liệu không rời khỏi máy.",
+      en: "Excel Merger lets you upload many spreadsheet files (.xlsx, .xls, .csv, .ods, .tsv) and combine them into one. Two modes: append all rows into a single sheet (great when files share a schema), or keep each file as its own sheet. Everything runs in the browser; your data stays on your device.",
+    },
+    features: {
+      vi: [
+        "Kéo thả / chọn nhiều file cùng lúc",
+        "Hỗ trợ .xlsx, .xls, .csv, .ods, .tsv",
+        "Chế độ Append: nối tất cả hàng vào 1 sheet",
+        "Chế độ Sheets: mỗi file là một sheet riêng",
+        "Tuỳ chọn header: giữ của file đầu / giữ tất cả / không header",
+        "Sắp xếp lại thứ tự file trước khi gộp",
+        "Xem trước số hàng/cột, kích thước mỗi file",
+        "Chạy 100% client-side — bảo mật tuyệt đối",
+      ],
+      en: [
+        "Drag & drop or pick many files at once",
+        "Supports .xlsx, .xls, .csv, .ods, .tsv",
+        "Append mode: stack all rows into one sheet",
+        "Sheets mode: each file becomes its own sheet",
+        "Header option: keep first file's / keep all / none",
+        "Reorder files before merging",
+        "Preview row/column counts and size per file",
+        "Runs 100% client-side — fully private",
+      ],
+    },
+    faqs: {
+      vi: [
+        {
+          q: "File của tôi có bị upload lên server không?",
+          a: "Không. Toàn bộ việc đọc và gộp file diễn ra ngay trong trình duyệt. Dữ liệu không rời khỏi máy bạn.",
+        },
+        {
+          q: "Nên chọn chế độ Append hay Sheets?",
+          a: "Nếu các file có cùng cột (ví dụ cùng mẫu báo cáo), hãy chọn Append và giữ header của file đầu. Nếu các file khác nhau về cấu trúc hoặc bạn muốn giữ nguyên, chọn Sheets.",
+        },
+        {
+          q: "Có giới hạn số lượng file hay dung lượng không?",
+          a: "Giới hạn phụ thuộc RAM trình duyệt. Thực tế có thể gộp vài chục file tổng vài trăm MB.",
+        },
+      ],
+      en: [
+        {
+          q: "Are my files uploaded to a server?",
+          a: "No. Reading and merging happen in your browser; your data never leaves the device.",
+        },
+        {
+          q: "Should I use Append or Sheets mode?",
+          a: "If all files share the same columns (e.g., the same report template), choose Append and keep the first file's header. If files differ in shape or you want them separate, choose Sheets.",
+        },
+        {
+          q: "Is there a file count or size limit?",
+          a: "Bounded only by your browser's RAM. In practice, dozens of files totalling hundreds of MB merge smoothly.",
+        },
+      ],
+    },
+  },
+  {
     href: "/format-sql",
     iconName: "IconDatabase",
     title: "SQL Formatter",

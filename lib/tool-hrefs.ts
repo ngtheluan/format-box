@@ -12,6 +12,7 @@ export const TOOL_HREFS: readonly string[] = [
   "/curl",
   "/exchange-currency",
   "/favicon-export",
+  "/format-file",
   "/format-sql",
   "/fuel",
   "/gift",
