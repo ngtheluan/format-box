@@ -13,6 +13,7 @@ import {
 } from "@/lib/blog";
 import {
   callLlm,
+  findYouTubeVideo,
   imageCaption,
   isAsciiQuery,
   parseJsonLoose,
@@ -70,6 +71,7 @@ type Body = {
   imageStyle?: GenImageStyle;
   factCheck?: boolean;
   internalLinks?: boolean;
+  includeVideo?: boolean;
   relatedTools?: string[];
 };
 
@@ -95,6 +97,7 @@ export async function POST(req: Request) {
   const imageStyle = GEN_IMAGE_STYLES.find((s) => s.id === body.imageStyle) || GEN_IMAGE_STYLES[2];
   const factCheck = !!body.factCheck;
   const internalLinks = !!body.internalLinks;
+  const includeVideo = !!body.includeVideo;
   const relatedTools = Array.isArray(body.relatedTools)
     ? body.relatedTools.map((h) => String(h)).slice(0, 6)
     : [];
@@ -362,7 +365,12 @@ export async function POST(req: Request) {
         slots.unshift({ key: "cover", alt: meta.title, query: rawCover, context: meta.excerpt || meta.title });
 
         const writerProvider = written.provider;
-        send({ type: "step", step: "images", status: "start", detail: `${slots.length} ảnh` });
+        send({
+          type: "step",
+          step: "images",
+          status: "start",
+          detail: nImages > 0 ? `${nImages} ảnh + ảnh bìa` : "Chỉ ảnh bìa",
+        });
 
         // Image pipeline (translate → search → LLM pick) runs concurrently with
         // factcheck + linking. No shared mutable state until the join below.
@@ -388,9 +396,36 @@ export async function POST(req: Request) {
           return pickImages(slots, { title: metaTitle, provider: writerProvider });
         })();
 
-        const [fixed, linkBlock, picked] = await Promise.all([factP, linkP, imagesP]);
+        // Video pipeline (optional): search YouTube for a real, related video and
+        // insert `@youtube[ID]` right after the hook. Runs in parallel with the
+        // image + factcheck + linking stages.
+        if (includeVideo) send({ type: "step", step: "video", status: "start" });
+        const videoP: Promise<{ id: string; title: string } | null> = includeVideo
+          ? (async () => {
+              const seoBit = seoKeyword ? ` ${seoKeyword}` : "";
+              const q = `${metaTitle}${seoBit}`.trim();
+              const v = await findYouTubeVideo(q, { timeoutMs: 12_000 });
+              send({
+                type: "step",
+                step: "video",
+                status: v ? "done" : "skip",
+                detail: v ? `${v.title}${v.channel ? ` · ${v.channel}` : ""}` : "Không tìm thấy video phù hợp",
+              });
+              return v;
+            })().catch((e: any) => {
+              send({ type: "step", step: "video", status: "skip", detail: e?.message?.slice(0, 120) });
+              return null;
+            })
+          : Promise.resolve(null);
+
+        const [fixed, linkBlock, picked, video] = await Promise.all([factP, linkP, imagesP, videoP]);
         if (fixed) md = fixed;
         if (linkBlock) md += linkBlock;
+        if (video) {
+          const embed = `\n\n@youtube[${video.id}]\n\n`;
+          const firstH2 = md.search(/^##\s+/m);
+          md = firstH2 >= 0 ? md.slice(0, firstH2) + embed + md.slice(firstH2) : md + embed;
+        }
 
         let k = 0;
         md = md.replace(/!\[([^\]]*)\]\(IMG::([^)]+)\)\n?/g, (_all, alt) => {
@@ -399,7 +434,12 @@ export async function POST(req: Request) {
         });
         md = md.replace(/\n{3,}/g, "\n\n");
         const found = Object.values(picked).filter(Boolean).length;
-        send({ type: "step", step: "images", status: "done", detail: `${found}/${slots.length} ảnh phù hợp` });
+        send({
+          type: "step",
+          step: "images",
+          status: "done",
+          detail: `${found}/${slots.length} ảnh phù hợp (${nImages} ảnh + ảnh bìa)`,
+        });
 
         // 5) Save as draft.
         send({ type: "step", step: "save", status: "start" });

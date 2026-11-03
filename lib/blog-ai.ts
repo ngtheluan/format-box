@@ -636,3 +636,143 @@ export async function pickImages(
   await Promise.all(Object.values(out).map((c) => (c ? trackImageUse(c) : undefined)));
   return out;
 }
+
+// ================= YouTube =================
+
+export type YouTubeVideo = { id: string; title: string; channel?: string; duration?: string; thumb?: string };
+
+// Scrape YouTube search results to find a real video for the topic. No API key
+// required — we parse `ytInitialData` from the HTML. Returns the top organic
+// result that looks like a regular video (skip shorts and live streams).
+export async function findYouTubeVideo(query: string, opts?: { timeoutMs?: number }): Promise<YouTubeVideo | null> {
+  const q = (query || "").toString().trim();
+  if (!q) return null;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), opts?.timeoutMs ?? 10_000);
+  const pickAll = (html: string, limit: number): YouTubeVideo[] => {
+    const m = html.match(/var ytInitialData\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
+    if (!m) return [];
+    let data: any;
+    try {
+      data = JSON.parse(m[1]);
+    } catch {
+      return [];
+    }
+    const out: YouTubeVideo[] = [];
+    const sections =
+      data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents || [];
+    for (const sec of sections) {
+      const items = sec?.itemSectionRenderer?.contents || [];
+      for (const it of items) {
+        const v = it?.videoRenderer;
+        if (!v?.videoId) continue;
+        const title =
+          v?.title?.runs?.map((x: any) => x.text).join("") || v?.title?.simpleText || "";
+        const channel =
+          v?.ownerText?.runs?.[0]?.text ||
+          v?.longBylineText?.runs?.[0]?.text ||
+          undefined;
+        const duration = v?.lengthText?.simpleText || undefined;
+        if (!duration) continue; // skip live streams / shorts with no duration
+        const thumb =
+          v?.thumbnail?.thumbnails?.[v.thumbnail.thumbnails.length - 1]?.url ||
+          `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+        out.push({ id: v.videoId, title, channel, duration, thumb });
+        if (out.length >= limit) return out;
+      }
+    }
+    return out;
+  };
+  const pick = (html: string): YouTubeVideo | null => pickAll(html, 1)[0] || null;
+  const fetchHtml = async (sp: string) => {
+    // sp=EgIQAQ== filters to videos only (not channels/playlists). `==` encodes
+    // to `%3D%3D` in a query string — the earlier double-encoded version was a
+    // bug that made YouTube ignore the filter and sometimes return no results.
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}${sp ? `&sp=${sp}` : ""}`;
+    const r = await fetch(url, {
+      signal: ac.signal,
+      headers: {
+        "accept-language": "en-US,en;q=0.9",
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+        // Dismiss the EU consent interstitial that otherwise returns an empty page.
+        cookie: "CONSENT=YES+1; SOCS=CAI",
+      },
+    });
+    return r.ok ? await r.text() : "";
+  };
+  try {
+    // First try with the "videos only" filter; if nothing comes back, retry
+    // unfiltered — some queries only have mixed results.
+    const html1 = await fetchHtml("EgIQAQ%3D%3D");
+    const v1 = html1 ? pick(html1) : null;
+    if (v1) return v1;
+    const html2 = await fetchHtml("");
+    return html2 ? pick(html2) : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Multi-result variant used by the editor's video picker — returns up to `limit`
+// unique videos matching the query.
+export async function searchYouTubeVideos(
+  query: string,
+  limit = 12,
+  opts?: { timeoutMs?: number },
+): Promise<YouTubeVideo[]> {
+  const q = (query || "").toString().trim();
+  if (!q) return [];
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), opts?.timeoutMs ?? 10_000);
+  try {
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&sp=EgIQAQ%3D%3D`;
+    const r = await fetch(url, {
+      signal: ac.signal,
+      headers: {
+        "accept-language": "en-US,en;q=0.9",
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+        cookie: "CONSENT=YES+1; SOCS=CAI",
+      },
+    });
+    if (!r.ok) return [];
+    const html = await r.text();
+    const m = html.match(/var ytInitialData\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
+    if (!m) return [];
+    let data: any;
+    try {
+      data = JSON.parse(m[1]);
+    } catch {
+      return [];
+    }
+    const out: YouTubeVideo[] = [];
+    const seen = new Set<string>();
+    const sections =
+      data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents || [];
+    for (const sec of sections) {
+      const items = sec?.itemSectionRenderer?.contents || [];
+      for (const it of items) {
+        const v = it?.videoRenderer;
+        if (!v?.videoId || seen.has(v.videoId)) continue;
+        const duration = v?.lengthText?.simpleText;
+        if (!duration) continue;
+        seen.add(v.videoId);
+        const title = v?.title?.runs?.map((x: any) => x.text).join("") || v?.title?.simpleText || "";
+        const channel = v?.ownerText?.runs?.[0]?.text || v?.longBylineText?.runs?.[0]?.text || undefined;
+        const thumb =
+          v?.thumbnail?.thumbnails?.[v.thumbnail.thumbnails.length - 1]?.url ||
+          `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+        out.push({ id: v.videoId, title, channel, duration, thumb });
+        if (out.length >= limit) return out;
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}

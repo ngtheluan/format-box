@@ -29,6 +29,9 @@
   .bga-grid3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .bga-top-actions-posts {
+    display: none !important;
+  }
 }
 
 .bga-seg {

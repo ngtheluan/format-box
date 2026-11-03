@@ -221,7 +221,7 @@ export const GEN_LENGTHS: { id: GenLength; label: string; words: string; section
 ];
 
 // NDJSON events streamed by /api/blog/generate.
-export type GenStep = "topic" | "research" | "outline" | "write" | "factcheck" | "linking" | "images" | "save";
+export type GenStep = "topic" | "research" | "outline" | "write" | "factcheck" | "linking" | "images" | "video" | "save";
 export type GenEvent =
   | { type: "step"; step: GenStep; status: "start" | "done" | "skip"; detail?: string }
   | { type: "ping" }

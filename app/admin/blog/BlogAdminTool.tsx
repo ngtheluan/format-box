@@ -44,6 +44,7 @@ import {
   IconArticle,
   IconBook,
   IconBrain,
+  IconBrandYoutube,
   IconBulb,
   IconCategory,
   IconChartBar,
@@ -127,6 +128,7 @@ const STEP_LABEL: Record<GenStep, string> = {
   factcheck: "Kiểm chứng dữ kiện",
   linking: "Chèn liên kết nội bộ",
   images: "Tìm & duyệt ảnh liên quan",
+  video: "Tìm video YouTube liên quan",
   save: "Lưu nháp",
 };
 type AssistAction = "rewrite" | "expand" | "shorten" | "polish";
@@ -387,6 +389,7 @@ export default function BlogAdminTool({
   const [genImageStyle, setGenImageStyle] = useState<GenImageStyle>("photo");
   const [genFactCheck, setGenFactCheck] = useState(true);
   const [genInternalLinks, setGenInternalLinks] = useState(true);
+  const [genIncludeVideo, setGenIncludeVideo] = useState(false);
   const [genAutoAi, setGenAutoAi] = useState(true);
   const [genAiPref, setGenAiPref] = useState<AiPreference>("balanced");
   const [genPreset, setGenPreset] = useState<string>("news");
@@ -484,10 +487,17 @@ export default function BlogAdminTool({
   const [assisting, setAssisting] = useState<string | null>(null);
   const [editView, setEditView] = useState<"write" | "preview">("write");
   const mdRef = useRef<HTMLTextAreaElement>(null);
-  const [reimageList, setReimageList] = useState<null | Array<{ url: string; alt: string }>>(null);
+  type ReimageItem =
+    | { kind: "image"; url: string; alt: string }
+    | { kind: "video"; videoId: string; raw: string; title: string };
+  const [reimageList, setReimageList] = useState<null | Array<ReimageItem>>(null);
+  const [videoPicker, setVideoPicker] = useState<null | { replaceRaw: string; query: string }>(null);
+  const [videoResults, setVideoResults] = useState<Array<{ id: string; title: string; channel?: string; duration?: string; thumb?: string }>>([]);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoErr, setVideoErr] = useState("");
 
   // Edit modal
-  const [editing, setEditing] = useState<{
+  type EditingState = {
     slug: string;
     title: string;
     excerpt: string;
@@ -498,9 +508,27 @@ export default function BlogAdminTool({
     coverImage?: string;
     status?: BlogStatus;
     relatedTools: string[];
-  } | null>(null);
+  };
+  const [editing, setEditing] = useState<EditingState | null>(null);
+  const [editingOriginal, setEditingOriginal] = useState<EditingState | null>(null);
   const [saving, setSaving] = useState(false);
   const [editErr, setEditErr] = useState("");
+
+  const editDirty = useMemo(() => {
+    if (!editing || !editingOriginal) return false;
+    const a = editing;
+    const b = editingOriginal;
+    return (
+      a.title !== b.title ||
+      a.excerpt !== b.excerpt ||
+      a.category !== b.category ||
+      a.tags !== b.tags ||
+      Number(a.readMin) !== Number(b.readMin) ||
+      a.markdown !== b.markdown ||
+      (a.coverImage || "") !== (b.coverImage || "") ||
+      a.relatedTools.join(",") !== b.relatedTools.join(",")
+    );
+  }, [editing, editingOriginal]);
 
   const MAX_PINNED = 4;
 
@@ -527,6 +555,11 @@ export default function BlogAdminTool({
   const statActiveStyle = { border: "1.5px solid #f97316", boxShadow: "0 0 0 2px rgba(249,115,22,0.15)" } as const;
 
   function cancelGenerate() {
+    const inBatch = batchRunning && batchTotal > 0;
+    const msg = inBatch
+      ? `Huỷ sinh bài? Đang chạy ${batchIdx}/${batchTotal} bài — tiến độ hiện tại sẽ bị bỏ.`
+      : "Huỷ sinh bài? Nội dung đang sinh sẽ bị bỏ.";
+    if (!confirm(msg)) return;
     userCancelRef.current = true;
     batchAbortRef.current = true;
     genAbortRef.current?.abort();
@@ -579,6 +612,7 @@ export default function BlogAdminTool({
       research: { status: "pending" },
       write: { status: "pending" },
       images: { status: "pending" },
+      ...(genIncludeVideo ? { video: { status: "pending" as const } } : {}),
       save: { status: "pending" },
     });
     try {
@@ -606,6 +640,7 @@ export default function BlogAdminTool({
           imageStyle: genImageStyle,
           factCheck: genFactCheck,
           internalLinks: genInternalLinks,
+          includeVideo: genIncludeVideo,
           relatedTools: genRelatedTools,
         }),
       });
@@ -861,21 +896,95 @@ export default function BlogAdminTool({
   function openReimageList() {
     if (!editing) return;
     const md = editing.markdown;
-    const re = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
     const seen = new Set<string>();
-    const items: Array<{ url: string; alt: string }> = [];
+    const items: Array<ReimageItem> = [];
+    const imgRe = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(md))) {
+    while ((m = imgRe.exec(md))) {
       const url = m[2];
       if (seen.has(url)) continue;
       seen.add(url);
-      items.push({ alt: m[1], url });
+      items.push({ kind: "image", alt: m[1], url });
+    }
+    // Collect both `@youtube[ID]` placeholders and bare YouTube URLs.
+    const ytRe = /@youtube\[([A-Za-z0-9_-]{11})\]/g;
+    while ((m = ytRe.exec(md))) {
+      const id = m[1];
+      if (seen.has(id)) continue;
+      seen.add(id);
+      items.push({ kind: "video", videoId: id, raw: m[0], title: editing.title });
+    }
+    const bareRe = /(?:^|\s)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|youtu\.be\/([A-Za-z0-9_-]{11})))/g;
+    while ((m = bareRe.exec(md))) {
+      const id = m[2] || m[3];
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      items.push({ kind: "video", videoId: id, raw: m[1], title: editing.title });
     }
     if (!items.length) {
-      toast("Bài chưa có ảnh để chọn lại");
+      toast("Bài chưa có ảnh hoặc video để chọn lại");
       return;
     }
     setReimageList(items);
+  }
+
+  async function openVideoPicker(replaceRaw: string, hintTitle?: string) {
+    if (!editing) return;
+    const seedQuery = (hintTitle || editing.title).trim();
+    setVideoPicker({ replaceRaw, query: seedQuery });
+    setVideoResults([]);
+    setVideoErr("");
+    setVideoLoading(true);
+    try {
+      const r = await fetch("/api/blog/youtube-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: seedQuery, limit: 12 }),
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        setVideoErr(j?.error || `Lỗi ${r.status}`);
+        return;
+      }
+      setVideoResults(j.videos || []);
+    } catch (e: any) {
+      setVideoErr(e?.message || "Lỗi");
+    } finally {
+      setVideoLoading(false);
+    }
+  }
+
+  async function runVideoSearch(q: string) {
+    if (!q.trim()) return;
+    setVideoLoading(true);
+    setVideoErr("");
+    try {
+      const r = await fetch("/api/blog/youtube-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q.trim(), limit: 12 }),
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        setVideoErr(j?.error || `Lỗi ${r.status}`);
+        return;
+      }
+      setVideoResults(j.videos || []);
+    } catch (e: any) {
+      setVideoErr(e?.message || "Lỗi");
+    } finally {
+      setVideoLoading(false);
+    }
+  }
+
+  function applyVideoPick(id: string) {
+    if (!videoPicker || !editing) return;
+    const next = `@youtube[${id}]`;
+    const oldRaw = videoPicker.replaceRaw;
+    const escaped = oldRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    setEditing((cur) => (cur ? { ...cur, markdown: cur.markdown.replace(new RegExp(escaped, "g"), next) } : cur));
+    toast("Đã thay video");
+    setVideoPicker(null);
   }
 
   function pickImage(c: ImageCandidate) {
@@ -1007,7 +1116,7 @@ export default function BlogAdminTool({
       const r = await fetch(`/api/blog/update?slug=${encodeURIComponent(p.slug)}`);
       const j = await r.json();
       if (!r.ok) return toast(j?.error || "Lỗi");
-      setEditing({
+      const next: EditingState = {
         slug: p.slug,
         title: j.post.title,
         excerpt: j.post.excerpt,
@@ -1018,7 +1127,9 @@ export default function BlogAdminTool({
         coverImage: j.post.coverImage || "",
         status: j.post.status,
         relatedTools: Array.isArray(j.post.relatedTools) ? j.post.relatedTools : [],
-      });
+      };
+      setEditing(next);
+      setEditingOriginal(next);
       setEditView("write");
       setEditErr("");
     } catch (e: any) {
@@ -1073,7 +1184,7 @@ export default function BlogAdminTool({
         ),
       );
       toast(`Đã lưu: ${editing.title}`);
-      setEditing(null);
+      setEditingOriginal(editing);
     } catch (e: any) {
       setEditErr(e?.message || "Lỗi");
     } finally {
@@ -1306,7 +1417,21 @@ export default function BlogAdminTool({
           )}
         </div>
         <div className="bga-top-actions">
-          {tab === "categories" ? (
+          {tab === "posts" ? (
+            <div className="bga-top-actions-posts" style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={() => setManualOpen(true)}
+                className={isSuperAdmin ? "fx-btn" : "fx-btn fx-btn-primary"}
+              >
+                <IconWriting size={14} stroke={2.2} /> Soạn thủ công
+              </button>
+              {isSuperAdmin && (
+                <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
+                  <IconSparkles size={14} stroke={2.2} /> Sinh bài AI
+                </button>
+              )}
+            </div>
+          ) : tab === "categories" ? (
             <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
               <IconPlus size={14} stroke={2.2} /> Thêm danh mục
             </button>
@@ -2876,6 +3001,21 @@ export default function BlogAdminTool({
                                   <span>Pass 2: bắt hallucination (chậm hơn ~15s)</span>
                                 </div>
                               </label>
+                              <label
+                                className="bga-toggle-card"
+                                title="Tìm video thật liên quan tới chủ đề, nhúng sau phần mở bài"
+                              >
+                                <Switch
+                                  checked={genIncludeVideo}
+                                  onChange={(e) => setGenIncludeVideo(e.target.checked)}
+                                />
+                                <div className="bga-toggle-text">
+                                  <b>
+                                    <IconBrandYoutube size={12} stroke={1.9} /> Video YouTube
+                                  </b>
+                                  <span>{genIncludeVideo ? "Chèn 1 video sau mở bài" : "Bài chỉ gồm chữ + ảnh"}</span>
+                                </div>
+                              </label>
                             </div>
                           </div>
                         </div>
@@ -3235,9 +3375,9 @@ export default function BlogAdminTool({
                       className="fx-btn"
                       onClick={openReimageList}
                       disabled={saving}
-                      title="Chọn ảnh hiện có trong bài và thay thế bằng ảnh khác"
+                      title="Chọn ảnh hoặc video trong bài để thay thế"
                     >
-                      <IconPhotoSearch size={14} /> AI chọn lại ảnh
+                      <IconPhotoSearch size={14} /> AI Ảnh/Video
                     </button>
                   )}
                   <button
@@ -3253,7 +3393,7 @@ export default function BlogAdminTool({
                   >
                     <IconTrash size={14} /> Xoá
                   </button>
-                  {isSuperAdmin && editing.status === "draft" && (
+                  {isSuperAdmin && !editDirty && editing.status === "draft" && (
                     <button
                       type="button"
                       className="fx-btn"
@@ -3269,7 +3409,7 @@ export default function BlogAdminTool({
                       <IconX size={14} /> Từ chối
                     </button>
                   )}
-                  {isSuperAdmin && (editing.status === "draft" || editing.status === "rejected") && (
+                  {isSuperAdmin && !editDirty && (editing.status === "draft" || editing.status === "rejected") && (
                     <button
                       type="button"
                       className="fx-btn"
@@ -3285,17 +3425,23 @@ export default function BlogAdminTool({
                       <IconCheck size={14} /> Duyệt
                     </button>
                   )}
-                  <button className="fx-btn fx-btn-primary" onClick={saveEdit} disabled={saving}>
-                    {saving ? (
-                      <>
-                        <IconLoader2 size={14} className="spin" /> Đang lưu…
-                      </>
-                    ) : (
-                      <>
-                        <IconDeviceFloppy size={14} /> Lưu
-                      </>
-                    )}
-                  </button>
+                  {editDirty ? (
+                    <button className="fx-btn fx-btn-primary" onClick={saveEdit} disabled={saving}>
+                      {saving ? (
+                        <>
+                          <IconLoader2 size={14} className="spin" /> Đang lưu…
+                        </>
+                      ) : (
+                        <>
+                          <IconDeviceFloppy size={14} /> Lưu
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button className="fx-btn" onClick={() => setEditing(null)} disabled={saving}>
+                      Đóng
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -3323,7 +3469,7 @@ export default function BlogAdminTool({
           <div className="fx-modal" style={{ maxWidth: 820, width: "95vw" }} onClick={(e) => e.stopPropagation()}>
             <div className="fx-modal-head">
               <h2>
-                <IconPhotoSearch size={16} stroke={2} /> Ảnh trong bài — chọn ảnh để thay thế
+                <IconPhotoSearch size={16} stroke={2} /> Ảnh &amp; video trong bài — chọn mục để thay thế
               </h2>
               <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setReimageList(null)}>
                 <IconX size={16} stroke={2} />
@@ -3331,33 +3477,163 @@ export default function BlogAdminTool({
             </div>
             <div className="fx-modal-body">
               <div className="bga-picker-grid">
-                {reimageList.map((it) => (
-                  <button
-                    key={it.url}
-                    type="button"
-                    className="bga-picker-item"
-                    onClick={() => {
-                      setReimageList(null);
-                      setPicker({
-                        target: "replace",
-                        query: photoQuery(
-                          it.alt || editing.title,
-                          editing.tags
-                            .split(",")
-                            .map((t) => t.trim())
-                            .filter(Boolean),
-                        ),
-                        replaceUrl: it.url,
-                      });
-                    }}
-                    title={it.alt}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={it.url} alt={it.alt} loading="lazy" referrerPolicy="no-referrer" />
-                    <span>{it.alt || "(không có mô tả)"}</span>
-                  </button>
-                ))}
+                {reimageList.map((it) =>
+                  it.kind === "image" ? (
+                    <button
+                      key={`img-${it.url}`}
+                      type="button"
+                      className="bga-picker-item"
+                      onClick={() => {
+                        setReimageList(null);
+                        setPicker({
+                          target: "replace",
+                          query: photoQuery(
+                            it.alt || editing.title,
+                            editing.tags
+                              .split(",")
+                              .map((t) => t.trim())
+                              .filter(Boolean),
+                          ),
+                          replaceUrl: it.url,
+                        });
+                      }}
+                      title={it.alt}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={it.url} alt={it.alt} loading="lazy" referrerPolicy="no-referrer" />
+                      <span>{it.alt || "(không có mô tả)"}</span>
+                    </button>
+                  ) : (
+                    <button
+                      key={`vid-${it.videoId}`}
+                      type="button"
+                      className="bga-picker-item"
+                      onClick={() => {
+                        setReimageList(null);
+                        openVideoPicker(it.raw, it.title);
+                      }}
+                      title={`YouTube · ${it.videoId}`}
+                      style={{ position: "relative" }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://i.ytimg.com/vi/${it.videoId}/hqdefault.jpg`}
+                        alt="YouTube video"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: 6,
+                          left: 6,
+                          background: "rgba(220,38,38,0.9)",
+                          color: "#fff",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                      >
+                        <IconBrandYoutube size={11} stroke={2.4} /> VIDEO
+                      </span>
+                      <span>Đổi video khác</span>
+                    </button>
+                  ),
+                )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {videoPicker && editing && (
+        <div className="fx-modal-bg" style={{ zIndex: 260 }} onClick={() => setVideoPicker(null)}>
+          <div className="fx-modal" style={{ maxWidth: 860, width: "95vw" }} onClick={(e) => e.stopPropagation()}>
+            <div className="fx-modal-head">
+              <h2>
+                <IconBrandYoutube size={16} stroke={2} /> Chọn video YouTube khác
+              </h2>
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setVideoPicker(null)}>
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                <Input
+                  value={videoPicker.query}
+                  onChange={(e) => setVideoPicker({ ...videoPicker, query: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") runVideoSearch(videoPicker.query);
+                  }}
+                  placeholder="Từ khoá tìm video…"
+                />
+                <button
+                  type="button"
+                  className="fx-btn fx-btn-primary"
+                  onClick={() => runVideoSearch(videoPicker.query)}
+                  disabled={videoLoading}
+                >
+                  <IconSearch size={14} stroke={2} /> {videoLoading ? "Đang tìm…" : "Tìm"}
+                </button>
+              </div>
+              {videoErr && (
+                <div className="fx-err" style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                  <IconAlertTriangle size={13} /> {videoErr}
+                </div>
+              )}
+              {videoLoading && !videoResults.length ? (
+                <div style={{ textAlign: "center", padding: 24, color: "var(--dim)" }}>
+                  <IconLoader2 size={18} className="fx-spin" /> Đang tìm video…
+                </div>
+              ) : (
+                <div className="bga-picker-grid">
+                  {videoResults.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      className="bga-picker-item"
+                      onClick={() => applyVideoPick(v.id)}
+                      title={v.title}
+                      style={{ position: "relative" }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={v.thumb} alt={v.title} loading="lazy" referrerPolicy="no-referrer" />
+                      {v.duration && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            bottom: 28,
+                            right: 6,
+                            background: "rgba(0,0,0,0.78)",
+                            color: "#fff",
+                            fontSize: 10,
+                            fontWeight: 600,
+                            padding: "2px 5px",
+                            borderRadius: 3,
+                          }}
+                        >
+                          {v.duration}
+                        </span>
+                      )}
+                      <span style={{ display: "block", textAlign: "left" }}>
+                        <b style={{ display: "block", lineHeight: 1.3, fontSize: 12 }}>{v.title}</b>
+                        {v.channel && (
+                          <span style={{ color: "var(--dim)", fontSize: 11 }}>{v.channel}</span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!videoLoading && !videoResults.length && !videoErr && (
+                <div style={{ textAlign: "center", padding: 20, color: "var(--dim)" }}>
+                  Không có kết quả. Thử từ khoá khác.
+                </div>
+              )}
             </div>
           </div>
         </div>
