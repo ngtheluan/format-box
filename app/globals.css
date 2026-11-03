@@ -19,18 +19,18 @@
 
 /* 200Lab-style blueprint structure (grid, hairline borders, square corners) in FormatBox violet. */
 [data-theme="dark"] {
-  --bg: #070912;
-  --bg2: #0d1020;
-  --bg3: #141830;
-  --bg4: #1c2140;
-  --text: #b6bdd6;
-  --dim: #6a7392;
+  --bg: #141732;
+  --bg2: #1b1f3d;
+  --bg3: #262b4c;
+  --bg4: #30355d;
+  --text: #cfd5ea;
+  --dim: #858fae;
   --bright: #f5f7ff;
-  --border: rgba(160, 170, 255, 0.14);
-  --border-h: rgba(117, 101, 246, 0.55);
-  --glow: rgba(117, 101, 246, 0.14);
-  --grid: rgba(160, 170, 255, 0.06);
-  --grid-minor: rgba(160, 170, 255, 0.025);
+  --border: rgba(160, 170, 255, 0.2);
+  --border-h: rgba(117, 101, 246, 0.6);
+  --glow: rgba(117, 101, 246, 0.18);
+  --grid: rgba(160, 170, 255, 0.08);
+  --grid-minor: rgba(160, 170, 255, 0.035);
   --mark: rgba(139, 124, 255, 0.8);
   --ok: #34d399;
   --warn: #fbbf24;
