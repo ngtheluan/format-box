@@ -237,8 +237,9 @@ export default function FormatFileTool() {
         <p>{t("ff_subtitle")}</p>
       </div>
 
+      <div className="ff-grid" data-has-files={files.length > 0 ? "true" : "false"}>
       <div
-        className={`ff-dropzone ${dragOver ? "is-over" : ""}`}
+        className={`ff-dropzone ${dragOver ? "is-over" : ""} ${files.length > 0 ? "compact" : ""}`}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -271,7 +272,6 @@ export default function FormatFileTool() {
       </div>
 
       {files.length > 0 && (
-        <>
           <div className="ff-list">
             <div className="ff-list-head">
               <div className="ff-list-title">
@@ -294,6 +294,7 @@ export default function FormatFileTool() {
             <div className="ff-rows">
               {files.map((f, i) => (
                 <div key={f.id} className="ff-row">
+                  <div className="ff-row-idx">{i + 1}</div>
                   <div className="ff-row-main">
                     <IconFileSpreadsheet size={18} className="ff-row-icon" />
                     <div className="ff-row-info">
@@ -342,7 +343,11 @@ export default function FormatFileTool() {
               ))}
             </div>
           </div>
+      )}
+      </div>
 
+      {files.length > 0 && (
+        <>
           <div className="ff-options">
             <div className="ff-opt">
               <label className="ff-opt-label">{t("ff_mode")}</label>
@@ -405,6 +410,7 @@ export default function FormatFileTool() {
                 <b>{totals.files}</b> {t("ff_files")}
               </span>
             </div>
+            <div className="ff-sum-sep" />
             <div className="ff-sum-item">
               <span>
                 <b>{formatBytes(totals.size)}</b>
@@ -438,98 +444,180 @@ export default function FormatFileTool() {
         .ff-wrap {
           display: flex;
           flex-direction: column;
-          gap: 16px;
-          padding: 16px 0;
+          gap: 14px;
+          padding: 12px 0 24px;
         }
         .ff-hero {
           text-align: center;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 6px;
-          margin-bottom: 4px;
+          gap: 8px;
+          padding: 4px 0 2px;
         }
         .ff-badge {
           display: inline-flex;
           align-items: center;
           gap: 6px;
           padding: 4px 10px;
-          background: var(--surface-2, var(--surface));
+          background: linear-gradient(135deg,
+            color-mix(in srgb, var(--accent) 14%, transparent),
+            color-mix(in srgb, var(--accent2) 14%, transparent));
           border: 1px solid var(--border);
           border-radius: 999px;
-          font-size: 12px;
-          color: var(--muted);
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--text);
+          letter-spacing: 0.02em;
         }
         .ff-hero h1 {
-          margin: 2px 0 0;
-          font-size: 24px;
-          line-height: 1.2;
+          margin: 0;
+          font-size: 26px;
+          line-height: 1.15;
+          font-weight: 700;
+          background: linear-gradient(90deg, var(--accent), var(--accent2));
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
         }
         .ff-hero p {
           margin: 0;
-          color: var(--muted);
-          font-size: 14px;
+          color: var(--dim);
+          font-size: 13.5px;
+          max-width: 560px;
         }
+
+        .ff-grid {
+          display: grid;
+          grid-template-columns: minmax(260px, 1fr) minmax(0, 1.4fr);
+          gap: 12px;
+        }
+        .ff-grid[data-has-files="false"] {
+          grid-template-columns: 1fr;
+        }
+        @media (max-width: 820px) {
+          .ff-grid { grid-template-columns: 1fr; }
+        }
+
         .ff-dropzone {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 6px;
-          padding: 24px 16px;
+          gap: 8px;
+          padding: 28px 16px;
           border: 1.5px dashed var(--border);
           border-radius: 14px;
-          background: var(--surface);
+          background:
+            radial-gradient(120% 100% at 50% 0%,
+              color-mix(in srgb, var(--accent) 7%, transparent) 0%,
+              transparent 55%),
+            var(--bg2);
           cursor: pointer;
-          transition: border-color .15s, background .15s;
+          transition: border-color .18s ease, background .18s ease, transform .18s ease;
         }
         .ff-dropzone:hover,
         .ff-dropzone.is-over {
-          border-color: var(--accent);
-          background: var(--surface-2, var(--surface));
+          border-color: var(--border-h);
+          background:
+            radial-gradient(120% 100% at 50% 0%,
+              color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+              transparent 60%),
+            var(--bg2);
         }
-        .ff-drop-icon { color: var(--accent); }
-        .ff-drop-title { font-weight: 600; font-size: 14px; }
-        .ff-drop-sub { font-size: 12px; color: var(--muted); }
+        .ff-dropzone.is-over { transform: translateY(-1px); }
+        .ff-dropzone.compact { padding: 18px 14px; }
+
+        .ff-drop-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
+          color: var(--accent);
+          background: color-mix(in srgb, var(--accent) 12%, transparent);
+          border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+        }
+        .ff-drop-title { font-weight: 600; font-size: 14px; color: var(--bright, var(--text)); }
+        .ff-drop-sub {
+          font-size: 11.5px;
+          color: var(--dim);
+          font-family: var(--mono);
+          letter-spacing: 0.02em;
+        }
+
         .ff-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
           padding: 12px;
           border: 1px solid var(--border);
           border-radius: 12px;
-          background: var(--surface);
+          background: var(--bg2);
         }
         .ff-list-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 8px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--border);
         }
         .ff-list-title {
           display: inline-flex;
           align-items: center;
           gap: 8px;
           font-weight: 600;
-          font-size: 14px;
+          font-size: 13.5px;
+          color: var(--bright, var(--text));
         }
-        .ff-list-sub { font-size: 12px; color: var(--muted); font-weight: 400; }
-        .ff-rows { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+        .ff-list-title :global(svg) { color: var(--accent); }
+        .ff-list-sub { font-size: 12px; color: var(--dim); font-weight: 400; }
+
+        .ff-rows {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          max-height: 360px;
+          overflow-y: auto;
+          padding-right: 2px;
+        }
+        .ff-rows::-webkit-scrollbar { width: 6px; }
+        .ff-rows::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
         .ff-row {
           display: flex; align-items: center; gap: 8px;
           padding: 8px 10px;
-          border: 1px solid var(--border); border-radius: 10px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
           background: var(--bg);
+          transition: border-color .15s ease, background .15s ease;
+        }
+        .ff-row:hover {
+          border-color: var(--border-h);
+          background: var(--bg3);
+        }
+        .ff-row-idx {
+          width: 22px; height: 22px;
+          display: inline-flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 600;
+          color: var(--dim);
+          background: var(--bg3);
+          border-radius: 6px;
+          flex-shrink: 0;
+          font-family: var(--mono);
         }
         .ff-row-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
         .ff-row-icon { color: var(--accent); flex-shrink: 0; }
         .ff-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
         .ff-row-name {
-          font-size: 13px; font-weight: 500;
+          font-size: 13px; font-weight: 500; color: var(--bright, var(--text));
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .ff-row-meta { display: flex; gap: 6px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+        .ff-row-meta { display: flex; gap: 6px; font-size: 11.5px; color: var(--dim); flex-wrap: wrap; font-family: var(--mono); }
         .ff-row-actions { display: inline-flex; gap: 2px; }
+
         .ff-options {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -537,32 +625,64 @@ export default function FormatFileTool() {
           padding: 12px;
           border: 1px solid var(--border);
           border-radius: 12px;
-          background: var(--surface);
+          background: var(--bg2);
         }
         .ff-opt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
         .ff-opt-name { grid-column: 1 / -1; }
-        .ff-opt-label { font-size: 12px; color: var(--muted); }
-        .ff-hint { grid-column: 1 / -1; font-size: 12px; color: var(--muted); line-height: 1.5; }
-        .ff-progress {
-          display: flex; flex-direction: column; gap: 6px;
-          padding: 12px;
-          border: 1px solid var(--border); border-radius: 12px;
-          background: var(--surface);
+        .ff-opt-label {
+          font-size: 11px;
+          color: var(--dim);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
         }
-        .ff-progress-label { font-size: 12px; color: var(--muted); }
+        .ff-hint {
+          grid-column: 1 / -1;
+          font-size: 12px;
+          color: var(--dim);
+          line-height: 1.5;
+          padding: 8px 10px;
+          background: var(--bg);
+          border: 1px dashed var(--border);
+          border-radius: 8px;
+        }
+
+        .ff-progress {
+          display: flex; flex-direction: column; gap: 8px;
+          padding: 12px;
+          border: 1px solid var(--border-h);
+          border-radius: 12px;
+          background: linear-gradient(135deg,
+            color-mix(in srgb, var(--accent) 6%, var(--bg2)),
+            var(--bg2));
+        }
+        .ff-progress-label {
+          font-size: 12px;
+          color: var(--text);
+          font-family: var(--mono);
+        }
+
         .ff-summary {
           display: flex; align-items: center; gap: 14px;
-          padding: 12px;
-          border: 1px solid var(--border); border-radius: 12px;
-          background: var(--surface);
+          padding: 12px 14px;
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          background: linear-gradient(135deg,
+            color-mix(in srgb, var(--accent) 5%, var(--bg2)),
+            color-mix(in srgb, var(--accent2) 5%, var(--bg2)));
           flex-wrap: wrap;
         }
-        .ff-sum-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
-        .ff-sum-item b { color: var(--text); font-weight: 600; }
+        .ff-sum-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); }
+        .ff-sum-item :global(svg) { color: var(--accent); }
+        .ff-sum-item b { color: var(--bright, var(--text)); font-weight: 700; font-size: 14px; }
+        .ff-sum-sep {
+          width: 1px; height: 18px; background: var(--border);
+        }
         .ff-sum-cta { margin-left: auto; display: inline-flex; gap: 8px; }
         @media (max-width: 640px) {
           .ff-summary { flex-direction: column; align-items: stretch; }
           .ff-sum-cta { margin-left: 0; justify-content: flex-end; }
+          .ff-sum-sep { display: none; }
         }
       `}</style>
     </div>
