@@ -2254,7 +2254,7 @@ export default function BlogAdminTool({
                         <div className="bga-progress-fill" style={{ width: `${pct}%` }} />
                       </div>
 
-                      {batchRunning && (batchCurrent || batchQueue.length > 0) && (
+                      {batchRunning && batchQueue.length > 0 && (
                         <div className="bga-queue">
                           <div className="bga-queue-head">
                             <IconSparkles size={13} stroke={2} />

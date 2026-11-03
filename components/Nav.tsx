@@ -5,6 +5,7 @@ import BlogNavLink from "./BlogNavLink";
 import Logo from "./Logo";
 import MobileMenu from "./MobileMenu";
 import SearchPalette from "./SearchPalette";
+import ThemeToggle from "./ThemeToggle";
 import ToolsMenu from "./ToolsMenu";
 
 export default function Nav() {
@@ -40,6 +41,7 @@ export default function Nav() {
         <SearchPalette />
       </div>
       <div className="nav-r">
+        <ThemeToggle />
         <BlogNavLink />
         <AccountMenu />
       </div>

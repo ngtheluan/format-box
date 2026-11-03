@@ -135,7 +135,9 @@ html:not([data-skin]) body::before {
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 14px;
-  transition: transform 0.28s ease, opacity 0.28s ease;
+  transition:
+    transform 0.28s ease,
+    opacity 0.28s ease;
   will-change: transform;
 }
 .nav.nav-hidden {
@@ -822,7 +824,9 @@ section {
   flex-shrink: 0;
   color: var(--dim, var(--text));
   opacity: 0.6;
-  transition: transform 0.2s ease, opacity 0.15s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.15s ease;
 }
 .seo-section[open] .seo-section-chev {
   transform: rotate(180deg);
@@ -835,8 +839,14 @@ section {
   animation: seoSectionFade 0.2s ease-out;
 }
 @keyframes seoSectionFade {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .seo-intro {
   color: var(--text);
@@ -10731,7 +10741,9 @@ body:has(.fx-modal-bg) .margin-ruler {
   color: var(--dim);
   cursor: pointer;
   border-radius: 100px;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 .fp-details-region-btn:hover {
   color: var(--text);

@@ -1050,6 +1050,8 @@ export const DICT = {
   settings_skin: { vi: "Chủ đề", en: "Skin" },
   settings_language: { vi: "Ngôn ngữ", en: "Language" },
   settings_mode: { vi: "Chế độ", en: "Mode" },
+  theme_toggle_title: { vi: "Đổi giao diện sáng/tối", en: "Toggle light/dark theme" },
+  theme_toggle_aria: { vi: "Đổi giao diện", en: "Toggle theme" },
 
   mtab_menu: { vi: "Menu", en: "Menu" },
   mtab_feedback: { vi: "Phản hồi", en: "Feedback" },

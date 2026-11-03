@@ -1,8 +1,10 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
+  const { t } = useI18n();
   const [theme, setTheme] = useState<"dark" | "light">("light");
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function ThemeToggle() {
   };
 
   return (
-    <button className="theme-btn" onClick={toggle} title="Đổi giao diện sáng/tối" aria-label="Đổi giao diện">
+    <button className="theme-btn" onClick={toggle} title={t("theme_toggle_title")} aria-label={t("theme_toggle_aria")}>
       {theme === "dark" ? <IconSun size={18} stroke={1.8} /> : <IconMoon size={18} stroke={1.8} />}
     </button>
   );

@@ -1,6 +1,7 @@
 "use client";
 import AccountMenu from "@/components/AccountMenu";
 import { LogoMark } from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 import { IconChevronRight, IconSearch } from "@tabler/icons-react";
 import { type ReactNode } from "react";
 import "./admin.css";
@@ -101,6 +102,7 @@ export default function AdminHeader({ crumbs, search, actions }: AdminHeaderProp
               </div>
             )}
             {actions && <div className="fx-actions">{actions}</div>}
+            <ThemeToggle />
             <AccountMenu />
           </div>
         </div>

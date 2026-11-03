@@ -8,7 +8,6 @@ import LangToggle from "./LangToggle";
 import RoleBadge from "./RoleBadge";
 import SkinPicker from "./SkinPicker";
 import { useEnabledThemes } from "./ThemesProvider";
-import ThemeToggle from "./ThemeToggle";
 import { useToast } from "./Toast";
 
 type View = "menu" | "auth";
@@ -241,10 +240,6 @@ export default function AccountMenu() {
               <div className="account-pop-sep" />
 
               <div className="account-pop-settings">
-                <div className="account-pop-setting">
-                  <span>{t("settings_theme")}</span>
-                  <ThemeToggle />
-                </div>
                 {showSkin && (
                   <div className="account-pop-setting">
                     <span>{t("settings_skin")}</span>
