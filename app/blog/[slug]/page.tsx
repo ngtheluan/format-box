@@ -147,7 +147,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
   };
 
   return (
-    <div className="bd" key={post.slug}>
+    <div className={`bd${seriesCtx ? " bd-series" : ""}`} key={post.slug}>
       <ReadingProgress />
       <BodyEnhancer slug={post.slug} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
