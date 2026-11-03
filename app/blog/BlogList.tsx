@@ -6,13 +6,26 @@ import { Stack } from "@/components/ui";
 import {
   DEFAULT_CATEGORIES,
   formatDateVi,
+  groupPostsBySeries,
   slugifyLabel,
   type BlogCategoryMap,
   type BlogPost,
   type DidYouKnowItem,
+  type SeriesGroup,
 } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
-import { IconArrowRight, IconArticle, IconFlame, IconSparkles, IconX } from "@tabler/icons-react";
+import {
+  IconArrowRight,
+  IconArticle,
+  IconBook,
+  IconClock,
+  IconFlame,
+  IconListNumbers,
+  IconPlayerPlayFilled,
+  IconSparkles,
+  IconUsers,
+  IconX,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DidYouKnow } from "./DidYouKnow";
@@ -308,9 +321,135 @@ export function BlogList({
         </section>
       ) : null}
 
+      {!isTagPage && !q.trim() && (
+        <SeriesSection posts={all} categories={catMap} popularity={popularity} />
+      )}
+
       {!isTagPage && <DidYouKnow items={didYouKnow} />}
     </Stack>
   );
+}
+
+const SERIES_PREVIEW_LIMIT = 3;
+
+function SeriesSection({
+  posts,
+  categories,
+  popularity,
+}: {
+  posts: BlogPost[];
+  categories: BlogCategoryMap;
+  popularity?: Record<string, number>;
+}) {
+  const { t } = useI18n();
+  const groups = useMemo(() => groupPostsBySeries(posts).filter((g) => g.parts.length >= 1), [posts]);
+  if (groups.length === 0) return null;
+  const shown = groups.slice(0, SERIES_PREVIEW_LIMIT);
+  const hasMore = groups.length > shown.length;
+  return (
+    <section className="bz-sec bz-series" aria-label={t("blog_series_title")}>
+      <header className="bz-sec-head">
+        <div>
+          <span className="bz-series-eyebrow">
+            <IconListNumbers size={14} stroke={2} /> {t("blog_series_title")}
+          </span>
+          <h2>
+            {t("blog_series_title")} <span className="bz-series-count">({groups.length})</span>
+          </h2>
+          <p className="bz-series-sub">{t("blog_series_sub")}</p>
+        </div>
+      </header>
+      <div className="bz-series-list">
+        {shown.map((g) => (
+          <SeriesCard key={g.slug} group={g} catLabel={categories[g.parts[0].category] || g.parts[0].category} popularity={popularity} />
+        ))}
+      </div>
+      {hasMore && (
+        <div className="bz-more">
+          <Link href="/blog/series" prefetch={false} className="bz-btn">
+            {t("blog_load_more")} <IconArrowRight size={14} stroke={2} />
+          </Link>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function SeriesCard({
+  group,
+  catLabel,
+  popularity,
+}: {
+  group: SeriesGroup;
+  catLabel: string;
+  popularity?: Record<string, number>;
+}) {
+  const { t } = useI18n();
+  const head = group.parts[0];
+  const countLabel = group.parts.length === 1 ? t("blog_series_count_one") : t("blog_series_count_many");
+  const totalMin = group.parts.reduce((n, p) => n + (p.readMin || 0), 0);
+  const totalHelpful = group.parts.reduce((n, p) => n + (popularity?.[p.slug] ?? 0), 0);
+  return (
+    <article className="bz-tile bz-series-card">
+      <Corners />
+      <Link
+        href={`/blog/series/${encodeURIComponent(group.slug)}`}
+        prefetch={false}
+        className="bz-series-card-link"
+      >
+        <span className="bz-series-cover">
+          <BlogCover post={head} size={[640, 360]} />
+          <span className="bz-series-badge">
+            <IconListNumbers size={12} stroke={2.2} />
+            Chuỗi bài
+          </span>
+        </span>
+        <span className="bz-series-body">
+          <span className="bz-series-cat">{catLabel}</span>
+          <h3 className="bz-series-title">{group.label}</h3>
+          <ul className="bz-series-meta">
+            <li>
+              <IconBook size={14} stroke={2} />
+              <span>
+                {group.parts.length} {countLabel}
+              </span>
+            </li>
+            <li>
+              <IconClock size={14} stroke={2} />
+              <span>~{formatReadTime(totalMin)}</span>
+            </li>
+            {totalHelpful > 0 && (
+              <li>
+                <IconUsers size={14} stroke={2} />
+                <span>{totalHelpful} hữu ích</span>
+              </li>
+            )}
+            <li className="bz-series-meta-pills">
+              <IconListNumbers size={14} stroke={2} />
+              <span>
+                Phần 1 → {group.parts.length}
+              </span>
+            </li>
+          </ul>
+          {head.excerpt && <p className="bz-series-ex">{head.excerpt}</p>}
+        </span>
+        <span className="bz-series-cta-slot">
+          <span className="bz-series-cta-btn">
+            <IconPlayerPlayFilled size={16} />
+            Bắt đầu đọc
+          </span>
+        </span>
+      </Link>
+    </article>
+  );
+}
+
+function formatReadTime(min: number): string {
+  if (!Number.isFinite(min) || min <= 0) return "0p";
+  if (min < 60) return `${min}p`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}h${m.toString().padStart(2, "0")}p` : `${h}h`;
 }
 
 function SavedPosts({ posts, popularity }: { posts: BlogPost[]; popularity?: Record<string, number> }) {

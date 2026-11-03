@@ -578,6 +578,90 @@ export function relatedPosts(
   return scored.slice(0, limit).map((s) => s.p);
 }
 
+// Series / Chuỗi bài — gộp các bài cùng chủ đề thành một chuỗi có thứ tự. Admin
+// gắn 2 tag vào mỗi bài: `series/<slug>` (bắt buộc) và `part/<n>` (số thứ tự);
+// không cần migrate DB. Series không có tag `part/<n>` sẽ sort theo ngày đăng.
+export type SeriesInfo = { slug: string; order: number };
+export type SeriesGroup = { slug: string; label: string; parts: BlogPost[] };
+export type SeriesContext = SeriesGroup & { index: number; prev: BlogPost | null; next: BlogPost | null };
+
+export function parseSeriesFromPost(post: BlogPost): SeriesInfo | null {
+  let slug: string | null = null;
+  let order = Number.POSITIVE_INFINITY;
+  for (const raw of post.tags || []) {
+    const t = raw.toLowerCase();
+    if (t.startsWith("series/")) {
+      const v = t.slice("series/".length).trim();
+      if (v) slug = v;
+    } else if (t.startsWith("part/")) {
+      const n = parseInt(t.slice("part/".length), 10);
+      if (Number.isFinite(n)) order = n;
+    }
+  }
+  return slug ? { slug, order } : null;
+}
+
+function commonPrefix(a: string, b: string): string {
+  let i = 0;
+  const n = Math.min(a.length, b.length);
+  while (i < n && a[i] === b[i]) i++;
+  return a.slice(0, i);
+}
+
+function deriveSeriesLabel(slug: string, parts: BlogPost[]): string {
+  if (parts.length >= 2) {
+    let pref = parts[0].title;
+    for (let i = 1; i < parts.length; i++) pref = commonPrefix(pref, parts[i].title);
+    pref = pref.replace(/[\s\-–—:·|]+$/u, "").trim();
+    if (pref.length >= 4) return pref;
+  }
+  return slug.replace(/[-_]+/g, " ").replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+}
+
+export function groupPostsBySeries(posts: BlogPost[]): SeriesGroup[] {
+  const buckets = new Map<string, Array<{ post: BlogPost; order: number }>>();
+  for (const p of posts) {
+    const s = parseSeriesFromPost(p);
+    if (!s) continue;
+    const arr = buckets.get(s.slug) || [];
+    arr.push({ post: p, order: s.order });
+    buckets.set(s.slug, arr);
+  }
+  const out: SeriesGroup[] = [];
+  for (const [slug, arr] of buckets.entries()) {
+    const sorted = arr
+      .sort((a, b) => {
+        if (a.order !== b.order) return a.order - b.order;
+        return +new Date(a.post.date) - +new Date(b.post.date);
+      })
+      .map((x) => x.post);
+    out.push({ slug, label: deriveSeriesLabel(slug, sorted), parts: sorted });
+  }
+  // Chuỗi có nhiều phần hoặc có bài mới nhất lên trên.
+  out.sort((a, b) => {
+    if (b.parts.length !== a.parts.length) return b.parts.length - a.parts.length;
+    const da = Math.max(...a.parts.map((p) => +new Date(p.date)));
+    const db = Math.max(...b.parts.map((p) => +new Date(p.date)));
+    return db - da;
+  });
+  return out;
+}
+
+export function getSeriesContext(all: BlogPost[], post: BlogPost): SeriesContext | null {
+  const s = parseSeriesFromPost(post);
+  if (!s) return null;
+  const group = groupPostsBySeries(all).find((g) => g.slug === s.slug);
+  if (!group) return null;
+  const index = group.parts.findIndex((p) => p.slug === post.slug);
+  if (index < 0) return null;
+  return {
+    ...group,
+    index,
+    prev: index > 0 ? group.parts[index - 1] : null,
+    next: index < group.parts.length - 1 ? group.parts[index + 1] : null,
+  };
+}
+
 // Helpful-vote count per post slug — feeds the popularity boost in relatedPosts.
 export async function listReactions(): Promise<Record<string, number>> {
   const sb = supabase();

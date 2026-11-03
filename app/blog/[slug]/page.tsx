@@ -6,6 +6,7 @@ import {
   categoriesToMap,
   formatDateVi,
   getPublicPostCached,
+  getSeriesContext,
   getVotes,
   listPublicCategories,
   listPublicPostsCached,
@@ -17,7 +18,7 @@ import {
 import { blogVoterId } from "@/lib/blog-voter";
 import { getTools } from "@/lib/tools";
 import { relatedTools } from "@/lib/tools-shared";
-import { IconArrowLeft, IconArrowRight, IconListDetails } from "@tabler/icons-react";
+import { IconArrowLeft, IconArrowRight, IconListDetails, IconListNumbers } from "@tabler/icons-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -89,6 +90,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
   const catLabel = (slug: string) => catMap[slug] || slug;
 
   const related = relatedPosts(all, post, 3, popularity);
+  const seriesCtx = getSeriesContext(all, post);
   // Prefer the admin's hand-picked tools (in their chosen order); fall back to
   // auto-matching only when none were set.
   const manualTools = (post.relatedTools ?? [])
@@ -216,6 +218,85 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
             <BlogAudioPlayer slug={post.slug} />
             <ReaderTools slug={post.slug} title={post.title} markdown={post.markdown} />
           </div>
+
+          {seriesCtx && (
+            <aside
+              className="bd-series"
+              aria-label={`${seriesCtx.label} — Phần ${seriesCtx.index + 1}/${seriesCtx.parts.length}`}
+            >
+              <header className="bd-series-head">
+                <span className="bd-series-eyebrow">
+                  <IconListNumbers size={13} stroke={2} /> <T k="blog_series_in" />
+                </span>
+                <Link
+                  href={`/blog/series/${encodeURIComponent(seriesCtx.slug)}`}
+                  prefetch={false}
+                  className="bd-series-title"
+                >
+                  {seriesCtx.label}
+                </Link>
+                <span className="bd-series-pos">
+                  <T k="blog_series_part" /> <strong>{seriesCtx.index + 1}</strong>{" "}
+                  <T k="blog_series_of" /> {seriesCtx.parts.length}
+                </span>
+              </header>
+              <ol className="bd-series-steps">
+                {seriesCtx.parts.map((p, i) => {
+                  const active = i === seriesCtx.index;
+                  const done = i < seriesCtx.index;
+                  return (
+                    <li
+                      key={p.slug}
+                      className={`bd-series-step${active ? " is-active" : ""}${done ? " is-done" : ""}`}
+                    >
+                      <Link
+                        href={`/blog/${p.slug}`}
+                        prefetch={false}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        <span className="bd-series-dot" aria-hidden="true">
+                          {i + 1}
+                        </span>
+                        <span className="bd-series-step-title">{p.title}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ol>
+              {(seriesCtx.prev || seriesCtx.next) && (
+                <nav className="bd-series-nav" aria-label="Series navigation">
+                  {seriesCtx.prev ? (
+                    <Link href={`/blog/${seriesCtx.prev.slug}`} prefetch={false} className="bd-series-navlink">
+                      <IconArrowLeft size={14} stroke={2} />
+                      <span>
+                        <i>
+                          <T k="blog_series_prev" />
+                        </i>
+                        <strong>{seriesCtx.prev.title}</strong>
+                      </span>
+                    </Link>
+                  ) : (
+                    <span />
+                  )}
+                  {seriesCtx.next && (
+                    <Link
+                      href={`/blog/${seriesCtx.next.slug}`}
+                      prefetch={false}
+                      className="bd-series-navlink is-next"
+                    >
+                      <span>
+                        <i>
+                          <T k="blog_series_next" />
+                        </i>
+                        <strong>{seriesCtx.next.title}</strong>
+                      </span>
+                      <IconArrowRight size={14} stroke={2} />
+                    </Link>
+                  )}
+                </nav>
+              )}
+            </aside>
+          )}
 
           {toc.length > 0 && (
             <details className="bd-toc-mobile" open>

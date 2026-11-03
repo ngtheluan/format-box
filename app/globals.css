@@ -135,6 +135,13 @@ html:not([data-skin]) body::before {
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 14px;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  will-change: transform;
+}
+.nav.nav-hidden {
+  transform: translateY(calc(-100% - var(--fb-banner-h, 0px) - 20px));
+  opacity: 0;
+  pointer-events: none;
 }
 /* Crop marks hugging the nav frame, like the 200Lab blueprint chrome. */
 .nav::before,

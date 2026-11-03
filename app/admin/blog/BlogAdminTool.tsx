@@ -96,7 +96,7 @@ import {
 import { marked } from "marked";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminBody from "../AdminBody";
 import "./blog-admin.css";
 import ImagePicker from "./ImagePicker";
@@ -172,7 +172,7 @@ export default function BlogAdminTool({
   const [pinPickerOpen, setPinPickerOpen] = useState(false);
   const [pinPickerQ, setPinPickerQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [tab, setTab] = useState<"posts" | "categories" | "knowledge" | "images">("posts");
+  const [tab, setTab] = useState<"posts" | "categories" | "series" | "knowledge" | "images">("posts");
 
   type DykDraft = {
     original?: string;
@@ -313,6 +313,146 @@ export default function BlogAdminTool({
   }
   const [catDragIdx, setCatDragIdx] = useState<number | null>(null);
   const [catDropIdx, setCatDropIdx] = useState<number | null>(null);
+
+  type SeriesGroupAdmin = {
+    slug: string;
+    label: string;
+    parts: { slug: string; title: string; date: string; status: BlogStatus; category: string; coverImage: string | null; order: number }[];
+  };
+  const [seriesGroups, setSeriesGroups] = useState<SeriesGroupAdmin[]>([]);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const [seriesEditor, setSeriesEditor] = useState<{
+    original: SeriesGroupAdmin | null;
+    slug: string;
+    slugs: string[];
+    pickQ: string;
+  } | null>(null);
+  const [seriesSaving, setSeriesSaving] = useState(false);
+  const [seriesErr, setSeriesErr] = useState("");
+
+  const loadSeries = useCallback(async () => {
+    setSeriesLoading(true);
+    try {
+      const r = await fetch("/api/blog/series");
+      const j = await r.json();
+      if (Array.isArray(j?.groups)) setSeriesGroups(j.groups as SeriesGroupAdmin[]);
+    } catch {
+      /* ignore */
+    } finally {
+      setSeriesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "series") void loadSeries();
+  }, [tab, loadSeries]);
+
+  function openSeriesEditor(group: SeriesGroupAdmin | null) {
+    setSeriesErr("");
+    setSeriesEditor({
+      original: group,
+      slug: group?.slug ?? "",
+      slugs: group ? group.parts.map((p) => p.slug) : [],
+      pickQ: "",
+    });
+  }
+
+  function moveSeriesSlug(i: number, dir: -1 | 1) {
+    setSeriesEditor((s) => {
+      if (!s) return s;
+      const j = i + dir;
+      if (j < 0 || j >= s.slugs.length) return s;
+      const next = s.slugs.slice();
+      [next[i], next[j]] = [next[j], next[i]];
+      return { ...s, slugs: next };
+    });
+  }
+
+  function addSeriesSlug(slug: string) {
+    setSeriesEditor((s) => (s && !s.slugs.includes(slug) ? { ...s, slugs: [...s.slugs, slug] } : s));
+  }
+  function removeSeriesSlug(slug: string) {
+    setSeriesEditor((s) => (s ? { ...s, slugs: s.slugs.filter((x) => x !== slug) } : s));
+  }
+
+  async function saveSeries() {
+    if (!seriesEditor) return;
+    const slug = seriesEditor.slug
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!slug) {
+      setSeriesErr("Vui lòng nhập slug chuỗi (ví dụ: nextjs-14).");
+      return;
+    }
+    if (seriesEditor.slugs.length < 2) {
+      setSeriesErr("Chọn ít nhất 2 bài để tạo chuỗi.");
+      return;
+    }
+    setSeriesSaving(true);
+    setSeriesErr("");
+    try {
+      const r = await fetch("/api/blog/series", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          previousSlug: seriesEditor.original?.slug ?? null,
+          slugs: seriesEditor.slugs,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || "Lỗi lưu chuỗi");
+      toast(`Đã lưu chuỗi "${slug}" (${j.count} phần)`);
+      setSeriesEditor(null);
+      // Update local post tags optimistically so the Series tab reflects the save
+      // without a full reload; the server has already persisted them.
+      setPosts((prev) =>
+        prev.map((p) => {
+          const stripped = (p.tags || []).filter((t) => {
+            const l = t.toLowerCase();
+            return !l.startsWith("series/") && !l.startsWith("part/");
+          });
+          const idx = seriesEditor.slugs.indexOf(p.slug);
+          const wasInThisSeries = (p.tags || []).some((t) => t.toLowerCase() === `series/${seriesEditor.original?.slug ?? slug}`);
+          if (idx >= 0) return { ...p, tags: [...stripped, `series/${slug}`, `part/${idx + 1}`] };
+          if (wasInThisSeries) return { ...p, tags: stripped };
+          return p;
+        }),
+      );
+      await loadSeries();
+    } catch (e: any) {
+      setSeriesErr(e?.message || "Lỗi lưu chuỗi");
+    } finally {
+      setSeriesSaving(false);
+    }
+  }
+
+  async function deleteSeries(group: SeriesGroupAdmin) {
+    if (!confirm(`Xoá chuỗi "${group.label}"? Các bài sẽ không mất, chỉ gỡ tag series/part.`)) return;
+    try {
+      const r = await fetch(`/api/blog/series?slug=${encodeURIComponent(group.slug)}`, {
+        method: "DELETE",
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || "Lỗi xoá");
+      toast(`Đã gỡ chuỗi "${group.slug}"`);
+      setPosts((prev) =>
+        prev.map((p) =>
+          (p.tags || []).some((t) => t.toLowerCase() === `series/${group.slug}`)
+            ? { ...p, tags: (p.tags || []).filter((t) => {
+                const l = t.toLowerCase();
+                return !l.startsWith("series/") && !l.startsWith("part/");
+              }) }
+            : p,
+        ),
+      );
+      await loadSeries();
+    } catch (e: any) {
+      toast(e?.message || "Lỗi xoá chuỗi");
+    }
+  }
 
   async function handleCatDrop() {
     if (catDragIdx === null || catDropIdx === null || catDragIdx === catDropIdx) {
@@ -1395,6 +1535,14 @@ export default function BlogAdminTool({
           >
             <IconCategory size={13} stroke={1.9} /> Danh mục
           </button>
+          <button
+            type="button"
+            onClick={() => setTab("series")}
+            className={`fx-btn ${tab === "series" ? "fx-btn-primary" : "fx-btn-ghost"}`}
+            style={{ padding: "4px 10px", fontSize: 12 }}
+          >
+            <IconListNumbers size={13} stroke={1.9} /> Chuỗi bài
+          </button>
           {isSuperAdmin && (
             <button
               type="button"
@@ -1434,6 +1582,10 @@ export default function BlogAdminTool({
           ) : tab === "categories" ? (
             <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
               <IconPlus size={14} stroke={2.2} /> Thêm danh mục
+            </button>
+          ) : tab === "series" ? (
+            <button onClick={() => openSeriesEditor(null)} className="fx-btn fx-btn-primary">
+              <IconPlus size={14} stroke={2.2} /> Thêm chuỗi
             </button>
           ) : tab === "knowledge" ? (
             <button onClick={() => setDykChooserOpen(true)} className="fx-btn fx-btn-primary">
@@ -1660,6 +1812,89 @@ export default function BlogAdminTool({
                   </div>
                 </div>
               );
+            })}
+          </div>
+        )
+      ) : tab === "series" ? (
+        seriesLoading && seriesGroups.length === 0 ? (
+          <div className="fx-empty">
+            <div className="fx-empty-ico">
+              <IconLoader2 size={22} stroke={1.7} className="bga-spin" />
+            </div>
+            Đang tải chuỗi bài…
+          </div>
+        ) : seriesGroups.length === 0 ? (
+          <div className="fx-empty">
+            <div className="fx-empty-ico">
+              <IconListNumbers size={22} stroke={1.7} />
+            </div>
+            Chưa có chuỗi bài nào. Bấm &quot;Thêm chuỗi&quot; để tạo mới.
+          </div>
+        ) : (
+          <div className="fx-table">
+            <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "1fr 180px 80px 140px" }}>
+              <div>Chuỗi</div>
+              <div>Slug</div>
+              <div style={{ textAlign: "center" }}>Phần</div>
+              <div style={{ textAlign: "right" }}>Actions</div>
+            </div>
+            {seriesGroups.map((g) => {
+              const publishedCount = g.parts.filter((p) => p.status === "published").length;
+              const allPublic = publishedCount === g.parts.length;
+              return (
+              <div
+                key={g.slug}
+                className="fx-row"
+                style={{ gridTemplateColumns: "1fr 180px 80px 140px" }}
+              >
+                <div className="fx-title-cell">
+                  <div className="fx-t-row">
+                    <b>{g.label}</b>
+                    {!allPublic && (
+                      <span
+                        className="fx-badge"
+                        data-tone="mute"
+                        title="Public /blog chỉ hiện các phần đã Phát hành"
+                      >
+                        {publishedCount}/{g.parts.length} phát hành
+                      </span>
+                    )}
+                  </div>
+                  <span className="fx-t-sub">
+                    {g.parts
+                      .slice(0, 3)
+                      .map((p) => p.title)
+                      .join(" · ")}
+                    {g.parts.length > 3 ? ` · +${g.parts.length - 3} khác` : ""}
+                  </span>
+                </div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--dim)" }}>
+                  series/{g.slug}
+                </div>
+                <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{g.parts.length}</div>
+                <div className="fx-row-actions">
+                  <a
+                    className="fx-btn fx-btn-icon"
+                    href={`/blog/series/${encodeURIComponent(g.slug)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Xem trang chuỗi"
+                  >
+                    <IconExternalLink size={14} stroke={1.9} />
+                  </a>
+                  <button className="fx-btn fx-btn-icon" onClick={() => openSeriesEditor(g)} title="Sửa">
+                    <IconEdit size={14} stroke={1.9} />
+                  </button>
+                  <button
+                    className="fx-btn fx-btn-icon fx-btn-danger"
+                    onClick={() => deleteSeries(g)}
+                    title="Gỡ chuỗi"
+                  >
+                    <IconTrash size={14} stroke={1.9} />
+                  </button>
+                </div>
+              </div>
+            );
             })}
           </div>
         )
@@ -3710,6 +3945,209 @@ export default function BlogAdminTool({
                 ) : (
                   <>
                     <IconDeviceFloppy size={14} /> Lưu
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SERIES EDIT MODAL — dual pane picker: left = all posts (search), right = ordered selection */}
+      {seriesEditor && (
+        <div className="fx-modal-bg" style={{ zIndex: 200 }}>
+          <div className="fx-modal bga-series-modal">
+            <div className="fx-modal-head">
+              <h2>
+                <IconListNumbers size={16} stroke={2} />{" "}
+                {seriesEditor.original ? `Sửa chuỗi "${seriesEditor.original.label}"` : "Thêm chuỗi bài"}
+              </h2>
+              <button
+                className="fx-btn fx-btn-icon fx-btn-ghost"
+                onClick={() => !seriesSaving && setSeriesEditor(null)}
+              >
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body">
+              <div className="bga-grid2">
+                <Field label="Slug chuỗi" required>
+                  <Input
+                    autoFocus
+                    value={seriesEditor.slug}
+                    disabled={seriesSaving}
+                    monospace
+                    onChange={(e) =>
+                      setSeriesEditor((cur) => (cur ? { ...cur, slug: e.target.value } : cur))
+                    }
+                    placeholder="vd: nextjs-14-tu-dau"
+                  />
+                </Field>
+                <Field label="Số phần đã chọn">
+                  <Input value={`${seriesEditor.slugs.length} bài`} disabled monospace />
+                </Field>
+              </div>
+
+              <div className="bga-series-picker">
+                {/* LEFT: all posts (search) */}
+                <div className="bga-series-pane">
+                  <div className="bga-series-pane-head">
+                    <b>Thư viện bài viết</b>
+                    <input
+                      type="text"
+                      value={seriesEditor.pickQ}
+                      onChange={(e) =>
+                        setSeriesEditor((cur) => (cur ? { ...cur, pickQ: e.target.value } : cur))
+                      }
+                      placeholder="Tìm tiêu đề, slug…"
+                      className="bga-pinned-picker-input"
+                      style={{ marginLeft: "auto" }}
+                    />
+                  </div>
+                  <div className="bga-series-list">
+                    {(() => {
+                      const q = seriesEditor.pickQ.trim().toLowerCase();
+                      const selected = new Set(seriesEditor.slugs);
+                      const items = posts
+                        .filter((p) => !selected.has(p.slug))
+                        .filter((p) => {
+                          if (!q) return true;
+                          return (
+                            p.title.toLowerCase().includes(q) ||
+                            p.slug.toLowerCase().includes(q) ||
+                            (p.excerpt || "").toLowerCase().includes(q)
+                          );
+                        })
+                        .slice(0, 60);
+                      if (items.length === 0)
+                        return <div className="bga-pinned-picker-empty">Không có bài phù hợp</div>;
+                      return items.map((p) => (
+                        <button
+                          key={p.slug}
+                          type="button"
+                          className="bga-series-item"
+                          onClick={() => addSeriesSlug(p.slug)}
+                          title="Thêm vào chuỗi"
+                        >
+                          <div className="bga-pinned-thumb">
+                            {p.coverImage ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={rewriteImgUrl(p.coverImage.split("#")[0])}
+                                alt=""
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <span
+                                style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }}
+                              />
+                            )}
+                          </div>
+                          <div className="bga-series-item-text">
+                            <b>{p.title}</b>
+                            <span>/blog/{p.slug}</span>
+                          </div>
+                          <IconPlus size={14} stroke={2} />
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                {/* RIGHT: ordered selection */}
+                <div className="bga-series-pane">
+                  <div className="bga-series-pane-head">
+                    <b>Thứ tự trong chuỗi</b>
+                    <span style={{ marginLeft: "auto", color: "var(--dim)", fontSize: 12 }}>
+                      Phần 1 → Phần {seriesEditor.slugs.length || "n"}
+                    </span>
+                  </div>
+                  <div className="bga-series-list">
+                    {seriesEditor.slugs.length === 0 ? (
+                      <div className="bga-pinned-picker-empty">
+                        Chọn bài ở cột trái để thêm vào chuỗi.
+                      </div>
+                    ) : (
+                      seriesEditor.slugs.map((s, i) => {
+                        const p = posts.find((x) => x.slug === s);
+                        if (!p) return null;
+                        return (
+                          <div key={s} className="bga-series-item bga-series-item--picked">
+                            <span className="bga-series-order">{i + 1}</span>
+                            <div className="bga-pinned-thumb">
+                              {p.coverImage ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={rewriteImgUrl(p.coverImage.split("#")[0])}
+                                  alt=""
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span
+                                  style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }}
+                                />
+                              )}
+                            </div>
+                            <div className="bga-series-item-text">
+                              <b>{p.title}</b>
+                              <span>/blog/{p.slug}</span>
+                            </div>
+                            <div className="bga-series-item-actions">
+                              <button
+                                type="button"
+                                className="fx-btn fx-btn-icon fx-btn-ghost"
+                                onClick={() => moveSeriesSlug(i, -1)}
+                                disabled={i === 0}
+                                title="Lên"
+                              >
+                                <IconArrowUp size={14} stroke={2} />
+                              </button>
+                              <button
+                                type="button"
+                                className="fx-btn fx-btn-icon fx-btn-ghost"
+                                onClick={() => moveSeriesSlug(i, 1)}
+                                disabled={i === seriesEditor.slugs.length - 1}
+                                title="Xuống"
+                              >
+                                <IconArrowDown size={14} stroke={2} />
+                              </button>
+                              <button
+                                type="button"
+                                className="fx-btn fx-btn-icon fx-btn-danger"
+                                onClick={() => removeSeriesSlug(s)}
+                                title="Gỡ khỏi chuỗi"
+                              >
+                                <IconX size={14} stroke={2} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {seriesErr && <div className="fx-err">{seriesErr}</div>}
+            </div>
+            <div className="fx-modal-foot">
+              <button className="fx-btn" onClick={() => setSeriesEditor(null)} disabled={seriesSaving}>
+                Huỷ
+              </button>
+              <button
+                className="fx-btn fx-btn-primary"
+                onClick={saveSeries}
+                disabled={seriesSaving || !seriesEditor.slug.trim() || seriesEditor.slugs.length < 2}
+              >
+                {seriesSaving ? (
+                  <>
+                    <IconLoader2 size={14} className="spin" /> Đang lưu…
+                  </>
+                ) : (
+                  <>
+                    <IconDeviceFloppy size={14} /> Lưu chuỗi
                   </>
                 )}
               </button>
