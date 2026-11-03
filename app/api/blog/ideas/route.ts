@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 // Suggest fresh topics for a category, avoiding titles the blog already has.
 export async function POST(req: Request) {
@@ -19,6 +19,10 @@ export async function POST(req: Request) {
     topic?: string;
   };
   const provider: AiProvider = body.provider && body.provider in AI_MODELS ? body.provider : "groq";
+  // Default to the small/fast groq model for ideas — a short JSON list of 6
+  // titles doesn't need the 120B flagship, and the 20B replies ~3× faster.
+  const defaultModel =
+    provider === "groq" ? "openai/gpt-oss-20b" : AI_MODELS[provider][0]?.id;
   const topic = (body.topic || "").trim();
 
   const [cats, posts] = await Promise.all([listAdminCategories(), listAdminPosts()]);
@@ -29,19 +33,21 @@ export async function POST(req: Request) {
     : `cho danh mục "${label}"`;
   const today = new Date().toISOString().slice(0, 10);
   const avoid = [
-    ...posts.slice(0, 25).map((p) => p.title),
-    ...(Array.isArray(body.exclude) ? body.exclude.slice(0, 20) : []),
+    ...posts.slice(0, 15).map((p) => p.title),
+    ...(Array.isArray(body.exclude) ? body.exclude.slice(0, 15) : []),
   ];
 
   try {
     const r = await callLlm({
       provider,
+      model: defaultModel,
       json: !body.trending,
       webSearch: !!body.trending,
       temperature: body.trending ? 0.8 : 0.9,
-      // Fast path: 25s. Trending path (web search) needs longer.
-      timeoutMs: body.trending ? 45_000 : 25_000,
-      maxTokens: 900,
+      // Keep the per-call timeout tight — the whole chain still has a budget
+      // of ~2× this. Trending path (web search) needs a bit more room.
+      timeoutMs: body.trending ? 25_000 : 12_000,
+      maxTokens: body.trending ? 700 : 450,
       system: "Bạn là biên tập viên trưởng của một blog tiếng Việt. Chỉ trả JSON hợp lệ, không giải thích.",
       user: `Hôm nay ${today}. ${
         body.trending ? "Tra cứu web xu hướng mới nhất rồi " : ""

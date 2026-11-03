@@ -81,7 +81,7 @@ export async function POST(req: Request) {
   const model = AI_MODELS[provider].some((m) => m.id === body.model) ? body.model : undefined;
   const tone = GEN_TONES.find((t) => t.id === body.tone) || GEN_TONES[0];
   const length = GEN_LENGTHS.find((l) => l.id === body.length) || GEN_LENGTHS[1];
-  const nImages = Math.max(0, Math.min(4, Number.isFinite(body.images) ? Number(body.images) : 3));
+  const nImages = Math.max(0, Math.min(10, Number.isFinite(body.images) ? Number(body.images) : 4));
   const notes = (body.notes || "").toString().trim().slice(0, 1500);
   const audience = GEN_AUDIENCES.find((a) => a.id === body.audience) || GEN_AUDIENCES[1];
   const structure = GEN_STRUCTURES.find((s) => s.id === body.structure) || GEN_STRUCTURES[0];

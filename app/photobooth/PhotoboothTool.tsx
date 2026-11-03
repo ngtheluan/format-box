@@ -2441,79 +2441,13 @@ export default function PhotoboothTool() {
     return () => setPhotoboothMobileHandler(null);
   }, [step, beginCapture, finishEdit, downloadResult, requestShareLink, resetAll, qrDataUrl, uploadState]);
 
+  // All photobooth steps keep the site's default MobileTabBar — their
+  // controls are rendered inline inside .pb-wrap instead of hijacking the
+  // mtab, so the main site menu stays visible throughout.
   useEffect(() => {
-    // Setup step keeps the site's default MobileTabBar — its Cài đặt / Chụp
-    // actions render as a dedicated bar above the mtab (see JSX below).
-    const actions: PBAction[] =
-      step === "edit"
-          ? [
-              {
-                id: "filter",
-                label: "Lọc",
-                icon: <IconPhotoFilled size={20} stroke={1.8} />,
-                active: mobileSheet === "filter",
-              },
-              {
-                id: "theme",
-                label: "Theme",
-                icon: <IconPalette size={20} stroke={1.8} />,
-                active: mobileSheet === "theme",
-              },
-              {
-                id: "frame",
-                label: "Viền",
-                icon: <IconBorderCorners size={20} stroke={1.8} />,
-                active: mobileSheet === "frame",
-              },
-              {
-                id: "sticker",
-                label: "Sticker",
-                icon: <IconMoodSmile size={20} stroke={1.8} />,
-                active: mobileSheet === "sticker",
-              },
-              {
-                id: "text",
-                label: "Text",
-                icon: <IconTypography size={20} stroke={1.8} />,
-                active: mobileSheet === "text",
-              },
-              {
-                id: "finish",
-                label: "Xong",
-                icon: <IconCheck size={22} stroke={2.2} />,
-                primary: true,
-                disabled: exporting,
-              },
-            ]
-          : step === "result"
-            ? [
-                {
-                  id: "download",
-                  label: "Tải ảnh",
-                  icon: <IconDownload size={20} stroke={1.8} />,
-                  primary: true,
-                },
-                {
-                  id: "qr",
-                  label: "Mã QR",
-                  icon: <IconQrcode size={20} stroke={1.8} />,
-                  primary: true,
-                },
-                {
-                  id: "new",
-                  label: "Chụp mới",
-                  icon: <IconRefresh size={20} stroke={1.8} />,
-                  primary: true,
-                },
-              ]
-            : [];
-    // Only take over the site's MobileTabBar when we actually have actions
-    // (edit / result). Setup falls through so the default 5-tab menu stays.
-    setPhotoboothMobileUI({ active: actions.length > 0, actions });
+    setPhotoboothMobileUI({ active: false, actions: [] });
     return () => setPhotoboothMobileUI({ active: false, actions: [] });
-    // canCapture / exporting also drive the disabled flags on primary buttons.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, mobileSheet, canCapture, exporting]);
+  }, []);
 
   const sheetTitles: Record<Exclude<MobileSheet, null>, string> = {
     settings: "Chuẩn bị",
@@ -3133,6 +3067,42 @@ export default function PhotoboothTool() {
               })}
             </div>
             <p className="pb-hint">{t("pb_hint_drag")}</p>
+
+            {/* Mobile-only inline CTA bar — tabs open the matching sheet,
+                "Xong" (primary) builds the final strip. */}
+            <div className="pb-edit-cta-mobile" role="toolbar" aria-label="Chỉnh sửa">
+              {([
+                { id: "filter", label: "Lọc", icon: <IconPhotoFilled size={18} stroke={1.8} /> },
+                { id: "theme", label: "Theme", icon: <IconPalette size={18} stroke={1.8} /> },
+                { id: "frame", label: "Viền", icon: <IconBorderCorners size={18} stroke={1.8} /> },
+                { id: "sticker", label: "Sticker", icon: <IconMoodSmile size={18} stroke={1.8} /> },
+                { id: "text", label: "Text", icon: <IconTypography size={18} stroke={1.8} /> },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={`pb-edit-cta-tab ${mobileSheet === tab.id ? "on" : ""}`}
+                  onClick={() => {
+                    setEditTab(tab.id as EditTab);
+                    setMobileSheet(tab.id as MobileSheet);
+                  }}
+                  aria-pressed={mobileSheet === tab.id}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+              <button
+                type="button"
+                className="pb-edit-cta-done"
+                onClick={finishEdit}
+                disabled={exporting}
+                aria-label="Hoàn tất"
+              >
+                <IconCheck size={20} stroke={2.4} />
+                <span>Xong</span>
+              </button>
+            </div>
           </div>
 
           <div className="pb-side wide edit-side">
@@ -3568,6 +3538,42 @@ export default function PhotoboothTool() {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Mobile-only inline CTA bar — 3 color-coded primary buttons
+                  (Tải ảnh / Mã QR / Chụp mới) inside .pb-wrap. */}
+              <div className="pb-result-cta-mobile" role="toolbar" aria-label="Hành động">
+                <button
+                  type="button"
+                  className="pb-result-cta-btn btn-download"
+                  onClick={downloadResult}
+                  disabled={!resultUrl}
+                >
+                  <IconDownload size={20} stroke={2} />
+                  <span>Tải ảnh</span>
+                </button>
+                <button
+                  type="button"
+                  className="pb-result-cta-btn btn-qr"
+                  onClick={() => {
+                    setQrModalOpen(true);
+                    if (!qrDataUrl && uploadState !== "uploading" && resultUrl) {
+                      requestShareLink();
+                    }
+                  }}
+                  disabled={!resultUrl}
+                >
+                  <IconQrcode size={20} stroke={2} />
+                  <span>Mã QR</span>
+                </button>
+                <button
+                  type="button"
+                  className="pb-result-cta-btn btn-new"
+                  onClick={resetAll}
+                >
+                  <IconRefresh size={20} stroke={2} />
+                  <span>Chụp mới</span>
+                </button>
               </div>
             </div>
             <div className="pb-result-side">
@@ -6691,12 +6697,185 @@ export default function PhotoboothTool() {
             0 8px 20px -8px rgba(155, 93, 229, 0.55),
             inset 0 1px 0 rgba(255, 255, 255, 0.25);
         }
-        .pb-setup-cta-btn.primary:not(:disabled):hover {
+        .pb-setup-cta-btn.primary:not(:disabled):not(.not-ready):hover {
           filter: brightness(1.05);
+        }
+        /* When camera isn't ready: show the Chụp button in a muted state so
+           the user understands it needs permission before it works. Tap still
+           triggers an explanatory toast. */
+        .pb-setup-cta-btn.primary.not-ready {
+          color: var(--text) !important;
+          background: var(--bg2) !important;
+          border: 1px solid var(--border) !important;
+          box-shadow: none !important;
+          opacity: 0.6;
         }
         .pb-setup-cta-btn:disabled {
           opacity: 0.45;
           pointer-events: none;
+        }
+
+        /* Helper note under Chế độ chụp (always visible, light hint). */
+        .pb-setup-note {
+          display: inline-flex;
+          align-items: flex-start;
+          gap: 6px;
+          margin: 10px 0 0;
+          padding: 8px 10px;
+          font-size: 11.5px;
+          line-height: 1.45;
+          color: var(--text);
+          opacity: 0.72;
+          background: color-mix(in srgb, var(--accent) 6%, transparent);
+          border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border));
+          border-radius: 10px;
+        }
+        .pb-setup-note :global(svg) {
+          flex-shrink: 0;
+          margin-top: 1px;
+          color: var(--accent);
+        }
+        .pb-setup-note b {
+          color: var(--text);
+          opacity: 1;
+        }
+
+        /* Edit mobile CTA — hidden on desktop. */
+        .pb-edit-cta-mobile {
+          display: none;
+        }
+        /* Result mobile CTA — hidden on desktop. */
+        .pb-result-cta-mobile {
+          display: none;
+        }
+
+        @media (max-width: 640px) {
+          /* === EDIT inline CTA bar (inside .pb-strip-wrap) === */
+          .pb-edit-cta-mobile {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 48px)) minmax(80px, 1fr);
+            gap: 6px;
+            margin: 10px 0 0;
+            padding: 8px;
+            border-radius: 18px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 24px -14px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .pb-edit-cta-tab {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            padding: 7px 2px 6px;
+            border: 0;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--text);
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            opacity: 0.72;
+            transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+            min-width: 0;
+          }
+          .pb-edit-cta-tab > span {
+            white-space: nowrap;
+          }
+          .pb-edit-cta-tab:hover,
+          .pb-edit-cta-tab.on {
+            opacity: 1;
+            background: color-mix(in srgb, var(--accent) 10%, transparent);
+            color: var(--accent);
+          }
+          .pb-edit-cta-done {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 12px;
+            color: #fff;
+            background: linear-gradient(135deg, #9b5de5 0%, #f15bb5 100%);
+            box-shadow:
+              0 8px 20px -8px rgba(155, 93, 229, 0.55),
+              inset 0 1px 0 rgba(255, 255, 255, 0.25);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            min-width: 0;
+          }
+          .pb-edit-cta-done > span {
+            white-space: nowrap;
+          }
+          .pb-edit-cta-done:disabled {
+            opacity: 0.45;
+            pointer-events: none;
+          }
+
+          /* === RESULT inline CTA — 3 distinct-color buttons === */
+          .pb-result-cta-mobile {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin: 12px 0 0;
+            padding: 8px;
+            border-radius: 18px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 24px -14px rgba(0, 0, 0, 0.25);
+          }
+          .pb-result-cta-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 11px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: filter 0.15s ease, transform 0.12s ease;
+          }
+          .pb-result-cta-btn > svg {
+            flex-shrink: 0;
+          }
+          .pb-result-cta-btn:not(:disabled):active {
+            transform: translateY(1px);
+          }
+          .pb-result-cta-btn:not(:disabled):hover {
+            filter: brightness(1.05);
+          }
+          .pb-result-cta-btn:disabled {
+            opacity: 0.45;
+            pointer-events: none;
+          }
+          /* Distinct colour per action so they're easy to tell apart. */
+          .pb-result-cta-btn.btn-download {
+            background: linear-gradient(135deg, #4cc9f0 0%, #4361ee 100%);
+            box-shadow: 0 8px 20px -8px rgba(67, 97, 238, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+          }
+          .pb-result-cta-btn.btn-qr {
+            background: linear-gradient(135deg, #9b5de5 0%, #f15bb5 100%);
+            box-shadow: 0 8px 20px -8px rgba(155, 93, 229, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+          }
+          .pb-result-cta-btn.btn-new {
+            background: linear-gradient(135deg, #06d6a0 0%, #0b8e68 100%);
+            box-shadow: 0 8px 20px -8px rgba(6, 214, 160, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+          }
         }
 
         @media (max-width: 640px) {
@@ -6719,6 +6898,12 @@ export default function PhotoboothTool() {
           .pb-grid-edit {
             display: block;
             gap: 0;
+            /* Leave room so the inline CTA bar isn't hidden under the site's
+               mobile tab bar (bottom:18px, ~90px tall). */
+            padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+          }
+          .pb-result {
+            padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
           }
           /* The camera-card fills most of the viewport (preview grows to
              fill via flex: 1) with the inline CTA bar stacked below. */

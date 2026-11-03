@@ -1,6 +1,7 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
+import { invokePhotoboothMobileAction, usePhotoboothMobileUI } from "@/lib/photobooth-mobile-ui";
 import {
   IconHome,
   IconLock,
@@ -24,7 +25,6 @@ import SkinPicker from "./SkinPicker";
 import { useEnabledThemes } from "./ThemesProvider";
 import ThemeToggle from "./ThemeToggle";
 import { useToast } from "./Toast";
-import { invokePhotoboothMobileAction, usePhotoboothMobileUI } from "@/lib/photobooth-mobile-ui";
 
 type AccountView = "user-auth" | null;
 type AuthMode = "login" | "register";
@@ -281,9 +281,7 @@ export default function MobileTabBar() {
                 const cols =
                   nonPrimary === 0
                     ? `repeat(${n}, 1fr)`
-                    : pbUI.actions
-                        .map((a) => (a.primary ? "minmax(90px, 2fr)" : "minmax(0, 50px)"))
-                        .join(" ");
+                    : pbUI.actions.map((a) => (a.primary ? "minmax(90px, 2fr)" : "minmax(0, 50px)")).join(" ");
                 return {
                   transition: "transform 220ms ease, opacity 220ms ease",
                   gridTemplateColumns: cols,
@@ -314,6 +312,16 @@ export default function MobileTabBar() {
           ))
         ) : (
           <>
+            <Link href="/" className={`mtab-btn${isHome ? " active" : ""}`} aria-label={t("mtab_home")}>
+              <IconHome size={22} stroke={1.8} />
+              <span>{t("mtab_home")}</span>
+            </Link>
+
+            <Link href="/blog" className={`mtab-btn${isBlog ? " active" : ""}`} aria-label={t("mtab_blog")}>
+              <IconNews size={22} stroke={1.8} />
+              <span>{t("mtab_blog")}</span>
+            </Link>
+
             <button
               type="button"
               className={`mtab-btn${menuOpen || isBlogPost ? " active" : ""}`}
@@ -324,16 +332,6 @@ export default function MobileTabBar() {
               <IconMenu4 size={22} stroke={1.8} />
               <span>{t("mtab_menu")}</span>
             </button>
-
-            <Link href="/blog" className={`mtab-btn${isBlog ? " active" : ""}`} aria-label={t("mtab_blog")}>
-              <IconNews size={22} stroke={1.8} />
-              <span>{t("mtab_blog")}</span>
-            </Link>
-
-            <Link href="/" className={`mtab-btn${isHome ? " active" : ""}`} aria-label={t("mtab_home")}>
-              <IconHome size={22} stroke={1.8} />
-              <span>{t("mtab_home")}</span>
-            </Link>
 
             <button
               type="button"

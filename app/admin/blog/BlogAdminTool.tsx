@@ -48,6 +48,8 @@ import {
   IconCategory,
   IconChartBar,
   IconCheck,
+  IconArrowDown,
+  IconArrowUp,
   IconChevronDown,
   IconCircleCheckFilled,
   IconCircleDashed,
@@ -75,6 +77,7 @@ import {
   IconPlayerSkipForward,
   IconPlus,
   IconRotateClockwise,
+  IconRuler,
   IconSearch,
   IconShieldCheck,
   IconSparkles,
@@ -359,23 +362,23 @@ export default function BlogAdminTool({
   const [genModel, setGenModel] = useState(`${firstProvider}|${AI_MODELS[firstProvider][0].id}`);
   const genProvider = genModel.split("|")[0] as AiProvider;
   const [genCategory, setGenCategory] = useState<BlogCategory>(initialCategories[0]?.slug || "tech");
-  const [genTone, setGenTone] = useState<GenTone>("expert");
+  const [genTone, setGenTone] = useState<GenTone>("friendly");
   const [genLength, setGenLength] = useState<GenLength>("medium");
-  const [genImages, setGenImages] = useState(3);
+  const [genImages, setGenImages] = useState(4);
   const [genResearch, setGenResearch] = useState(true);
   const [genNotes, setGenNotes] = useState("");
-  const [genAudience, setGenAudience] = useState<GenAudience>("intermediate");
-  const [genStructure, setGenStructure] = useState<GenStructure>("auto");
+  const [genAudience, setGenAudience] = useState<GenAudience>("mixed");
+  const [genStructure, setGenStructure] = useState<GenStructure>("news");
   const [genSeoKeyword, setGenSeoKeyword] = useState("");
-  const [genExtras, setGenExtras] = useState<GenExtra[]>(["tldr"]);
-  const [genCta, setGenCta] = useState<GenCta>("none");
-  const [genRegion, setGenRegion] = useState<GenRegion>("vn");
-  const [genImageStyle, setGenImageStyle] = useState<GenImageStyle>("mixed");
+  const [genExtras, setGenExtras] = useState<GenExtra[]>(["tldr", "stats"]);
+  const [genCta, setGenCta] = useState<GenCta>("share");
+  const [genRegion, setGenRegion] = useState<GenRegion>("global");
+  const [genImageStyle, setGenImageStyle] = useState<GenImageStyle>("photo");
   const [genFactCheck, setGenFactCheck] = useState(true);
   const [genInternalLinks, setGenInternalLinks] = useState(true);
   const [genAutoAi, setGenAutoAi] = useState(true);
   const [genAiPref, setGenAiPref] = useState<AiPreference>("balanced");
-  const [genPreset, setGenPreset] = useState<string>("");
+  const [genPreset, setGenPreset] = useState<string>("news");
   const [genTab, setGenTab] = useState("info");
 
   // SEO
@@ -411,7 +414,43 @@ export default function BlogAdminTool({
   const [batchIdx, setBatchIdx] = useState(0);
   const [batchTotal, setBatchTotal] = useState(0);
   const [batchRunning, setBatchRunning] = useState(false);
+  // Mutable queue of posts waiting to be generated after the current one.
+  // The ref holds the source of truth (the loop reads it each iteration);
+  // the state mirrors it so the UI can render + the user can reorder/remove.
+  type BatchItem = { title: string; angle: string };
+  const [batchQueue, setBatchQueue] = useState<BatchItem[]>([]);
+  const [batchCurrent, setBatchCurrent] = useState<BatchItem | null>(null);
+  const queueRef = useRef<BatchItem[]>([]);
+  const updateQueue = (next: BatchItem[]) => {
+    queueRef.current = next;
+    setBatchQueue(next);
+  };
   const [batchFailed, setBatchFailed] = useState<{ title: string; angle: string; error: string }[]>([]);
+  // Restore failed drafts from localStorage so the user doesn't lose them
+  // when the page reloads mid-generation.
+  const FAILED_LS_KEY = "bga-failed-drafts";
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(FAILED_LS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved) && saved.length > 0) {
+        setBatchFailed(saved);
+      }
+    } catch {}
+  }, []);
+  // Persist failed drafts whenever the list changes.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (batchFailed.length > 0) {
+        localStorage.setItem(FAILED_LS_KEY, JSON.stringify(batchFailed));
+      } else {
+        localStorage.removeItem(FAILED_LS_KEY);
+      }
+    } catch {}
+  }, [batchFailed]);
   const batchAbortRef = useRef(false);
   // Khi người dùng bấm "Huỷ sinh bài", ta muốn quay lại form tuỳ chọn thay vì
   // đứng lại ở màn tiến trình "Đã huỷ" — cờ này báo cho các nhánh async biết.
@@ -429,9 +468,7 @@ export default function BlogAdminTool({
 
   // Image picker + AI assist in the editor
   const [picker, setPicker] = useState<
-    | null
-    | { target: "cover" | "inline"; query: string }
-    | { target: "replace"; query: string; replaceUrl: string }
+    null | { target: "cover" | "inline"; query: string } | { target: "replace"; query: string; replaceUrl: string }
   >(null);
   const [assisting, setAssisting] = useState<string | null>(null);
   const [editView, setEditView] = useState<"write" | "preview">("write");
@@ -636,6 +673,19 @@ export default function BlogAdminTool({
           : msg || "Lỗi không xác định";
         setGenErr(final);
         lastGenErrRef.current = final;
+        // Standalone single-generate failure (not inside batch): save it so
+        // the user doesn't lose the attempt on reload.
+        if (!batchAbortRef.current && !batchRunning && t) {
+          const failedItem = {
+            title: t,
+            angle: (override?.notes ?? genNotes).trim(),
+            error: final,
+          };
+          setBatchFailed((prev) => {
+            if (prev.some((p) => p.title === failedItem.title)) return prev;
+            return [...prev, failedItem];
+          });
+        }
       }
     } finally {
       setGenLoading(false);
@@ -645,38 +695,56 @@ export default function BlogAdminTool({
   }
 
   async function generateBatch(itemsOverride?: { title: string; angle: string }[]) {
-    const items = itemsOverride || Object.entries(selectedIdeas).map(([title, angle]) => ({ title, angle }));
-    if (!items.length) return;
+    const initial =
+      itemsOverride || Object.entries(selectedIdeas).map(([title, angle]) => ({ title, angle }));
+    if (!initial.length) return;
     batchAbortRef.current = false;
     setBatchRunning(true);
-    setBatchTotal(items.length);
+    setBatchTotal(initial.length);
     setBatchFailed([]);
+    // Seed the mutable queue: first item becomes current, rest wait in queue.
+    const first = initial[0];
+    updateQueue(initial.slice(1));
+    setBatchCurrent(first);
     let ok = 0;
+    let doneIdx = 0;
     const failed: { title: string; angle: string; error: string }[] = [];
-    for (let i = 0; i < items.length; i++) {
-      if (batchAbortRef.current) {
-        // Bài còn lại sau khi huỷ cũng coi là chưa xong — giữ nguyên để người dùng thử lại.
-        for (let j = i; j < items.length; j++) failed.push({ ...items[j], error: "Đã huỷ" });
-        break;
-      }
-      setBatchIdx(i + 1);
+    let current: BatchItem | null = first;
+    while (current && !batchAbortRef.current) {
+      doneIdx++;
+      setBatchIdx(doneIdx);
       setGenSteps({});
       setGenErr("");
       setGenAborted(false);
       let r: BlogPost | null = null;
       try {
-        r = (await generate({ topic: items[i].title, notes: items[i].angle })) || null;
+        r = (await generate({ topic: current.title, notes: current.angle })) || null;
       } catch (e: any) {
         r = null;
       }
       if (r) ok++;
-      else failed.push({ ...items[i], error: lastGenErrRef.current || "Lỗi không xác định" });
+      else failed.push({ ...current, error: lastGenErrRef.current || "Lỗi không xác định" });
+      // Pick the next item FROM THE REF (user may have reordered/removed it
+      // while the previous post was generating).
+      const remaining = queueRef.current;
+      if (!remaining.length) break;
+      current = remaining[0];
+      updateQueue(remaining.slice(1));
+      setBatchCurrent(current);
+      // Also bump the total if the user removed items mid-run.
+      setBatchTotal(doneIdx + remaining.length);
       // Short gap between runs to let rate limits breathe.
-      if (i < items.length - 1 && !batchAbortRef.current) await new Promise((res) => setTimeout(res, 800));
+      if (!batchAbortRef.current) await new Promise((res) => setTimeout(res, 800));
+    }
+    // Anything the user removed OR left after abort stays as "chưa xong".
+    if (batchAbortRef.current) {
+      for (const q of queueRef.current) failed.push({ ...q, error: "Đã huỷ" });
     }
     setBatchRunning(false);
     setBatchTotal(0);
     setBatchIdx(0);
+    setBatchCurrent(null);
+    updateQueue([]);
     // Người dùng chủ động huỷ: đã quay về form tuỳ chọn, không hiện danh sách lỗi.
     if (userCancelRef.current) {
       setBatchFailed([]);
@@ -693,7 +761,8 @@ export default function BlogAdminTool({
       setGenNotes("");
       setGenerateOpen(false);
     }
-    toast(`Đã sinh ${ok}/${items.length} bài${failed.length ? ` · ${failed.length} lỗi` : ""}`);
+    const totalRun = ok + failed.length;
+    toast(`Đã sinh ${ok}/${totalRun} bài${failed.length ? ` · ${failed.length} lỗi` : ""}`);
   }
 
   const ideasPrevRef = useRef<{ ideas: typeof ideas; selected: typeof selectedIdeas } | null>(null);
@@ -1167,6 +1236,7 @@ export default function BlogAdminTool({
       }
     >
       <div
+        className="bga-top-toolbar"
         style={{
           display: "flex",
           gap: 8,
@@ -1177,6 +1247,7 @@ export default function BlogAdminTool({
         }}
       >
         <div
+          className="bga-top-tabs"
           style={{
             display: "flex",
             gap: 4,
@@ -1223,27 +1294,96 @@ export default function BlogAdminTool({
             </button>
           )}
         </div>
-        {tab === "posts" ? (
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => setManualOpen(true)} className={isSuperAdmin ? "fx-btn" : "fx-btn fx-btn-primary"}>
-              <IconWriting size={14} stroke={2.2} /> Soạn thủ công
-            </button>
-            {isSuperAdmin && (
-              <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
-                <IconSparkles size={14} stroke={2.2} /> Sinh bài AI
+        <div className="bga-top-actions">
+          {tab === "posts" ? (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={() => setManualOpen(true)}
+                className={isSuperAdmin ? "fx-btn" : "fx-btn fx-btn-primary"}
+              >
+                <IconWriting size={14} stroke={2.2} /> Soạn thủ công
               </button>
-            )}
-          </div>
-        ) : tab === "categories" ? (
-          <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
-            <IconPlus size={14} stroke={2.2} /> Thêm danh mục
-          </button>
-        ) : tab === "knowledge" ? (
-          <button onClick={() => setDykChooserOpen(true)} className="fx-btn fx-btn-primary">
-            <IconPlus size={14} stroke={2.2} /> Thêm kiến thức
-          </button>
-        ) : null}
+              {isSuperAdmin && (
+                <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
+                  <IconSparkles size={14} stroke={2.2} /> Sinh bài AI
+                </button>
+              )}
+            </div>
+          ) : tab === "categories" ? (
+            <button onClick={openNewCategory} className="fx-btn fx-btn-primary">
+              <IconPlus size={14} stroke={2.2} /> Thêm danh mục
+            </button>
+          ) : tab === "knowledge" ? (
+            <button onClick={() => setDykChooserOpen(true)} className="fx-btn fx-btn-primary">
+              <IconPlus size={14} stroke={2.2} /> Thêm kiến thức
+            </button>
+          ) : null}
+        </div>
       </div>
+
+      {/* Failed-draft recovery banner — persisted across reloads so the user
+          can retry generation after a crash or page refresh. */}
+      {tab === "posts" && isSuperAdmin && batchFailed.length > 0 && (
+        <div className="bga-failed-banner" role="status">
+          <div className="bga-failed-banner-head">
+            <span className="bga-failed-banner-ic">
+              <IconAlertTriangle size={16} stroke={2} />
+            </span>
+            <div className="bga-failed-banner-text">
+              <b>{batchFailed.length} bài sinh lỗi chưa xong</b>
+              <span>Đã lưu lại, có thể thử sinh lại sau khi reload.</span>
+            </div>
+            <div className="bga-failed-banner-actions">
+              <button
+                type="button"
+                className="fx-btn fx-btn-primary"
+                onClick={() => {
+                  const retryItems = batchFailed.map(({ title, angle }) => ({ title, angle }));
+                  setBatchFailed([]);
+                  setGenSteps({});
+                  setGenErr("");
+                  setGenAborted(false);
+                  setGenerateOpen(true);
+                  generateBatch(retryItems);
+                }}
+              >
+                <IconRotateClockwise size={13} /> Thử lại tất cả
+              </button>
+              <button
+                type="button"
+                className="fx-btn"
+                onClick={() => setGenerateOpen(true)}
+                title="Mở trình sinh để xem và chỉnh"
+              >
+                Xem chi tiết
+              </button>
+              <button
+                type="button"
+                className="fx-btn fx-btn-ghost"
+                onClick={() => {
+                  if (confirm(`Xoá ${batchFailed.length} bài lỗi khỏi danh sách?`)) {
+                    setBatchFailed([]);
+                  }
+                }}
+                title="Xoá danh sách lỗi"
+              >
+                <IconX size={13} stroke={2} />
+              </button>
+            </div>
+          </div>
+          <ul className="bga-failed-banner-list">
+            {batchFailed.slice(0, 5).map((f) => (
+              <li key={f.title}>
+                <b>{f.title}</b>
+                {f.error ? <span className="bga-failed-banner-err"> — {f.error}</span> : null}
+              </li>
+            ))}
+            {batchFailed.length > 5 && (
+              <li className="bga-failed-banner-more">+{batchFailed.length - 5} bài khác…</li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {tab === "images" ? (
         isSuperAdmin ? (
@@ -1494,47 +1634,42 @@ export default function BlogAdminTool({
                 {pinned.length === 0 ? (
                   <div className="bga-pinned-empty">Chưa có bài nào được ghim. Bấm &quot;Chọn bài&quot; để thêm.</div>
                 ) : (
-                <div className="bga-pinned-list">
-                  {pinned.map((p) => (
-                    <div key={p.slug} className="bga-pinned-item">
-                      <div className="bga-pinned-thumb">
-                        {p.coverImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={rewriteImgUrl(
-                              p.coverImage
-                                .split("#")[0]
-                                .replace(/([?&])w=\d+/, "$1w=120")
-                                .replace(/([?&])h=\d+/, "$1h=80"),
-                            )}
-                            alt=""
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
-                        )}
+                  <div className="bga-pinned-list">
+                    {pinned.map((p) => (
+                      <div key={p.slug} className="bga-pinned-item">
+                        <div className="bga-pinned-thumb">
+                          {p.coverImage ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={rewriteImgUrl(
+                                p.coverImage
+                                  .split("#")[0]
+                                  .replace(/([?&])w=\d+/, "$1w=120")
+                                  .replace(/([?&])h=\d+/, "$1h=80"),
+                              )}
+                              alt=""
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
+                          )}
+                        </div>
+                        <button className="bga-pinned-title" onClick={() => startEdit(p)} title="Sửa" type="button">
+                          {p.title}
+                        </button>
+                        <button
+                          className="fx-btn fx-btn-icon"
+                          onClick={() => togglePin(p)}
+                          title="Bỏ ghim"
+                          style={{ color: "var(--warn, #f59e0b)" }}
+                          type="button"
+                        >
+                          <IconPinFilled size={13} stroke={2} />
+                        </button>
                       </div>
-                      <button
-                        className="bga-pinned-title"
-                        onClick={() => startEdit(p)}
-                        title="Sửa"
-                        type="button"
-                      >
-                        {p.title}
-                      </button>
-                      <button
-                        className="fx-btn fx-btn-icon"
-                        onClick={() => togglePin(p)}
-                        title="Bỏ ghim"
-                        style={{ color: "var(--warn, #f59e0b)" }}
-                        type="button"
-                      >
-                        <IconPinFilled size={13} stroke={2} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
                 )}
               </div>
             );
@@ -1548,108 +1683,108 @@ export default function BlogAdminTool({
             </div>
           ) : (
             <div className="fx-table">
-          <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "56px 1fr 100px 110px 100px 190px" }}>
-            <div />
-            <div>Bài viết</div>
-            <div>Category</div>
-            <div>Status</div>
-            <div>Ngày</div>
-            <div style={{ textAlign: "right" }}>Actions</div>
-          </div>
-          {visible.map((p) => {
-              const status = (p.status || "published") as BlogStatus;
-              return (
-                <div
-                  key={p.slug}
-                  className="fx-row blog-row"
-                  style={{ gridTemplateColumns: "56px 1fr 100px 110px 100px 190px" }}
-                >
-                  <div className="bga-thumb">
-                    {p.coverImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={rewriteImgUrl(
-                          p.coverImage
-                            .split("#")[0]
-                            .replace(/([?&])w=\d+/, "$1w=160")
-                            .replace(/([?&])h=\d+/, "$1h=100"),
-                        )}
-                        alt=""
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
-                    )}
-                  </div>
+              <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "56px 1fr 100px 110px 100px 190px" }}>
+                <div />
+                <div>Bài viết</div>
+                <div>Category</div>
+                <div>Status</div>
+                <div>Ngày</div>
+                <div style={{ textAlign: "right" }}>Actions</div>
+              </div>
+              {visible.map((p) => {
+                const status = (p.status || "published") as BlogStatus;
+                return (
                   <div
-                    className="fx-title-cell blog-title-click"
-                    onClick={() => startEdit(p)}
-                    style={{ cursor: "pointer" }}
-                    title="Sửa"
+                    key={p.slug}
+                    className="fx-row blog-row"
+                    style={{ gridTemplateColumns: "56px 1fr 100px 110px 100px 190px" }}
                   >
-                    <div className="fx-t-row">
-                      <b>{p.title}</b>
-                      <span className="fx-t-href">/blog/{p.slug}</span>
+                    <div className="bga-thumb">
+                      {p.coverImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={rewriteImgUrl(
+                            p.coverImage
+                              .split("#")[0]
+                              .replace(/([?&])w=\d+/, "$1w=160")
+                              .replace(/([?&])h=\d+/, "$1h=100"),
+                          )}
+                          alt=""
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
+                      )}
                     </div>
-                    <span className="fx-t-sub">{p.excerpt}</span>
-                  </div>
-                  <div>
-                    <span className="fx-cat-cell" data-cat={p.category}>
-                      {CAT_LABEL[p.category] || p.category}
-                    </span>
-                  </div>
-                  <div>
-                    <span
-                      className="fx-badge"
-                      data-tone={status === "published" ? "ok" : status === "rejected" ? "err" : "mute"}
+                    <div
+                      className="fx-title-cell blog-title-click"
+                      onClick={() => startEdit(p)}
+                      style={{ cursor: "pointer" }}
+                      title="Sửa"
                     >
-                      {STATUS_LABEL[status]}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--fg-muted, #888)" }}>{p.date}</div>
-                  <div className="fx-row-actions">
-                    {isSuperAdmin && (status === "draft" || status === "rejected") && (
-                      <button
-                        className="fx-btn fx-btn-icon"
-                        onClick={() => approve(p)}
-                        title="Duyệt → DB"
-                        style={{ color: "var(--ok, #10b981)" }}
+                      <div className="fx-t-row">
+                        <b>{p.title}</b>
+                        <span className="fx-t-href">/blog/{p.slug}</span>
+                      </div>
+                      <span className="fx-t-sub">{p.excerpt}</span>
+                    </div>
+                    <div>
+                      <span className="fx-cat-cell" data-cat={p.category}>
+                        {CAT_LABEL[p.category] || p.category}
+                      </span>
+                    </div>
+                    <div>
+                      <span
+                        className="fx-badge"
+                        data-tone={status === "published" ? "ok" : status === "rejected" ? "err" : "mute"}
                       >
-                        <IconCheck size={14} stroke={2} />
-                      </button>
-                    )}
-                    {isSuperAdmin && status === "draft" && (
-                      <button
-                        className="fx-btn fx-btn-icon"
-                        onClick={() => reject(p)}
-                        title="Từ chối"
-                        style={{ color: "var(--warn, #f59e0b)" }}
-                      >
-                        <IconX size={14} stroke={2} />
-                      </button>
-                    )}
-                    {status === "published" ? (
-                      <>
-                        <Link href={`/blog/${p.slug}`} target="_blank" className="fx-btn fx-btn-icon" title="Xem">
-                          <IconEye size={14} stroke={1.9} />
-                        </Link>
-                        {isSuperAdmin && (
-                          <button
-                            className="fx-btn fx-btn-icon"
-                            onClick={() => unpublish(p)}
-                            title="Về nháp để sửa"
-                            style={{ color: "var(--info, #3b82f6)" }}
-                          >
-                            <IconRotateClockwise size={14} stroke={1.9} />
-                          </button>
-                        )}
-                      </>
-                    ) : null}
+                        {STATUS_LABEL[status]}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--fg-muted, #888)" }}>{p.date}</div>
+                    <div className="fx-row-actions">
+                      {isSuperAdmin && (status === "draft" || status === "rejected") && (
+                        <button
+                          className="fx-btn fx-btn-icon"
+                          onClick={() => approve(p)}
+                          title="Duyệt → DB"
+                          style={{ color: "var(--ok, #10b981)" }}
+                        >
+                          <IconCheck size={14} stroke={2} />
+                        </button>
+                      )}
+                      {isSuperAdmin && status === "draft" && (
+                        <button
+                          className="fx-btn fx-btn-icon"
+                          onClick={() => reject(p)}
+                          title="Từ chối"
+                          style={{ color: "var(--warn, #f59e0b)" }}
+                        >
+                          <IconX size={14} stroke={2} />
+                        </button>
+                      )}
+                      {status === "published" ? (
+                        <>
+                          <Link href={`/blog/${p.slug}`} target="_blank" className="fx-btn fx-btn-icon" title="Xem">
+                            <IconEye size={14} stroke={1.9} />
+                          </Link>
+                          {isSuperAdmin && (
+                            <button
+                              className="fx-btn fx-btn-icon"
+                              onClick={() => unpublish(p)}
+                              title="Về nháp để sửa"
+                              style={{ color: "var(--info, #3b82f6)" }}
+                            >
+                              <IconRotateClockwise size={14} stroke={1.9} />
+                            </button>
+                          )}
+                        </>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
             </div>
           )}
         </>
@@ -1755,6 +1890,83 @@ export default function BlogAdminTool({
                       <div className="bga-progress-bar">
                         <div className="bga-progress-fill" style={{ width: `${pct}%` }} />
                       </div>
+
+                      {batchRunning && (batchCurrent || batchQueue.length > 0) && (
+                        <div className="bga-queue">
+                          <div className="bga-queue-head">
+                            <IconSparkles size={13} stroke={2} />
+                            <span>Hàng chờ sinh bài</span>
+                            <span className="bga-queue-count">{batchQueue.length} bài chờ</span>
+                          </div>
+                          <ol className="bga-queue-list">
+                            {batchCurrent && (
+                              <li className="bga-queue-item is-current">
+                                <span className="bga-queue-pos">
+                                  <IconLoader2 size={12} className="spin" />
+                                </span>
+                                <div className="bga-queue-body">
+                                  <b>{batchCurrent.title}</b>
+                                  {batchCurrent.angle && <span>{batchCurrent.angle}</span>}
+                                </div>
+                                <span className="bga-queue-tag">Đang sinh</span>
+                              </li>
+                            )}
+                            {batchQueue.map((item, i) => (
+                              <li key={`${item.title}::${i}`} className="bga-queue-item">
+                                <span className="bga-queue-pos">{i + 2}</span>
+                                <div className="bga-queue-body">
+                                  <b>{item.title}</b>
+                                  {item.angle && <span>{item.angle}</span>}
+                                </div>
+                                <div className="bga-queue-actions">
+                                  <button
+                                    type="button"
+                                    className="bga-queue-btn"
+                                    disabled={i === 0}
+                                    onClick={() => {
+                                      const next = [...queueRef.current];
+                                      [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                                      updateQueue(next);
+                                    }}
+                                    title="Lên 1 bậc"
+                                    aria-label="Lên"
+                                  >
+                                    <IconArrowUp size={12} stroke={2.2} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="bga-queue-btn"
+                                    disabled={i === batchQueue.length - 1}
+                                    onClick={() => {
+                                      const next = [...queueRef.current];
+                                      [next[i + 1], next[i]] = [next[i], next[i + 1]];
+                                      updateQueue(next);
+                                    }}
+                                    title="Xuống 1 bậc"
+                                    aria-label="Xuống"
+                                  >
+                                    <IconArrowDown size={12} stroke={2.2} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="bga-queue-btn bga-queue-btn-del"
+                                    onClick={() => {
+                                      const next = queueRef.current.filter((_, j) => j !== i);
+                                      updateQueue(next);
+                                      // Shrink total so progress reflects reality.
+                                      setBatchTotal((prev) => Math.max(batchIdx, prev - 1));
+                                    }}
+                                    title="Bỏ bài này khỏi hàng chờ"
+                                    aria-label="Xoá"
+                                  >
+                                    <IconX size={12} stroke={2.4} />
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
 
                       <ol className="bga-prog-grid">
                         {keys.map((k) => {
@@ -1959,7 +2171,7 @@ export default function BlogAdminTool({
                           <IconBrain size={13} stroke={1.9} /> Nâng cao
                         </Tab>
                         <Tab value="sources">
-                          <IconLink size={13} stroke={1.9} /> Nguồn
+                          <IconLink size={13} stroke={1.9} /> Công cụ
                         </Tab>
                       </TabsList>
 
@@ -1991,7 +2203,7 @@ export default function BlogAdminTool({
                                   inputSize="sm"
                                 />
                               </Field>
-                              <Field label="Từ khoá liên quan (LSI, cách bằng dấu phẩy)">
+                              <Field label="Từ khoá liên quan (Cách bằng dấu phẩy)">
                                 <Input
                                   value={genLsi}
                                   onChange={(e) => setGenLsi(e.target.value)}
@@ -2142,7 +2354,7 @@ export default function BlogAdminTool({
                                       setGenTone("friendly");
                                       setGenStructure("news");
                                       setGenAudience("mixed");
-                                      setGenLength("short");
+                                      setGenLength("medium");
                                       setGenExtras(["tldr", "stats"]);
                                       setGenRegion("global");
                                       setGenImageStyle("photo");
@@ -2264,7 +2476,13 @@ export default function BlogAdminTool({
                                   selectSize="sm"
                                 />
                               </Field>
-                              <Field label="Độ dài">
+                              <Field
+                                label={
+                                  <>
+                                    <IconRuler size={11} stroke={1.9} /> Độ dài
+                                  </>
+                                }
+                              >
                                 <div className="bga-seg bga-seg-sm">
                                   {GEN_LENGTHS.map((l) => (
                                     <button
@@ -2287,7 +2505,7 @@ export default function BlogAdminTool({
                                 }
                               >
                                 <div className="bga-seg bga-seg-sm">
-                                  {[0, 1, 2, 3, 4].map((n) => (
+                                  {[0, 2, 4, 6, 8, 10].map((n) => (
                                     <button
                                       key={n}
                                       type="button"
@@ -2316,7 +2534,6 @@ export default function BlogAdminTool({
                                 placeholder="Ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
                               />
                             </Field>
-
                           </div>
                         </div>
                       </TabPanel>
@@ -2331,11 +2548,7 @@ export default function BlogAdminTool({
                             <span className="bga-opt-card-dim">Chèn block ở cuối bài</span>
                           </div>
                           <div className="bga-opt-card-body">
-                            <RelatedToolsPicker
-                              value={genRelatedTools}
-                              onChange={setGenRelatedTools}
-                              title={topic}
-                            />
+                            <RelatedToolsPicker value={genRelatedTools} onChange={setGenRelatedTools} title={topic} />
                           </div>
                         </div>
                       </TabPanel>
@@ -3130,7 +3343,13 @@ export default function BlogAdminTool({
                       setReimageList(null);
                       setPicker({
                         target: "replace",
-                        query: photoQuery(it.alt || editing.title, editing.tags.split(",").map((t) => t.trim()).filter(Boolean)),
+                        query: photoQuery(
+                          it.alt || editing.title,
+                          editing.tags
+                            .split(",")
+                            .map((t) => t.trim())
+                            .filter(Boolean),
+                        ),
                         replaceUrl: it.url,
                       });
                     }}

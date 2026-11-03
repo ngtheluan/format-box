@@ -186,7 +186,11 @@ export async function callLlm(o: LlmOpts): Promise<LlmResult> {
   }
 
   const started = Date.now();
-  const budget = Math.max(o.timeoutMs ?? 150_000, 60_000) * 1.5;
+  // Scale the overall fallback budget off the caller's own timeoutMs instead
+  // of enforcing a 60s floor — short tasks (e.g. /ideas with 12s per call)
+  // shouldn't be allowed to run 90s through the fallback chain.
+  const perCall = o.timeoutMs ?? 150_000;
+  const budget = Math.min(perCall * 2.5, 150_000);
   const errors: string[] = [];
   for (const [p, m] of chain) {
     if (Date.now() - started > budget) break;
