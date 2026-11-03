@@ -248,43 +248,57 @@ export default function ManualComposer({ open, categories, onClose, onSaved }: P
         <div className="fx-modal-body" style={{ overflow: "auto" }}>
           <div className="fx-field">
             <label>Ảnh bìa</label>
-            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <div
-                style={{
-                  width: 180,
-                  height: 100,
-                  borderRadius: 8,
-                  border: "1px dashed var(--border)",
-                  background: cover ? `url(${cover}) center/cover` : "linear-gradient(135deg,#6366f1,#a855f7)",
-                  flexShrink: 0,
-                }}
-              />
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <button
-                  type="button"
-                  className="fx-btn"
-                  onClick={() => coverFileRef.current?.click()}
-                  disabled={coverUploading}
-                >
-                  <IconUpload size={14} stroke={1.9} /> {coverUploading ? "Đang upload…" : cover ? "Đổi ảnh" : "Chọn ảnh"}
-                </button>
-                {cover && (
+            <div
+              className={`mc-cover${cover ? " has-img" : ""}${coverUploading ? " is-busy" : ""}`}
+              onClick={() => !cover && !coverUploading && coverFileRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.add("is-drag");
+              }}
+              onDragLeave={(e) => e.currentTarget.classList.remove("is-drag")}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove("is-drag");
+                const f = e.dataTransfer.files?.[0];
+                if (f && f.type.startsWith("image/")) onCoverPick(f);
+              }}
+              style={{
+                backgroundImage: cover ? `url(${cover})` : undefined,
+              }}
+            >
+              {!cover && (
+                <div className="mc-cover-empty">
+                  <IconPhotoPlus size={28} stroke={1.6} />
+                  <b>{coverUploading ? "Đang upload…" : "Chọn ảnh bìa"}</b>
+                  <small>Nhấn hoặc kéo-thả ảnh vào đây</small>
+                </div>
+              )}
+              {cover && (
+                <div className="mc-cover-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="fx-btn"
+                    onClick={() => coverFileRef.current?.click()}
+                    disabled={coverUploading}
+                  >
+                    <IconUpload size={14} stroke={1.9} /> {coverUploading ? "Đang upload…" : "Đổi ảnh"}
+                  </button>
                   <button type="button" className="fx-btn fx-btn-ghost" onClick={() => setCover("")}>
                     <IconX size={14} stroke={1.9} /> Bỏ ảnh
                   </button>
-                )}
-                <input
-                  ref={coverFileRef}
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) onCoverPick(f);
-                    e.target.value = "";
-                  }}
-                />
-              </div>
+                </div>
+              )}
+              <input
+                ref={coverFileRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onCoverPick(f);
+                  e.target.value = "";
+                }}
+              />
             </div>
           </div>
 

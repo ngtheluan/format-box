@@ -110,9 +110,7 @@ export default function AdminTabBar() {
         aria-label="Admin"
         style={{
           transition: "transform 220ms ease, opacity 220ms ease",
-          transform: hidden
-            ? "translateX(-50%) translateY(calc(100% + 32px))"
-            : "translateX(-50%) translateY(0)",
+          transform: hidden ? "translateX(-50%) translateY(calc(100% + 32px))" : "translateX(-50%) translateY(0)",
           opacity: hidden ? 0 : 1,
           pointerEvents: hidden ? "none" : undefined,
         }}
@@ -130,7 +128,7 @@ export default function AdminTabBar() {
               aria-label="Soạn thủ công"
             >
               <IconWriting size={22} stroke={1.8} />
-              <span>Soạn</span>
+              <span>Manual</span>
             </button>
             {user?.role === "superadmin" && (
               <button

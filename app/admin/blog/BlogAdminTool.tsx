@@ -508,11 +508,15 @@ export default function BlogAdminTool({
   const [manualOpen, setManualOpen] = useState(false);
 
   // AdminTabBar dispatches these so the bottom bar can trigger the modals.
+  const [skipTopicAutoFocus, setSkipTopicAutoFocus] = useState(false);
   useEffect(() => {
     const handler = (e: Event) => {
       const kind = (e as CustomEvent<{ kind: "manual" | "generate" }>).detail?.kind;
       if (kind === "manual") setManualOpen(true);
-      else if (kind === "generate" && isSuperAdmin) setGenerateOpen(true);
+      else if (kind === "generate" && isSuperAdmin) {
+        setSkipTopicAutoFocus(true);
+        setGenerateOpen(true);
+      }
     };
     window.addEventListener("fb:blog-admin-action", handler);
     return () => window.removeEventListener("fb:blog-admin-action", handler);
@@ -611,6 +615,8 @@ export default function BlogAdminTool({
       }
     } catch {}
   }, [batchFailed]);
+  const batchStartRef = useRef<number>(0);
+  const [batchEtaSec, setBatchEtaSec] = useState<number | null>(null);
   const batchAbortRef = useRef(false);
   // Khi người dùng bấm "Huỷ sinh bài", ta muốn quay lại form tuỳ chọn thay vì
   // đứng lại ở màn tiến trình "Đã huỷ" — cờ này báo cho các nhánh async biết.
@@ -891,6 +897,8 @@ export default function BlogAdminTool({
       itemsOverride || Object.entries(selectedIdeas).map(([title, angle]) => ({ title, angle }));
     if (!initial.length) return;
     batchAbortRef.current = false;
+    batchStartRef.current = Date.now();
+    setBatchEtaSec(null);
     setBatchRunning(true);
     setBatchTotal(initial.length);
     setBatchFailed([]);
@@ -916,6 +924,11 @@ export default function BlogAdminTool({
       }
       if (r) ok++;
       else failed.push({ ...current, error: lastGenErrRef.current || "Lỗi không xác định" });
+      // Update ETA from average time per completed post.
+      const elapsedMs = Date.now() - batchStartRef.current;
+      const avgMs = elapsedMs / doneIdx;
+      const remainingCount = queueRef.current.length;
+      setBatchEtaSec(remainingCount > 0 ? Math.round((avgMs * remainingCount) / 1000) : null);
       // Pick the next item FROM THE REF (user may have reordered/removed it
       // while the previous post was generating).
       const remaining = queueRef.current;
@@ -936,6 +949,7 @@ export default function BlogAdminTool({
     setBatchTotal(0);
     setBatchIdx(0);
     setBatchCurrent(null);
+    setBatchEtaSec(null);
     updateQueue([]);
     // Người dùng chủ động huỷ: đã quay về form tuỳ chọn, không hiện danh sách lỗi.
     if (userCancelRef.current) {
@@ -1444,63 +1458,106 @@ export default function BlogAdminTool({
       onLogout={logout}
       headerActions={null}
       stats={
-        <>
-          <div
-            className="fx-stat"
-            onClick={() => setStatusFilter("all")}
-            style={{ cursor: "pointer", ...(statusFilter === "all" ? statActiveStyle : null) }}
-          >
+        tab === "posts" ? (
+          <>
+            <div
+              className="fx-stat"
+              onClick={() => setStatusFilter("all")}
+              style={{ cursor: "pointer", ...(statusFilter === "all" ? statActiveStyle : null) }}
+            >
+              <span className="fx-stat-ico">
+                <IconArticle size={18} stroke={1.9} />
+              </span>
+              <span className="fx-stat-txt">
+                <span className="fx-stat-val">{counts.all}</span>
+                <span className="fx-stat-lbl">Tổng bài</span>
+              </span>
+            </div>
+            <div
+              className="fx-stat"
+              data-tone="mute"
+              onClick={() => setStatusFilter("draft")}
+              style={{ cursor: "pointer", ...(statusFilter === "draft" ? statActiveStyle : null) }}
+            >
+              <span className="fx-stat-ico">
+                <IconClock size={18} stroke={1.9} />
+              </span>
+              <span className="fx-stat-txt">
+                <span className="fx-stat-val">{counts.draft}</span>
+                <span className="fx-stat-lbl">Nháp</span>
+              </span>
+            </div>
+            <div
+              className="fx-stat"
+              data-tone="err"
+              onClick={() => setStatusFilter("rejected")}
+              style={{ cursor: "pointer", ...(statusFilter === "rejected" ? statActiveStyle : null) }}
+            >
+              <span className="fx-stat-ico">
+                <IconX size={18} stroke={1.9} />
+              </span>
+              <span className="fx-stat-txt">
+                <span className="fx-stat-val">{counts.rejected}</span>
+                <span className="fx-stat-lbl">Từ chối</span>
+              </span>
+            </div>
+            <div
+              className="fx-stat"
+              data-tone="ok"
+              onClick={() => setStatusFilter("published")}
+              style={{ cursor: "pointer", ...(statusFilter === "published" ? statActiveStyle : null) }}
+            >
+              <span className="fx-stat-ico">
+                <IconCircleDashedCheck size={18} stroke={1.9} />
+              </span>
+              <span className="fx-stat-txt">
+                <span className="fx-stat-val">{counts.published}</span>
+                <span className="fx-stat-lbl">Phát hành</span>
+              </span>
+            </div>
+          </>
+        ) : tab === "categories" ? (
+          <div className="fx-stat">
             <span className="fx-stat-ico">
-              <IconArticle size={18} stroke={1.9} />
+              <IconCategory size={18} stroke={1.9} />
             </span>
             <span className="fx-stat-txt">
-              <span className="fx-stat-val">{counts.all}</span>
-              <span className="fx-stat-lbl">Tổng bài</span>
+              <span className="fx-stat-val">{cats.length}</span>
+              <span className="fx-stat-lbl">Danh mục</span>
             </span>
           </div>
-          <div
-            className="fx-stat"
-            data-tone="mute"
-            onClick={() => setStatusFilter("draft")}
-            style={{ cursor: "pointer", ...(statusFilter === "draft" ? statActiveStyle : null) }}
-          >
+        ) : tab === "series" ? (
+          <div className="fx-stat">
             <span className="fx-stat-ico">
-              <IconClock size={18} stroke={1.9} />
+              <IconListNumbers size={18} stroke={1.9} />
             </span>
             <span className="fx-stat-txt">
-              <span className="fx-stat-val">{counts.draft}</span>
-              <span className="fx-stat-lbl">Nháp</span>
+              <span className="fx-stat-val">{seriesGroups.length}</span>
+              <span className="fx-stat-lbl">Series</span>
             </span>
           </div>
-          <div
-            className="fx-stat"
-            data-tone="err"
-            onClick={() => setStatusFilter("rejected")}
-            style={{ cursor: "pointer", ...(statusFilter === "rejected" ? statActiveStyle : null) }}
-          >
-            <span className="fx-stat-ico">
-              <IconX size={18} stroke={1.9} />
-            </span>
-            <span className="fx-stat-txt">
-              <span className="fx-stat-val">{counts.rejected}</span>
-              <span className="fx-stat-lbl">Từ chối</span>
-            </span>
-          </div>
-          <div
-            className="fx-stat"
-            data-tone="ok"
-            onClick={() => setStatusFilter("published")}
-            style={{ cursor: "pointer", ...(statusFilter === "published" ? statActiveStyle : null) }}
-          >
-            <span className="fx-stat-ico">
-              <IconCircleDashedCheck size={18} stroke={1.9} />
-            </span>
-            <span className="fx-stat-txt">
-              <span className="fx-stat-val">{counts.published}</span>
-              <span className="fx-stat-lbl">Phát hành</span>
-            </span>
-          </div>
-        </>
+        ) : tab === "knowledge" ? (
+          <>
+            <div className="fx-stat">
+              <span className="fx-stat-ico">
+                <IconBulb size={18} stroke={1.9} />
+              </span>
+              <span className="fx-stat-txt">
+                <span className="fx-stat-val">{dyk.length}</span>
+                <span className="fx-stat-lbl">Kiến thức</span>
+              </span>
+            </div>
+            <div className="fx-stat" data-tone="ok">
+              <span className="fx-stat-ico">
+                <IconCircleDashedCheck size={18} stroke={1.9} />
+              </span>
+              <span className="fx-stat-txt">
+                <span className="fx-stat-val">{dyk.filter((d) => d.active).length}</span>
+                <span className="fx-stat-lbl">Đang bật</span>
+              </span>
+            </div>
+          </>
+        ) : null
       }
     >
       <div
@@ -2174,7 +2231,11 @@ export default function BlogAdminTool({
               </h2>
               <button
                 className="fx-btn fx-btn-icon fx-btn-ghost"
-                onClick={() => !genLoading && !batchRunning && setGenerateOpen(false)}
+                onClick={() => {
+                  if (genLoading || batchRunning) return;
+                  setGenerateOpen(false);
+                  setSkipTopicAutoFocus(false);
+                }}
                 disabled={genLoading || batchRunning}
                 title={genLoading || batchRunning ? "Đang sinh bài — không thể đóng" : "Đóng"}
               >
@@ -2260,6 +2321,14 @@ export default function BlogAdminTool({
                             <IconSparkles size={13} stroke={2} />
                             <span>Hàng chờ sinh bài</span>
                             <span className="bga-queue-count">{batchQueue.length} bài chờ</span>
+                            {batchEtaSec != null && batchEtaSec > 0 && (
+                              <span className="bga-queue-count" title="Thời gian dự kiến còn lại">
+                                <IconClock size={11} stroke={2} />{" "}
+                                {batchEtaSec >= 60
+                                  ? `~${Math.round(batchEtaSec / 60)} phút`
+                                  : `~${batchEtaSec}s`}
+                              </span>
+                            )}
                           </div>
                           <ol className="bga-queue-list">
                             {batchCurrent && (
@@ -2376,7 +2445,7 @@ export default function BlogAdminTool({
                     {/* HERO — unified topic input (empty → AI auto picks) */}
                     <div className="bga-topic-hero">
                       <Input
-                        autoFocus
+                        autoFocus={!skipTopicAutoFocus}
                         className="bga-topic-input"
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}

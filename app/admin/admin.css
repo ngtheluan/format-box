@@ -914,7 +914,10 @@ body:has(.fx-modal-bg) {
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    opacity 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 .fx-modal-tab:hover {
   opacity: 0.9;
@@ -946,7 +949,6 @@ body:has(.fx-modal-bg) {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--fx-accent), var(--fx-accent-2));
   z-index: 2;
 }
 .fx-modal-head {

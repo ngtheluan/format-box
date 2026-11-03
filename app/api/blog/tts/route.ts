@@ -11,7 +11,6 @@ const BUCKET = "blog-audio";
 
 const VOICES: Record<string, string> = {
   "hoaimy": "vi-VN-HoaiMyNeural",
-  "namminh": "vi-VN-NamMinhNeural",
 };
 
 const TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
@@ -33,6 +32,9 @@ function stripMarkdown(md: string): string {
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`[^`]*`/g, " ")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    // Image credit lines: `*Ảnh: [name](url) / Source*` or `_Ảnh: ..._`
+    .replace(/^[ \t]*[*_]+\s*Ảnh\s*:[^\n]*[*_]+[ \t]*$/gim, " ")
+    .replace(/[*_]+\s*Ảnh\s*:[^*_\n]*\/[^*_\n]*[*_]+/g, " ")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/<[^>]+>/g, " ")
     .replace(/^#{1,6}\s+/gm, "")
@@ -232,7 +234,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 
-  const path = `${slug}-${voiceKey}.mp3`;
+  const path = `${slug}-${voiceKey}-v2.mp3`;
 
   if (!refresh) {
     const { data: existing } = await sb.storage.from(BUCKET).list("", { search: path });

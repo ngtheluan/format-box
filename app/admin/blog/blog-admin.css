@@ -84,6 +84,82 @@
   cursor: pointer;
 }
 
+/* ============ Manual composer: cover image dropzone ============ */
+.mc-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 280px;
+  border-radius: 12px;
+  border: 1.5px dashed var(--border);
+  background: var(--bg2) center/cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+.mc-cover:hover:not(.has-img) {
+  border-color: var(--primary, #6366f1);
+  background-color: color-mix(in srgb, var(--primary, #6366f1) 6%, var(--bg2));
+}
+.mc-cover.is-drag {
+  border-color: var(--primary, #6366f1);
+  background-color: color-mix(in srgb, var(--primary, #6366f1) 10%, var(--bg2));
+  transform: scale(0.995);
+}
+.mc-cover.has-img {
+  border-style: solid;
+  cursor: default;
+}
+.mc-cover.has-img::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 45%);
+  pointer-events: none;
+}
+.mc-cover.is-busy {
+  opacity: 0.75;
+  pointer-events: none;
+}
+.mc-cover-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  color: var(--dim);
+  padding: 16px;
+}
+.mc-cover-empty b {
+  color: var(--text);
+  font-size: 14px;
+}
+.mc-cover-empty small {
+  font-size: 12px;
+}
+.mc-cover-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  gap: 6px;
+  z-index: 1;
+}
+.mc-cover-actions .fx-btn {
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.mc-cover-actions .fx-btn.fx-btn-ghost {
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 .bga-ideas {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -104,12 +180,6 @@
   }
   .bga-top-tabs .fx-btn {
     flex-shrink: 0;
-  }
-  /* Row-level inline actions (edit / delete / status toggle…) clutter the
-     list on narrow screens. Hide them on mobile — tap the row/title to open
-     the editor for anything you need. */
-  .fx-row-actions {
-    display: none !important;
   }
 }
 

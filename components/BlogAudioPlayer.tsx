@@ -13,10 +13,7 @@ type Props = {
   slug: string;
 };
 
-const VOICES = [
-  { key: "hoaimy", label: "Hoài My" },
-  { key: "namminh", label: "Nam Minh" },
-];
+const VOICES = [{ key: "hoaimy", label: "Hoài My" }];
 
 function fmt(sec: number) {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -107,18 +104,24 @@ export function BlogAudioPlayer({ slug }: Props) {
           <IconVolume size={12} stroke={2} />
           <strong>Nghe bài viết</strong>
           <span className="bd-audio-sep" />
-          <select
-            className="bd-audio-voice"
-            value={voice}
-            onChange={(e) => onVoiceChange(e.target.value)}
-            aria-label="Giọng đọc"
-          >
-            {VOICES.map((v) => (
-              <option key={v.key} value={v.key}>
-                {v.label}
-              </option>
-            ))}
-          </select>
+          {VOICES.length > 1 ? (
+            <select
+              className="bd-audio-voice"
+              value={voice}
+              onChange={(e) => onVoiceChange(e.target.value)}
+              aria-label="Giọng đọc"
+            >
+              {VOICES.map((v) => (
+                <option key={v.key} value={v.key}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="bd-audio-voice-name" aria-label="Giọng đọc">
+              {VOICES[0].label}
+            </span>
+          )}
           {error && (
             <button type="button" className="bd-audio-err" onClick={() => load(voice, true)} title={error}>
               <IconAlertTriangle size={11} /> Thử lại

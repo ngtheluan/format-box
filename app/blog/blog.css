@@ -212,11 +212,33 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 20px;
+  flex-wrap: nowrap;
+  gap: 16px;
   margin: 0 0 20px;
   padding: 0 0 20px;
   border-bottom: 1px solid var(--border);
+}
+.bd-topmeta > .bd-audio {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.bd-topmeta > .bd-tools {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 640px) {
+  .bd-topmeta {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .bd-topmeta > .bd-audio,
+  .bd-topmeta > .bd-tools {
+    width: 100%;
+  }
+  .bd-topmeta > .bd-tools {
+    justify-content: flex-start;
+  }
 }
 .bd-byline {
   display: inline-flex;
@@ -2814,6 +2836,23 @@
   background: var(--bg3);
   color: var(--bright);
 }
+.bd-tools-music button.is-on {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.bd-tools-music button + button {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  min-width: 28px;
+  padding: 0 6px;
+}
+.bd-tools-music-vol {
+  width: 80px;
+  margin: 0 6px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 .bd-tools-group button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -3099,6 +3138,12 @@
 }
 .bd-audio-voice:hover {
   color: var(--bright);
+}
+.bd-audio-voice-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
 }
 .bd-audio-err {
   display: inline-flex;
