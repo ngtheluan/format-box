@@ -15,21 +15,17 @@ export function ToolsProvider({ children, initialTools = [] }: { children: React
   // When SSR already seeded tools we start non-loading; otherwise fetch kicks in.
   const [loading, setLoading] = useState(initialTools.length === 0);
 
-  // `silent` refreshes (tab focus / visibility) skip the loading flag and keep
-  // the current array when nothing changed, so the whole tree doesn't re-render.
-  const load = (broadcast = false, silent = false) => {
-    if (!silent) setLoading(true);
-    fetch("/api/tools", { cache: "no-store" })
+  const load = (broadcast = false) => {
+    setLoading(true);
+    fetch("/api/tools")
       .then((r) => r.json())
       .then((j) => {
         const next: Tool[] = j.tools ?? [];
         setTools((cur) => (JSON.stringify(cur) === JSON.stringify(next) ? cur : next));
       })
-      .catch(() => {
-        if (!silent) setTools([]);
-      })
+      .catch(() => setTools([]))
       .finally(() => {
-        if (!silent) setLoading(false);
+        setLoading(false);
         if (broadcast) {
           try { new BroadcastChannel("fb-tools").postMessage("reload"); } catch {}
         }
@@ -37,18 +33,13 @@ export function ToolsProvider({ children, initialTools = [] }: { children: React
   };
 
   useEffect(() => {
-    // Skip the first-mount fetch when the server already seeded tools —
-    // avoids a redundant `/api/tools` round-trip on every page load.
+    // SSR seeds the list; refetch only when admin broadcasts an update.
+    // Focus/visibility refetching was making /api/tools fire on every tab
+    // switch and inflating Supabase egress.
     if (initialTools.length === 0) load();
-    const onFocus = () => load(false, true);
-    const onVis = () => { if (document.visibilityState === "visible") load(false, true); };
     const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("fb-tools") : null;
     if (bc) bc.onmessage = () => load();
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVis);
     return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVis);
       bc?.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,5 +1,5 @@
 import { marked } from "marked";
-import { unstable_noStore as noStore } from "next/cache";
+import { revalidateTag, unstable_cache, unstable_noStore as noStore } from "next/cache";
 import { supabase, supabaseAdmin } from "./supabase";
 
 export type BlogCategory = string;
@@ -467,37 +467,68 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 3, delayMs = 150): Pro
   return null;
 }
 
-export async function listPublicPosts(): Promise<BlogPost[]> {
-  noStore();
-  return listPublicPostsCached();
-}
+// Columns needed by the list views (everything except the heavy `markdown` body).
+// Pulling the whole table was blowing up Supabase egress on every blog list render.
+const LIST_COLS =
+  "slug,title,excerpt,category,tags,author,date,read_min,cover_from,cover_to,cover_label,cover_image,status,pinned,related_tools";
 
-export async function listPublicPostsCached(): Promise<BlogPost[]> {
+async function fetchPublicPostsList(): Promise<BlogPost[]> {
   const sb = supabase();
   if (!sb) return [];
   const data = await withRetry(async () => {
-    const { data, error } = await sb.from("blog_posts").select("*").order("date", { ascending: false });
+    const { data, error } = await sb
+      .from("blog_posts")
+      .select(LIST_COLS)
+      .eq("status", "published")
+      .order("date", { ascending: false });
     if (error) throw error;
     return data as DbRow[] | null;
   });
   return data?.map(fromRow) ?? [];
 }
 
-export async function getPublicPost(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
-  noStore();
-  return getPublicPostCached(slug);
+const listPublicPostsCachedImpl = unstable_cache(fetchPublicPostsList, ["blog:public-list"], {
+  revalidate: 60,
+  tags: ["blog-posts"],
+});
+
+export async function listPublicPosts(): Promise<BlogPost[]> {
+  return listPublicPostsCachedImpl();
 }
 
-export async function getPublicPostCached(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
+export async function listPublicPostsCached(): Promise<BlogPost[]> {
+  return listPublicPostsCachedImpl();
+}
+
+async function fetchPublicPost(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
   const sb = supabase();
   if (!sb) return null;
   const data = await withRetry(async () => {
-    const { data, error } = await sb.from("blog_posts").select("*").eq("slug", slug).maybeSingle();
+    const { data, error } = await sb
+      .from("blog_posts")
+      .select("*")
+      .eq("slug", slug)
+      .eq("status", "published")
+      .maybeSingle();
     if (error) throw error;
     return data as DbRow | null;
   });
   if (!data) return null;
   return { ...fromRow(data), markdown: data.markdown };
+}
+
+const getPublicPostCachedImpl = unstable_cache(
+  fetchPublicPost,
+  ["blog:public-post"],
+  { revalidate: 300, tags: ["blog-posts"] },
+);
+
+export async function getPublicPost(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
+  return getPublicPostCachedImpl(slug);
+}
+
+export async function getPublicPostCached(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
+  return getPublicPostCachedImpl(slug);
 }
 
 // Admin (service role, all statuses)
@@ -519,11 +550,13 @@ export async function getAdminPost(slug: string): Promise<(BlogPost & { markdown
 export async function insertPost(post: BlogPost, markdown: string): Promise<void> {
   const sb = supabaseAdmin();
   await sb.from("blog_posts").upsert(toRow(post, markdown), { onConflict: "slug" }).throwOnError();
+  revalidateTag("blog-posts");
 }
 
 export async function updatePost(slug: string, patch: Partial<DbRow>): Promise<void> {
   const sb = supabaseAdmin();
   await sb.from("blog_posts").update(patch).eq("slug", slug).throwOnError();
+  revalidateTag("blog-posts");
 }
 
 export async function updateStatus(slug: string, status: BlogStatus): Promise<void> {
@@ -536,6 +569,7 @@ export async function deletePost(slug: string): Promise<void> {
   // Deleting a post also discards its votes (no orphan rows). Setting a post to
   // draft keeps them, so updateStatus is intentionally left untouched.
   await sb.from("blog_votes").delete().eq("slug", slug).throwOnError();
+  revalidateTag("blog-posts");
 }
 
 export function formatDateVi(iso: string): string {

@@ -7,6 +7,6 @@ export async function GET() {
   const dict = await getTranslations();
   return NextResponse.json(
     { dict },
-    { headers: { "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300" } },
+    { headers: { "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=3600" } },
   );
 }

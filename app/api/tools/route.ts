@@ -13,6 +13,8 @@ export async function GET() {
   const filtered = tools.filter((t) => isToolVisible(t, role));
   return NextResponse.json(
     { tools: filtered, role },
-    { headers: { "Cache-Control": "private, no-store" } },
+    // Private so edge/CDN won't share across users (role differs), but let the
+    // browser reuse the response for a minute to cut repeat hits.
+    { headers: { "Cache-Control": "private, max-age=60" } },
   );
 }
