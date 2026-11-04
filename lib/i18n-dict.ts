@@ -139,7 +139,7 @@ export const DICT = {
   blog_sections: { vi: "phần", en: "sections" },
   blog_older: { vi: "Bài trước", en: "Previous" },
   blog_newer: { vi: "Bài tiếp theo", en: "Next" },
-  blog_series_title: { vi: "Series Bài viết", en: "Series" },
+  blog_series_title: { vi: "Series dành cho bạn", en: "Series" },
   blog_series_sub: {
     vi: "Những series được biên soạn theo thứ tự — đọc trọn từ phần 1 đến hết.",
     en: "Curated multi-part series — read in order, from part one to the end.",
