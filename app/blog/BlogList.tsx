@@ -116,6 +116,7 @@ export function BlogList({
   const usedSlugs = new Set<string>(!active && !q.trim() && hero ? [hero.slug, ...side.map((p) => p.slug)] : []);
   const rest = filtered.filter((p) => !usedSlugs.has(p.slug));
   const shown = rest.slice(0, limit);
+  const hasMore = rest.length > shown.length;
 
   function pickCat(k: string | null) {
     setLimit(PAGE);
@@ -157,6 +158,11 @@ export function BlogList({
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [catMap]);
+
+  // Reset visible window when switching categories or editing the search.
+  useEffect(() => {
+    setLimit(PAGE);
+  }, [active, q]);
 
   const searching = !!q.trim();
   const secLabel = searching ? t("blog_search_results") : active ? catMap[active] : t("blog_all_sub");
@@ -305,7 +311,7 @@ export function BlogList({
               ))}
             </div>
           )}
-          {rest.length > shown.length && (
+          {hasMore && (
             <div className="bz-more">
               <button type="button" className="bz-btn" onClick={() => setLimit((n) => n + PAGE)}>
                 {t("blog_load_more")} <IconArrowRight size={14} stroke={2} />
