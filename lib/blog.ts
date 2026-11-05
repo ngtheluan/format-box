@@ -1,5 +1,5 @@
 import { marked } from "marked";
-import { revalidateTag, unstable_cache, unstable_noStore as noStore } from "next/cache";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { supabase, supabaseAdmin } from "./supabase";
 
 export type BlogCategory = string;
@@ -61,8 +61,7 @@ function defaultCatRows(): BlogCategoryRow[] {
   return Object.entries(DEFAULT_CATEGORIES).map(([slug, label], i) => ({ slug, label, sort: (i + 1) * 10, active: true }));
 }
 
-export async function listPublicCategories(): Promise<BlogCategoryRow[]> {
-  noStore();
+async function fetchPublicCategories(): Promise<BlogCategoryRow[]> {
   const sb = supabase();
   if (!sb) return defaultCatRows();
   const data = await withRetry(async () => {
@@ -77,6 +76,18 @@ export async function listPublicCategories(): Promise<BlogCategoryRow[]> {
   const rows = data ?? [];
   if (!rows.length) return defaultCatRows();
   return rows;
+}
+
+// Categories are read on every public blog page (home, index, detail, tag).
+// They change rarely and every mutation calls `revalidateTag("blog-categories")`,
+// so cache aggressively.
+const listPublicCategoriesCached = unstable_cache(fetchPublicCategories, ["blog:public-categories"], {
+  revalidate: 3600,
+  tags: ["blog-categories"],
+});
+
+export async function listPublicCategories(): Promise<BlogCategoryRow[]> {
+  return listPublicCategoriesCached();
 }
 
 export async function listAdminCategories(): Promise<BlogCategoryRow[]> {
@@ -110,16 +121,19 @@ export async function upsertCategory(input: { slug: string; label: string; sort?
       { onConflict: "slug" },
     )
     .throwOnError();
+  revalidateTag("blog-categories");
 }
 
 export async function updateCategory(slug: string, patch: Partial<Omit<BlogCategoryRow, "slug">>): Promise<void> {
   const sb = supabaseAdmin();
   await sb.from("blog_categories").update(patch).eq("slug", slug).throwOnError();
+  revalidateTag("blog-categories");
 }
 
 export async function deleteCategory(slug: string): Promise<void> {
   const sb = supabaseAdmin();
   await sb.from("blog_categories").delete().eq("slug", slug).throwOnError();
+  revalidateTag("blog-categories");
 }
 
 export type DidYouKnowImage = { url: string; caption_vi: string; caption_en: string };
@@ -160,8 +174,7 @@ function normDyk(r: DbDyk): DidYouKnowItem {
   return { ...r, images: normDykImages(r.images) };
 }
 
-export async function listPublicDidYouKnow(): Promise<DidYouKnowItem[]> {
-  noStore();
+async function fetchPublicDidYouKnow(): Promise<DidYouKnowItem[]> {
   const sb = supabase();
   if (!sb) return [];
   const data = await withRetry(async () => {
@@ -174,6 +187,15 @@ export async function listPublicDidYouKnow(): Promise<DidYouKnowItem[]> {
     return data as DbDyk[] | null;
   });
   return (data ?? []).map(normDyk);
+}
+
+const listPublicDidYouKnowCached = unstable_cache(fetchPublicDidYouKnow, ["blog:public-dyk"], {
+  revalidate: 3600,
+  tags: ["blog-dyk"],
+});
+
+export async function listPublicDidYouKnow(): Promise<DidYouKnowItem[]> {
+  return listPublicDidYouKnowCached();
 }
 
 export async function listAdminDidYouKnow(): Promise<DidYouKnowItem[]> {
@@ -205,16 +227,19 @@ export async function upsertDidYouKnow(item: DidYouKnowItem): Promise<void> {
       { onConflict: "slug" },
     )
     .throwOnError();
+  revalidateTag("blog-dyk");
 }
 
 export async function updateDidYouKnow(slug: string, patch: Partial<Omit<DidYouKnowItem, "slug">>): Promise<void> {
   const sb = supabaseAdmin();
   await sb.from("blog_did_you_know").update(patch).eq("slug", slug).throwOnError();
+  revalidateTag("blog-dyk");
 }
 
 export async function deleteDidYouKnow(slug: string): Promise<void> {
   const sb = supabaseAdmin();
   await sb.from("blog_did_you_know").delete().eq("slug", slug).throwOnError();
+  revalidateTag("blog-dyk");
 }
 
 export async function countPostsInCategory(slug: string): Promise<number> {
@@ -487,8 +512,11 @@ async function fetchPublicPostsList(): Promise<BlogPost[]> {
   return data?.map(fromRow) ?? [];
 }
 
+// Public post list changes only when an admin publishes/edits/deletes a post,
+// and every mutation calls `revalidateTag("blog-posts")`, so we keep the TTL
+// long to avoid hammering the DB between mutations.
 const listPublicPostsCachedImpl = unstable_cache(fetchPublicPostsList, ["blog:public-list"], {
-  revalidate: 60,
+  revalidate: 1800,
   tags: ["blog-posts"],
 });
 
@@ -517,10 +545,12 @@ async function fetchPublicPost(slug: string): Promise<(BlogPost & { markdown: st
   return { ...fromRow(data), markdown: data.markdown };
 }
 
+// Each public post is ~15-50KB (markdown body dominates), so a longer TTL has
+// the largest egress payoff. Admin edits invalidate via `revalidateTag`.
 const getPublicPostCachedImpl = unstable_cache(
   fetchPublicPost,
   ["blog:public-post"],
-  { revalidate: 300, tags: ["blog-posts"] },
+  { revalidate: 1800, tags: ["blog-posts"] },
 );
 
 export async function getPublicPost(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
