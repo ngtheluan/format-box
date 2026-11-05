@@ -99,6 +99,46 @@ async function fetchSortMode(): Promise<"custom" | "alpha-asc" | "alpha-desc"> {
   }
 }
 
+// Columns the public menu actually needs. Heavy content fields
+// (intro_*, features_*, faqs_*, seo_*) are dropped on purpose — they would
+// bloat every /api/tools response but are only consumed on individual tool
+// pages, which read them from SEED_TOOLS (compiled into the bundle).
+const MENU_COLUMNS =
+  "href, icon_name, title, desc_vi, desc_en, tags, category, sort, active, visible_guest, visible_user";
+
+type MenuRow = Pick<
+  DbRow,
+  | "href"
+  | "icon_name"
+  | "title"
+  | "desc_vi"
+  | "desc_en"
+  | "tags"
+  | "category"
+  | "sort"
+  | "active"
+  | "visible_guest"
+  | "visible_user"
+>;
+
+function menuRowToTool(r: MenuRow): Tool {
+  return {
+    href: r.href,
+    iconName: r.icon_name,
+    title: r.title,
+    desc: { vi: r.desc_vi, en: r.desc_en },
+    tags: r.tags ?? [],
+    category: r.category,
+    sort: r.sort ?? 0,
+    active: r.active ?? true,
+    visibleGuest: r.visible_guest ?? true,
+    visibleUser: r.visible_user ?? true,
+    intro: { vi: "", en: "" },
+    features: { vi: [], en: [] },
+    faqs: { vi: [], en: [] },
+  };
+}
+
 async function fetchTools(): Promise<Tool[]> {
   const sb = supabase();
   if (!sb) {
@@ -107,7 +147,7 @@ async function fetchTools(): Promise<Tool[]> {
   }
   const { data, error } = await sb
     .from("tools")
-    .select("*")
+    .select(MENU_COLUMNS)
     .eq("active", true)
     .order("sort", { ascending: true })
     .order("title", { ascending: true });
@@ -115,7 +155,7 @@ async function fetchTools(): Promise<Tool[]> {
     console.warn("[tools] Supabase fetch failed:", error.message);
     return [];
   }
-  const tools = (data as DbRow[]).map(rowToTool);
+  const tools = (data as unknown as MenuRow[]).map(menuRowToTool);
   const mode = await fetchSortMode();
   if (mode === "custom") return tools;
   const sorted = [...tools].sort((a, b) => a.title.localeCompare(b.title, "vi"));

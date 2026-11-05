@@ -1,5 +1,4 @@
 "use client";
-import { useTools } from "@/components/ToolsProvider";
 import { useI18n } from "@/lib/i18n";
 import { toolBySlug, toolJsonLd } from "@/lib/tools-shared";
 import {
@@ -15,10 +14,9 @@ const MOBILE_BP = 720;
 
 export function ToolSeoContent({ slug }: { slug: string }) {
   const { t, lang } = useI18n();
-  const tools = useTools();
-  const href = `/${slug.replace(/^\//, "")}`;
-  // Prefer the live DB tool (so admin edits apply); fall back to the seed data.
-  const tool = tools.find((x) => x.href === href) ?? toolBySlug(slug);
+  // intro/features/faqs read from SEED_TOOLS (compiled into the bundle) to keep
+  // the /api/tools payload small. Admin edits to these fields are DB-only.
+  const tool = toolBySlug(slug);
 
   // Default to desktop (open) so SSR renders with content visible for SEO;
   // after mount, flip to the real viewport width. The `key` on the wrapper
