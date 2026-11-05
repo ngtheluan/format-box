@@ -17,7 +17,14 @@ export async function GET() {
   if (await isAdmin()) {
     return NextResponse.json({ categories: await listAdminCategories() });
   }
-  return NextResponse.json({ categories: await listPublicCategories() });
+  return NextResponse.json(
+    { categories: await listPublicCategories() },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800",
+      },
+    },
+  );
 }
 
 export async function POST(req: Request) {

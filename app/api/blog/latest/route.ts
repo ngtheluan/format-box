@@ -18,5 +18,15 @@ export async function GET(req: Request) {
     coverImage: p.coverImage,
     cover: p.cover,
   }));
-  return NextResponse.json({ posts });
+  return NextResponse.json(
+    { posts },
+    {
+      headers: {
+        // Public list — let Vercel Edge/CDN serve it for 5 minutes, and keep
+        // stale copies warm for 10 more while a background refresh runs.
+        // Repeat hits never touch Supabase.
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+      },
+    },
+  );
 }
