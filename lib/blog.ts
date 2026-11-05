@@ -563,10 +563,14 @@ export async function getPublicPostCached(slug: string): Promise<(BlogPost & { m
 
 // Admin (service role, all statuses)
 
+// Admin list also avoids pulling the heavy `markdown` body — `fromRow()`
+// doesn't read it, so SELECT * was throwing ~5KB per post of egress away on
+// every admin list fetch (dashboard, /api/blog/series, /api/blog/ideas,
+// /api/blog/generate). LIST_COLS keeps the payload small.
 export async function listAdminPosts(): Promise<BlogPost[]> {
   const sb = supabaseAdmin();
-  const { data } = await sb.from("blog_posts").select("*").order("date", { ascending: false });
-  return (data as DbRow[] | null)?.map(fromRow) ?? [];
+  const { data } = await sb.from("blog_posts").select(LIST_COLS).order("date", { ascending: false });
+  return (data as unknown as DbRow[] | null)?.map(fromRow) ?? [];
 }
 
 export async function getAdminPost(slug: string): Promise<(BlogPost & { markdown: string }) | null> {
