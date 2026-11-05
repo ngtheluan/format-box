@@ -2,16 +2,10 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import WebSocket from "ws";
 import { getPublicPost } from "@/lib/blog";
-import { supabaseAdmin } from "@/lib/supabase";
 import { hasR2, r2Exists, r2PublicUrl, r2Upload } from "@/lib/r2";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// Legacy Supabase bucket. New audio writes go to Cloudflare R2 (zero egress
-// via CF CDN) when R2 is configured. Existing files remain readable from
-// Supabase as a fallback until they are refreshed with ?refresh=1.
-const BUCKET = "blog-audio";
 
 const VOICES: Record<string, string> = {
   "hoaimy": "vi-VN-HoaiMyNeural",
@@ -231,36 +225,17 @@ export async function GET(req: Request) {
   const post = await getPublicPost(slug);
   if (!post) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const useR2 = hasR2();
-  let sb: ReturnType<typeof supabaseAdmin> | null = null;
-  if (!useR2) {
-    try {
-      sb = supabaseAdmin();
-    } catch (e: any) {
-      return NextResponse.json({ error: e.message }, { status: 500 });
-    }
-  } else {
-    // Still need Supabase admin to check the legacy bucket for cached audio.
-    try {
-      sb = supabaseAdmin();
-    } catch {
-      sb = null;
-    }
+  if (!hasR2()) {
+    return NextResponse.json(
+      { error: "R2 not configured: set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL" },
+      { status: 500 },
+    );
   }
 
   const path = `${slug}-${voiceKey}-v2.mp3`;
 
-  if (!refresh) {
-    if (useR2 && (await r2Exists(path))) {
-      return NextResponse.json({ url: r2PublicUrl(path), cached: true, voice: voiceKey });
-    }
-    if (sb) {
-      const { data: existing } = await sb.storage.from(BUCKET).list("", { search: path });
-      if (existing && existing.find((f) => f.name === path)) {
-        const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
-        return NextResponse.json({ url: pub.publicUrl, cached: true, voice: voiceKey });
-      }
-    }
+  if (!refresh && (await r2Exists(path))) {
+    return NextResponse.json({ url: r2PublicUrl(path), cached: true, voice: voiceKey });
   }
 
   const text = `${post.title}. ${stripMarkdown(post.markdown)}`;
@@ -288,21 +263,10 @@ export async function GET(req: Request) {
     }
   }
 
-  if (useR2) {
-    try {
-      const url = await r2Upload(path, audio, "audio/mpeg");
-      return NextResponse.json({ url, cached: false, voice: voiceKey, engine, store: "r2" });
-    } catch (e: any) {
-      return NextResponse.json({ error: `r2 upload failed: ${e?.message || "unknown"}` }, { status: 500 });
-    }
+  try {
+    const url = await r2Upload(path, audio, "audio/mpeg");
+    return NextResponse.json({ url, cached: false, voice: voiceKey, engine });
+  } catch (e: any) {
+    return NextResponse.json({ error: `r2 upload failed: ${e?.message || "unknown"}` }, { status: 500 });
   }
-
-  if (!sb) return NextResponse.json({ error: "no storage backend configured" }, { status: 500 });
-  const { error: upErr } = await sb.storage
-    .from(BUCKET)
-    .upload(path, audio, { contentType: "audio/mpeg", upsert: true });
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
-
-  const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
-  return NextResponse.json({ url: pub.publicUrl, cached: false, voice: voiceKey, engine, store: "supabase" });
 }
