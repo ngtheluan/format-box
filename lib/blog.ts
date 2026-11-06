@@ -746,7 +746,7 @@ export function getSeriesContext(all: BlogPost[], post: BlogPost): SeriesContext
 }
 
 // Helpful-vote count per post slug — feeds the popularity boost in relatedPosts.
-export async function listReactions(): Promise<Record<string, number>> {
+async function fetchReactions(): Promise<Record<string, number>> {
   const sb = supabase();
   if (!sb) return {};
   const data = await withRetry(async () => {
@@ -757,6 +757,19 @@ export async function listReactions(): Promise<Record<string, number>> {
   const map: Record<string, number> = {};
   for (const r of data ?? []) map[r.slug] = r.helpful ?? 0;
   return map;
+}
+
+// Called on every public blog page SSR (index, detail, tag, series). Blog detail
+// cannot be statically cached because `blogVoterId()` reads request headers, so
+// without this cache the RPC fires on every single visit. Reactions change
+// slowly and `castVote` revalidates the tag, so a 5-min TTL is safe.
+const listReactionsCached = unstable_cache(fetchReactions, ["blog:reactions"], {
+  revalidate: 300,
+  tags: ["blog-reactions"],
+});
+
+export async function listReactions(): Promise<Record<string, number>> {
+  return listReactionsCached();
 }
 
 // Blog votes — "bài viết có hữu ích không". One vote per reader (user id or IP),
@@ -790,5 +803,6 @@ export async function castVote(slug: string, voter: string, kind: ReactionKind):
   const sb = supabaseAdmin();
   const { data, error } = await sb.rpc("blog_vote", { p_slug: slug, p_voter: voter, p_kind: kind });
   if (error) throw error;
+  revalidateTag("blog-reactions");
   return normalizeVotes(data);
 }
