@@ -25,12 +25,26 @@ function generateSecMsGec(): string {
     .toUpperCase();
 }
 
+function stripReferences(md: string): string {
+  // Drop the trailing references section and everything after it — the voice reader
+  // should skip citations. Matches a markdown heading ("## Nguồn tham khảo"), a bolded
+  // line ("**Nguồn tham khảo**"), or a plain labelled line, VI or EN.
+  const label = "(?:nguồn\\s+tham\\s+khảo|tham\\s+khảo|nguồn|references?)";
+  const patterns: RegExp[] = [
+    new RegExp(`(?:^|\\n)\\s*#{1,6}[ \\t]+\\**\\s*${label}\\s*\\**\\s*[\\s\\S]*$`, "i"),
+    new RegExp(`(?:^|\\n)\\s*\\*\\*\\s*${label}\\s*[:：]?\\s*\\*\\*[\\s\\S]*$`, "i"),
+    new RegExp(`(?:^|\\n)\\s*${label}\\s*[:：][\\s\\S]*$`, "i"),
+  ];
+  let out = md;
+  for (const re of patterns) out = out.replace(re, "");
+  return out;
+}
+
 function stripMarkdown(md: string): string {
-  return md
+  return stripReferences(md)
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`[^`]*`/g, " ")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
-    // Image credit lines: `*Ảnh: [name](url) / Source*` or `_Ảnh: ..._`
     .replace(/^[ \t]*[*_]+\s*Ảnh\s*:[^\n]*[*_]+[ \t]*$/gim, " ")
     .replace(/[*_]+\s*Ảnh\s*:[^*_\n]*\/[^*_\n]*[*_]+/g, " ")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
@@ -232,7 +246,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const path = `${slug}-${voiceKey}-v2.mp3`;
+  const path = `${slug}-${voiceKey}-v4.mp3`;
 
   if (!refresh && (await r2Exists(path))) {
     return NextResponse.json({ url: r2PublicUrl(path), cached: true, voice: voiceKey });
