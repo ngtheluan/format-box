@@ -4028,3 +4028,260 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   APPLE-STYLE CARD MOTION
+   Smooth spring lift, cover zoom, shine sweep, accent glow.
+   Applied on the grid card (.bzc), featured (.bz-feat), side list
+   (.bz-side-item), and the series card (.bz-series-card).
+   ============================================================ */
+:root {
+  --ease-apple: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-apple-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --card-dur: 520ms;
+}
+
+/* Base: smooth transform + glow transitions */
+.bzc,
+.bz-tile,
+.bz-side-item,
+.bz-series-card {
+  transition:
+    transform var(--card-dur) var(--ease-apple),
+    box-shadow var(--card-dur) var(--ease-apple),
+    border-color var(--card-dur) var(--ease-apple),
+    background var(--card-dur) var(--ease-apple);
+  will-change: transform;
+}
+
+/* Cover image container — clip the zoom */
+.bzc-media,
+.bz-feat .bz-media,
+.bz-side-item .bz-media,
+.bz-series-cover {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The cover image itself: springy scale on hover */
+.bzc-media .blog-cover-img,
+.bzc-media .blog-cover-svg,
+.bz-feat .bz-media .blog-cover-img,
+.bz-feat .bz-media .blog-cover-svg,
+.bz-side-item .bz-media .blog-cover-img,
+.bz-side-item .bz-media .blog-cover-svg,
+.bz-series-cover .blog-cover-img,
+.bz-series-cover .blog-cover-svg {
+  transition:
+    transform 900ms var(--ease-apple),
+    filter 600ms var(--ease-apple);
+  transform-origin: center center;
+  backface-visibility: hidden;
+}
+
+.bzc:hover .bzc-media .blog-cover-img,
+.bzc:hover .bzc-media .blog-cover-svg,
+.bz-feat:hover .bz-media .blog-cover-img,
+.bz-feat:hover .bz-media .blog-cover-svg,
+.bz-side-item:hover .bz-media .blog-cover-img,
+.bz-side-item:hover .bz-media .blog-cover-svg,
+.bz-series-card:hover .bz-series-cover .blog-cover-img,
+.bz-series-card:hover .bz-series-cover .blog-cover-svg {
+  transform: scale(1.06);
+  filter: saturate(1.08) brightness(1.02);
+}
+
+/* Soft gradient wash at the bottom of the cover — gives depth, fades text in */
+.bzc-media::after,
+.bz-feat .bz-media::after,
+.bz-side-item .bz-media::after,
+.bz-series-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 55%, rgba(5, 8, 16, 0.32) 100%);
+  opacity: 0;
+  transition: opacity 500ms var(--ease-apple);
+}
+.bzc:hover .bzc-media::after,
+.bz-feat:hover .bz-media::after,
+.bz-side-item:hover .bz-media::after,
+.bz-series-card:hover .bz-series-cover::after {
+  opacity: 1;
+}
+
+/* Shine sweep — a diagonal highlight glides across on hover */
+.bzc-media::before,
+.bz-feat .bz-media::before,
+.bz-side-item .bz-media::before,
+.bz-series-cover::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -75%;
+  width: 60%;
+  height: 200%;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0) 70%,
+    transparent 100%
+  );
+  transform: translateX(0) skewX(-14deg);
+  opacity: 0;
+  transition:
+    transform 1100ms var(--ease-apple),
+    opacity 400ms var(--ease-apple);
+}
+.bzc:hover .bzc-media::before,
+.bz-feat:hover .bz-media::before,
+.bz-side-item:hover .bz-media::before,
+.bz-series-card:hover .bz-series-cover::before {
+  transform: translateX(340%) skewX(-14deg);
+  opacity: 1;
+}
+
+/* Lift + accent-tinted glow — the signature Apple card feel */
+.bzc:hover,
+.bz-feat:hover,
+.bz-series-card:hover {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 6%, transparent) inset,
+    0 24px 48px -28px color-mix(in srgb, var(--accent) 60%, transparent),
+    0 12px 28px -18px rgba(0, 0, 0, 0.45);
+}
+.bz-side-item:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow:
+    0 14px 30px -22px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 6px 14px -10px rgba(0, 0, 0, 0.4);
+}
+
+/* Badges pop in a touch when the card activates */
+.bzc-badges,
+.bzc-series-badge {
+  transition:
+    transform 400ms var(--ease-apple-spring),
+    opacity 300ms var(--ease-apple);
+}
+.bzc:hover .bzc-badges,
+.bzc:hover .bzc-series-badge,
+.bz-feat:hover .bzc-badges {
+  transform: translateY(-2px);
+}
+
+/* Title glides to accent color */
+.bzc-title,
+.bz-feat-body h2,
+.bz-side-text h2,
+.bz-series-title {
+  transition: color 320ms var(--ease-apple);
+}
+
+/* Crop marks fade in with a spring */
+.bz-tile > .bl-corners,
+.bzc > .bl-corners {
+  transition:
+    opacity 380ms var(--ease-apple),
+    transform 380ms var(--ease-apple-spring);
+  transform: scale(0.92);
+}
+.bz-tile:hover > .bl-corners,
+.bzc:hover > .bl-corners {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Focus visible — same lift as hover for keyboard users */
+.bzc:focus-visible,
+.bz-feat-link:focus-visible,
+.bz-side-item a:focus-visible,
+.bz-series-card-link:focus-visible {
+  outline: none;
+}
+.bzc:focus-visible,
+.bz-feat:focus-within,
+.bz-side-item:focus-within,
+.bz-series-card:focus-within {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 20px 40px -24px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* Card entry: subtle fade-up when it first appears in the viewport */
+@keyframes bz-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.bz-grid > .bzc,
+.bz-side > .bz-side-item,
+.bz-series-list > .bz-series-card {
+  animation: bz-card-enter 620ms var(--ease-apple) both;
+}
+.bz-grid > .bzc:nth-child(1) { animation-delay: 20ms; }
+.bz-grid > .bzc:nth-child(2) { animation-delay: 70ms; }
+.bz-grid > .bzc:nth-child(3) { animation-delay: 120ms; }
+.bz-grid > .bzc:nth-child(4) { animation-delay: 170ms; }
+.bz-grid > .bzc:nth-child(5) { animation-delay: 220ms; }
+.bz-grid > .bzc:nth-child(6) { animation-delay: 270ms; }
+.bz-grid > .bzc:nth-child(7) { animation-delay: 320ms; }
+.bz-grid > .bzc:nth-child(8) { animation-delay: 360ms; }
+.bz-side > .bz-side-item:nth-child(1) { animation-delay: 60ms; }
+.bz-side > .bz-side-item:nth-child(2) { animation-delay: 120ms; }
+.bz-side > .bz-side-item:nth-child(3) { animation-delay: 180ms; }
+.bz-side > .bz-side-item:nth-child(4) { animation-delay: 240ms; }
+
+/* Featured hero gets a slower, more cinematic entry */
+.bz-feat {
+  animation: bz-card-enter 760ms var(--ease-apple) both;
+}
+
+/* Reduced motion: strip transforms and animations, keep color fades */
+@media (prefers-reduced-motion: reduce) {
+  .bzc,
+  .bz-tile,
+  .bz-side-item,
+  .bz-series-card,
+  .bzc-media .blog-cover-img,
+  .bzc-media .blog-cover-svg,
+  .bz-feat .bz-media .blog-cover-img,
+  .bz-side-item .bz-media .blog-cover-img,
+  .bz-series-cover .blog-cover-img {
+    transition: background 200ms ease, border-color 200ms ease, color 200ms ease !important;
+    animation: none !important;
+  }
+  .bzc:hover,
+  .bz-feat:hover,
+  .bz-side-item:hover,
+  .bz-series-card:hover,
+  .bzc:hover .bzc-media .blog-cover-img,
+  .bz-feat:hover .bz-media .blog-cover-img,
+  .bz-side-item:hover .bz-media .blog-cover-img,
+  .bz-series-card:hover .bz-series-cover .blog-cover-img {
+    transform: none !important;
+  }
+  .bzc-media::before,
+  .bz-feat .bz-media::before,
+  .bz-side-item .bz-media::before,
+  .bz-series-cover::before {
+    display: none;
+  }
+}
