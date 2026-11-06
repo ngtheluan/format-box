@@ -6,6 +6,7 @@ export const TOOL_HREFS: readonly string[] = [
   "/audio-studio",
   "/base64",
   "/bill",
+  "/bmi-check",
   "/calendar",
   "/color",
   "/countdown",

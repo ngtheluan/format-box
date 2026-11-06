@@ -1289,6 +1289,53 @@ export const SEED_TOOLS: Tool[] = [
       ],
     },
   },
+  {
+    href: "/bmi-check",
+    iconName: "IconHeartbeat",
+    title: "BMI Check",
+    desc: {
+      vi: "Tính chỉ số BMI, đánh giá cân nặng theo chuẩn WHO và châu Á (WPRO).",
+      en: "Compute BMI and classify weight by WHO and Asian (WPRO) standards.",
+    },
+    tags: ["bmi", "health", "sức khoẻ", "cân nặng"],
+    category: "cat_life",
+    seoTitle: "Tính BMI Online - Chỉ Số Khối Cơ Thể Chuẩn WHO & Châu Á | FormatBox",
+    seoDescription:
+      "Công cụ tính BMI online miễn phí. Nhập chiều cao, cân nặng — xem phân loại gầy/bình thường/thừa cân/béo phì theo chuẩn WHO và WPRO (châu Á), kèm khoảng cân nặng lý tưởng.",
+    seoKeywords: ["bmi", "tính bmi", "chỉ số bmi", "bmi calculator", "chỉ số khối cơ thể", "bmi chuẩn châu á", "wpro bmi"],
+    intro: {
+      vi: "BMI Check giúp bạn tính chỉ số khối cơ thể (Body Mass Index) nhanh gọn, phân loại theo cả chuẩn WHO quốc tế và WPRO dành riêng cho người châu Á. Tool chạy 100% trên trình duyệt, không gửi dữ liệu đi đâu.",
+      en: "BMI Check computes your Body Mass Index and classifies it by both international WHO and Asia-specific WPRO standards. Everything runs in the browser — nothing is sent anywhere.",
+    },
+    features: {
+      vi: [
+        "Hỗ trợ đơn vị metric (kg, cm) và imperial (lb, ft/in)",
+        "Phân loại song song WHO và WPRO (châu Á)",
+        "Hiển thị khoảng cân nặng lý tưởng theo chiều cao",
+        "Thanh màu trực quan vị trí BMI của bạn",
+        "Chạy offline, không lưu dữ liệu",
+      ],
+      en: [
+        "Metric (kg, cm) and imperial (lb, ft/in) units",
+        "Side-by-side WHO and WPRO (Asian) classification",
+        "Healthy weight range for your height",
+        "Visual color bar showing where your BMI sits",
+        "Runs offline, no data stored",
+      ],
+    },
+    faqs: {
+      vi: [
+        { q: "BMI tính thế nào?", a: "BMI = cân nặng (kg) chia cho bình phương chiều cao (m): BMI = kg / (m × m)." },
+        { q: "Vì sao chuẩn châu Á khác chuẩn WHO?", a: "Người châu Á có tỷ lệ mỡ cơ thể cao hơn ở cùng BMI, nên WPRO đặt ngưỡng thừa cân thấp hơn (≥23 thay vì ≥25)." },
+        { q: "BMI có chính xác tuyệt đối không?", a: "Không. BMI không phân biệt cơ và mỡ; vận động viên, người có cơ bắp lớn có thể BMI cao nhưng vẫn khỏe mạnh." },
+      ],
+      en: [
+        { q: "How is BMI calculated?", a: "BMI equals weight in kilograms divided by height in meters squared: BMI = kg / (m × m)." },
+        { q: "Why does the Asian standard differ?", a: "Asian populations have a higher body-fat ratio at the same BMI, so WPRO sets a lower overweight threshold (≥23 instead of ≥25)." },
+        { q: "Is BMI perfectly accurate?", a: "No. BMI does not distinguish muscle from fat; athletes may show a high BMI while remaining healthy." },
+      ],
+    },
+  },
 ];
 
 // Map from slug (href without leading "/") to tool, used by SEO helpers.

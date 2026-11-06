@@ -137,6 +137,7 @@ export const config = {
     "/audio-studio",
     "/base64",
     "/bill",
+    "/bmi-check",
     "/calendar",
     "/color",
     "/countdown",
