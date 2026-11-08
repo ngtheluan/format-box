@@ -5,7 +5,9 @@ import MobileTabBar from "@/components/MobileTabBar";
 import Nav from "@/components/Nav";
 import { usePathname } from "next/navigation";
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+type InitialUser = { id: string; accountname: string; firstname: string; lastname: string; role: "user" | "admin" | "superadmin" } | null;
+
+export default function AppShell({ children, initialUser = null }: { children: React.ReactNode; initialUser?: InitialUser }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
   const isBlog = pathname === "/blog" || pathname.startsWith("/blog/");
@@ -16,7 +18,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={`app-shell${isBlog ? " app-shell--blog" : ""}${isImmersive ? " app-shell--immersive" : ""}`}>
       {!hideChrome && <BannerBar />}
-      {!hideNav && <Nav />}
+      {!hideNav && <Nav initialUser={initialUser} />}
       <main className="app-main">{children}</main>
       {!hideChrome && <Footer />}
       {!hideChrome && <MobileTabBar />}

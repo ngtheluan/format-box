@@ -9,6 +9,7 @@ import { LanguageProvider } from "@/lib/i18n";
 import { SkinProvider } from "@/lib/skin-context";
 import { getTools } from "@/lib/tools";
 import { isToolVisible, type Role } from "@/lib/tools-shared";
+import { supabaseAdmin } from "@/lib/supabase";
 import { currentUser } from "@/lib/user-auth";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -84,9 +85,24 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const role: Role = currentUser()?.role ?? "guest";
+  const session = currentUser();
+  const role: Role = session?.role ?? "guest";
   const allTools = await getTools();
   const initialTools = allTools.filter((t) => isToolVisible(t, role));
+  let initialUser: { id: string; accountname: string; firstname: string; lastname: string; role: "user" | "admin" | "superadmin" } | null = null;
+  if (session) {
+    try {
+      const { data } = await supabaseAdmin()
+        .from("app_users")
+        .select("id, accountname, firstname, lastname, role")
+        .eq("id", session.userId)
+        .maybeSingle();
+      if (data) {
+        const r = data.role === "superadmin" ? "superadmin" : data.role === "admin" ? "admin" : "user";
+        initialUser = { id: data.id, accountname: data.accountname, firstname: data.firstname, lastname: data.lastname, role: r };
+      }
+    } catch {}
+  }
   return (
     <html lang="vi" data-theme="light" suppressHydrationWarning>
       <head>
@@ -124,7 +140,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <SkinScene />
                 <TitleUpdater />
                 <ToastProvider>
-                  <AppShell>{children}</AppShell>
+                  <AppShell initialUser={initialUser}>{children}</AppShell>
                 </ToastProvider>
                 <ScrollTop />
               </ToolsProvider>

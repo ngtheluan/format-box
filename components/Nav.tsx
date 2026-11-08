@@ -8,7 +8,9 @@ import SearchPalette from "./SearchPalette";
 import ThemeToggle from "./ThemeToggle";
 import ToolsMenu from "./ToolsMenu";
 
-export default function Nav() {
+type InitialUser = { id: string; accountname: string; firstname: string; lastname: string; role: "user" | "admin" | "superadmin" } | null;
+
+export default function Nav({ initialUser = null }: { initialUser?: InitialUser }) {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function Nav() {
       <div className="nav-r">
         <ThemeToggle />
         <BlogNavLink />
-        <AccountMenu />
+        <AccountMenu initialUser={initialUser} />
       </div>
     </nav>
   );

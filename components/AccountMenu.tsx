@@ -16,8 +16,26 @@ type AppRole = "user" | "admin" | "superadmin";
 type AppUser = { id: string; accountname: string; firstname: string; lastname: string; role?: AppRole };
 type AppMode = "user" | "admin";
 const MODE_KEY = "fb-mode";
+const USER_KEY = "fb-user";
 
-export default function AccountMenu() {
+function readCachedUser(): AppUser | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    const u = JSON.parse(raw);
+    if (u && typeof u.accountname === "string") return u as AppUser;
+  } catch {}
+  return null;
+}
+
+function writeCachedUser(u: AppUser | null) {
+  try {
+    if (u) localStorage.setItem(USER_KEY, JSON.stringify(u));
+    else localStorage.removeItem(USER_KEY);
+  } catch {}
+}
+
+export default function AccountMenu({ initialUser = null }: { initialUser?: AppUser | null }) {
   const { t } = useI18n();
   const toast = useToast();
   const router = useRouter();
@@ -34,14 +52,22 @@ export default function AccountMenu() {
   const [email, setEmail] = useState("");
   const [authErr, setAuthErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [user, setUser] = useState<AppUser | null>(null);
+  const [user, setUser] = useState<AppUser | null>(initialUser);
+  const [hydrated, setHydrated] = useState(initialUser !== null);
   const enabledThemes = useEnabledThemes();
   const showSkin = enabledThemes.length >= 2;
 
   useEffect(() => {
+    const cached = readCachedUser();
+    if (cached) setUser(cached);
+    setHydrated(true);
     fetch("/api/user/me")
       .then((r) => r.json())
-      .then((d) => setUser(d?.user ?? null))
+      .then((d) => {
+        const next: AppUser | null = d?.user ?? null;
+        setUser(next);
+        writeCachedUser(next);
+      })
       .catch(() => {});
     try {
       const saved = localStorage.getItem(MODE_KEY) as AppMode | null;
@@ -117,6 +143,7 @@ export default function AccountMenu() {
       const d = await r.json();
       if (r.ok && d.ok) {
         setUser(d.user);
+        writeCachedUser(d.user);
         window.dispatchEvent(new CustomEvent("fb:user-changed", { detail: { user: d.user } }));
         close();
         toast(`${t("acct_hello")} ${d.user.firstname || d.user.accountname}!`);
@@ -151,6 +178,7 @@ export default function AccountMenu() {
       const d = await r.json();
       if (r.ok && d.ok) {
         setUser(d.user);
+        writeCachedUser(d.user);
         window.dispatchEvent(new CustomEvent("fb:user-changed", { detail: { user: d.user } }));
         close();
         toast(`${t("acct_created_hello")} ${d.user.firstname || d.user.accountname}!`);
@@ -170,6 +198,7 @@ export default function AccountMenu() {
       await fetch("/api/user/logout", { method: "POST" });
     } catch {}
     setUser(null);
+    writeCachedUser(null);
     window.dispatchEvent(new CustomEvent("fb:user-changed", { detail: { user: null } }));
     close();
     toast(t("acct_logged_out"));
@@ -181,7 +210,7 @@ export default function AccountMenu() {
     <div className="account-menu" ref={ref}>
       <button
         type="button"
-        className={`acct-trigger${mode === "admin" ? " is-admin" : ""}${user ? " has-user" : ""}`}
+        className={`acct-trigger${mode === "admin" ? " is-admin" : ""}${user ? " has-user" : ""}${hydrated ? "" : " is-loading"}`}
         onClick={() => setOpen((v) => !v)}
         aria-label="Account"
         aria-expanded={open}
@@ -191,7 +220,9 @@ export default function AccountMenu() {
         <span className="acct-trigger-name">
           {user
             ? [user.firstname, user.lastname].filter(Boolean).join(" ") || user.accountname
-            : t("acct_title_login")}
+            : hydrated
+            ? t("acct_title_login")
+            : " "}
         </span>
       </button>
 
