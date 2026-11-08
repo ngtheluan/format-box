@@ -17,7 +17,7 @@ export const SEED_THEMES: Theme[] = [
     nameEn: "Modern",
     descVi: "Mặc định — sạch, tối giản, dùng cả năm.",
     descEn: "Default — clean and minimal, all-year.",
-    swatch: ["#6366f1", "#a78bfa"],
+    swatch: ["#2563eb", "#22c5e8"],
     isDefault: true,
     enabled: true,
     sort: 10,

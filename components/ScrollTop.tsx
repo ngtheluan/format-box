@@ -534,7 +534,7 @@ async function fireConfetti() {
   try {
     const mod: any = await import("canvas-confetti");
     const confetti = mod.default || mod;
-    const colors = ["#7565f6", "#22c5e8", "#ec5cb0", "#10b981", "#f59e0b"];
+    const colors = ["#2563eb", "#22c5e8", "#ec5cb0", "#10b981", "#f59e0b"];
     confetti({
       particleCount: 90,
       spread: 65,

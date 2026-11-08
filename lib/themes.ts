@@ -24,7 +24,7 @@ function rowToTheme(r: DbRow): Theme {
     nameEn: r.name_en,
     descVi: r.desc_vi ?? "",
     descEn: r.desc_en ?? "",
-    swatch: [r.swatch_from ?? "#6366f1", r.swatch_to ?? "#a78bfa"],
+    swatch: [r.swatch_from ?? "#2563eb", r.swatch_to ?? "#22c5e8"],
     isDefault: r.is_default ?? false,
     enabled: r.enabled ?? true,
     sort: r.sort ?? 0,

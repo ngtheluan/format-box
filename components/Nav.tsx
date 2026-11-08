@@ -1,4 +1,5 @@
 "use client";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import AccountMenu from "./AccountMenu";
 import BlogNavLink from "./BlogNavLink";
@@ -12,6 +13,8 @@ type InitialUser = { id: string; accountname: string; firstname: string; lastnam
 
 export default function Nav({ initialUser = null }: { initialUser?: InitialUser }) {
   const [hidden, setHidden] = useState(false);
+  const pathname = usePathname();
+  const isBlog = pathname === "/blog" || pathname.startsWith("/blog/");
 
   useEffect(() => {
     let last = window.scrollY;
@@ -38,7 +41,7 @@ export default function Nav({ initialUser = null }: { initialUser?: InitialUser 
     <nav className={`nav${hidden ? " nav-hidden" : ""}`}>
       <div className="nav-l">
         <MobileMenu />
-        <Logo />
+        <Logo variant={isBlog ? "blog" : "user"} />
         <ToolsMenu />
         <SearchPalette />
       </div>

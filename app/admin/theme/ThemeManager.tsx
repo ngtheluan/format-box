@@ -27,7 +27,7 @@ const emptyDraft = (): Draft => ({
   nameEn: "",
   descVi: "",
   descEn: "",
-  swatch: ["#6366f1", "#a78bfa"],
+  swatch: ["#2563eb", "#22c5e8"],
   isDefault: false,
   enabled: true,
   sort: 100,

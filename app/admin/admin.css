@@ -1502,7 +1502,7 @@ body:has(.fx-modal-bg) {
   border-left: 3px solid var(--err, #f0566b);
 }
 .fx-scope .fx-row-card[data-banner-tone="info"] {
-  border-left: 3px solid var(--fx-accent, #7565f6);
+  border-left: 3px solid var(--fx-accent, #2563eb);
 }
 
 .fx-scope .fx-badge[data-tone="ok"] {
@@ -1511,9 +1511,9 @@ body:has(.fx-modal-bg) {
   border-color: color-mix(in srgb, var(--ok, #34d399) 45%, transparent);
 }
 .fx-scope .fx-badge[data-tone="info"] {
-  background: color-mix(in srgb, var(--fx-accent, #7565f6) 18%, transparent);
-  color: var(--fx-accent, #7565f6);
-  border-color: color-mix(in srgb, var(--fx-accent, #7565f6) 45%, transparent);
+  background: color-mix(in srgb, var(--fx-accent, #2563eb) 18%, transparent);
+  color: var(--fx-accent, #2563eb);
+  border-color: color-mix(in srgb, var(--fx-accent, #2563eb) 45%, transparent);
 }
 .fx-scope .fx-badge[data-tone="mute"] {
   background: rgba(160, 170, 255, 0.08);

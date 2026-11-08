@@ -3,35 +3,16 @@ import { ImageResponse } from "next/og";
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
-const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="180" height="180">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="180" y2="180" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#451a03"/>
-      <stop offset="100%" stop-color="#0b0b12"/>
-    </linearGradient>
-    <linearGradient id="atop" x1="90" y1="24" x2="90" y2="86" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#fde68a"/>
-      <stop offset="100%" stop-color="#fbbf24"/>
-    </linearGradient>
-    <linearGradient id="aleft" x1="22" y1="60" x2="90" y2="164" gradientUnits="userSpaceOnUse">
+    <linearGradient id="tile" x1="4" y1="2" x2="28" y2="30" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#f59e0b"/>
       <stop offset="100%" stop-color="#b45309"/>
     </linearGradient>
-    <linearGradient id="aright" x1="158" y1="60" x2="90" y2="164" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#ef4444"/>
-      <stop offset="100%" stop-color="#991b1b"/>
-    </linearGradient>
   </defs>
-  <rect width="180" height="180" rx="42" fill="url(#bg)"/>
-  <path d="M90 24 22 60v60l68 36 68-36V60L90 24Z" fill="#000" opacity=".35"/>
-  <path d="M90 24 22 60l68 36 68-36L90 24Z" fill="url(#atop)"/>
-  <path d="M22 60v60l68 36V96L22 60Z" fill="url(#aleft)"/>
-  <path d="M158 60v60l-68 36V96l68-36Z" fill="url(#aright)"/>
-  <path d="M90 24 22 60l68 36 68-36L90 24Z" fill="none" stroke="#fff" stroke-width="1.6" stroke-opacity=".45" stroke-linejoin="round"/>
-  <path d="M22 60v60l68 36 68-36V60" fill="none" stroke="#fff" stroke-width="1.6" stroke-opacity=".25" stroke-linejoin="round"/>
-  <path d="M90 96v60" stroke="#fff" stroke-width="1.4" stroke-opacity=".25"/>
-  <path d="m72 122 18 9 18-9" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M90 131v18" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+  <rect width="32" height="32" fill="url(#tile)"/>
+  <path fill="#fff" d="M9 9.5A1.5 1.5 0 0 1 10.5 8H23v4.5h-9.5v3H20V20h-6.5v4H9V9.5Z"/>
+  <rect x="18.5" y="19" width="5" height="5" rx="1.2" fill="#fef3c7"/>
 </svg>`;
 
 export default function AdminAppleIcon() {

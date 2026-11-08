@@ -221,8 +221,8 @@ export default function CountdownTool() {
         const n = new Notification(t("cd_notify_title"), {
           body: c.title || t("cd_arrived"),
           tag: `fb-cd-${c.id}`,
-          icon: "/favicon.ico",
-          badge: "/favicon.ico",
+          icon: "/icon.svg",
+          badge: "/icon.svg",
         });
         n.onclick = () => {
           try {

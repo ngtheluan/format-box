@@ -628,8 +628,8 @@ export default function FuelTool() {
           .then((reg) =>
             reg.showNotification(t("fp_notify_sample_title"), {
               body: t("fp_notify_sample_body"),
-              icon: "/favicon.ico",
-              badge: "/favicon.ico",
+              icon: "/icon.svg",
+              badge: "/icon.svg",
               tag: "fb-fuel",
               data: { url: "/fuel" },
             }),

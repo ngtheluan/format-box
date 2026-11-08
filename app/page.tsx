@@ -7,7 +7,6 @@ import {
   IconArrowRight,
   IconBolt,
   IconCalculator,
-  IconClock,
   IconDeviceDesktop,
   IconDeviceMobile,
   IconDeviceTablet,
@@ -31,7 +30,6 @@ const coming = [
   { Icon: IconLink, label: "URL Encode" },
   { Icon: IconHash, label: "HTML Entities" },
   { Icon: IconFingerprint, label: "Hash (MD5 / SHA)" },
-  { Icon: IconClock, label: "Unix Timestamp" },
   { Icon: IconRuler, label: "CSS Units" },
   { Icon: IconTable, label: "CSV ↔ JSON" },
   { Icon: IconCalculator, label: "Number Base" },
@@ -77,13 +75,13 @@ export default function Home() {
   const stats = [
     { k: "0", v: t("stat_ads") },
     { k: tools.length, v: t("stat_tools") },
-    { k: "100%", v: t("stat_client") },
+    { k: "100%", v: t("stat_free") },
     { k: "∞", v: t("stat_uses") },
   ];
   const why = [
-    { n: "01", h: t("why_01_h"), p: t("why_01_p") },
-    { n: "02", h: t("why_02_h"), p: t("why_02_p") },
-    { n: "03", h: t("why_03_h"), p: t("why_03_p") },
+    { n: "01", h: t("why_local_h"), p: t("why_local_p") },
+    { n: "02", h: t("why_live_h"), p: t("why_live_p") },
+    { n: "03", h: t("why_noads_h"), p: t("why_noads_p") },
     { n: "04", h: t("why_04_h"), p: t("why_04_p") },
   ];
 
@@ -96,12 +94,12 @@ export default function Home() {
 
         <div className="hero-inner hero-split">
           <div className="hero-copy">
-            <h1 className="fit-h" style={fit(t("hero_h1_1"), t("hero_h1_2"))}>
-              {t("hero_h1_1")}
+            <h1 className="fit-h" style={fit(t("hero_title_1"), t("hero_title_2"))}>
+              {t("hero_title_1")}
               <br />
-              <span className="g">{t("hero_h1_2")}</span>
+              <span className="g">{t("hero_title_2")}</span>
             </h1>
-            <p className="hero-sub">{t("hero_sub")}</p>
+            <p className="hero-sub">{t("hero_lead")}</p>
           </div>
 
           <div className="hero-demo-wrap">
@@ -133,16 +131,14 @@ export default function Home() {
               </span>
               <span className="hl-eyebrow">{t("hl_speed_eyebrow")}</span>
             </div>
-            <h3 className="hl-h">{t("hl_speed_h")}</h3>
-            <p className="hl-p">{t("hl_speed_p")}</p>
+            <h3 className="hl-h">{t("hl_speed_title")}</h3>
+            <p className="hl-p">{t("hl_speed_desc")}</p>
             <div className="hl-meter" aria-hidden="true">
               <div className="hl-meter-fill" />
               <div className="hl-meter-tick" style={{ left: "88%" }} />
             </div>
             <div className="hl-foot">
-              <span className="hl-stat">
-                <b>&lt; 1s</b> {t("hl_speed_stat")}
-              </span>
+              <span className="hl-stat hl-stat-mono">LOCAL · LIVE DATA</span>
               <span className="hl-pulse" />
             </div>
           </article>
@@ -251,10 +247,10 @@ export default function Home() {
         <div className="mx why-split">
           <div className="sh-wrap is-left" data-reveal>
             <div className="stag">WHY</div>
-            <h2 className="sh fit-h" style={fit(t("sec_why_h_1"), t("sec_why_h_2"))}>
-              {t("sec_why_h_1")}
+            <h2 className="sh fit-h" style={fit(t("sec_why_title_1"), t("sec_why_title_2"))}>
+              {t("sec_why_title_1")}
               <br />
-              {t("sec_why_h_2")}
+              {t("sec_why_title_2")}
             </h2>
           </div>
           <div className="why-list">

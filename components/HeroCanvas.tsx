@@ -23,8 +23,8 @@ export default function HeroCanvas() {
     renderer.domElement.style.height = "100%";
     renderer.domElement.style.display = "block";
 
-    const accent = new THREE.Color("#6366f1");
-    const accent2 = new THREE.Color("#a78bfa");
+    const accent = new THREE.Color("#3b82f6");
+    const accent2 = new THREE.Color("#38bdf8");
 
     // Central wireframe icosahedron
     const geom = new THREE.IcosahedronGeometry(1.6, 1);

@@ -33,13 +33,13 @@ export const metadata: Metadata = {
     url: SITE_URL,
     title: "FormatBox — Bộ công cụ chuyển đổi & định dạng dữ liệu online",
     description:
-      "Bộ công cụ online miễn phí cho lập trình viên Việt Nam: JSON, Base64, hình ảnh, tỷ giá, giá vàng, giá xăng. Xử lý ngay trên trình duyệt, không cần đăng ký.",
+      "Bộ công cụ online miễn phí cho lập trình viên Việt Nam: JSON, Base64, hình ảnh, tỷ giá, giá vàng, giá xăng. Mở là dùng, không cần cài đặt.",
     locale: "vi_VN",
   },
   twitter: {
     card: "summary_large_image",
     title: "FormatBox — Bộ công cụ chuyển đổi & định dạng dữ liệu online",
-    description: "JSON, Base64, hình ảnh, tỷ giá, giá vàng, giá xăng. Miễn phí, xử lý 100% client-side.",
+    description: "JSON, Base64, hình ảnh, tỷ giá, giá vàng, giá xăng. Miễn phí, mở là dùng.",
   },
 };
 
@@ -53,7 +53,7 @@ const JSON_LD = {
       name: "FormatBox",
       inLanguage: "vi-VN",
       description:
-        "Bộ công cụ online miễn phí cho lập trình viên: định dạng JSON, mã hoá Base64, chuyển đổi hình ảnh, tra cứu tỷ giá, giá vàng, giá xăng. Xử lý 100% trong trình duyệt.",
+        "Bộ công cụ online miễn phí cho lập trình viên: định dạng JSON, mã hoá Base64, chuyển đổi hình ảnh, tra cứu tỷ giá, giá vàng, giá xăng.",
       publisher: { "@id": `${SITE_URL}/#organization` },
     },
     {
@@ -61,7 +61,7 @@ const JSON_LD = {
       "@id": `${SITE_URL}/#organization`,
       name: "FormatBox",
       url: SITE_URL,
-      logo: `${SITE_URL}/favicon.ico`,
+      logo: `${SITE_URL}/apple-icon`,
     },
     {
       "@type": "WebApplication",
@@ -72,15 +72,15 @@ const JSON_LD = {
       inLanguage: ["vi-VN", "en"],
       offers: { "@type": "Offer", price: "0", priceCurrency: "VND" },
       description:
-        "FormatBox là bộ công cụ online miễn phí cho lập trình viên Việt Nam, gồm JSON formatter, Base64, chuyển đổi hình ảnh, tra cứu tỷ giá hối đoái, giá vàng và giá xăng. Tất cả xử lý ngay trong trình duyệt, không upload dữ liệu lên server.",
+        "FormatBox là bộ công cụ online miễn phí cho lập trình viên Việt Nam, gồm JSON formatter, Base64, chuyển đổi hình ảnh, tra cứu tỷ giá hối đoái, giá vàng và giá xăng. Công cụ định dạng và mã hoá chạy ngay trong trình duyệt, dữ liệu giá được cập nhật qua server.",
     },
   ],
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#070912" },
-    { media: "(prefers-color-scheme: light)", color: "#f3f4fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f1a2e" },
+    { media: "(prefers-color-scheme: light)", color: "#f2f6fc" },
   ],
 };
 

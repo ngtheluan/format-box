@@ -5,7 +5,7 @@ import { useTools } from "@/components/ToolsProvider";
 import { SEO_SLUGS } from "@/lib/tools-shared";
 
 const BASE = "FormatBox";
-const HOME_TITLE = "FormatBox — Chuyển đổi dữ liệu ngay trên trình duyệt";
+const HOME_TITLE = "FormatBox — Bộ công cụ trực tuyến miễn phí";
 
 export default function TitleUpdater() {
   const pathname = usePathname();

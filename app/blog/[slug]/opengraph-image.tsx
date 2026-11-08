@@ -10,8 +10,8 @@ export default async function OgImage({ params }: { params: { slug: string } }) 
   const post = await getPublicPost(params.slug);
   const title = post?.title ?? "FormatBox Blog";
   const label = post?.cover?.label ?? "FormatBox";
-  const from = post?.cover?.from ?? "#4f46e5";
-  const to = post?.cover?.to ?? "#9333ea";
+  const from = post?.cover?.from ?? "#2563eb";
+  const to = post?.cover?.to ?? "#0891b2";
   const category = post?.category?.toUpperCase() ?? "BLOG";
 
   return new ImageResponse(

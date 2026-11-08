@@ -55,20 +55,19 @@ export const DICT = {
   pacman_new_best: { vi: "Kỷ lục mới!", en: "New best!" },
 
   // HERO
-  hero_h1_1: { vi: "Chuyển đổi dữ liệu", en: "Convert your data" },
-  hero_h1_2: { vi: "ngay trên trình duyệt.", en: "right in your browser." },
-  hero_sub: {
-    vi: "Công cụ trực tuyến dành cho lập trình viên và người làm dữ liệu: định dạng, chuyển đổi và kiểm tra dữ liệu ngay trong trình duyệt — nhanh, riêng tư, không cần cài đặt.",
-    en: "This is an online toolkit for developers and data teams to format, convert and validate data right in the browser — fast, private, and nothing to install.",
+  hero_title_1: { vi: "Mọi công cụ bạn cần,", en: "Every tool you need," },
+  hero_title_2: { vi: "gói gọn trong một hộp.", en: "packed in one box." },
+  hero_lead: {
+    vi: "Bộ công cụ trực tuyến miễn phí: định dạng và chuyển đổi dữ liệu, xử lý hình ảnh, tra cứu tỷ giá, giá vàng, giá xăng cùng nhiều tiện ích khác — mở là dùng, không cần cài đặt.",
+    en: "A free online toolkit to format and convert data, edit images, and check exchange rates, gold and fuel prices, plus many more utilities — open and go, nothing to install.",
   },
   hero_quick_label: { vi: "Điểm nổi bật", en: "Highlights" },
   hl_speed_eyebrow: { vi: "TỐC ĐỘ", en: "SPEED" },
-  hl_speed_h: { vi: "Mở tool dưới 1 giây", en: "Tools open in under 1s" },
-  hl_speed_p: {
-    vi: "Không chờ server, không loading. Mở tab là chạy ngay.",
-    en: "No server wait, no loading. Open the tab, work instantly.",
+  hl_speed_title: { vi: "Mở là dùng ngay", en: "Open and get to work" },
+  hl_speed_desc: {
+    vi: "Định dạng, mã hoá chạy ngay trên máy bạn. Tỷ giá, giá vàng, giá xăng được cập nhật qua server.",
+    en: "Formatting and encoding run on your device. Exchange rates, gold and fuel prices update through our server.",
   },
-  hl_speed_stat: { vi: "trung bình", en: "avg time to interactive" },
   hl_dev_eyebrow: { vi: "ĐA NỀN TẢNG", en: "MULTI-DEVICE" },
   hl_dev_h: { vi: "Chạy trên mọi thiết bị", en: "Runs on every device" },
   hl_dev_p: {
@@ -86,7 +85,7 @@ export const DICT = {
   // STATS
   stat_ads: { vi: "quảng cáo", en: "ads" },
   stat_tools: { vi: "công cụ", en: "tools" },
-  stat_client: { vi: "client-side", en: "client-side" },
+  stat_free: { vi: "miễn phí", en: "free" },
   stat_uses: { vi: "lần dùng", en: "uses" },
 
   // SECTIONS
@@ -95,8 +94,8 @@ export const DICT = {
     vi: "Không cần cài đặt. Mở tab, làm việc, đóng tab.",
     en: "No install. Open a tab, get work done, close it.",
   },
-  sec_why_h_1: { vi: "Tool khác upload dữ liệu.", en: "Other tools upload your data." },
-  sec_why_h_2: { vi: "FormatBox thì không.", en: "FormatBox doesn't." },
+  sec_why_title_1: { vi: "Đủ thứ bạn cần.", en: "Everything you need." },
+  sec_why_title_2: { vi: "Không gì thừa.", en: "Nothing you don't." },
   sec_coming_h: { vi: "Sắp có thêm", en: "Coming soon" },
   sec_blog_h: { vi: "Bài viết mới", en: "From the blog" },
   sec_blog_d: {
@@ -190,20 +189,20 @@ export const DICT = {
   },
 
   // WHY
-  why_01_h: { vi: "Chạy trên trình duyệt", en: "Runs in your browser" },
-  why_01_p: {
-    vi: "Không server nào nhận dữ liệu. Tắt mạng vẫn dùng được.",
-    en: "No server touches your data. Works offline once loaded.",
+  why_local_h: { vi: "Dữ liệu nhạy cảm ở lại máy bạn", en: "Sensitive data stays on your device" },
+  why_local_p: {
+    vi: "JSON, Base64, JWT và hình ảnh được xử lý trong trình duyệt, không gửi lên server.",
+    en: "JSON, Base64, JWT and images are processed in your browser, never sent to a server.",
   },
-  why_02_h: { vi: "Tức thì, không giới hạn", en: "Instant, no limits" },
-  why_02_p: {
-    vi: "Không hàng đợi, không quota. File 50MB hay 5KB đều như nhau.",
-    en: "No queue, no quota. 50MB or 5KB — same experience.",
+  why_live_h: { vi: "Thông tin cập nhật liên tục", en: "Always up-to-date data" },
+  why_live_p: {
+    vi: "Tỷ giá, giá vàng, giá xăng, thời tiết và xổ số được tổng hợp gọn trong một chỗ.",
+    en: "Exchange rates, gold and fuel prices, weather and lottery results, all in one place.",
   },
-  why_03_h: { vi: "Không tracking", en: "No tracking" },
-  why_03_p: {
-    vi: "Không popup, không banner, không cookie theo dõi.",
-    en: "No popups, no banners, no tracking cookies.",
+  why_noads_h: { vi: "Không quảng cáo", en: "No ads" },
+  why_noads_p: {
+    vi: "Không popup quảng cáo, giao diện gọn gàng. Mở ra là tập trung vào việc.",
+    en: "No ad popups, just a clean interface so you can focus on the task.",
   },
   why_04_h: { vi: "Mọi thiết bị", en: "Every device" },
   why_04_p: {
