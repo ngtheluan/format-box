@@ -49,6 +49,9 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Auto runs arrive with no cookies; without this the existing-post list used to
+// avoid duplicate topics, and identical LLM calls, can come from Next's Data Cache.
+export const fetchCache = "force-no-store";
 export const maxDuration = 300;
 
 type Body = {

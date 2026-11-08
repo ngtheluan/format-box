@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Cron requests carry no cookies, so reads would otherwise hit Next's Data Cache.
+export const fetchCache = "force-no-store";
 export const maxDuration = 300;
 
 // Called every minute by Supabase pg_cron (supabase/blog_auto.sql).
