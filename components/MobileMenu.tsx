@@ -95,7 +95,7 @@ export default function MobileMenu() {
                               <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
                             </div>
                             <div className="mm-item-body">
-                              <b>{tool.title}</b>
+                              <b>{tool.title[lang]}</b>
                               <span>{tool.desc[lang]}</span>
                             </div>
                           </Link>

@@ -28,7 +28,7 @@ export default function RelatedToolsPicker({ value, onChange, title, tags, max =
     const needle = q.trim().toLowerCase();
     const list = tools.filter((t) => (t.active ?? true) !== false);
     if (!needle) return list;
-    return list.filter((t) => `${t.title} ${t.href} ${t.tags.join(" ")}`.toLowerCase().includes(needle));
+    return list.filter((t) => `${t.title.vi} ${t.title.en} ${t.href} ${t.tags.join(" ")}`.toLowerCase().includes(needle));
   }, [tools, q]);
 
   function toggle(href: string) {
@@ -57,8 +57,8 @@ export default function RelatedToolsPicker({ value, onChange, title, tags, max =
           {selected.map((t) => (
             <span key={t.href} className="bga-reltools-chip">
               <ToolIcon name={t.iconName} size={14} stroke={1.8} />
-              {t.title}
-              <button type="button" onClick={() => toggle(t.href)} aria-label={`Bỏ ${t.title}`}>
+              {t.title.vi}
+              <button type="button" onClick={() => toggle(t.href)} aria-label={`Bỏ ${t.title.vi}`}>
                 <IconX size={12} stroke={2.2} />
               </button>
             </span>
@@ -83,12 +83,12 @@ export default function RelatedToolsPicker({ value, onChange, title, tags, max =
               onClick={() => toggle(t.href)}
               disabled={full}
               aria-pressed={on}
-              title={full ? `Tối đa ${max} công cụ` : t.title}
+              title={full ? `Tối đa ${max} công cụ` : t.title.vi}
             >
               <span className="bga-reltools-opt-ic">
                 <ToolIcon name={t.iconName} size={15} stroke={1.7} />
               </span>
-              <span className="bga-reltools-opt-label">{t.title}</span>
+              <span className="bga-reltools-opt-label">{t.title.vi}</span>
               {on && <IconCheck size={13} stroke={2.6} className="bga-reltools-opt-check" />}
             </button>
           );

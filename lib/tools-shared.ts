@@ -13,7 +13,7 @@ export type ToolCategory = "cat_text" | "cat_media" | "cat_dev" | "cat_life";
 export type Tool = {
   href: string;
   iconName: string;
-  title: string;
+  title: Bilingual;
   desc: Bilingual;
   tags: string[];
   category: ToolCategory;
@@ -44,7 +44,7 @@ export const CATEGORY_ORDER: ToolCategory[] = ["cat_text", "cat_media", "cat_dev
 export const toolDesc = (t: Tool, lang: Lang) => t.desc[lang];
 
 export const toolSearchable = (t: Tool) =>
-  [t.title, t.desc.vi, t.desc.en, t.href, ...t.tags].join(" ").toLowerCase();
+  [t.title.vi, t.title.en, t.desc.vi, t.desc.en, t.href, ...t.tags].join(" ").toLowerCase();
 
 // Curated keyword → tool map for the in-article "Công cụ liên quan" block.
 // Each tool lists strong, intent-revealing phrases (Vietnamese + English). A
@@ -114,7 +114,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/base64",
     iconName: "IconLock",
-    title: "Base64",
+    title: { vi: "Base64", en: "Base64" },
     desc: { vi: "Text, file, UTF-8 đầy đủ. Kéo thả, đổi chiều một chạm.", en: "Text, files, full UTF-8. Drag-drop and swap in one click." },
     tags: ["text", "file", "utf-8"],
     category: "cat_text",
@@ -145,7 +145,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/json",
     iconName: "IconBraces",
-    title: "JSON",
+    title: { vi: "JSON", en: "JSON" },
     desc: { vi: "Format, minify, validate. Tree view, đếm keys, tính kích thước.", en: "Format, minify, validate. Tree view, key count, size info." },
     tags: ["format", "minify", "tree"],
     category: "cat_text",
@@ -176,7 +176,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/format-file",
     iconName: "IconFileSpreadsheet",
-    title: "Excel Merger",
+    title: { vi: "Gộp Excel", en: "Excel Merger" },
     desc: {
       vi: "Gộp nhiều file Excel/CSV thành 1 file. Nối theo hàng hoặc tách riêng từng sheet.",
       en: "Merge multiple Excel/CSV files into one. Append rows or keep each file as its own sheet.",
@@ -256,7 +256,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/format-sql",
     iconName: "IconDatabase",
-    title: "SQL Formatter",
+    title: { vi: "Định dạng SQL", en: "SQL Formatter" },
     desc: {
       vi: "Format, beautify, minify SQL. Hỗ trợ MySQL, PostgreSQL, SQLite, SQL Server, Oracle, BigQuery.",
       en: "Format, beautify, minify SQL. Supports MySQL, PostgreSQL, SQLite, SQL Server, Oracle, BigQuery.",
@@ -315,7 +315,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/workflow-timeline",
     iconName: "IconTimeline",
-    title: "Workflow Timeline",
+    title: { vi: "Dòng thời gian Workflow", en: "Workflow Timeline" },
     desc: {
       vi: "Trực quan hoá log workflow BPM/CRM từ JSON — timeline node, hand-off, bảng log entries.",
       en: "Visualize BPM/CRM workflow logs from JSON — node timeline, hand-offs, log entries table.",
@@ -377,7 +377,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/graph",
     iconName: "IconChartDots3",
-    title: "JSON Graph",
+    title: { vi: "Đồ thị JSON", en: "JSON Graph" },
     desc: { vi: "Chuyển JSON thành đồ thị tương tác. Pan, zoom, khám phá cấu trúc.", en: "Turn JSON into an interactive graph. Pan, zoom, explore." },
     tags: ["graph", "pan", "zoom"],
     category: "cat_text",
@@ -408,7 +408,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/image",
     iconName: "IconPhoto",
-    title: "Image Converter",
+    title: { vi: "Chuyển đổi ảnh", en: "Image Converter" },
     desc: { vi: "PNG, JPG, WebP qua lại. Chỉnh chất lượng, xem trước tức thì.", en: "PNG, JPG, WebP. Tune quality, live preview." },
     tags: ["png", "jpg", "webp"],
     category: "cat_media",
@@ -439,7 +439,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/photobooth",
     iconName: "IconCamera",
-    title: "Photobooth",
+    title: { vi: "Photobooth", en: "Photobooth" },
     desc: { vi: "Chụp bộ ảnh photobooth bằng camera, chọn filter, sticker, khung — tải về PNG.", en: "Capture a photobooth strip with your camera, pick filters, stickers, frames — export PNG." },
     tags: ["camera", "photo", "booth", "sticker", "filter"],
     category: "cat_media",
@@ -486,7 +486,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/audio-studio",
     iconName: "IconWaveSine",
-    title: "Audio Studio",
+    title: { vi: "Chỉnh sửa âm thanh", en: "Audio Studio" },
     desc: { vi: "Cắt, đổi tốc độ, fade, đảo ngược, chuẩn hoá âm lượng. Xuất WAV, chạy 100% trên trình duyệt.", en: "Trim, speed, fade, reverse, normalize. Export WAV, fully client-side." },
     tags: ["audio", "mp3", "wav", "trim", "editor"],
     category: "cat_media",
@@ -517,7 +517,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/qr",
     iconName: "IconQrcode",
-    title: "QR Code",
+    title: { vi: "Mã QR", en: "QR Code" },
     desc: { vi: "Tạo mã QR từ text/URL, tuỳ chỉnh màu, kích thước, mức sửa lỗi. Tải PNG/SVG.", en: "Create QR codes from text/URL, customize color, size, error correction. Download PNG/SVG." },
     tags: ["qr", "qrcode", "barcode", "png", "svg"],
     category: "cat_media",
@@ -548,7 +548,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/favicon-export",
     iconName: "IconBrowser",
-    title: "Favicon Export",
+    title: { vi: "Xuất Favicon", en: "Favicon Export" },
     desc: { vi: "Upload 1 ảnh, sinh đầy đủ favicon 16→512, apple-touch, PWA. Kèm snippet HTML.", en: "Upload one image, get the full favicon set 16→512, apple-touch, PWA. HTML snippet included." },
     tags: ["favicon", "icon", "pwa", "apple-touch", "manifest"],
     category: "cat_media",
@@ -579,7 +579,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/bill",
     iconName: "IconReceipt",
-    title: "Bill Splitter",
+    title: { vi: "Chia hoá đơn", en: "Bill Splitter" },
     desc: { vi: "Chia tiền theo nhóm — nhập item, người tham gia, xuất bill PNG.", en: "Split expenses in a group — items, people, export as PNG." },
     tags: ["bill", "split", "png"],
     category: "cat_media",
@@ -610,7 +610,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/jwt",
     iconName: "IconKey",
-    title: "JWT Decoder",
+    title: { vi: "Giải mã JWT", en: "JWT Decoder" },
     desc: { vi: "Giải mã header + payload, xem claims và trạng thái hết hạn.", en: "Decode header + payload, inspect claims and expiry." },
     tags: ["jwt", "token", "decode"],
     category: "cat_text",
@@ -641,7 +641,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/markdown",
     iconName: "IconMarkdown",
-    title: "Markdown Reader",
+    title: { vi: "Đọc Markdown", en: "Markdown Reader" },
     desc: { vi: "Đọc file Markdown, xem preview render trực tiếp, copy HTML.", en: "Read Markdown files, live preview, copy HTML." },
     tags: ["markdown", "md", "preview"],
     category: "cat_text",
@@ -672,7 +672,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/text-case",
     iconName: "IconLetterCase",
-    title: "Text Case",
+    title: { vi: "Đổi kiểu chữ", en: "Text Case" },
     desc: { vi: "Đổi giữa camel, snake, kebab, Title, UPPER và nhiều kiểu khác.", en: "Switch between camel, snake, kebab, Title, UPPER and more." },
     tags: ["case", "camel", "snake", "kebab"],
     category: "cat_text",
@@ -703,7 +703,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/responsive",
     iconName: "IconDevices",
-    title: "Responsive Tester",
+    title: { vi: "Kiểm tra Responsive", en: "Responsive Tester" },
     desc: { vi: "Xem website ở nhiều kích thước iPhone, iPad, laptop, desktop.", en: "View any website across iPhone, iPad, laptop, desktop sizes." },
     tags: ["responsive", "device", "preview"],
     category: "cat_dev",
@@ -734,7 +734,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/fuel",
     iconName: "IconGasStation",
-    title: "Fuel Price",
+    title: { vi: "Giá xăng dầu", en: "Fuel Price" },
     desc: { vi: "Giá bán lẻ xăng dầu theo vùng (nguồn Petrolimex), cập nhật mỗi kỳ điều chỉnh.", en: "Retail fuel prices by region (Petrolimex source), refreshed each cycle." },
     tags: ["fuel", "petrolimex", "vn"],
     category: "cat_life",
@@ -765,7 +765,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/exchange-currency",
     iconName: "IconCurrencyDollar",
-    title: "Exchange",
+    title: { vi: "Đổi tiền", en: "Exchange" },
     desc: { vi: "Đổi tiền, chuyển tiền quốc tế — USD, VND, EUR, JPY và nhiều loại. Tỉ giá live.", en: "Convert & transfer money — USD, VND, EUR, JPY and more. Live mid-market rates." },
     tags: ["currency", "exchange", "usd", "vnd", "eur", "transfer"],
     category: "cat_life",
@@ -796,7 +796,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/gold",
     iconName: "IconCoin",
-    title: "Gold Price",
+    title: { vi: "Giá vàng", en: "Gold Price" },
     desc: { vi: "Giá vàng SJC, PNJ, 24K, 18K… đầy đủ. Nguồn PNJ live, cập nhật vài phút một lần.", en: "SJC, PNJ 24K, 18K and more. Live PNJ feed, refreshed every few minutes." },
     tags: ["gold", "sjc", "pnj", "vn", "vang"],
     category: "cat_life",
@@ -827,7 +827,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/lucky-ticket",
     iconName: "IconTicket",
-    title: "Lucky Ticket",
+    title: { vi: "Dò vé số", en: "Lucky Ticket" },
     desc: { vi: "Dò vé số 3 miền theo kết quả realtime. Nhập số, xem ngay trúng giải nào.", en: "Check Vietnamese lottery tickets against live results across 3 regions." },
     tags: ["lottery", "xo-so", "vn", "ticket", "do-ve-so"],
     category: "cat_life",
@@ -858,7 +858,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/wheel",
     iconName: "IconConfetti",
-    title: "Lucky Wheel",
+    title: { vi: "Vòng quay may mắn", en: "Lucky Wheel" },
     desc: { vi: "Vòng quay may mắn — nhập danh sách, quay, chọn ngẫu nhiên.", en: "Lucky wheel — enter a list, spin, pick randomly." },
     tags: ["random", "picker", "wheel"],
     category: "cat_life",
@@ -889,7 +889,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/calendar",
     iconName: "IconCalendar",
-    title: "Calendar",
+    title: { vi: "Lịch", en: "Calendar" },
     desc: { vi: "Xem lịch dương kèm âm lịch Việt Nam. Chọn ngày để xem ngày/tháng/năm can chi.", en: "Solar calendar with Vietnamese lunar dates. Pick a day to see its Can Chi day/month/year." },
     tags: ["calendar", "lunar", "am-lich", "duong-lich", "vn"],
     category: "cat_life",
@@ -920,7 +920,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/countdown",
     iconName: "IconClock",
-    title: "Countdown",
+    title: { vi: "Đếm ngược", en: "Countdown" },
     desc: { vi: "Đếm ngược tới ngày quan trọng — sinh nhật, năm mới, deadline. Lưu nhiều mốc.", en: "Count down to important moments — birthdays, new year, deadlines. Save many events." },
     tags: ["countdown", "timer", "event"],
     category: "cat_life",
@@ -951,7 +951,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/weather",
     iconName: "IconCloud",
-    title: "Weather",
+    title: { vi: "Thời tiết", en: "Weather" },
     desc: { vi: "Xem thời tiết hiện tại và dự báo 7 ngày cho bất kỳ thành phố nào. Nguồn Open-Meteo.", en: "Current conditions and 7-day forecast for any city. Powered by Open-Meteo." },
     tags: ["weather", "forecast", "thoi-tiet"],
     category: "cat_life",
@@ -982,7 +982,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/timestamp",
     iconName: "IconClockHour4",
-    title: "Timestamp",
+    title: { vi: "Timestamp", en: "Timestamp" },
     desc: { vi: "Chuyển đổi Unix timestamp qua lại với ngày giờ. ISO, UTC, local, relative time.", en: "Convert Unix timestamps to and from dates. ISO, UTC, local, relative time." },
     tags: ["timestamp", "unix", "epoch", "iso", "date"],
     category: "cat_dev",
@@ -1013,7 +1013,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/speed-test",
     iconName: "IconGauge",
-    title: "Speed Test",
+    title: { vi: "Đo tốc độ mạng", en: "Speed Test" },
     desc: { vi: "Đo tốc độ Wi-Fi / mạng: download, upload, ping, jitter. Chạy trực tiếp trên trình duyệt, chính xác.", en: "Measure Wi-Fi / network speed: download, upload, ping, jitter. Runs in your browser, accurate." },
     tags: ["speed", "wifi", "network", "internet", "mbps", "ping"],
     category: "cat_dev",
@@ -1044,7 +1044,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/color",
     iconName: "IconPalette",
-    title: "Color",
+    title: { vi: "Màu sắc", en: "Color" },
     desc: { vi: "HEX, RGB, HSL, HSB, OKLCH. Bảng tint/shade, contrast WCAG, copy một chạm.", en: "HEX, RGB, HSL, HSB, OKLCH. Tint/shade palette, WCAG contrast, one-click copy." },
     tags: ["color", "hex", "rgb", "hsl", "oklch", "palette", "contrast", "wcag"],
     category: "cat_dev",
@@ -1075,7 +1075,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/curl",
     iconName: "IconTerminal2",
-    title: "cURL Runner",
+    title: { vi: "Chạy cURL", en: "cURL Runner" },
     desc: { vi: "Dán cURL, xem parse request và response giống Postman.", en: "Paste a cURL command, inspect request and response Postman-style." },
     tags: ["curl", "http", "api"],
     category: "cat_dev",
@@ -1106,7 +1106,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/typing-test",
     iconName: "IconKeyboard",
-    title: "Typing Test",
+    title: { vi: "Kiểm tra tốc độ gõ", en: "Typing Test" },
     desc: { vi: "Đo tốc độ gõ WPM & độ chính xác. Đếm giờ, từ tô màu theo lỗi, lưu kỷ lục.", en: "Measure your WPM & accuracy. Timed run, per-word coloring, saved best score." },
     tags: ["typing", "wpm", "keyboard", "speed", "test", "text"],
     category: "cat_text",
@@ -1137,7 +1137,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/regex",
     iconName: "IconRegex",
-    title: "Regex",
+    title: { vi: "Regex", en: "Regex" },
     desc: { vi: "Thử regex trực tiếp — chọn flag, xem match highlight và từng group bắt được.", en: "Test regex live — pick flags, highlight matches, inspect captured groups." },
     tags: ["regex", "regexp", "pattern", "match", "test"],
     category: "cat_dev",
@@ -1168,7 +1168,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/uuid",
     iconName: "IconFingerprint",
-    title: "UUID",
+    title: { vi: "UUID", en: "UUID" },
     desc: { vi: "Tạo UUID v4 ngẫu nhiên. Sinh hàng loạt, tuỳ chỉnh định dạng, copy một chạm.", en: "Generate random UUID v4. Batch create, customize format, one-click copy." },
     tags: ["uuid", "guid", "random", "id", "unique"],
     category: "cat_dev",
@@ -1199,7 +1199,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/meme",
     iconName: "IconMoodSmile",
-    title: "Meme",
+    title: { vi: "Meme", en: "Meme" },
     desc: { vi: "Lướt meme đang trending — xem, copy ảnh, tải về. Nguồn từ các cộng đồng meme lớn trên Reddit.", en: "Browse trending memes — preview, copy image, download. Sourced from large Reddit meme communities." },
     tags: ["meme", "funny", "reddit", "image", "gif", "viral"],
     category: "cat_media",
@@ -1230,7 +1230,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/travel-plan",
     iconName: "IconRoute",
-    title: "Lộ trình",
+    title: { vi: "Lộ trình", en: "Travel Plan" },
     desc: { vi: "Dựng lộ trình du lịch theo ngày — chọn tông màu, địa điểm kèm hình tự tìm, tải ảnh hoặc tạo link chia sẻ.", en: "Build a day-by-day travel itinerary — pick a colour tone, add places with auto-fetched photos, download or share a link." },
     tags: ["travel", "trip", "itinerary", "du-lich", "lo-trinh", "plan", "map"],
     category: "cat_life",
@@ -1261,7 +1261,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/license-plate",
     iconName: "IconCar",
-    title: "Biển số xe",
+    title: { vi: "Biển số xe", en: "License Plate" },
     desc: { vi: "Nhập biển số (vd 51K-123.45) hoặc tên tỉnh — hiển thị mã, vùng và danh sách đầy đủ 63 tỉnh/thành.", en: "Type a plate (e.g. 51K-123.45) or a province — see code, region and the full list of 63 provinces." },
     tags: ["bien so", "license", "plate", "vietnam", "tinh", "province", "xe"],
     category: "cat_life",
@@ -1292,7 +1292,7 @@ export const SEED_TOOLS: Tool[] = [
   {
     href: "/bmi-check",
     iconName: "IconHeartbeat",
-    title: "BMI Check",
+    title: { vi: "Kiểm tra BMI", en: "BMI Check" },
     desc: {
       vi: "Tính chỉ số BMI, đánh giá cân nặng theo chuẩn WHO và châu Á (WPRO).",
       en: "Compute BMI and classify weight by WHO and Asian (WPRO) standards.",
@@ -1349,6 +1349,16 @@ export const SEO_SLUGS: ReadonlySet<string> = new Set(
   SEED_TOOLS.filter((t) => t.seoTitle).map((t) => t.href),
 );
 
+export function isSeedTool(href: string): boolean {
+  return toolBySlug(href.replace(/^\//, "")) !== undefined;
+}
+
+// Tool names live in SEED_TOOLS. The DB `title` is only used for tools added
+// through the admin panel, which have a single name for both languages.
+export function toolTitle(href: string, fallback: string): Bilingual {
+  return toolBySlug(href.replace(/^\//, ""))?.title ?? { vi: fallback, en: fallback };
+}
+
 export function toolBySlug(slug: string): Tool | undefined {
   return TOOL_BY_SLUG[slug.replace(/^\//, "")];
 }
@@ -1357,7 +1367,7 @@ export function toolMetadata(slug: string): Metadata {
   const t = toolBySlug(slug);
   if (!t) return {};
   const url = `${SITE_URL}${t.href}`;
-  const title = t.seoTitle ?? t.title;
+  const title = t.seoTitle ?? t.title.vi;
   const description = t.seoDescription ?? t.desc.vi;
   return {
     title,
@@ -1384,7 +1394,7 @@ export function toolJsonLd(slug: string) {
   const t = toolBySlug(slug);
   if (!t) return [];
   const url = `${SITE_URL}${t.href}`;
-  const title = t.seoTitle ?? t.title;
+  const title = t.seoTitle ?? t.title.vi;
   const description = t.seoDescription ?? t.desc.vi;
   return [
     {

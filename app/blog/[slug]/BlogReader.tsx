@@ -794,7 +794,7 @@ export function RelatedTools({ tools }: { tools: Tool[] }) {
               <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
             </span>
             <span className="bd-tool-text">
-              <strong>{tool.title}</strong>
+              <strong>{tool.title[lang]}</strong>
               <span className="bd-tool-desc">{tool.desc[lang]}</span>
             </span>
             <IconArrowUpRight size={15} stroke={2} className="bd-tool-arrow" />

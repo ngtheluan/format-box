@@ -21,8 +21,9 @@ function score(tool: Tool, q: string): number {
   const hay = toolSearchable(tool);
   if (!hay.includes(needle)) return 0;
   let s = 1;
-  if (tool.title.toLowerCase().startsWith(needle)) s += 8;
-  else if (tool.title.toLowerCase().includes(needle)) s += 5;
+  const titles = [tool.title.vi.toLowerCase(), tool.title.en.toLowerCase()];
+  if (titles.some((x) => x.startsWith(needle))) s += 8;
+  else if (titles.some((x) => x.includes(needle))) s += 5;
   if (tool.tags.some((x) => x.toLowerCase() === needle)) s += 4;
   if (tool.desc.en.toLowerCase().includes(needle) || tool.desc.vi.toLowerCase().includes(needle))
     s += 2;
@@ -131,7 +132,7 @@ export default function SearchPalette() {
         <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
       </div>
       <div className="sp-item-body">
-        <b>{tool.title}</b>
+        <b>{tool.title[lang]}</b>
         <span>{tool.desc[lang]}</span>
       </div>
       <span className="sp-item-path">{tool.href}</span>

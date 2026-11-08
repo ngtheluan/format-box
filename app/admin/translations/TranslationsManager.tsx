@@ -148,7 +148,7 @@ export default function TranslationsManager() {
         const list = grouped.get(slug) || [];
         return {
           id: slug,
-          label: t.title,
+          label: t.title.vi,
           icon: <IconLanguage size={14} stroke={1.9} />,
           count: list.length,
           missing: list.filter((r) => !r.vi || !r.en).length,

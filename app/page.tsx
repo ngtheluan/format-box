@@ -107,7 +107,7 @@ export default function Home() {
             {tools.slice(0, 3).map((tool, i) => (
               <span key={tool.href} className={`float-chip float-chip-${i + 1}`} aria-hidden="true">
                 <ToolIcon name={tool.iconName} size={15} stroke={1.8} />
-                {tool.title}
+                {tool.title[lang]}
               </span>
             ))}
           </div>
@@ -228,7 +228,7 @@ export default function Home() {
                   </div>
                   <span className="tool-arrow">→</span>
                 </div>
-                <h3>{tool.title}</h3>
+                <h3>{tool.title[lang]}</h3>
                 <p>{tool.desc[lang]}</p>
                 <div className="bc-tags">
                   {tool.tags.map((tag) => (

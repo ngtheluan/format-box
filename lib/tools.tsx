@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { supabase, supabaseAdmin, hasSupabase } from "./supabase";
+import { toolTitle } from "./tools-shared";
 import type { BilingualFaqs, FaqItem, Tool } from "./tools-shared";
 
 export * from "./tools-shared";
@@ -42,7 +43,7 @@ function rowToTool(r: DbRow): Tool {
   return {
     href: r.href,
     iconName: r.icon_name,
-    title: r.title,
+    title: toolTitle(r.href, r.title),
     desc: { vi: r.desc_vi, en: r.desc_en },
     tags: r.tags ?? [],
     category: r.category,
@@ -63,7 +64,7 @@ export function toolToRow(t: Tool): DbRow {
   return {
     href: t.href,
     icon_name: t.iconName,
-    title: t.title,
+    title: t.title.en || t.title.vi,
     desc_vi: t.desc.vi,
     desc_en: t.desc.en,
     tags: t.tags,
@@ -125,7 +126,7 @@ function menuRowToTool(r: MenuRow): Tool {
   return {
     href: r.href,
     iconName: r.icon_name,
-    title: r.title,
+    title: toolTitle(r.href, r.title),
     desc: { vi: r.desc_vi, en: r.desc_en },
     tags: r.tags ?? [],
     category: r.category,
@@ -158,12 +159,12 @@ async function fetchTools(): Promise<Tool[]> {
   const tools = (data as unknown as MenuRow[]).map(menuRowToTool);
   const mode = await fetchSortMode();
   if (mode === "custom") return tools;
-  const sorted = [...tools].sort((a, b) => a.title.localeCompare(b.title, "vi"));
+  const sorted = [...tools].sort((a, b) => a.title.vi.localeCompare(b.title.vi, "vi"));
   if (mode === "alpha-desc") sorted.reverse();
   return sorted;
 }
 
-const cached = unstable_cache(fetchTools, ["tools:list"], {
+const cached = unstable_cache(fetchTools, ["tools:list:v2"], {
   revalidate: 60,
   tags: ["tools"],
 });

@@ -194,7 +194,7 @@ export default function AnalyticsClient() {
             </span>
             <span className="fx-stat-txt">
               <span className="fx-stat-val" style={{ fontSize: 15 }}>
-                {topTools[0] ? (titleFor(topTools[0].href)?.title ?? topTools[0].href) : "—"}
+                {topTools[0] ? (titleFor(topTools[0].href)?.title.vi ?? topTools[0].href) : "—"}
               </span>
               <span className="fx-stat-lbl">Tool hot nhất</span>
             </span>
@@ -297,7 +297,7 @@ export default function AnalyticsClient() {
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={rankTop}>
-                          <span style={rankName}>{tool?.title ?? t.href}</span>
+                          <span style={rankName}>{tool?.title.vi ?? t.href}</span>
                           <span style={rankCount}>
                             {nf.format(t.count)} <small style={{ opacity: 0.55 }}>· {pct}%</small>
                           </span>
@@ -382,7 +382,7 @@ export default function AnalyticsClient() {
                 <span style={{ opacity: 0.6 }}>Đang lọc:</span>
                 {filterHref && (
                   <span style={activeFilter}>
-                    tool: <b>{titleFor(filterHref)?.title ?? filterHref}</b>
+                    tool: <b>{titleFor(filterHref)?.title.vi ?? filterHref}</b>
                   </span>
                 )}
                 {filterIp && (
@@ -421,7 +421,7 @@ export default function AnalyticsClient() {
                               style={cellLink}
                               title="Lọc theo tool"
                             >
-                              {tool?.title ?? r.href}
+                              {tool?.title.vi ?? r.href}
                             </button>
                           </td>
                           <td style={td}>

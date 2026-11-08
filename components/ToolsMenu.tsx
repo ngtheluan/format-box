@@ -90,7 +90,7 @@ export default function ToolsMenu() {
                           <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
                         </div>
                         <div className="nav-cat-item-text">
-                          <b>{tool.title}</b>
+                          <b>{tool.title[lang]}</b>
                           <span>{tool.desc[lang]}</span>
                         </div>
                       </Link>

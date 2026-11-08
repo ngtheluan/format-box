@@ -11,6 +11,8 @@ import {
   type FaqItem,
   type Tool,
   type ToolCategory,
+  isSeedTool,
+  toolTitle,
 } from "@/lib/tools-shared";
 import {
   IconApps,
@@ -60,7 +62,7 @@ type FilterCat = "all" | ToolCategory;
 const emptyTool: Tool = {
   href: "",
   iconName: "IconLock",
-  title: "",
+  title: emptyBilingual(),
   desc: { vi: "", en: "" },
   tags: [],
   category: "cat_dev",
@@ -85,7 +87,7 @@ function rowToTool(r: Row): Tool {
   return {
     href: r.href,
     iconName: r.icon_name,
-    title: r.title,
+    title: toolTitle(r.href, r.title),
     desc: { vi: r.desc_vi, en: r.desc_en },
     tags: r.tags ?? [],
     category: r.category,
@@ -479,7 +481,8 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
       if (statFilter === "hidden" && isActive) return false;
       if (!needle) return true;
       return (
-        t.title.toLowerCase().includes(needle) ||
+        t.title.vi.toLowerCase().includes(needle) ||
+        t.title.en.toLowerCase().includes(needle) ||
         t.href.toLowerCase().includes(needle) ||
         t.tags.some((x) => x.toLowerCase().includes(needle))
       );
@@ -488,7 +491,7 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
 
   const sortedVisible = useMemo(() => {
     if (sortMode === "custom") return visible;
-    const arr = [...visible].sort((a, b) => a.title.localeCompare(b.title, "vi"));
+    const arr = [...visible].sort((a, b) => a.title.vi.localeCompare(b.title.vi, "vi"));
     if (sortMode === "alpha-desc") arr.reverse();
     return arr;
   }, [visible, sortMode]);
@@ -562,7 +565,7 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
       toast("Cập nhật thất bại");
       load();
     } else {
-      toast(next ? `Đã bật ${t.title}` : `Đã ẩn ${t.title}`);
+      toast(next ? `Đã bật ${t.title.vi}` : `Đã ẩn ${t.title.vi}`);
       reloadPublicTools();
     }
   }
@@ -849,7 +852,7 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
                 </div>
                 <div className="fx-title-cell">
                   <div className="fx-t-row">
-                    <b>{t.title}</b>
+                    <b>{t.title.vi}</b>
                     <span className="fx-t-href">{t.href}</span>
                   </div>
                   <span className="fx-t-sub">{t.desc.vi}</span>
@@ -923,7 +926,7 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
                   </>
                 ) : (
                   <>
-                    <IconEdit size={16} stroke={2} /> Sửa: {editing.title || editing.href}
+                    <IconEdit size={16} stroke={2} /> Sửa: {editing.title.vi || editing.href}
                   </>
                 )}
                 <span className="fx-badge">{isNew ? "NEW" : "EDIT"}</span>
@@ -994,10 +997,20 @@ export default function MenuManager({ isSuperAdmin = false }: { isSuperAdmin?: b
                         placeholder="/tool-path"
                       />
                     </div>
-                    <div className="fx-field">
-                      <label>Title *</label>
-                      <input value={editing.title} onChange={(e) => set("title", e.target.value)} />
-                    </div>
+                    {!isNew && isSeedTool(editing.href) ? (
+                      <div className="fx-field">
+                        <label>Title (sửa trong lib/tools-shared.ts)</label>
+                        <input value={`${editing.title.vi} / ${editing.title.en}`} disabled />
+                      </div>
+                    ) : (
+                      <div className="fx-field">
+                        <label>Title *</label>
+                        <input
+                          value={editing.title.vi}
+                          onChange={(e) => set("title", { vi: e.target.value, en: e.target.value })}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="fx-grid2">
                     <div className="fx-field">
