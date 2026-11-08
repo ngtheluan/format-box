@@ -20,6 +20,7 @@ export type AutoStatus = {
   currentTopic: string;
   startedAt: number | null;
   lastEventAt: number | null;
+  lockedUntil: number | null; // current tick's lease, or the end of the gap between posts
   recent: AutoRecent[];
   lastError?: string;
   provider?: string;
@@ -38,6 +39,7 @@ type JobRow = {
   current_topic: string;
   started_at: string | null;
   last_event_at: string | null;
+  locked_until: string | null;
   recent: AutoRecent[];
   last_error: string | null;
   provider: string | null;
@@ -80,6 +82,7 @@ function toStatus(row: JobRow): AutoStatus {
     currentTopic: row.current_topic,
     startedAt: toMs(row.started_at),
     lastEventAt: toMs(row.last_event_at),
+    lockedUntil: toMs(row.locked_until),
     recent: (row.recent || []).slice(0, RECENT_LIMIT),
     lastError: row.last_error ?? undefined,
     provider: row.provider ?? undefined,
@@ -98,6 +101,7 @@ function idleStatus(lastError?: string): AutoStatus {
     currentTopic: "",
     startedAt: null,
     lastEventAt: null,
+    lockedUntil: null,
     recent: [],
     lastError,
   };

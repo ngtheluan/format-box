@@ -261,6 +261,16 @@ export const AUTO_GEN_DEFAULTS: AutoGenOptions = {
   relatedTools: [],
 };
 
+// pg_cron fires every minute, so a job past its lease/gap with no activity for
+// 3 minutes means ticks aren't arriving (e.g. a 401 from a wrong Vault secret).
+export function isAutoStalled(
+  status: { running: boolean; lastEventAt?: number | null; lockedUntil?: number | null },
+  now: number,
+): boolean {
+  if (!status.running || status.lastEventAt == null) return false;
+  return now > Math.max(status.lastEventAt, status.lockedUntil ?? 0) + 180_000;
+}
+
 // NDJSON events streamed by /api/blog/generate.
 export type GenStep = "topic" | "research" | "outline" | "write" | "factcheck" | "linking" | "images" | "video" | "save";
 export type GenEvent =

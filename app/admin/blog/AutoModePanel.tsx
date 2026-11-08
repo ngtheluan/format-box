@@ -72,10 +72,10 @@ export default function AutoModePanel({ onClose, onEditConfig, running, category
   }
 
   const summary = running
-    ? "Auto đang chạy. Dừng job hiện tại để bắt đầu job mới."
+    ? "Chế độ Tự động đang chạy. Dừng job hiện tại để bắt đầu job mới."
     : [
         unlimited ? "Sinh liên tục" : `${count} bài`,
-        `topic ngẫu nhiên trong ${categoryLabel}`,
+        `chủ đề ngẫu nhiên trong ${categoryLabel}`,
         gapMinutes ? `cách ${GAP_OPTIONS.find((g) => g.value === String(gapMinutes))?.label}` : "liền mạch",
       ].join(" · ");
 

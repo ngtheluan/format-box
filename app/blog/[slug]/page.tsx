@@ -129,7 +129,7 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
     headline: post.title,
     description: post.excerpt,
     datePublished: post.date,
-    dateModified: post.date,
+    dateModified: post.updatedAt ?? post.date,
     author: { "@type": "Person", name: post.author },
     publisher: { "@type": "Organization", name: "FormatBox", url: SITE_URL },
     mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { isSuperAdmin } from "@/lib/admin-auth";
 import {
   categoriesToMap,
   listPublicCategories,
@@ -6,6 +7,7 @@ import {
   listPublicPosts,
   listReactions,
 } from "@/lib/blog";
+import { AutoStallAlert } from "./AutoStallAlert";
 import { BlogList } from "./BlogList";
 import "./blog.css";
 
@@ -18,15 +20,17 @@ export const metadata: Metadata = {
 };
 
 export default async function BlogIndex() {
-  const [posts, cats, dyk, popularity] = await Promise.all([
+  const [posts, cats, dyk, popularity, superAdmin] = await Promise.all([
     listPublicPosts(),
     listPublicCategories(),
     listPublicDidYouKnow(),
     listReactions(),
+    isSuperAdmin(),
   ]);
 
   return (
     <div className="blog-wrap">
+      {superAdmin && <AutoStallAlert />}
       <BlogList posts={posts} categories={categoriesToMap(cats)} didYouKnow={dyk} popularity={popularity} />
     </div>
   );

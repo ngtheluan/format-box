@@ -18,6 +18,8 @@ export type BlogPost = {
   tags: string[];
   author: string;
   date: string;
+  // Only set when the row was read with `updated_at` (detail queries, not LIST_COLS).
+  updatedAt?: string;
   readMin: number;
   cover: { from: string; to: string; emoji?: string; label: string };
   coverImage?: string;
@@ -425,6 +427,7 @@ type DbRow = {
   tags: string[];
   author: string;
   date: string;
+  updated_at?: string;
   read_min: number;
   cover_from: string;
   cover_to: string;
@@ -449,6 +452,7 @@ function fromRow(r: DbRow): BlogPost {
     tags: r.tags || [],
     author: r.author,
     date: r.date,
+    updatedAt: r.updated_at,
     readMin: r.read_min,
     cover: { from: r.cover_from, to: r.cover_to, label: r.cover_label },
     coverImage: r.cover_image || undefined,

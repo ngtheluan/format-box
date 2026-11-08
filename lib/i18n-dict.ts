@@ -120,6 +120,12 @@ export const DICT = {
   blog_empty: { vi: "Không tìm thấy bài viết phù hợp.", en: "No matching posts." },
   blog_clear: { vi: "Xoá bộ lọc", en: "Clear filters" },
   blog_load_more: { vi: "Xem thêm bài viết", en: "Load more posts" },
+  blog_auto_stalled_title: { vi: "Sinh bài tự động đang kẹt", en: "Auto generation is stuck" },
+  blog_auto_stalled_desc: {
+    vi: "Hơn 3 phút chưa có lượt cron nào chạy.",
+    en: "No cron run has happened for over 3 minutes.",
+  },
+  blog_auto_stalled_link: { vi: "Mở trang quản lý", en: "Open admin" },
   blog_dyk_title: { vi: "Có thể bạn chưa biết", en: "You might not know" },
   blog_dyk_sub: {
     vi: "Những điều thú vị kèm thư viện ảnh — bấm vào để mở",

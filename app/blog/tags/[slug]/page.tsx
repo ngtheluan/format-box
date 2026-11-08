@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { isSuperAdmin } from "@/lib/admin-auth";
 import { categoriesToMap, listPublicCategories, listPublicPosts, listReactions, slugifyLabel } from "@/lib/blog";
+import { AutoStallAlert } from "../../AutoStallAlert";
 import { BlogList } from "../../BlogList";
 import "../../blog.css";
 
@@ -25,10 +27,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function BlogTagPage({ params }: { params: { slug: string } }) {
-  const [posts, cats, popularity] = await Promise.all([
+  const [posts, cats, popularity, superAdmin] = await Promise.all([
     listPublicPosts(),
     listPublicCategories(),
     listReactions(),
+    isSuperAdmin(),
   ]);
   const map = categoriesToMap(cats);
   const key = resolveCat(map, params.slug);
@@ -36,6 +39,7 @@ export default async function BlogTagPage({ params }: { params: { slug: string }
 
   return (
     <div className="blog-wrap">
+      {superAdmin && <AutoStallAlert />}
       <BlogList posts={posts} categories={map} activeTag={key} popularity={popularity} />
     </div>
   );
