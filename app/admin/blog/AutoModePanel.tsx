@@ -21,6 +21,7 @@ type Props = {
   onClose: () => void;
   onEditConfig: () => void;
   running: boolean;
+  categoryLabel: string;
   inherited: { label: string; value: string }[];
   onStart: (settings: AutoRunSettings) => Promise<boolean>;
 };
@@ -48,7 +49,7 @@ function loadSaved(): Partial<AutoRunSettings> {
 
 // Auto mode of the "Sinh bài blog" popup: renders that popup's body and footer.
 // Content settings come from the Config mode; only the run itself is chosen here.
-export default function AutoModePanel({ onClose, onEditConfig, running, inherited, onStart }: Props) {
+export default function AutoModePanel({ onClose, onEditConfig, running, categoryLabel, inherited, onStart }: Props) {
   const [saved] = useState(loadSaved);
   const [count, setCount] = useState(saved.count ?? 10);
   const [unlimited, setUnlimited] = useState(saved.unlimited ?? false);
@@ -74,7 +75,7 @@ export default function AutoModePanel({ onClose, onEditConfig, running, inherite
     ? "Auto đang chạy. Dừng job hiện tại để bắt đầu job mới."
     : [
         unlimited ? "Sinh liên tục" : `${count} bài`,
-        "danh mục ngẫu nhiên",
+        `topic ngẫu nhiên trong ${categoryLabel}`,
         gapMinutes ? `cách ${GAP_OPTIONS.find((g) => g.value === String(gapMinutes))?.label}` : "liền mạch",
       ].join(" · ");
 

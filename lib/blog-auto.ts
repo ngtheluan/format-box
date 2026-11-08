@@ -114,6 +114,7 @@ export async function getAutoStatus(): Promise<AutoStatus> {
 }
 
 export type StartConfig = {
+  category?: string;
   unlimited: boolean;
   count: number;
   provider?: string;
@@ -133,7 +134,7 @@ export async function startAuto(cfg: StartConfig): Promise<AutoStatus> {
     .update({
       running: true,
       run_id: randomUUID(),
-      category: "random",
+      category: cfg.category || "random",
       options: cfg.options ?? {},
       unlimited: !!cfg.unlimited,
       target_count: cfg.unlimited ? 0 : Math.max(1, Math.floor(cfg.count)),
@@ -177,8 +178,11 @@ async function claimJob(): Promise<JobRow | null> {
   return data as JobRow | null;
 }
 
-async function pickRandomCategory(): Promise<string> {
+// The job's category when it is still active; otherwise ("random", or the
+// category was disabled mid-run) any active one.
+async function resolveCategory(wanted: string): Promise<string> {
   const active = (await listAdminCategories()).filter((c) => c.active).map((c) => c.slug);
+  if (active.includes(wanted)) return wanted;
   return active[Math.floor(Math.random() * active.length)] || "tech";
 }
 
@@ -202,7 +206,7 @@ async function generateOne(job: JobRow, baseUrl: string): Promise<TickOutcome> {
 
   try {
     const { gapMinutes: _gap, ...contentOptions } = jobOptions(job);
-    const catSlug = await pickRandomCategory();
+    const catSlug = await resolveCategory(job.category);
     await heartbeat(`${catSlug} · đang khởi động…`);
     const r = await fetch(`${baseUrl}/api/blog/generate`, {
       method: "POST",

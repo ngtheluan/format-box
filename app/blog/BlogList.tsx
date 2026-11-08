@@ -174,26 +174,6 @@ export function BlogList({
 }) {
   const { t } = useI18n();
   const [active, setActive] = useState<string | null>(activeTag);
-  // Floating indicator that polls /api/blog/auto/status and shows while the
-  // server-side auto job is running. Click opens the admin page.
-  const [autoBadge, setAutoBadge] = useState<{ running: boolean; generated: number }>({ running: false, generated: 0 });
-  useEffect(() => {
-    let cancelled = false;
-    async function poll() {
-      try {
-        const r = await fetch("/api/blog/auto/status", { cache: "no-store" });
-        if (!r.ok) return;
-        const j = await r.json();
-        if (!cancelled) setAutoBadge({ running: !!j.running, generated: Number(j.generated) || 0 });
-      } catch {}
-    }
-    poll();
-    const id = setInterval(poll, 15000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
   const isTagPage = !!active;
   const [limit, setLimit] = useState(PAGE);
   const [q, setQ] = useState("");
@@ -239,6 +219,9 @@ export function BlogList({
     if (typeof window !== "undefined") {
       window.history.pushState(null, "", url);
       document.title = k ? `#${slug} · FormatBox` : "Bài viết · FormatBox";
+      // pushState doesn't reset scroll like a real navigation. Jump instantly:
+      // the global smooth scroll would animate across a list that is being swapped.
+      window.scrollTo({ top: 0, behavior: "instant" });
     }
   }
 
@@ -283,32 +266,6 @@ export function BlogList({
 
   return (
     <Stack gap={28}>
-      {autoBadge.running && (
-        <Link
-          href="/admin/blog"
-          title="Xem tiến trình Auto"
-          style={{
-            position: "fixed",
-            right: 16,
-            bottom: 16,
-            zIndex: 60,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 14px",
-            borderRadius: 999,
-            background: "var(--accent, #6366f1)",
-            color: "#fff",
-            fontSize: 12,
-            fontWeight: 600,
-            textDecoration: "none",
-            boxShadow: "0 8px 24px rgba(99,102,241,0.35)",
-          }}
-        >
-          <IconSparkles size={14} stroke={2.2} />
-          AI đang sinh bài · {autoBadge.generated}
-        </Link>
-      )}
       {/* HERO — framed tile: eyebrow, title, dek, topic filters */}
       <header className="bz-hero" aria-labelledby="blog-h1">
         <Corners />

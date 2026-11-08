@@ -1040,6 +1040,7 @@ export default function BlogAdminTool({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          category: genCategory,
           unlimited,
           count,
           provider: genProvider,
@@ -2356,10 +2357,10 @@ export default function BlogAdminTool({
                       );
                     })()}
                 </div>
-                <div />
+                <div>Ảnh</div>
                 <div>Bài viết</div>
-                <div>Category</div>
-                <div>Status</div>
+                <div>Danh mục</div>
+                <div>Trạng thái</div>
                 <div>Ngày</div>
                 <div style={{ textAlign: "right" }}>Actions</div>
               </div>
@@ -2662,8 +2663,9 @@ export default function BlogAdminTool({
                 onClose={() => setGenerateOpen(false)}
                 onEditConfig={() => setGenMode("config")}
                 running={autoRunning}
+                categoryLabel={CAT_LABEL[genCategory] || genCategory}
                 inherited={[
-                  { label: "Danh mục", value: "Ngẫu nhiên" },
+                  { label: "Danh mục", value: CAT_LABEL[genCategory] || genCategory },
                   {
                     label: "Model",
                     value:

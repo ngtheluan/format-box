@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   if (!(await isSuperAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as {
+    category?: string;
     unlimited?: boolean;
     count?: number;
     provider?: string;
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
   };
   try {
     const status = await startAuto({
+      category: body.category,
       unlimited: !!body.unlimited,
       count: Number(body.count) || 10,
       provider: body.provider,
