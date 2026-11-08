@@ -55,10 +55,10 @@ export const DICT = {
   pacman_new_best: { vi: "Kỷ lục mới!", en: "New best!" },
 
   // HERO
-  hero_title_1: { vi: "Mọi công cụ bạn cần,", en: "Every tool you need," },
-  hero_title_2: { vi: "gói gọn trong một hộp.", en: "packed in one box." },
+  hero_title_1: { vi: "Chuyển đổi dữ liệu", en: "Every tool you need," },
+  hero_title_2: { vi: "ngay trên trình duyệt.", en: "packed in one box." },
   hero_lead: {
-    vi: "Bộ công cụ trực tuyến miễn phí: định dạng và chuyển đổi dữ liệu, xử lý hình ảnh, tra cứu tỷ giá, giá vàng, giá xăng cùng nhiều tiện ích khác — mở là dùng, không cần cài đặt.",
+    vi: "Công cụ trực tuyến dành cho lập trình viên và người làm dữ liệu: định dạng, chuyển đổi và kiểm tra dữ liệu ngay trong trình duyệt — nhanh, riêng tư, không cần cài đặt.",
     en: "A free online toolkit to format and convert data, edit images, and check exchange rates, gold and fuel prices, plus many more utilities — open and go, nothing to install.",
   },
   hero_quick_label: { vi: "Điểm nổi bật", en: "Highlights" },
