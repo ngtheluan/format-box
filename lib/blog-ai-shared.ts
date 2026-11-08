@@ -220,6 +220,47 @@ export const GEN_LENGTHS: { id: GenLength; label: string; words: string; section
   { id: "long", label: "Dài", words: "1500–2000", sections: "7–9" },
 ];
 
+// Content options of an auto-generation job; each post uses the same set.
+export type AutoGenOptions = {
+  gapMinutes: number; // wait between two posts; 0 = next cron run
+  tone: GenTone;
+  length: GenLength;
+  images: number;
+  research: boolean;
+  notes: string;
+  audience: GenAudience;
+  structure: GenStructure;
+  seoKeyword: string;
+  extras: GenExtra[];
+  cta: GenCta;
+  region: GenRegion;
+  imageStyle: GenImageStyle;
+  factCheck: boolean;
+  internalLinks: boolean;
+  includeVideo: boolean;
+  relatedTools: string[];
+};
+
+export const AUTO_GEN_DEFAULTS: AutoGenOptions = {
+  gapMinutes: 0,
+  tone: "friendly",
+  length: "medium",
+  images: 4,
+  research: true,
+  notes: "",
+  audience: "mixed",
+  structure: "news",
+  seoKeyword: "",
+  extras: ["tldr", "stats"],
+  cta: "share",
+  region: "global",
+  imageStyle: "photo",
+  factCheck: true,
+  internalLinks: true,
+  includeVideo: false,
+  relatedTools: [],
+};
+
 // NDJSON events streamed by /api/blog/generate.
 export type GenStep = "topic" | "research" | "outline" | "write" | "factcheck" | "linking" | "images" | "video" | "save";
 export type GenEvent =

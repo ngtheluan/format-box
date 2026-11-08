@@ -5,6 +5,11 @@ import { supabase, supabaseAdmin } from "./supabase";
 export type BlogCategory = string;
 export type BlogStatus = "draft" | "rejected" | "published";
 
+// Pinned posts fill the featured split on /blog: the first PINNED_IN_CAROUSEL
+// rotate in the carousel, the remainder are listed beside it.
+export const MAX_PINNED = 6;
+export const PINNED_IN_CAROUSEL = 3;
+
 export type BlogPost = {
   slug: string;
   title: string;

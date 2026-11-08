@@ -1,11 +1,12 @@
-// Server-side continuous blog generator. State lives in this module's closure
-// so the loop survives client disconnects (close tab, navigate away, close
-// browser). It does NOT survive server restarts — on cold boot the job is
-// "idle" and must be restarted by an admin.
-//
-// Internally the loop just calls POST /api/blog/generate with the admin's
-// cookie forwarded from the request that started the job, so auth, drafting,
-// image picking and DB insert reuse the existing pipeline unchanged.
+// Server-side continuous blog generator. Serverless functions are frozen once
+// they respond, so nothing here may outlive a request: the job lives in the
+// single-row `blog_auto_job` table and Supabase pg_cron calls
+// POST /api/cron/blog-auto every minute (see supabase/blog_auto.sql). Each call
+// generates exactly one post through the existing /api/blog/generate pipeline.
+import { randomUUID } from "crypto";
+import { listAdminCategories } from "./blog";
+import { AUTO_GEN_DEFAULTS, type AutoGenOptions } from "./blog-ai-shared";
+import { supabaseAdmin } from "./supabase";
 
 export type AutoRecent = { title: string; slug: string; at: number };
 
@@ -25,23 +26,68 @@ export type AutoStatus = {
   model?: string;
 };
 
-type GlobalBag = {
-  job: AutoStatus;
-  abort: AbortController | null;
-  loop: Promise<void> | null;
+type JobRow = {
+  running: boolean;
+  run_id: string | null;
+  category: string;
+  unlimited: boolean;
+  target_count: number;
+  generated: number;
+  failed: number;
+  consecutive_failures: number;
+  current_topic: string;
+  started_at: string | null;
+  last_event_at: string | null;
+  recent: AutoRecent[];
+  last_error: string | null;
+  provider: string | null;
+  model: string | null;
+  options: Partial<AutoGenOptions> | null;
 };
 
-const g = globalThis as unknown as { __fbBlogAuto?: GlobalBag };
-if (!g.__fbBlogAuto) {
-  g.__fbBlogAuto = {
-    job: freshJob(),
-    abort: null,
-    loop: null,
+type TickOutcome =
+  | { kind: "generated"; post: { title: string; slug: string } }
+  | { kind: "failed"; error: string }
+  | { kind: "stopped" };
+
+export type TickResult = TickOutcome["kind"] | "idle";
+
+const TABLE = "blog_auto_job";
+const JOB_ID = 1;
+const RECENT_LIMIT = 10;
+// Longer than the 300s maxDuration of the tick route, so a crashed tick frees
+// the job without ever overlapping a live one.
+const LEASE_MS = 310_000;
+// The loop runs unattended, so a bad API key must not burn calls forever.
+const MAX_CONSECUTIVE_FAILURES = 5;
+
+function jobs() {
+  return supabaseAdmin().from(TABLE);
+}
+
+function toMs(iso: string | null): number | null {
+  return iso ? Date.parse(iso) : null;
+}
+
+function toStatus(row: JobRow): AutoStatus {
+  return {
+    running: row.running,
+    category: row.category,
+    unlimited: row.unlimited,
+    targetCount: row.target_count,
+    generated: row.generated,
+    failed: row.failed,
+    currentTopic: row.current_topic,
+    startedAt: toMs(row.started_at),
+    lastEventAt: toMs(row.last_event_at),
+    recent: (row.recent || []).slice(0, RECENT_LIMIT),
+    lastError: row.last_error ?? undefined,
+    provider: row.provider ?? undefined,
+    model: row.model ?? undefined,
   };
 }
-const bag = g.__fbBlogAuto;
 
-function freshJob(): AutoStatus {
+function idleStatus(lastError?: string): AutoStatus {
   return {
     running: false,
     category: "random",
@@ -53,166 +99,211 @@ function freshJob(): AutoStatus {
     startedAt: null,
     lastEventAt: null,
     recent: [],
+    lastError,
   };
 }
 
-export function getAutoStatus(): AutoStatus {
-  return { ...bag.job, recent: bag.job.recent.slice(0, 10) };
-}
-
-export function isAutoRunning(): boolean {
-  return bag.job.running;
-}
-
-export function stopAuto(): AutoStatus {
-  bag.job.running = false;
-  bag.abort?.abort();
-  return getAutoStatus();
+export async function getAutoStatus(): Promise<AutoStatus> {
+  try {
+    const { data, error } = await jobs().select("*").eq("id", JOB_ID).maybeSingle();
+    if (error) return idleStatus(error.message);
+    return data ? toStatus(data as JobRow) : idleStatus();
+  } catch (e) {
+    return idleStatus(String((e as Error)?.message || e));
+  }
 }
 
 export type StartConfig = {
-  category: string;
   unlimited: boolean;
   count: number;
-  baseUrl: string;
-  cookie?: string;
   provider?: string;
   model?: string;
+  options?: Partial<AutoGenOptions>;
 };
 
+function jobOptions(job: JobRow): AutoGenOptions {
+  return { ...AUTO_GEN_DEFAULTS, ...job.options };
+}
+
 export async function startAuto(cfg: StartConfig): Promise<AutoStatus> {
-  if (bag.job.running) return getAutoStatus();
-  bag.job = freshJob();
-  bag.job.running = true;
-  bag.job.category = cfg.category || "random";
-  bag.job.unlimited = !!cfg.unlimited;
-  bag.job.targetCount = cfg.unlimited ? 0 : Math.max(1, Math.floor(cfg.count));
-  bag.job.startedAt = Date.now();
-  bag.job.lastEventAt = Date.now();
-  bag.job.provider = cfg.provider;
-  bag.job.model = cfg.model;
-  bag.loop = runLoop(cfg).catch((err) => {
-    bag.job.lastError = String((err as Error)?.message || err);
-    bag.job.running = false;
-  });
+  const now = new Date().toISOString();
+  // `running = false` in the filter makes a double start a no-op. A fresh
+  // run_id orphans any tick still finishing from a previous, stopped run.
+  const { data, error } = await jobs()
+    .update({
+      running: true,
+      run_id: randomUUID(),
+      category: "random",
+      options: cfg.options ?? {},
+      unlimited: !!cfg.unlimited,
+      target_count: cfg.unlimited ? 0 : Math.max(1, Math.floor(cfg.count)),
+      generated: 0,
+      failed: 0,
+      consecutive_failures: 0,
+      current_topic: "",
+      started_at: now,
+      last_event_at: now,
+      recent: [],
+      last_error: null,
+      provider: cfg.provider ?? null,
+      model: cfg.model ?? null,
+      locked_until: null,
+    })
+    .eq("id", JOB_ID)
+    .eq("running", false)
+    .select("*")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? toStatus(data as JobRow) : getAutoStatus();
+}
+
+export async function stopAuto(): Promise<AutoStatus> {
+  const { error } = await jobs().update({ running: false, current_topic: "" }).eq("id", JOB_ID);
+  if (error) throw new Error(error.message);
   return getAutoStatus();
 }
 
-async function fetchActiveCategories(baseUrl: string, cookie?: string): Promise<string[]> {
+// Atomically take the lease; null when idle or another tick still holds it.
+async function claimJob(): Promise<JobRow | null> {
+  const now = Date.now();
+  const { data, error } = await jobs()
+    .update({ locked_until: new Date(now + LEASE_MS).toISOString() })
+    .eq("id", JOB_ID)
+    .eq("running", true)
+    .or(`locked_until.is.null,locked_until.lt."${new Date(now).toISOString()}"`)
+    .select("*")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as JobRow | null;
+}
+
+async function pickRandomCategory(): Promise<string> {
+  const active = (await listAdminCategories()).filter((c) => c.active).map((c) => c.slug);
+  return active[Math.floor(Math.random() * active.length)] || "tech";
+}
+
+async function generateOne(job: JobRow, baseUrl: string): Promise<TickOutcome> {
+  const ac = new AbortController();
+
+  // Publishes progress and aborts the post when the admin stopped this run.
+  const heartbeat = async (currentTopic?: string) => {
+    const { data, error } = await jobs()
+      .update({
+        last_event_at: new Date().toISOString(),
+        ...(currentTopic ? { current_topic: currentTopic } : {}),
+      })
+      .eq("id", JOB_ID)
+      .eq("run_id", job.run_id)
+      .eq("running", true)
+      .select("id")
+      .maybeSingle();
+    if (!error && !data) ac.abort();
+  };
+
   try {
-    const r = await fetch(`${baseUrl}/api/blog/categories`, {
-      cache: "no-store",
-      headers: cookie ? { cookie } : {},
+    const { gapMinutes: _gap, ...contentOptions } = jobOptions(job);
+    const catSlug = await pickRandomCategory();
+    await heartbeat(`${catSlug} · đang khởi động…`);
+    const r = await fetch(`${baseUrl}/api/blog/generate`, {
+      method: "POST",
+      signal: ac.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.CRON_SECRET}`,
+      },
+      body: JSON.stringify({
+        ...contentOptions,
+        mode: "random",
+        provider: job.provider || "groq",
+        model: job.model ?? undefined,
+        category: catSlug,
+      }),
     });
-    const j = await r.json().catch(() => null);
-    const list = Array.isArray(j?.categories) ? j.categories : [];
-    const slugs = list.filter((c: { active?: boolean }) => c.active).map((c: { slug: string }) => c.slug);
-    return slugs.length ? slugs : list.map((c: { slug: string }) => c.slug);
-  } catch {
-    return [];
+    if (!r.ok || !r.body) return { kind: "failed", error: `HTTP ${r.status}` };
+
+    let post: { title: string; slug: string } | null = null;
+    let streamError = "";
+    const handleLine = async (line: string) => {
+      let e;
+      try {
+        e = JSON.parse(line);
+      } catch {
+        return;
+      }
+      if (e.type === "step" && e.status === "start") {
+        await heartbeat(e.detail ? `${catSlug} · ${e.detail}` : undefined);
+      } else if (e.type === "step" && e.step === "topic" && e.status === "done" && e.detail) {
+        await heartbeat(`${catSlug} · ${e.detail}`);
+      } else if (e.type === "done" && e.post) {
+        post = { title: e.post.title, slug: e.post.slug };
+      } else if (e.type === "error" && e.error) {
+        streamError = String(e.error);
+      }
+    };
+
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (line) await handleLine(line);
+      }
+    }
+    if (buf.trim()) await handleLine(buf.trim());
+
+    if (post) return { kind: "generated", post };
+    return { kind: "failed", error: streamError || "Không trả về bài" };
+  } catch (e) {
+    if (ac.signal.aborted) return { kind: "stopped" };
+    return { kind: "failed", error: String((e as Error)?.message || e) };
   }
 }
 
-async function runLoop(cfg: StartConfig) {
-  const activeCats = await fetchActiveCategories(cfg.baseUrl, cfg.cookie);
-  const pickCat = (): string => {
-    if (cfg.category && cfg.category !== "random") return cfg.category;
-    if (!activeCats.length) return "tech";
-    return activeCats[Math.floor(Math.random() * activeCats.length)];
+async function finishTick(job: JobRow, outcome: TickOutcome) {
+  // locked_until doubles as "not before": pg_cron skips the job until it passes.
+  const gapMinutes = Math.max(0, Number(jobOptions(job).gapMinutes) || 0);
+  const patch: Record<string, unknown> = {
+    locked_until: gapMinutes ? new Date(Date.now() + gapMinutes * 60_000).toISOString() : null,
+    last_event_at: new Date().toISOString(),
   };
-
-  while (bag.job.running && (bag.job.unlimited || bag.job.generated < bag.job.targetCount)) {
-    const catSlug = pickCat();
-    bag.job.currentTopic = `${catSlug} · đang khởi động…`;
-    bag.job.lastEventAt = Date.now();
-    const ac = new AbortController();
-    bag.abort = ac;
-    try {
-      const r = await fetch(`${cfg.baseUrl}/api/blog/generate`, {
-        method: "POST",
-        signal: ac.signal,
-        headers: {
-          "Content-Type": "application/json",
-          ...(cfg.cookie ? { cookie: cfg.cookie } : {}),
-        },
-        body: JSON.stringify({
-          mode: "random",
-          provider: cfg.provider || "groq",
-          model: cfg.model,
-          category: catSlug,
-          tone: "friendly",
-          length: "medium",
-          images: 4,
-          research: true,
-          notes: "",
-          audience: "mixed",
-          structure: "news",
-          extras: ["tldr", "stats"],
-          cta: "share",
-          region: "global",
-          imageStyle: "photo",
-          factCheck: true,
-          internalLinks: true,
-          includeVideo: false,
-          relatedTools: [],
-        }),
-      });
-      if (!r.ok || !r.body) {
-        bag.job.failed++;
-        bag.job.lastError = `HTTP ${r.status}`;
-      } else {
-        const reader = r.body.getReader();
-        const dec = new TextDecoder();
-        let buf = "";
-        let created: { title: string; slug: string } | null = null;
-        for (;;) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buf += dec.decode(value, { stream: true });
-          let i;
-          while ((i = buf.indexOf("\n")) >= 0) {
-            const line = buf.slice(0, i).trim();
-            buf = buf.slice(i + 1);
-            if (!line) continue;
-            try {
-              const e = JSON.parse(line);
-              if (e.type === "step" && e.status === "start" && e.detail) {
-                bag.job.currentTopic = `${catSlug} · ${e.detail}`;
-                bag.job.lastEventAt = Date.now();
-              } else if (e.type === "done" && e.post) {
-                created = { title: e.post.title, slug: e.post.slug };
-              } else if (e.type === "error" && e.error) {
-                bag.job.lastError = String(e.error);
-              }
-            } catch {}
-          }
-        }
-        if (buf.trim()) {
-          try {
-            const e = JSON.parse(buf);
-            if (e.type === "done" && e.post) created = { title: e.post.title, slug: e.post.slug };
-          } catch {}
-        }
-        if (created) {
-          bag.job.generated++;
-          bag.job.recent.unshift({ title: created.title, slug: created.slug, at: Date.now() });
-          if (bag.job.recent.length > 10) bag.job.recent.length = 10;
-        } else {
-          bag.job.failed++;
-          if (!bag.job.lastError) bag.job.lastError = "Không trả về bài";
-        }
-      }
-    } catch (e) {
-      if (ac.signal.aborted) break;
-      bag.job.failed++;
-      bag.job.lastError = String((e as Error)?.message || e);
-    } finally {
-      bag.abort = null;
-      bag.job.lastEventAt = Date.now();
+  if (gapMinutes) patch.current_topic = `Đang giãn cách ${gapMinutes} phút trước bài kế tiếp`;
+  // `running` is only ever written to end the job, so a Stop that lands while
+  // this tick runs is never overwritten.
+  if (outcome.kind === "generated") {
+    const generated = job.generated + 1;
+    patch.generated = generated;
+    patch.consecutive_failures = 0;
+    patch.recent = [{ ...outcome.post, at: Date.now() }, ...(job.recent || [])].slice(0, RECENT_LIMIT);
+    if (!job.unlimited && generated >= job.target_count) {
+      patch.running = false;
+      patch.current_topic = "";
     }
-    if (!bag.job.running) break;
-    await new Promise((res) => setTimeout(res, 1500));
+  } else if (outcome.kind === "failed") {
+    const consecutive = job.consecutive_failures + 1;
+    patch.failed = job.failed + 1;
+    patch.consecutive_failures = consecutive;
+    patch.last_error = outcome.error;
+    if (consecutive >= MAX_CONSECUTIVE_FAILURES) {
+      patch.running = false;
+      patch.current_topic = "";
+      patch.last_error = `Tự dừng sau ${consecutive} lần lỗi liên tiếp: ${outcome.error}`;
+    }
   }
-  bag.job.running = false;
-  bag.job.currentTopic = "";
+  const { error } = await jobs().update(patch).eq("id", JOB_ID).eq("run_id", job.run_id);
+  if (error) throw new Error(error.message);
+}
+
+// Runs one generation for the active job. Called once per pg_cron request.
+export async function runAutoTick(baseUrl: string): Promise<TickResult> {
+  const job = await claimJob();
+  if (!job) return "idle";
+  const outcome = await generateOne(job, baseUrl);
+  await finishTick(job, outcome);
+  return outcome.kind;
 }

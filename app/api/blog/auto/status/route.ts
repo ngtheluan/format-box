@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // public /blog page can show a subtle indicator; superadmins get the full
 // detail (current topic, recent, lastError…).
 export async function GET() {
-  const full = getAutoStatus();
+  const full = await getAutoStatus();
   if (await isSuperAdmin()) return NextResponse.json(full);
   return NextResponse.json({
     running: full.running,

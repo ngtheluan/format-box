@@ -4,6 +4,12 @@
 import { supabaseAdmin } from "./supabase";
 import { currentUserId } from "./user-auth";
 
+// Fails closed: without CRON_SECRET configured, no request counts as internal.
+export function isCronRequest(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  return !!secret && req.headers.get("authorization") === `Bearer ${secret}`;
+}
+
 export async function isAdmin(): Promise<boolean> {
   const id = currentUserId();
   if (!id) return false;

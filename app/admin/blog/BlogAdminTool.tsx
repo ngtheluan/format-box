@@ -4,6 +4,7 @@ import { useToast } from "@/components/Toast";
 import type { SelectOption } from "@/components/ui";
 import { Field, Input, Select, Switch, Tab, TabPanel, Tabs, TabsList, Textarea } from "@/components/ui";
 import {
+  MAX_PINNED,
   rewriteImgUrl,
   slugifyLabel,
   type BlogCategory,
@@ -41,7 +42,9 @@ import {
 import {
   IconAdjustmentsHorizontal,
   IconAlertTriangle,
+  IconArrowDown,
   IconArrowsLeftRight,
+  IconArrowUp,
   IconArticle,
   IconBook,
   IconBrain,
@@ -50,8 +53,6 @@ import {
   IconCategory,
   IconChartBar,
   IconCheck,
-  IconArrowDown,
-  IconArrowUp,
   IconChevronDown,
   IconCircleCheckFilled,
   IconCircleDashed,
@@ -99,6 +100,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminBody from "../AdminBody";
+import AutoModePanel, { type AutoRunSettings } from "./AutoModePanel";
 import "./blog-admin.css";
 import ImagePicker from "./ImagePicker";
 import ImagesManager from "./ImagesManager";
@@ -318,7 +320,15 @@ export default function BlogAdminTool({
   type SeriesGroupAdmin = {
     slug: string;
     label: string;
-    parts: { slug: string; title: string; date: string; status: BlogStatus; category: string; coverImage: string | null; order: number }[];
+    parts: {
+      slug: string;
+      title: string;
+      date: string;
+      status: BlogStatus;
+      category: string;
+      coverImage: string | null;
+      order: number;
+    }[];
   };
   const [seriesGroups, setSeriesGroups] = useState<SeriesGroupAdmin[]>([]);
   const [seriesLoading, setSeriesLoading] = useState(false);
@@ -417,7 +427,9 @@ export default function BlogAdminTool({
             return !l.startsWith("series/") && !l.startsWith("part/") && !l.startsWith("sname/");
           });
           const idx = seriesEditor.slugs.indexOf(p.slug);
-          const wasInThisSeries = (p.tags || []).some((t) => t.toLowerCase() === `series/${seriesEditor.original?.slug ?? slug}`);
+          const wasInThisSeries = (p.tags || []).some(
+            (t) => t.toLowerCase() === `series/${seriesEditor.original?.slug ?? slug}`,
+          );
           if (idx >= 0) {
             const next = [...stripped, `series/${slug}`, `part/${idx + 1}`];
             if (snameTag) next.push(snameTag);
@@ -447,10 +459,13 @@ export default function BlogAdminTool({
       setPosts((prev) =>
         prev.map((p) =>
           (p.tags || []).some((t) => t.toLowerCase() === `series/${group.slug}`)
-            ? { ...p, tags: (p.tags || []).filter((t) => {
-                const l = t.toLowerCase();
-                return !l.startsWith("series/") && !l.startsWith("part/");
-              }) }
+            ? {
+                ...p,
+                tags: (p.tags || []).filter((t) => {
+                  const l = t.toLowerCase();
+                  return !l.startsWith("series/") && !l.startsWith("part/");
+                }),
+              }
             : p,
         ),
       );
@@ -624,13 +639,12 @@ export default function BlogAdminTool({
   const lastGenErrRef = useRef("");
   const selectedCount = Object.keys(selectedIdeas).length;
 
-  // Auto-generate mode: driven by a SERVER-SIDE loop (see lib/blog-auto.ts) so
-  // it keeps running after the admin closes the tab or the browser. The UI
-  // just posts start/stop and polls GET /status every few seconds.
-  const [autoModeOpen, setAutoModeOpen] = useState(false);
-  const [autoCategory, setAutoCategory] = useState<string>("random");
-  const [autoCount, setAutoCount] = useState<number>(10);
-  const [autoUnlimited, setAutoUnlimited] = useState(false);
+  // Auto-generate mode: the job lives in Supabase and pg_cron drives it (see
+  // lib/blog-auto.ts), so it keeps running after the admin closes the tab or
+  // the browser. The UI just posts start/stop and polls GET /status.
+  const [genMode, setGenMode] = useState<"config" | "auto">("config");
+  // A running manual generation (e.g. a retry) always shows its progress view.
+  const showAutoMode = genMode === "auto" && !genLoading && !batchRunning;
   const [autoProgressOpen, setAutoProgressOpen] = useState(false);
   type AutoRecent = { title: string; slug: string; at: number };
   type AutoStatusApi = {
@@ -687,7 +701,9 @@ export default function BlogAdminTool({
     | { kind: "video"; videoId: string; raw: string; title: string };
   const [reimageList, setReimageList] = useState<null | Array<ReimageItem>>(null);
   const [videoPicker, setVideoPicker] = useState<null | { replaceRaw: string; query: string }>(null);
-  const [videoResults, setVideoResults] = useState<Array<{ id: string; title: string; channel?: string; duration?: string; thumb?: string }>>([]);
+  const [videoResults, setVideoResults] = useState<
+    Array<{ id: string; title: string; channel?: string; duration?: string; thumb?: string }>
+  >([]);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoErr, setVideoErr] = useState("");
 
@@ -724,8 +740,6 @@ export default function BlogAdminTool({
       a.relatedTools.join(",") !== b.relatedTools.join(",")
     );
   }, [editing, editingOriginal]);
-
-  const MAX_PINNED = 4;
 
   const counts = useMemo(() => {
     const c = { all: posts.length, draft: 0, rejected: 0, published: 0 };
@@ -767,8 +781,8 @@ export default function BlogAdminTool({
     lastGenErrRef.current = "";
   }
 
-  async function generate(override?: { topic?: string; notes?: string }) {
-    const t = (override?.topic ?? topic).trim();
+  // Content settings of the Config mode, shared by manual and Auto runs.
+  function genContentOptions(baseNotes: string) {
     const seoBits: string[] = [];
     if (genLsi.trim()) seoBits.push(`LSI/related keywords: ${genLsi.trim()}`);
     if (genMetaDesc) seoBits.push("Chèn meta description 150-160 ký tự tối ưu CTR ở đầu phần tóm tắt.");
@@ -786,14 +800,34 @@ export default function BlogAdminTool({
       );
     if (genOriginality) styleBits.push("Ưu tiên nguyên bản: không copy nguyên văn nguồn, diễn giải và tổng hợp.");
 
-    const base = (override?.notes ?? genNotes).trim();
-    const noteStr = [
-      base,
-      seoBits.length ? `[SEO] ${seoBits.join(" ")}` : "",
-      styleBits.length ? `[STYLE] ${styleBits.join(" ")}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
+    return {
+      notes: [
+        baseNotes,
+        seoBits.length ? `[SEO] ${seoBits.join(" ")}` : "",
+        styleBits.length ? `[STYLE] ${styleBits.join(" ")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      tone: genTone,
+      length: genLength,
+      images: genImages,
+      research: genResearch,
+      audience: genAudience,
+      structure: genStructure,
+      seoKeyword: genSeoKeyword,
+      extras: genExtras,
+      cta: genCta,
+      region: genRegion,
+      imageStyle: genImageStyle,
+      factCheck: genFactCheck,
+      internalLinks: genInternalLinks,
+      includeVideo: genIncludeVideo,
+      relatedTools: genRelatedTools,
+    };
+  }
+
+  async function generate(override?: { topic?: string; notes?: string }) {
+    const t = (override?.topic ?? topic).trim();
     const useRandom = !t;
     const ac = new AbortController();
     genAbortRef.current = ac;
@@ -821,22 +855,7 @@ export default function BlogAdminTool({
           model: genModel.split("|")[1],
           topic: useRandom ? undefined : t,
           category: genCategory,
-          tone: genTone,
-          length: genLength,
-          images: genImages,
-          research: genResearch,
-          notes: noteStr,
-          audience: genAudience,
-          structure: genStructure,
-          seoKeyword: genSeoKeyword,
-          extras: genExtras,
-          cta: genCta,
-          region: genRegion,
-          imageStyle: genImageStyle,
-          factCheck: genFactCheck,
-          internalLinks: genInternalLinks,
-          includeVideo: genIncludeVideo,
-          relatedTools: genRelatedTools,
+          ...genContentOptions((override?.notes ?? genNotes).trim()),
         }),
       });
       if (!r.ok || !r.body) {
@@ -936,8 +955,7 @@ export default function BlogAdminTool({
   }
 
   async function generateBatch(itemsOverride?: { title: string; angle: string }[]) {
-    const initial =
-      itemsOverride || Object.entries(selectedIdeas).map(([title, angle]) => ({ title, angle }));
+    const initial = itemsOverride || Object.entries(selectedIdeas).map(([title, angle]) => ({ title, angle }));
     if (!initial.length) return;
     batchAbortRef.current = false;
     batchStartRef.current = Date.now();
@@ -1014,31 +1032,33 @@ export default function BlogAdminTool({
     toast(`Đã sinh ${ok}/${totalRun} bài${failed.length ? ` · ${failed.length} lỗi` : ""}`);
   }
 
-  // Kick the server-side loop. The UI then polls /status for progress; the
-  // loop runs even if the admin closes this tab / browser.
-  async function startAutoMode() {
+  // Create the server-side job. The UI then polls /status for progress; the
+  // job runs even if the admin closes this tab / browser.
+  async function startAutoMode({ unlimited, count, gapMinutes }: AutoRunSettings) {
     try {
       const r = await fetch("/api/blog/auto/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          category: autoCategory,
-          unlimited: autoUnlimited,
-          count: autoCount,
+          unlimited,
+          count,
           provider: genProvider,
           model: genModel.split("|")[1],
+          options: { ...genContentOptions(genNotes.trim()), gapMinutes },
         }),
       });
       const j = await r.json();
       if (!r.ok) {
         toast(j?.error || "Không khởi động được Auto");
-        return;
+        return false;
       }
       if (j.status) setAutoStatus(j.status);
-      setAutoModeOpen(false);
+      setGenerateOpen(false);
       toast("Auto sinh đã khởi động trên server");
+      return true;
     } catch (e: any) {
       toast(e?.message || "Lỗi");
+      return false;
     }
   }
 
@@ -1058,7 +1078,7 @@ export default function BlogAdminTool({
   }
 
   // Keep status fresh: on mount (resume UI after reopening tab) and poll while
-  // the server loop is active. Also refresh the draft list after each new post
+  // the server job is active. Also refresh the draft list after each new post
   // appears so the table stays in sync without full reload.
   useEffect(() => {
     let cancelled = false;
@@ -1219,7 +1239,8 @@ export default function BlogAdminTool({
       seen.add(id);
       items.push({ kind: "video", videoId: id, raw: m[0], title: editing.title });
     }
-    const bareRe = /(?:^|\s)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|youtu\.be\/([A-Za-z0-9_-]{11})))/g;
+    const bareRe =
+      /(?:^|\s)(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|youtu\.be\/([A-Za-z0-9_-]{11})))/g;
     while ((m = bareRe.exec(md))) {
       const id = m[2] || m[3];
       if (!id || seen.has(id)) continue;
@@ -1775,43 +1796,13 @@ export default function BlogAdminTool({
         <div className="bga-top-actions">
           {tab === "posts" ? (
             <div className="bga-top-actions-posts" style={{ display: "flex", gap: 6 }}>
-              <button
-                onClick={() => setManualOpen(true)}
-                className={isSuperAdmin ? "fx-btn" : "fx-btn fx-btn-primary"}
-              >
+              <button onClick={() => setManualOpen(true)} className={isSuperAdmin ? "fx-btn" : "fx-btn fx-btn-primary"}>
                 <IconWriting size={14} stroke={2.2} /> Soạn thủ công
               </button>
               {isSuperAdmin && (
                 <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
                   <IconSparkles size={14} stroke={2.2} /> Sinh bài AI
                 </button>
-              )}
-              {isSuperAdmin && (
-                autoRunning ? (
-                  <>
-                    <button
-                      onClick={() => setAutoProgressOpen(true)}
-                      className="fx-btn"
-                      style={{ color: "var(--accent, #6366f1)", borderColor: "var(--accent, #6366f1)" }}
-                      title="Xem tiến trình"
-                    >
-                      <IconLoader2 size={14} stroke={2.2} className="bga-spin" /> Auto: {autoGenerated}
-                      {!autoStatus.unlimited ? `/${autoStatus.targetCount}` : ""}
-                    </button>
-                    <button
-                      onClick={stopAutoMode}
-                      className="fx-btn"
-                      style={{ color: "var(--err, #ef4444)", borderColor: "var(--err, #ef4444)" }}
-                      title="Dừng Auto"
-                    >
-                      <IconX size={14} stroke={2.2} /> Dừng
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => setAutoModeOpen(true)} className="fx-btn">
-                    <IconRotateClockwise size={14} stroke={2.2} /> Auto sinh
-                  </button>
-                )
               )}
             </div>
           ) : tab === "categories" ? (
@@ -1887,9 +1878,7 @@ export default function BlogAdminTool({
                 {f.error ? <span className="bga-failed-banner-err"> — {f.error}</span> : null}
               </li>
             ))}
-            {batchFailed.length > 5 && (
-              <li className="bga-failed-banner-more">+{batchFailed.length - 5} bài khác…</li>
-            )}
+            {batchFailed.length > 5 && <li className="bga-failed-banner-more">+{batchFailed.length - 5} bài khác…</li>}
           </ul>
         </div>
       )}
@@ -2077,59 +2066,49 @@ export default function BlogAdminTool({
               const publishedCount = g.parts.filter((p) => p.status === "published").length;
               const allPublic = publishedCount === g.parts.length;
               return (
-              <div
-                key={g.slug}
-                className="fx-row"
-                style={{ gridTemplateColumns: "1fr 180px 80px 140px" }}
-              >
-                <div className="fx-title-cell">
-                  <div className="fx-t-row">
-                    <b>{g.label}</b>
-                    {!allPublic && (
-                      <span
-                        className="fx-badge"
-                        data-tone="mute"
-                        title="Public /blog chỉ hiện các phần đã Phát hành"
-                      >
-                        {publishedCount}/{g.parts.length} phát hành
-                      </span>
-                    )}
+                <div key={g.slug} className="fx-row" style={{ gridTemplateColumns: "1fr 180px 80px 140px" }}>
+                  <div className="fx-title-cell">
+                    <div className="fx-t-row">
+                      <b>{g.label}</b>
+                      {!allPublic && (
+                        <span className="fx-badge" data-tone="mute" title="Public /blog chỉ hiện các phần đã Phát hành">
+                          {publishedCount}/{g.parts.length} phát hành
+                        </span>
+                      )}
+                    </div>
+                    <span className="fx-t-sub">
+                      {g.parts
+                        .slice(0, 3)
+                        .map((p) => p.title)
+                        .join(" · ")}
+                      {g.parts.length > 3 ? ` · +${g.parts.length - 3} khác` : ""}
+                    </span>
                   </div>
-                  <span className="fx-t-sub">
-                    {g.parts
-                      .slice(0, 3)
-                      .map((p) => p.title)
-                      .join(" · ")}
-                    {g.parts.length > 3 ? ` · +${g.parts.length - 3} khác` : ""}
-                  </span>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--dim)" }}>series/{g.slug}</div>
+                  <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{g.parts.length}</div>
+                  <div className="fx-row-actions">
+                    <a
+                      className="fx-btn fx-btn-icon"
+                      href={`/blog/series/${encodeURIComponent(g.slug)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Xem trang series"
+                    >
+                      <IconExternalLink size={14} stroke={1.9} />
+                    </a>
+                    <button className="fx-btn fx-btn-icon" onClick={() => openSeriesEditor(g)} title="Sửa">
+                      <IconEdit size={14} stroke={1.9} />
+                    </button>
+                    <button
+                      className="fx-btn fx-btn-icon fx-btn-danger"
+                      onClick={() => deleteSeries(g)}
+                      title="Gỡ series"
+                    >
+                      <IconTrash size={14} stroke={1.9} />
+                    </button>
+                  </div>
                 </div>
-                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--dim)" }}>
-                  series/{g.slug}
-                </div>
-                <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{g.parts.length}</div>
-                <div className="fx-row-actions">
-                  <a
-                    className="fx-btn fx-btn-icon"
-                    href={`/blog/series/${encodeURIComponent(g.slug)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Xem trang series"
-                  >
-                    <IconExternalLink size={14} stroke={1.9} />
-                  </a>
-                  <button className="fx-btn fx-btn-icon" onClick={() => openSeriesEditor(g)} title="Sửa">
-                    <IconEdit size={14} stroke={1.9} />
-                  </button>
-                  <button
-                    className="fx-btn fx-btn-icon fx-btn-danger"
-                    onClick={() => deleteSeries(g)}
-                    title="Gỡ series"
-                  >
-                    <IconTrash size={14} stroke={1.9} />
-                  </button>
-                </div>
-              </div>
-            );
+              );
             })}
           </div>
         )
@@ -2248,7 +2227,7 @@ export default function BlogAdminTool({
                           )}
                         </div>
                         <button className="bga-pinned-title" onClick={() => startEdit(p)} title="Sửa" type="button">
-                          {p.title}
+                          <span>{p.title}</span>
                         </button>
                         <button
                           className="fx-btn fx-btn-icon"
@@ -2270,7 +2249,11 @@ export default function BlogAdminTool({
             <div
               className="bga-failed-banner"
               role="status"
-              style={{ borderColor: "var(--accent, #6366f1)", background: "color-mix(in oklab, var(--accent, #6366f1) 8%, transparent)", cursor: "pointer" }}
+              style={{
+                borderColor: "var(--accent, #6366f1)",
+                background: "color-mix(in oklab, var(--accent, #6366f1) 8%, transparent)",
+                cursor: "pointer",
+              }}
               onClick={() => setAutoProgressOpen(true)}
               title="Xem chi tiết tiến trình"
             >
@@ -2279,14 +2262,25 @@ export default function BlogAdminTool({
                   <IconLoader2 size={16} stroke={2} className="bga-spin" />
                 </span>
                 <div className="bga-failed-banner-text">
-                  <b>Auto sinh đang chạy · {autoGenerated}{autoStatus.unlimited ? "" : `/${autoStatus.targetCount}`} bài</b>
-                  <span>{autoCurrentTopic || "Đang khởi động…"}{autoFailed ? ` · lỗi ${autoFailed}` : ""}</span>
+                  <b>
+                    Auto sinh đang chạy · {autoGenerated}
+                    {autoStatus.unlimited ? "" : `/${autoStatus.targetCount}`} bài
+                  </b>
+                  <span>
+                    {autoCurrentTopic || "Đang khởi động…"}
+                    {autoFailed ? ` · lỗi ${autoFailed}` : ""}
+                  </span>
                 </div>
                 <div className="bga-failed-banner-actions" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="fx-btn" onClick={() => setAutoProgressOpen(true)}>
                     Chi tiết
                   </button>
-                  <button type="button" className="fx-btn" onClick={stopAutoMode} style={{ color: "var(--err, #ef4444)" }}>
+                  <button
+                    type="button"
+                    className="fx-btn"
+                    onClick={stopAutoMode}
+                    style={{ color: "var(--err, #ef4444)" }}
+                  >
                     <IconX size={13} /> Dừng
                   </button>
                 </div>
@@ -2313,7 +2307,11 @@ export default function BlogAdminTool({
                   >
                     <IconCheck size={13} /> {bulkApproving ? "Đang duyệt…" : `Duyệt ${selectedDraftSlugs.size} bài`}
                   </button>
-                  <button type="button" className="fx-btn fx-btn-ghost" onClick={() => setSelectedDraftSlugs(new Set())}>
+                  <button
+                    type="button"
+                    className="fx-btn fx-btn-ghost"
+                    onClick={() => setSelectedDraftSlugs(new Set())}
+                  >
                     Bỏ chọn
                   </button>
                 </div>
@@ -2329,28 +2327,34 @@ export default function BlogAdminTool({
             </div>
           ) : (
             <div className="fx-table">
-              <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "32px 56px 1fr 100px 110px 100px 190px" }}>
+              <div
+                className="fx-row fx-row-head"
+                style={{ gridTemplateColumns: "32px 56px 1fr 100px 110px 100px 190px" }}
+              >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {isSuperAdmin && (() => {
-                    const draftSlugs = visible.filter((p) => (p.status || "published") === "draft").map((p) => p.slug);
-                    const allChecked = draftSlugs.length > 0 && draftSlugs.every((s) => selectedDraftSlugs.has(s));
-                    const someChecked = draftSlugs.some((s) => selectedDraftSlugs.has(s));
-                    return (
-                      <input
-                        type="checkbox"
-                        aria-label="Chọn tất cả bài nháp"
-                        disabled={draftSlugs.length === 0}
-                        checked={allChecked}
-                        ref={(el) => {
-                          if (el) el.indeterminate = !allChecked && someChecked;
-                        }}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedDraftSlugs(new Set(draftSlugs));
-                          else setSelectedDraftSlugs(new Set());
-                        }}
-                      />
-                    );
-                  })()}
+                  {isSuperAdmin &&
+                    (() => {
+                      const draftSlugs = visible
+                        .filter((p) => (p.status || "published") === "draft")
+                        .map((p) => p.slug);
+                      const allChecked = draftSlugs.length > 0 && draftSlugs.every((s) => selectedDraftSlugs.has(s));
+                      const someChecked = draftSlugs.some((s) => selectedDraftSlugs.has(s));
+                      return (
+                        <input
+                          type="checkbox"
+                          aria-label="Chọn tất cả bài nháp"
+                          disabled={draftSlugs.length === 0}
+                          checked={allChecked}
+                          ref={(el) => {
+                            if (el) el.indeterminate = !allChecked && someChecked;
+                          }}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedDraftSlugs(new Set(draftSlugs));
+                            else setSelectedDraftSlugs(new Set());
+                          }}
+                        />
+                      );
+                    })()}
                 </div>
                 <div />
                 <div>Bài viết</div>
@@ -2497,7 +2501,11 @@ export default function BlogAdminTool({
                     value: autoStatus.unlimited ? "∞" : String(Math.max(0, autoStatus.targetCount - autoGenerated)),
                     color: "var(--text)",
                   },
-                  { label: "Lỗi", value: String(autoFailed), color: autoFailed ? "var(--err, #ef4444)" : "var(--dim, #94a3b8)" },
+                  {
+                    label: "Lỗi",
+                    value: String(autoFailed),
+                    color: autoFailed ? "var(--err, #ef4444)" : "var(--dim, #94a3b8)",
+                  },
                 ].map((s) => (
                   <div
                     key={s.label}
@@ -2509,7 +2517,9 @@ export default function BlogAdminTool({
                       textAlign: "center",
                     }}
                   >
-                    <div style={{ fontSize: 10, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.3 }}>{s.label}</div>
+                    <div style={{ fontSize: 10, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.3 }}>
+                      {s.label}
+                    </div>
                     <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
                   </div>
                 ))}
@@ -2531,7 +2541,8 @@ export default function BlogAdminTool({
                 </div>
                 {autoStatus.lastError && (
                   <div style={{ marginTop: 6, color: "var(--err, #ef4444)", fontSize: 12 }}>
-                    <IconAlertTriangle size={12} stroke={2} style={{ verticalAlign: "-2px" }} /> Lỗi gần nhất: {autoStatus.lastError}
+                    <IconAlertTriangle size={12} stroke={2} style={{ verticalAlign: "-2px" }} /> Lỗi gần nhất:{" "}
+                    {autoStatus.lastError}
                   </div>
                 )}
               </div>
@@ -2542,11 +2553,31 @@ export default function BlogAdminTool({
                 {autoStatus.recent.length === 0 ? (
                   <div style={{ fontSize: 13, color: "var(--dim)" }}>Chưa có bài nào.</div>
                 ) : (
-                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
+                  <ul
+                    style={{
+                      margin: 0,
+                      padding: 0,
+                      listStyle: "none",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4,
+                    }}
+                  >
                     {autoStatus.recent.map((r) => (
                       <li key={r.slug} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}>
                         <IconCircleCheckFilled size={12} style={{ color: "var(--ok, #10b981)", flexShrink: 0 }} />
-                        <Link href={`/blog/${r.slug}`} target="_blank" style={{ color: "var(--text)", textDecoration: "none", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <Link
+                          href={`/blog/${r.slug}`}
+                          target="_blank"
+                          style={{
+                            color: "var(--text)",
+                            textDecoration: "none",
+                            flex: 1,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {r.title}
                         </Link>
                         <span style={{ fontSize: 11, color: "var(--dim)" }}>{new Date(r.at).toLocaleTimeString()}</span>
@@ -2556,77 +2587,19 @@ export default function BlogAdminTool({
                 )}
               </div>
               <div style={{ fontSize: 11, color: "var(--dim)", lineHeight: 1.5 }}>
-                Vòng lặp chạy trên server — bạn có thể đóng tab/trình duyệt, bài vẫn tiếp tục sinh. Mở lại trang này để xem tiếp. Nếu server khởi động lại thì phải bấm chạy lại.
+                Vòng lặp chạy trên server — bạn có thể đóng tab/trình duyệt, bài vẫn tiếp tục sinh. Mở lại trang này để
+                xem tiếp. Nếu server khởi động lại thì phải bấm chạy lại.
               </div>
             </div>
             <div className="fx-modal-foot">
-              <button className="fx-btn" onClick={() => setAutoProgressOpen(false)}>Đóng</button>
+              <button className="fx-btn" onClick={() => setAutoProgressOpen(false)}>
+                Đóng
+              </button>
               {autoRunning && (
                 <button className="fx-btn" style={{ color: "var(--err, #ef4444)" }} onClick={stopAutoMode}>
                   <IconX size={14} stroke={2} /> Dừng Auto
                 </button>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AUTO MODE MODAL */}
-      {isSuperAdmin && autoModeOpen && (
-        <div className="fx-modal-bg fx-modal-sheet" style={{ zIndex: 200 }} onClick={(e) => e.target === e.currentTarget && setAutoModeOpen(false)}>
-          <div className="fx-modal" style={{ maxWidth: 460, width: "92vw" }}>
-            <div className="fx-modal-head">
-              <h2>
-                <IconRotateClockwise size={16} stroke={2} /> Auto sinh bài nháp
-                <span className="fx-badge">BETA</span>
-              </h2>
-              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setAutoModeOpen(false)}>
-                <IconX size={16} stroke={2} />
-              </button>
-            </div>
-            <div className="fx-modal-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div className="fx-field">
-                <label>Chủ đề (danh mục)</label>
-                <select value={autoCategory} onChange={(e) => setAutoCategory(e.target.value)}>
-                  <option value="random">🎲 Ngẫu nhiên tất cả danh mục</option>
-                  {cats.filter((c) => c.active).map((c) => (
-                    <option key={c.slug} value={c.slug}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="fx-field">
-                <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={autoUnlimited}
-                    onChange={(e) => setAutoUnlimited(e.target.checked)}
-                  />
-                  Sinh liên tục (không giới hạn — bạn tự tắt)
-                </label>
-              </div>
-              {!autoUnlimited && (
-                <div className="fx-field">
-                  <label>Số lượng bài</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={200}
-                    value={autoCount}
-                    onChange={(e) => setAutoCount(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
-                  />
-                </div>
-              )}
-              <div style={{ fontSize: 12, color: "var(--dim, #94a3b8)", lineHeight: 1.5 }}>
-                Bài sẽ được lưu vào <b>Nháp</b>. Mỗi bài sinh xong mới sinh bài kế tiếp. Nhấn <b>Dừng Auto</b> ở trên để kết thúc. Sử dụng model mặc định: <b>{AI_PROVIDER_LABEL[genProvider] || genProvider}</b>.
-              </div>
-            </div>
-            <div className="fx-modal-foot">
-              <button className="fx-btn" onClick={() => setAutoModeOpen(false)}>Huỷ</button>
-              <button className="fx-btn fx-btn-primary" onClick={startAutoMode}>
-                <IconSparkles size={14} stroke={2} /> Bắt đầu
-              </button>
             </div>
           </div>
         </div>
@@ -2651,6 +2624,26 @@ export default function BlogAdminTool({
                 <IconSparkles size={16} stroke={2} /> Sinh bài blog
                 <span className="fx-badge">AI</span>
               </h2>
+              {!genLoading && !batchRunning && (
+                <div className="bga-seg bga-gen-modes" role="group" aria-label="Chế độ sinh bài">
+                  <button
+                    type="button"
+                    className={showAutoMode ? "" : "is-on"}
+                    aria-pressed={!showAutoMode}
+                    onClick={() => setGenMode("config")}
+                  >
+                    <IconAdjustmentsHorizontal size={13} stroke={2} /> Cấu hình
+                  </button>
+                  <button
+                    type="button"
+                    className={showAutoMode ? "is-on" : ""}
+                    aria-pressed={showAutoMode}
+                    onClick={() => setGenMode("auto")}
+                  >
+                    <IconRotateClockwise size={13} stroke={2} /> Auto
+                  </button>
+                </div>
+              )}
               <button
                 className="fx-btn fx-btn-icon fx-btn-ghost"
                 onClick={() => {
@@ -2664,1196 +2657,1257 @@ export default function BlogAdminTool({
                 <IconX size={16} stroke={2} />
               </button>
             </div>
-            <div className="fx-modal-body">
-              {genLoading || (Object.keys(genSteps).length > 0 && (genAborted || genErr)) ? (
-                (() => {
-                  const keys = (Object.keys(STEP_LABEL) as GenStep[]).filter((k) => genSteps[k]);
-                  const total = keys.length;
-                  const done = keys.filter(
-                    (k) => genSteps[k]!.status === "done" || genSteps[k]!.status === "skip",
-                  ).length;
-                  const pct = total ? Math.round((done / total) * 100) : 0;
-                  const activeIdx = keys.findIndex((k) => genSteps[k]!.status === "start");
-                  const activeLabel = activeIdx >= 0 ? STEP_LABEL[keys[activeIdx]] : null;
-                  return (
-                    <div
-                      className={`bga-progress-inline${genLoading ? " is-live" : ""}${genAborted ? " is-aborted" : ""}${genErr && !genAborted ? " is-error" : ""}`}
-                    >
-                      <div className="bga-prog-hero">
+            {showAutoMode ? (
+              <AutoModePanel
+                onClose={() => setGenerateOpen(false)}
+                onEditConfig={() => setGenMode("config")}
+                running={autoRunning}
+                inherited={[
+                  { label: "Danh mục", value: "Ngẫu nhiên" },
+                  {
+                    label: "Model",
+                    value:
+                      AI_MODELS[genProvider].find((m) => m.id === genModel.split("|")[1])?.label ||
+                      AI_PROVIDER_LABEL[genProvider],
+                  },
+                  {
+                    label: "Cấu trúc",
+                    value: GEN_STRUCTURES.find((s) => s.id === genStructure)?.label || genStructure,
+                  },
+                  { label: "Giọng văn", value: GEN_TONES.find((x) => x.id === genTone)?.label || genTone },
+                  { label: "Độ dài", value: GEN_LENGTHS.find((l) => l.id === genLength)?.label || genLength },
+                  { label: "Độc giả", value: GEN_AUDIENCES.find((a) => a.id === genAudience)?.label || genAudience },
+                  { label: "Vùng", value: GEN_REGIONS.find((r) => r.id === genRegion)?.label || genRegion },
+                  { label: "Số ảnh", value: String(genImages) },
+                  { label: "Thành phần", value: `${genExtras.length} mục` },
+                  { label: "Tra cứu web", value: genResearch ? "Bật" : "Tắt" },
+                  { label: "Kiểm chứng", value: genFactCheck ? "Bật" : "Tắt" },
+                  { label: "Video", value: genIncludeVideo ? "Bật" : "Tắt" },
+                ]}
+                onStart={startAutoMode}
+              />
+            ) : (
+              <>
+                <div className="fx-modal-body">
+                  {genLoading || (Object.keys(genSteps).length > 0 && (genAborted || genErr)) ? (
+                    (() => {
+                      const keys = (Object.keys(STEP_LABEL) as GenStep[]).filter((k) => genSteps[k]);
+                      const total = keys.length;
+                      const done = keys.filter(
+                        (k) => genSteps[k]!.status === "done" || genSteps[k]!.status === "skip",
+                      ).length;
+                      const pct = total ? Math.round((done / total) * 100) : 0;
+                      const activeIdx = keys.findIndex((k) => genSteps[k]!.status === "start");
+                      const activeLabel = activeIdx >= 0 ? STEP_LABEL[keys[activeIdx]] : null;
+                      return (
                         <div
-                          className="bga-prog-ring"
-                          style={{ ["--p" as string]: pct, ["--size" as string]: "92px" }}
-                          role="progressbar"
-                          aria-valuenow={pct}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
+                          className={`bga-progress-inline${genLoading ? " is-live" : ""}${genAborted ? " is-aborted" : ""}${genErr && !genAborted ? " is-error" : ""}`}
                         >
-                          <div className="bga-prog-ring-inner">
-                            <span className="bga-prog-ring-pct">{pct}</span>
-                            <span className="bga-prog-ring-unit">%</span>
-                          </div>
-                        </div>
-                        <div className="bga-prog-hero-text">
-                          <div className="bga-prog-stage">
-                            {genLoading ? (
-                              <>
-                                <span className="bga-prog-dot" />
-                                <span>{batchTotal > 1 ? `Bài ${batchIdx}/${batchTotal}` : "Đang sinh bài"}</span>
-                              </>
-                            ) : genAborted ? (
-                              <>
-                                <IconX size={12} stroke={2.2} /> <span>Đã huỷ</span>
-                              </>
-                            ) : (
-                              <>
-                                <IconAlertTriangle size={12} /> <span>Dừng với lỗi</span>
-                              </>
-                            )}
-                          </div>
-                          <div className="bga-prog-current">
-                            {genLoading ? (
-                              <>
-                                <IconLoader2 size={16} className="spin" />
-                                <span>{activeLabel || "Chuẩn bị…"}</span>
-                              </>
-                            ) : (
-                              <span>
-                                {done}/{total} bước hoàn tất
-                              </span>
-                            )}
-                          </div>
-                          <div className="bga-prog-meta-row">
-                            <span className="bga-prog-chip">
-                              <IconClock size={11} stroke={2} /> {genElapsed}s
-                            </span>
-                            <span className="bga-prog-chip">
-                              {done}/{total} bước
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bga-progress-bar">
-                        <div className="bga-progress-fill" style={{ width: `${pct}%` }} />
-                      </div>
-
-                      {batchRunning && batchQueue.length > 0 && (
-                        <div className="bga-queue">
-                          <div className="bga-queue-head">
-                            <IconSparkles size={13} stroke={2} />
-                            <span>Hàng chờ sinh bài</span>
-                            <span className="bga-queue-count">{batchQueue.length} bài chờ</span>
-                            {batchEtaSec != null && batchEtaSec > 0 && (
-                              <span className="bga-queue-count" title="Thời gian dự kiến còn lại">
-                                <IconClock size={11} stroke={2} />{" "}
-                                {batchEtaSec >= 60
-                                  ? `~${Math.round(batchEtaSec / 60)} phút`
-                                  : `~${batchEtaSec}s`}
-                              </span>
-                            )}
-                          </div>
-                          <ol className="bga-queue-list">
-                            {batchCurrent && (
-                              <li className="bga-queue-item is-current">
-                                <span className="bga-queue-pos">
-                                  <IconLoader2 size={12} className="spin" />
-                                </span>
-                                <div className="bga-queue-body">
-                                  <b>{batchCurrent.title}</b>
-                                  {batchCurrent.angle && <span>{batchCurrent.angle}</span>}
-                                </div>
-                                <span className="bga-queue-tag">Đang sinh</span>
-                              </li>
-                            )}
-                            {batchQueue.map((item, i) => (
-                              <li key={`${item.title}::${i}`} className="bga-queue-item">
-                                <span className="bga-queue-pos">{i + 2}</span>
-                                <div className="bga-queue-body">
-                                  <b>{item.title}</b>
-                                  {item.angle && <span>{item.angle}</span>}
-                                </div>
-                                <div className="bga-queue-actions">
-                                  <button
-                                    type="button"
-                                    className="bga-queue-btn"
-                                    disabled={i === 0}
-                                    onClick={() => {
-                                      const next = [...queueRef.current];
-                                      [next[i - 1], next[i]] = [next[i], next[i - 1]];
-                                      updateQueue(next);
-                                    }}
-                                    title="Lên 1 bậc"
-                                    aria-label="Lên"
-                                  >
-                                    <IconArrowUp size={12} stroke={2.2} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="bga-queue-btn"
-                                    disabled={i === batchQueue.length - 1}
-                                    onClick={() => {
-                                      const next = [...queueRef.current];
-                                      [next[i + 1], next[i]] = [next[i], next[i + 1]];
-                                      updateQueue(next);
-                                    }}
-                                    title="Xuống 1 bậc"
-                                    aria-label="Xuống"
-                                  >
-                                    <IconArrowDown size={12} stroke={2.2} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="bga-queue-btn bga-queue-btn-del"
-                                    onClick={() => {
-                                      const next = queueRef.current.filter((_, j) => j !== i);
-                                      updateQueue(next);
-                                      // Shrink total so progress reflects reality.
-                                      setBatchTotal((prev) => Math.max(batchIdx, prev - 1));
-                                    }}
-                                    title="Bỏ bài này khỏi hàng chờ"
-                                    aria-label="Xoá"
-                                  >
-                                    <IconX size={12} stroke={2.4} />
-                                  </button>
-                                </div>
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-                      )}
-
-                      <ol className="bga-prog-grid">
-                        {keys.map((k) => {
-                          const st = genSteps[k]!;
-                          const dur = st.durationMs;
-                          return (
-                            <li key={k} data-status={st.status} className="bga-prog-cell">
-                              <span className="bga-prog-cell-ico">
-                                {st.status === "done" ? (
-                                  <IconCircleCheckFilled size={18} />
-                                ) : st.status === "start" ? (
-                                  <IconLoader2 size={18} className="spin" />
-                                ) : st.status === "skip" ? (
-                                  <IconPlayerSkipForward size={16} />
-                                ) : (
-                                  <IconCircleDashed size={18} />
-                                )}
-                              </span>
-                              <div className="bga-prog-cell-body">
-                                <div className="bga-prog-cell-top">
-                                  <b>{STEP_LABEL[k]}</b>
-                                  {dur != null && dur > 0 && (
-                                    <span className="bga-prog-cell-dur">{(dur / 1000).toFixed(1)}s</span>
-                                  )}
-                                </div>
-                                {st.detail && <span className="bga-prog-cell-detail">{st.detail}</span>}
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ol>
-
-                      {genErr && (
-                        <div className="bga-prog-err">
-                          <IconAlertTriangle size={14} /> <span>{genErr}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()
-              ) : (
-                <>
-                  <fieldset disabled={genLoading} className="bga-gen4">
-                    {/* HERO — unified topic input (empty → AI auto picks) */}
-                    <div className="bga-topic-hero">
-                      <Input
-                        autoFocus={!skipTopicAutoFocus}
-                        className="bga-topic-input"
-                        value={topic}
-                        onChange={(e) => setTopic(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key !== "Enter" || genLoading) return;
-                          if (!topic.trim() && selectedCount === 0) return;
-                          generate();
-                        }}
-                        placeholder={`Chủ đề bài viết… (để trống → AI tự chọn cho ${CAT_LABEL[genCategory] || genCategory})`}
-                        leftIcon={
-                          topic.trim() ? (
-                            <IconTarget size={16} stroke={1.9} />
-                          ) : (
-                            <IconSparkles size={16} stroke={2} className="bga-topic-ai-ic" />
-                          )
-                        }
-                        rightSlot={
-                          <div className="bga-topic-tools">
-                            <button
-                              type="button"
-                              className="bga-tool-btn bga-tool-btn-primary"
-                              onClick={() => suggestIdeas()}
-                              disabled={ideasLoading}
-                              title="Tra cứu web xu hướng mới, không trùng bài đã có"
+                          <div className="bga-prog-hero">
+                            <div
+                              className="bga-prog-ring"
+                              style={{ ["--p" as string]: pct, ["--size" as string]: "92px" }}
+                              role="progressbar"
+                              aria-valuenow={pct}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
                             >
-                              {ideasLoading ? (
-                                <IconLoader2 size={14} className="spin" />
-                              ) : (
-                                <IconWorldSearch size={14} />
-                              )}
-                              <span className="bga-tool-btn-lbl">Gợi ý</span>
-                            </button>
-                          </div>
-                        }
-                      />
-                    </div>
-
-                    {(ideasLoading || ideas.length > 0) && (
-                      <div className={`bga-opt-card${collapsed.ideas ? " is-collapsed" : ""}`}>
-                        <div className="bga-opt-card-head">
-                          <span className="bga-opt-card-ic">
-                            <IconBulb size={12} stroke={2} />
-                          </span>
-                          <b>Gợi ý chủ đề</b>
-                          <span className="bga-opt-card-dim">
-                            {ideasLoading
-                              ? "Đang lấy gợi ý…"
-                              : selectedCount > 0
-                                ? `Đã chọn ${selectedCount}/${ideas.length}`
-                                : "Chọn 1 hoặc nhiều để sinh hàng loạt"}
-                          </span>
-                          <button
-                            type="button"
-                            className="bga-opt-card-collapse"
-                            onClick={() => toggleCollapsed("ideas")}
-                            title={collapsed.ideas ? "Mở rộng" : "Thu gọn"}
-                            aria-label={collapsed.ideas ? "Mở rộng" : "Thu gọn"}
-                          >
-                            <IconChevronDown size={13} stroke={2} />
-                          </button>
-                          <button
-                            type="button"
-                            className="bga-opt-card-close"
-                            onClick={() => {
-                              if (ideasLoading) cancelSuggestIdeas();
-                              setIdeas([]);
-                              setSelectedIdeas({});
-                              ideasPrevRef.current = null;
-                            }}
-                            title="Đóng gợi ý chủ đề"
-                            aria-label="Đóng gợi ý chủ đề"
-                          >
-                            <IconX size={13} stroke={2} />
-                          </button>
-                        </div>
-                        <div className="bga-opt-card-body">
-                          {ideasLoading ? (
-                            <div className="bga-ideas bga-ideas-compact">
-                              {Array.from({ length: 6 }).map((_, i) => (
-                                <div key={i} className="bga-idea-skel" />
-                              ))}
+                              <div className="bga-prog-ring-inner">
+                                <span className="bga-prog-ring-pct">{pct}</span>
+                                <span className="bga-prog-ring-unit">%</span>
+                              </div>
                             </div>
-                          ) : (
-                            <div className="bga-ideas bga-ideas-compact">
-                              {ideas.map((i) => {
-                                const on = i.title in selectedIdeas;
-                                return (
-                                  <button
-                                    key={i.title}
-                                    type="button"
-                                    className={on ? "is-on" : ""}
-                                    onClick={() => {
-                                      setSelectedIdeas((prev) => {
-                                        const next = { ...prev };
-                                        if (on) delete next[i.title];
-                                        else next[i.title] = i.angle || "";
-                                        return next;
-                                      });
-                                    }}
-                                  >
-                                    <b>{i.title}</b>
-                                    {i.angle && <span>{i.angle}</span>}
-                                  </button>
-                                );
-                              })}
+                            <div className="bga-prog-hero-text">
+                              <div className="bga-prog-stage">
+                                {genLoading ? (
+                                  <>
+                                    <span className="bga-prog-dot" />
+                                    <span>{batchTotal > 1 ? `Bài ${batchIdx}/${batchTotal}` : "Đang sinh bài"}</span>
+                                  </>
+                                ) : genAborted ? (
+                                  <>
+                                    <IconX size={12} stroke={2.2} /> <span>Đã huỷ</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <IconAlertTriangle size={12} /> <span>Dừng với lỗi</span>
+                                  </>
+                                )}
+                              </div>
+                              <div className="bga-prog-current">
+                                {genLoading ? (
+                                  <>
+                                    <IconLoader2 size={16} className="spin" />
+                                    <span>{activeLabel || "Chuẩn bị…"}</span>
+                                  </>
+                                ) : (
+                                  <span>
+                                    {done}/{total} bước hoàn tất
+                                  </span>
+                                )}
+                              </div>
+                              <div className="bga-prog-meta-row">
+                                <span className="bga-prog-chip">
+                                  <IconClock size={11} stroke={2} /> {genElapsed}s
+                                </span>
+                                <span className="bga-prog-chip">
+                                  {done}/{total} bước
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bga-progress-bar">
+                            <div className="bga-progress-fill" style={{ width: `${pct}%` }} />
+                          </div>
+
+                          {batchRunning && batchQueue.length > 0 && (
+                            <div className="bga-queue">
+                              <div className="bga-queue-head">
+                                <IconSparkles size={13} stroke={2} />
+                                <span>Hàng chờ sinh bài</span>
+                                <span className="bga-queue-count">{batchQueue.length} bài chờ</span>
+                                {batchEtaSec != null && batchEtaSec > 0 && (
+                                  <span className="bga-queue-count" title="Thời gian dự kiến còn lại">
+                                    <IconClock size={11} stroke={2} />{" "}
+                                    {batchEtaSec >= 60 ? `~${Math.round(batchEtaSec / 60)} phút` : `~${batchEtaSec}s`}
+                                  </span>
+                                )}
+                              </div>
+                              <ol className="bga-queue-list">
+                                {batchCurrent && (
+                                  <li className="bga-queue-item is-current">
+                                    <span className="bga-queue-pos">
+                                      <IconLoader2 size={12} className="spin" />
+                                    </span>
+                                    <div className="bga-queue-body">
+                                      <b>{batchCurrent.title}</b>
+                                      {batchCurrent.angle && <span>{batchCurrent.angle}</span>}
+                                    </div>
+                                    <span className="bga-queue-tag">Đang sinh</span>
+                                  </li>
+                                )}
+                                {batchQueue.map((item, i) => (
+                                  <li key={`${item.title}::${i}`} className="bga-queue-item">
+                                    <span className="bga-queue-pos">{i + 2}</span>
+                                    <div className="bga-queue-body">
+                                      <b>{item.title}</b>
+                                      {item.angle && <span>{item.angle}</span>}
+                                    </div>
+                                    <div className="bga-queue-actions">
+                                      <button
+                                        type="button"
+                                        className="bga-queue-btn"
+                                        disabled={i === 0}
+                                        onClick={() => {
+                                          const next = [...queueRef.current];
+                                          [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                                          updateQueue(next);
+                                        }}
+                                        title="Lên 1 bậc"
+                                        aria-label="Lên"
+                                      >
+                                        <IconArrowUp size={12} stroke={2.2} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="bga-queue-btn"
+                                        disabled={i === batchQueue.length - 1}
+                                        onClick={() => {
+                                          const next = [...queueRef.current];
+                                          [next[i + 1], next[i]] = [next[i], next[i + 1]];
+                                          updateQueue(next);
+                                        }}
+                                        title="Xuống 1 bậc"
+                                        aria-label="Xuống"
+                                      >
+                                        <IconArrowDown size={12} stroke={2.2} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="bga-queue-btn bga-queue-btn-del"
+                                        onClick={() => {
+                                          const next = queueRef.current.filter((_, j) => j !== i);
+                                          updateQueue(next);
+                                          // Shrink total so progress reflects reality.
+                                          setBatchTotal((prev) => Math.max(batchIdx, prev - 1));
+                                        }}
+                                        title="Bỏ bài này khỏi hàng chờ"
+                                        aria-label="Xoá"
+                                      >
+                                        <IconX size={12} stroke={2.4} />
+                                      </button>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ol>
                             </div>
                           )}
-                          <div className="bga-ideas-foot">
-                            <span className="bga-ideas-count">
-                              {selectedCount > 0 && !ideasLoading ? (
-                                <button type="button" className="bga-ideas-clear" onClick={() => setSelectedIdeas({})}>
-                                  Bỏ chọn tất cả
-                                </button>
-                              ) : null}
-                            </span>
-                            {ideasLoading ? (
-                              <button
-                                type="button"
-                                className="bga-ideas-reroll"
-                                onClick={cancelSuggestIdeas}
-                                title="Huỷ gọi API lấy gợi ý"
-                              >
-                                <IconX size={12} stroke={2} />
-                                Huỷ
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className="bga-ideas-reroll"
-                                onClick={() => suggestIdeas(true)}
-                                title="Lấy 6 gợi ý khác"
-                              >
-                                <IconRotateClockwise size={12} stroke={2} />
-                                Đổi gợi ý khác
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
 
-                    {/* TABS — Nội dung / Phong cách / SEO / Nâng cao */}
-                    <Tabs value={genTab} onValueChange={setGenTab} variant="segment">
-                      <TabsList>
-                        <Tab value="info">
-                          <IconArticle size={13} stroke={1.9} /> Thông tin
-                        </Tab>
-                        <Tab value="style">
-                          <IconPalette size={13} stroke={1.9} /> Phong cách
-                        </Tab>
-                        <Tab value="seo">
-                          <IconChartBar size={13} stroke={1.9} /> SEO
-                        </Tab>
-                        <Tab value="advanced">
-                          <IconBrain size={13} stroke={1.9} /> Nâng cao
-                        </Tab>
-                        <Tab value="sources">
-                          <IconLink size={13} stroke={1.9} /> Công cụ
-                        </Tab>
-                      </TabsList>
+                          <ol className="bga-prog-grid">
+                            {keys.map((k) => {
+                              const st = genSteps[k]!;
+                              const dur = st.durationMs;
+                              return (
+                                <li key={k} data-status={st.status} className="bga-prog-cell">
+                                  <span className="bga-prog-cell-ico">
+                                    {st.status === "done" ? (
+                                      <IconCircleCheckFilled size={18} />
+                                    ) : st.status === "start" ? (
+                                      <IconLoader2 size={18} className="spin" />
+                                    ) : st.status === "skip" ? (
+                                      <IconPlayerSkipForward size={16} />
+                                    ) : (
+                                      <IconCircleDashed size={18} />
+                                    )}
+                                  </span>
+                                  <div className="bga-prog-cell-body">
+                                    <div className="bga-prog-cell-top">
+                                      <b>{STEP_LABEL[k]}</b>
+                                      {dur != null && dur > 0 && (
+                                        <span className="bga-prog-cell-dur">{(dur / 1000).toFixed(1)}s</span>
+                                      )}
+                                    </div>
+                                    {st.detail && <span className="bga-prog-cell-detail">{st.detail}</span>}
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ol>
 
-                      <TabPanel value="seo">
-                        <div className={`bga-opt-card${collapsed.seoKw ? " is-collapsed" : ""}`}>
-                          <div className="bga-opt-card-head">
-                            <span className="bga-opt-card-ic">
-                              <IconSearch size={12} stroke={2} />
-                            </span>
-                            <b>Từ khoá</b>
-                            <span className="bga-opt-card-dim">Mục tiêu xếp hạng</span>
-                            <button
-                              type="button"
-                              className="bga-opt-card-collapse"
-                              onClick={() => toggleCollapsed("seoKw")}
-                              title={collapsed.seoKw ? "Mở rộng" : "Thu gọn"}
-                              aria-label="Thu gọn"
-                            >
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                          </div>
-                          <div className="bga-opt-card-body">
-                            <div className="bga-grid-dense">
-                              <Field label="Từ khoá chính (focus keyword)">
-                                <Input
-                                  value={genSeoKeyword}
-                                  onChange={(e) => setGenSeoKeyword(e.target.value)}
-                                  placeholder="webgpu là gì…"
-                                  inputSize="sm"
-                                />
-                              </Field>
-                              <Field label="Từ khoá liên quan (Cách bằng dấu phẩy)">
-                                <Input
-                                  value={genLsi}
-                                  onChange={(e) => setGenLsi(e.target.value)}
-                                  placeholder="webgl, three.js, canvas, gpu rendering"
-                                  inputSize="sm"
-                                />
-                              </Field>
+                          {genErr && (
+                            <div className="bga-prog-err">
+                              <IconAlertTriangle size={14} /> <span>{genErr}</span>
                             </div>
-                          </div>
+                          )}
                         </div>
-
-                        <div className={`bga-opt-card${collapsed.seoTech ? " is-collapsed" : ""}`}>
-                          <div className="bga-opt-card-head">
-                            <span className="bga-opt-card-ic">
-                              <IconChartBar size={12} stroke={2} />
-                            </span>
-                            <b>Tối ưu kỹ thuật</b>
-                            <span className="bga-opt-card-dim">Meta, schema & liên kết</span>
-                            <button
-                              type="button"
-                              className="bga-opt-card-collapse"
-                              onClick={() => toggleCollapsed("seoTech")}
-                              title={collapsed.seoTech ? "Mở rộng" : "Thu gọn"}
-                              aria-label="Thu gọn"
-                            >
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                          </div>
-                          <div className="bga-opt-card-body">
-                            <div className="bga-toggles">
-                              <label className="bga-toggle-card" title="Chèn meta description 150-160 ký tự tối ưu CTR">
-                                <Switch checked={genMetaDesc} onChange={(e) => setGenMetaDesc(e.target.checked)} />
-                                <div className="bga-toggle-text">
-                                  <b>
-                                    <IconTextGrammar size={12} stroke={1.9} /> Meta description
-                                  </b>
-                                  <span>Mô tả 150-160 ký tự, chứa focus keyword, viral CTR</span>
-                                </div>
-                              </label>
-                              <label
-                                className="bga-toggle-card"
-                                title="Bố cục khớp schema.org (FAQPage, HowTo, Article…)"
-                              >
-                                <Switch checked={genSchemaHint} onChange={(e) => setGenSchemaHint(e.target.checked)} />
-                                <div className="bga-toggle-text">
-                                  <b>
-                                    <IconBook size={12} stroke={1.9} /> Schema-friendly
-                                  </b>
-                                  <span>H2/H3 rõ ràng, FAQ dạng Q/A — dễ snippet</span>
-                                </div>
-                              </label>
-                              <label
-                                className="bga-toggle-card"
-                                title="Chèn mục Đọc thêm với bài đã xuất bản liên quan"
-                              >
-                                <Switch
-                                  checked={genInternalLinks}
-                                  onChange={(e) => setGenInternalLinks(e.target.checked)}
-                                />
-                                <div className="bga-toggle-text">
-                                  <b>
-                                    <IconLink size={12} stroke={1.9} /> Liên kết nội bộ
-                                  </b>
-                                  <span>Chèn &quot;Đọc thêm&quot; — tăng dwell time</span>
-                                </div>
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-                      </TabPanel>
-
-                      <TabPanel value="info">
-                        <div className={`bga-opt-card${collapsed.tongquat ? " is-collapsed" : ""}`}>
-                          <div className="bga-opt-card-head">
-                            <span className="bga-opt-card-ic">
-                              <IconSparkles size={12} stroke={2} />
-                            </span>
-                            <b>Tổng quát</b>
-                            <span className="bga-opt-card-dim">Cơ bản, preset &amp; cấu hình bài</span>
-                            <button
-                              type="button"
-                              className="bga-opt-card-collapse"
-                              onClick={() => toggleCollapsed("tongquat")}
-                              title={collapsed.tongquat ? "Mở rộng" : "Thu gọn"}
-                              aria-label={collapsed.tongquat ? "Mở rộng" : "Thu gọn"}
-                            >
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                          </div>
-                          <div className="bga-opt-card-body">
-                            <div className="bga-presets" title="Preset nhanh — nạp sẵn phong cách & cấu trúc">
-                              <span className="bga-presets-lbl">Preset:</span>
-                              {(
-                                [
-                                  {
-                                    id: "tutorial",
-                                    label: "Hướng dẫn",
-                                    ic: <IconWriting size={12} stroke={1.9} />,
-                                    apply: () => {
-                                      setGenTone("tutorial");
-                                      setGenStructure("howto");
-                                      setGenAudience("intermediate");
-                                      setGenLength("long");
-                                      setGenExtras(["tldr", "code", "checklist"]);
-                                      setGenRegion("vn");
-                                      setGenImageStyle("mixed");
-                                      setGenCta("readmore");
-                                      if (genAutoAi) applyAutoAi("howto");
-                                    },
-                                  },
-                                  {
-                                    id: "review",
-                                    label: "Review",
-                                    ic: <IconPalette size={12} stroke={1.9} />,
-                                    apply: () => {
-                                      setGenTone("analysis");
-                                      setGenStructure("review");
-                                      setGenAudience("mixed");
-                                      setGenLength("medium");
-                                      setGenExtras(["tldr", "faq", "takeaway"]);
-                                      setGenRegion("vn");
-                                      setGenImageStyle("photo");
-                                      setGenCta("comment");
-                                      if (genAutoAi) applyAutoAi("review");
-                                    },
-                                  },
-                                  {
-                                    id: "deepdive",
-                                    label: "Phân tích sâu",
-                                    ic: <IconBrain size={12} stroke={1.9} />,
-                                    apply: () => {
-                                      setGenTone("expert");
-                                      setGenStructure("deepdive");
-                                      setGenAudience("expert");
-                                      setGenLength("long");
-                                      setGenExtras(["stats", "takeaway", "glossary"]);
-                                      setGenRegion("global");
-                                      setGenImageStyle("illustration");
-                                      setGenCta("readmore");
-                                      if (genAutoAi) applyAutoAi("deepdive");
-                                    },
-                                  },
-                                  {
-                                    id: "news",
-                                    label: "Tin xu hướng",
-                                    ic: <IconWorldSearch size={12} stroke={1.9} />,
-                                    apply: () => {
-                                      setGenTone("friendly");
-                                      setGenStructure("news");
-                                      setGenAudience("mixed");
-                                      setGenLength("medium");
-                                      setGenExtras(["tldr", "stats"]);
-                                      setGenRegion("global");
-                                      setGenImageStyle("photo");
-                                      setGenCta("share");
-                                      setGenResearch(true);
-                                      if (genAutoAi) applyAutoAi("news");
-                                    },
-                                  },
-                                  {
-                                    id: "listicle",
-                                    label: "Top N",
-                                    ic: <IconListNumbers size={12} stroke={1.9} />,
-                                    apply: () => {
-                                      setGenTone("friendly");
-                                      setGenStructure("listicle");
-                                      setGenAudience("mixed");
-                                      setGenLength("medium");
-                                      setGenExtras(["tldr", "example"]);
-                                      setGenRegion("vn");
-                                      setGenImageStyle("mixed");
-                                      setGenCta("share");
-                                      if (genAutoAi) applyAutoAi("listicle");
-                                    },
-                                  },
-                                  {
-                                    id: "comparison",
-                                    label: "So sánh",
-                                    ic: <IconArrowsLeftRight size={12} stroke={1.9} />,
-                                    apply: () => {
-                                      setGenTone("analysis");
-                                      setGenStructure("comparison");
-                                      setGenAudience("intermediate");
-                                      setGenLength("medium");
-                                      setGenExtras(["tldr", "stats", "takeaway"]);
-                                      setGenRegion("global");
-                                      setGenImageStyle("mixed");
-                                      setGenCta("comment");
-                                      if (genAutoAi) applyAutoAi("comparison");
-                                    },
-                                  },
-                                  {
-                                    id: "explainer",
-                                    label: "Giải thích",
-                                    ic: <IconBulb size={12} stroke={1.9} />,
-                                    apply: () => {
-                                      setGenTone("friendly");
-                                      setGenStructure("explainer");
-                                      setGenAudience("beginner");
-                                      setGenLength("medium");
-                                      setGenExtras(["tldr", "glossary", "example"]);
-                                      setGenRegion("vn");
-                                      setGenImageStyle("illustration");
-                                      setGenCta("readmore");
-                                      if (genAutoAi) applyAutoAi("explainer");
-                                    },
-                                  },
-                                  {
-                                    id: "story",
-                                    label: "Kể chuyện",
-                                    ic: <IconMessageCircle size={12} stroke={1.9} />,
-                                    apply: () => {
-                                      setGenTone("story");
-                                      setGenStructure("explainer");
-                                      setGenAudience("mixed");
-                                      setGenLength("medium");
-                                      setGenExtras(["tldr", "quote"]);
-                                      setGenRegion("vn");
-                                      setGenImageStyle("photo");
-                                      setGenCta("comment");
-                                      if (genAutoAi) applyAutoAi("explainer");
-                                    },
-                                  },
-                                  {
-                                    id: "seo",
-                                    label: "Chuẩn SEO",
-                                    ic: <IconSearch size={12} stroke={1.9} />,
-                                    apply: () => {
-                                      setGenTone("expert");
-                                      setGenStructure("auto");
-                                      setGenAudience("mixed");
-                                      setGenLength("medium");
-                                      setGenExtras(["tldr", "faq", "takeaway"]);
-                                      setGenRegion("vn");
-                                      setGenImageStyle("mixed");
-                                      setGenCta("newsletter");
-                                      setGenInternalLinks(true);
-                                      if (genAutoAi) applyAutoAi("auto");
-                                    },
-                                  },
-                                ] as const
-                              ).map((p) => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  className={`bga-preset-btn${genPreset === p.id ? " is-on" : ""}`}
-                                  onClick={() => {
-                                    p.apply();
-                                    setGenPreset(p.id);
-                                  }}
-                                  title={`Preset: ${p.label}`}
-                                >
-                                  {p.ic} {p.label}
-                                </button>
-                              ))}
-                            </div>
-
-                            <div className="bga-grid-dense">
-                              <Field
-                                label={
-                                  <>
-                                    <IconLayoutList size={11} stroke={1.9} /> Danh mục
-                                  </>
-                                }
-                              >
-                                <Select
-                                  value={genCategory}
-                                  onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
-                                  options={CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c }))}
-                                  selectSize="sm"
-                                />
-                              </Field>
-                              <Field
-                                label={
-                                  <>
-                                    <IconRuler size={11} stroke={1.9} /> Độ dài
-                                  </>
-                                }
-                              >
-                                <div className="bga-seg bga-seg-sm">
-                                  {GEN_LENGTHS.map((l) => (
-                                    <button
-                                      key={l.id}
-                                      type="button"
-                                      className={genLength === l.id ? "is-on" : ""}
-                                      onClick={() => setGenLength(l.id)}
-                                      title={`${l.words} từ · ${l.sections} section`}
-                                    >
-                                      {l.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </Field>
-                              <Field
-                                label={
-                                  <>
-                                    <IconPhoto size={11} stroke={1.9} /> Số ảnh
-                                  </>
-                                }
-                              >
-                                <div className="bga-seg bga-seg-sm">
-                                  {[0, 2, 4, 6, 8, 10].map((n) => (
-                                    <button
-                                      key={n}
-                                      type="button"
-                                      className={genImages === n ? "is-on" : ""}
-                                      onClick={() => setGenImages(n)}
-                                    >
-                                      {n}
-                                    </button>
-                                  ))}
-                                </div>
-                              </Field>
-                            </div>
-
-                            <Field
-                              label={
-                                <>
-                                  <IconMessageCircle size={11} stroke={1.9} /> Yêu cầu thêm (tuỳ chọn)
-                                </>
-                              }
-                              hint="Brief riêng cho bài: ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
-                            >
-                              <Textarea
-                                rows={1}
-                                value={genNotes}
-                                onChange={(e) => setGenNotes(e.target.value)}
-                                placeholder="Ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
-                              />
-                            </Field>
-                          </div>
-                        </div>
-                      </TabPanel>
-
-                      <TabPanel value="sources">
-                        <div className="bga-opt-card">
-                          <div className="bga-opt-card-head">
-                            <span className="bga-opt-card-ic">
-                              <IconLink size={12} stroke={2} />
-                            </span>
-                            <b>Công cụ liên quan (tuỳ chọn)</b>
-                            <span className="bga-opt-card-dim">Chèn block ở cuối bài</span>
-                          </div>
-                          <div className="bga-opt-card-body">
-                            <RelatedToolsPicker value={genRelatedTools} onChange={setGenRelatedTools} title={topic} />
-                          </div>
-                        </div>
-                      </TabPanel>
-
-                      <TabPanel value="style">
-                        <div className={`bga-opt-card${collapsed.styleTone ? " is-collapsed" : ""}`}>
-                          <div className="bga-opt-card-head">
-                            <span className="bga-opt-card-ic">
-                              <IconMicrophone size={12} stroke={2} />
-                            </span>
-                            <b>Giọng &amp; đối tượng</b>
-                            <span className="bga-opt-card-dim">Cách viết, dành cho ai</span>
-                            <button
-                              type="button"
-                              className="bga-opt-card-collapse"
-                              onClick={() => toggleCollapsed("styleTone")}
-                              title={collapsed.styleTone ? "Mở rộng" : "Thu gọn"}
-                              aria-label="Thu gọn"
-                            >
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                          </div>
-                          <div className="bga-opt-card-body">
-                            <div className="bga-grid-dense">
-                              <Field
-                                label={
-                                  <>
-                                    <IconMicrophone size={11} stroke={1.9} /> Giọng văn
-                                  </>
-                                }
-                                hint={GEN_TONES.find((t) => t.id === genTone)?.hint}
-                              >
-                                <Select
-                                  value={genTone}
-                                  onChange={(e) => setGenTone(e.target.value as GenTone)}
-                                  options={GEN_TONES.map((t) => ({ value: t.id, label: t.label }))}
-                                  selectSize="sm"
-                                />
-                              </Field>
-                              <Field
-                                label={
-                                  <>
-                                    <IconUsers size={11} stroke={1.9} /> Đối tượng
-                                  </>
-                                }
-                                hint={GEN_AUDIENCES.find((a) => a.id === genAudience)?.hint}
-                              >
-                                <Select
-                                  value={genAudience}
-                                  onChange={(e) => setGenAudience(e.target.value as GenAudience)}
-                                  options={GEN_AUDIENCES.map((a) => ({ value: a.id, label: a.label }))}
-                                  selectSize="sm"
-                                />
-                              </Field>
-                              <Field
-                                label={
-                                  <>
-                                    <IconTarget size={11} stroke={1.9} /> Vùng mục tiêu
-                                  </>
-                                }
-                                hint={GEN_REGIONS.find((r) => r.id === genRegion)?.hint}
-                              >
-                                <Select
-                                  value={genRegion}
-                                  onChange={(e) => setGenRegion(e.target.value as GenRegion)}
-                                  options={GEN_REGIONS.map((r) => ({ value: r.id, label: r.label }))}
-                                  selectSize="sm"
-                                />
-                              </Field>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className={`bga-opt-card${collapsed.styleStruct ? " is-collapsed" : ""}`}>
-                          <div className="bga-opt-card-head">
-                            <span className="bga-opt-card-ic">
-                              <IconArticle size={12} stroke={2} />
-                            </span>
-                            <b>Cấu trúc &amp; phân phối</b>
-                            <span className="bga-opt-card-dim">Khung bài, CTA, ảnh minh hoạ</span>
-                            <button
-                              type="button"
-                              className="bga-opt-card-collapse"
-                              onClick={() => toggleCollapsed("styleStruct")}
-                              title={collapsed.styleStruct ? "Mở rộng" : "Thu gọn"}
-                              aria-label="Thu gọn"
-                            >
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                          </div>
-                          <div className="bga-opt-card-body">
-                            <div className="bga-grid-dense">
-                              <Field
-                                label={
-                                  <>
-                                    <IconArticle size={11} stroke={1.9} /> Cấu trúc
-                                  </>
-                                }
-                                hint={GEN_STRUCTURES.find((s) => s.id === genStructure)?.hint}
-                              >
-                                <Select
-                                  value={genStructure}
-                                  onChange={(e) => setGenStructure(e.target.value as GenStructure)}
-                                  options={GEN_STRUCTURES.map((s) => ({ value: s.id, label: s.label }))}
-                                  selectSize="sm"
-                                />
-                              </Field>
-                              <Field
-                                label={
-                                  <>
-                                    <IconMessageCircle size={11} stroke={1.9} /> Call-to-action
-                                  </>
-                                }
-                                hint={GEN_CTAS.find((c) => c.id === genCta)?.hint}
-                              >
-                                <Select
-                                  value={genCta}
-                                  onChange={(e) => setGenCta(e.target.value as GenCta)}
-                                  options={GEN_CTAS.map((c) => ({ value: c.id, label: c.label }))}
-                                  selectSize="sm"
-                                />
-                              </Field>
-                              <Field
-                                label={
-                                  <>
-                                    <IconPhoto size={11} stroke={1.9} /> Phong cách ảnh
-                                  </>
-                                }
-                                hint={GEN_IMAGE_STYLES.find((s) => s.id === genImageStyle)?.hint}
-                              >
-                                <Select
-                                  value={genImageStyle}
-                                  onChange={(e) => setGenImageStyle(e.target.value as GenImageStyle)}
-                                  options={GEN_IMAGE_STYLES.map((s) => ({ value: s.id, label: s.label }))}
-                                  selectSize="sm"
-                                />
-                              </Field>
-                            </div>
-                          </div>
-                        </div>
-                      </TabPanel>
-
-                      <TabPanel value="advanced">
-                        <div className={`bga-opt-card${collapsed.advAi ? " is-collapsed" : ""}`}>
-                          <div className="bga-opt-card-head">
-                            <span className="bga-opt-card-ic">
-                              <IconBrain size={12} stroke={2} />
-                            </span>
-                            <b>Chọn AI</b>
-                            <span className="bga-opt-card-dim">
-                              {genAutoAi ? "Tự chọn theo cấu trúc" : "Chọn thủ công"}
-                            </span>
-                            <button
-                              type="button"
-                              className="bga-opt-card-collapse"
-                              onClick={() => toggleCollapsed("advAi")}
-                              title={collapsed.advAi ? "Mở rộng" : "Thu gọn"}
-                              aria-label="Thu gọn"
-                            >
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                          </div>
-                          <div className="bga-opt-card-body">
-                            <label
-                              className="bga-toggle-card"
-                              title="AI tự chọn theo cấu trúc bài & độ ưu tiên; model cụ thể sẽ hiện ở bước sinh bài"
-                            >
-                              <Switch
-                                checked={genAutoAi}
-                                onChange={(e) => {
-                                  const on = e.target.checked;
-                                  setGenAutoAi(on);
-                                  if (on) applyAutoAi(genStructure);
-                                }}
-                              />
-                              <div className="bga-toggle-text">
-                                <b>
-                                  <IconSparkles size={12} stroke={1.9} /> AI tự chọn theo cấu trúc
-                                </b>
-                                <span>Model cuối cùng dùng sẽ hiện ở bước &ldquo;Viết bài&rdquo;.</span>
-                              </div>
-                            </label>
-                            <div style={{ marginTop: 8 }} />
-                            <Field label={genAutoAi ? "Độ ưu tiên" : "Model AI"}>
-                              {genAutoAi ? (
-                                <Select
-                                  value={genAiPref}
-                                  onChange={(e) => {
-                                    const pref = e.target.value as AiPreference;
-                                    setGenAiPref(pref);
-                                    applyAutoAi(genStructure, pref);
-                                  }}
-                                  selectSize="sm"
-                                  options={[
-                                    { value: "balanced", label: "Cân bằng — AI khớp cấu trúc bài" },
-                                    { value: "quality", label: "Chất lượng — ưu tiên model mạnh (tech/analysis)" },
-                                    { value: "speed", label: "Tốc độ — ưu tiên model nhanh" },
-                                  ]}
-                                />
-                              ) : (
-                                <Select
-                                  value={genModel}
-                                  onChange={(e) => setGenModel(e.target.value)}
-                                  selectSize="sm"
-                                  options={(Object.keys(AI_MODELS) as AiProvider[]).flatMap<SelectOption>((p) =>
-                                    AI_MODELS[p].map((m) => ({
-                                      value: `${p}|${m.id}`,
-                                      label: `${AI_PROVIDER_LABEL[p]} · ${m.label}${m.search ? " · web" : ""}${providers[p] ? "" : " (chưa có key)"}`,
-                                      disabled: !providers[p],
-                                    })),
-                                  )}
-                                />
-                              )}
-                            </Field>
-                          </div>
-                        </div>
-
-                        <div className={`bga-opt-card${collapsed.advQuality ? " is-collapsed" : ""}`}>
-                          <div className="bga-opt-card-head">
-                            <span className="bga-opt-card-ic">
-                              <IconAdjustmentsHorizontal size={12} stroke={2} />
-                            </span>
-                            <b>Chất lượng nội dung</b>
-                            <span className="bga-opt-card-dim">E-E-A-T, humanize, sáng tạo</span>
-                            <button
-                              type="button"
-                              className="bga-opt-card-collapse"
-                              onClick={() => toggleCollapsed("advQuality")}
-                              title={collapsed.advQuality ? "Mở rộng" : "Thu gọn"}
-                              aria-label="Thu gọn"
-                            >
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                          </div>
-                          <div className="bga-opt-card-body">
-                            <Field label="Mức sáng tạo" hint="Cân bằng độ bám nguồn và góc nhìn riêng">
-                              <div className="bga-seg bga-seg-sm">
-                                {(
-                                  [
-                                    { v: "safe", l: "An toàn" },
-                                    { v: "balanced", l: "Cân bằng" },
-                                    { v: "creative", l: "Sáng tạo" },
-                                  ] as const
-                                ).map((o) => (
-                                  <button
-                                    key={o.v}
-                                    type="button"
-                                    className={genCreativity === o.v ? "is-on" : ""}
-                                    onClick={() => setGenCreativity(o.v)}
-                                  >
-                                    {o.l}
-                                  </button>
-                                ))}
-                              </div>
-                            </Field>
-                            <div className="bga-toggles" style={{ marginTop: 8 }}>
-                              <label className="bga-toggle-card" title="Giảm giọng máy, câu đa dạng, tự nhiên hơn">
-                                <Switch checked={genHumanize} onChange={(e) => setGenHumanize(e.target.checked)} />
-                                <div className="bga-toggle-text">
-                                  <b>
-                                    <IconWand size={12} stroke={1.9} /> Humanize
-                                  </b>
-                                  <span>Giảm &ldquo;AI tells&rdquo; — tự nhiên, đa dạng câu</span>
-                                </div>
-                              </label>
-                              <label
-                                className="bga-toggle-card"
-                                title="E-E-A-T: kinh nghiệm, chuyên môn, uy tín, đáng tin"
-                              >
-                                <Switch checked={genEEAT} onChange={(e) => setGenEEAT(e.target.checked)} />
-                                <div className="bga-toggle-text">
-                                  <b>
-                                    <IconShieldCheck size={12} stroke={1.9} /> E-E-A-T boost
-                                  </b>
-                                  <span>Trích dẫn uy tín, giọng chuyên gia có bằng chứng</span>
-                                </div>
-                              </label>
-                              <label className="bga-toggle-card" title="Diễn giải lại thay vì copy nguyên văn nguồn">
-                                <Switch
-                                  checked={genOriginality}
-                                  onChange={(e) => setGenOriginality(e.target.checked)}
-                                />
-                                <div className="bga-toggle-text">
-                                  <b>
-                                    <IconSparkles size={12} stroke={1.9} /> Nguyên bản
-                                  </b>
-                                  <span>Tổng hợp &amp; diễn giải — tránh trùng nguồn</span>
-                                </div>
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className={`bga-opt-card${collapsed.advFlow ? " is-collapsed" : ""}`}>
-                          <div className="bga-opt-card-head">
-                            <span className="bga-opt-card-ic">
-                              <IconCircleCheckFilled size={12} />
-                            </span>
-                            <b>Quy trình</b>
-                            <span className="bga-opt-card-dim">Research & kiểm chứng</span>
-                            <button
-                              type="button"
-                              className="bga-opt-card-collapse"
-                              onClick={() => toggleCollapsed("advFlow")}
-                              title={collapsed.advFlow ? "Mở rộng" : "Thu gọn"}
-                              aria-label="Thu gọn"
-                            >
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                          </div>
-                          <div className="bga-opt-card-body">
-                            <div className="bga-toggles">
-                              <label className="bga-toggle-card" title="Tra cứu web trước khi viết để có dữ kiện mới">
-                                <Switch checked={genResearch} onChange={(e) => setGenResearch(e.target.checked)} />
-                                <div className="bga-toggle-text">
-                                  <b>
-                                    <IconWorldSearch size={12} stroke={1.9} /> Tra cứu web
-                                  </b>
-                                  <span>Dữ kiện mới, kèm nguồn tham khảo</span>
-                                </div>
-                              </label>
-                              <label className="bga-toggle-card" title="AI thứ hai rà lại bài, bỏ/làm mềm câu nghi bịa">
-                                <Switch checked={genFactCheck} onChange={(e) => setGenFactCheck(e.target.checked)} />
-                                <div className="bga-toggle-text">
-                                  <b>
-                                    <IconCircleCheckFilled size={12} /> Kiểm chứng dữ kiện
-                                  </b>
-                                  <span>Pass 2: bắt hallucination (chậm hơn ~15s)</span>
-                                </div>
-                              </label>
-                              <label
-                                className="bga-toggle-card"
-                                title="Tìm video thật liên quan tới chủ đề, nhúng sau phần mở bài"
-                              >
-                                <Switch
-                                  checked={genIncludeVideo}
-                                  onChange={(e) => setGenIncludeVideo(e.target.checked)}
-                                />
-                                <div className="bga-toggle-text">
-                                  <b>
-                                    <IconBrandYoutube size={12} stroke={1.9} /> Video YouTube
-                                  </b>
-                                  <span>{genIncludeVideo ? "Chèn 1 video sau mở bài" : "Bài chỉ gồm chữ + ảnh"}</span>
-                                </div>
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-                      </TabPanel>
-                    </Tabs>
-                  </fieldset>
-
-                  {genErr && !genLoading && Object.keys(genSteps).length === 0 && (
-                    <div className="fx-err" style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-                      <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
-                    </div>
-                  )}
-                  {batchFailed.length > 0 && (
-                    <div
-                      className="fx-err"
-                      style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "stretch" }}
-                    >
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <IconAlertTriangle size={14} />
-                        <b>{batchFailed.length} bài chưa xong — chọn &ldquo;Thử lại&rdquo; ở dưới để sinh lại.</b>
-                      </div>
-                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
-                        {batchFailed.map((f) => (
-                          <li key={f.title}>
-                            <b>{f.title}</b>
-                            {f.error ? ` — ${f.error}` : ""}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="fx-modal-foot">
-              {genLoading ? (
-                <button
-                  className="fx-btn fx-btn-danger"
-                  onClick={cancelGenerate}
-                  disabled={genAborted}
-                  style={{ marginLeft: "auto" }}
-                >
-                  {genAborted ? (
-                    <>
-                      <IconLoader2 size={14} className="spin" /> Đang huỷ…
-                    </>
+                      );
+                    })()
                   ) : (
                     <>
-                      <IconX size={14} stroke={2} /> Huỷ sinh bài
+                      <fieldset disabled={genLoading} className="bga-gen4">
+                        {/* HERO — unified topic input (empty → AI auto picks) */}
+                        <div className="bga-topic-hero">
+                          <Input
+                            autoFocus={!skipTopicAutoFocus}
+                            className="bga-topic-input"
+                            value={topic}
+                            onChange={(e) => setTopic(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key !== "Enter" || genLoading) return;
+                              if (!topic.trim() && selectedCount === 0) return;
+                              generate();
+                            }}
+                            placeholder={`Chủ đề bài viết… (để trống → AI tự chọn cho ${CAT_LABEL[genCategory] || genCategory})`}
+                            leftIcon={
+                              topic.trim() ? (
+                                <IconTarget size={16} stroke={1.9} />
+                              ) : (
+                                <IconSparkles size={16} stroke={2} className="bga-topic-ai-ic" />
+                              )
+                            }
+                            rightSlot={
+                              <div className="bga-topic-tools">
+                                <button
+                                  type="button"
+                                  className="bga-tool-btn bga-tool-btn-primary"
+                                  onClick={() => suggestIdeas()}
+                                  disabled={ideasLoading}
+                                  title="Tra cứu web xu hướng mới, không trùng bài đã có"
+                                >
+                                  {ideasLoading ? (
+                                    <IconLoader2 size={14} className="spin" />
+                                  ) : (
+                                    <IconWorldSearch size={14} />
+                                  )}
+                                  <span className="bga-tool-btn-lbl">Gợi ý</span>
+                                </button>
+                              </div>
+                            }
+                          />
+                        </div>
+
+                        {(ideasLoading || ideas.length > 0) && (
+                          <div className={`bga-opt-card${collapsed.ideas ? " is-collapsed" : ""}`}>
+                            <div className="bga-opt-card-head">
+                              <span className="bga-opt-card-ic">
+                                <IconBulb size={12} stroke={2} />
+                              </span>
+                              <b>Gợi ý chủ đề</b>
+                              <span className="bga-opt-card-dim">
+                                {ideasLoading
+                                  ? "Đang lấy gợi ý…"
+                                  : selectedCount > 0
+                                    ? `Đã chọn ${selectedCount}/${ideas.length}`
+                                    : "Chọn 1 hoặc nhiều để sinh hàng loạt"}
+                              </span>
+                              <button
+                                type="button"
+                                className="bga-opt-card-collapse"
+                                onClick={() => toggleCollapsed("ideas")}
+                                title={collapsed.ideas ? "Mở rộng" : "Thu gọn"}
+                                aria-label={collapsed.ideas ? "Mở rộng" : "Thu gọn"}
+                              >
+                                <IconChevronDown size={13} stroke={2} />
+                              </button>
+                              <button
+                                type="button"
+                                className="bga-opt-card-close"
+                                onClick={() => {
+                                  if (ideasLoading) cancelSuggestIdeas();
+                                  setIdeas([]);
+                                  setSelectedIdeas({});
+                                  ideasPrevRef.current = null;
+                                }}
+                                title="Đóng gợi ý chủ đề"
+                                aria-label="Đóng gợi ý chủ đề"
+                              >
+                                <IconX size={13} stroke={2} />
+                              </button>
+                            </div>
+                            <div className="bga-opt-card-body">
+                              {ideasLoading ? (
+                                <div className="bga-ideas bga-ideas-compact">
+                                  {Array.from({ length: 6 }).map((_, i) => (
+                                    <div key={i} className="bga-idea-skel" />
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="bga-ideas bga-ideas-compact">
+                                  {ideas.map((i) => {
+                                    const on = i.title in selectedIdeas;
+                                    return (
+                                      <button
+                                        key={i.title}
+                                        type="button"
+                                        className={on ? "is-on" : ""}
+                                        onClick={() => {
+                                          setSelectedIdeas((prev) => {
+                                            const next = { ...prev };
+                                            if (on) delete next[i.title];
+                                            else next[i.title] = i.angle || "";
+                                            return next;
+                                          });
+                                        }}
+                                      >
+                                        <b>{i.title}</b>
+                                        {i.angle && <span>{i.angle}</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              <div className="bga-ideas-foot">
+                                <span className="bga-ideas-count">
+                                  {selectedCount > 0 && !ideasLoading ? (
+                                    <button
+                                      type="button"
+                                      className="bga-ideas-clear"
+                                      onClick={() => setSelectedIdeas({})}
+                                    >
+                                      Bỏ chọn tất cả
+                                    </button>
+                                  ) : null}
+                                </span>
+                                {ideasLoading ? (
+                                  <button
+                                    type="button"
+                                    className="bga-ideas-reroll"
+                                    onClick={cancelSuggestIdeas}
+                                    title="Huỷ gọi API lấy gợi ý"
+                                  >
+                                    <IconX size={12} stroke={2} />
+                                    Huỷ
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="bga-ideas-reroll"
+                                    onClick={() => suggestIdeas(true)}
+                                    title="Lấy 6 gợi ý khác"
+                                  >
+                                    <IconRotateClockwise size={12} stroke={2} />
+                                    Đổi gợi ý khác
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* TABS — Nội dung / Phong cách / SEO / Nâng cao */}
+                        <Tabs value={genTab} onValueChange={setGenTab} variant="segment">
+                          <TabsList>
+                            <Tab value="info">
+                              <IconArticle size={13} stroke={1.9} /> Thông tin
+                            </Tab>
+                            <Tab value="style">
+                              <IconPalette size={13} stroke={1.9} /> Phong cách
+                            </Tab>
+                            <Tab value="seo">
+                              <IconChartBar size={13} stroke={1.9} /> SEO
+                            </Tab>
+                            <Tab value="advanced">
+                              <IconBrain size={13} stroke={1.9} /> Nâng cao
+                            </Tab>
+                            <Tab value="sources">
+                              <IconLink size={13} stroke={1.9} /> Công cụ
+                            </Tab>
+                          </TabsList>
+
+                          <TabPanel value="seo">
+                            <div className={`bga-opt-card${collapsed.seoKw ? " is-collapsed" : ""}`}>
+                              <div className="bga-opt-card-head">
+                                <span className="bga-opt-card-ic">
+                                  <IconSearch size={12} stroke={2} />
+                                </span>
+                                <b>Từ khoá</b>
+                                <span className="bga-opt-card-dim">Mục tiêu xếp hạng</span>
+                                <button
+                                  type="button"
+                                  className="bga-opt-card-collapse"
+                                  onClick={() => toggleCollapsed("seoKw")}
+                                  title={collapsed.seoKw ? "Mở rộng" : "Thu gọn"}
+                                  aria-label="Thu gọn"
+                                >
+                                  <IconChevronDown size={13} stroke={2} />
+                                </button>
+                              </div>
+                              <div className="bga-opt-card-body">
+                                <div className="bga-grid-dense">
+                                  <Field label="Từ khoá chính (focus keyword)">
+                                    <Input
+                                      value={genSeoKeyword}
+                                      onChange={(e) => setGenSeoKeyword(e.target.value)}
+                                      placeholder="webgpu là gì…"
+                                      inputSize="sm"
+                                    />
+                                  </Field>
+                                  <Field label="Từ khoá liên quan (Cách bằng dấu phẩy)">
+                                    <Input
+                                      value={genLsi}
+                                      onChange={(e) => setGenLsi(e.target.value)}
+                                      placeholder="webgl, three.js, canvas, gpu rendering"
+                                      inputSize="sm"
+                                    />
+                                  </Field>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={`bga-opt-card${collapsed.seoTech ? " is-collapsed" : ""}`}>
+                              <div className="bga-opt-card-head">
+                                <span className="bga-opt-card-ic">
+                                  <IconChartBar size={12} stroke={2} />
+                                </span>
+                                <b>Tối ưu kỹ thuật</b>
+                                <span className="bga-opt-card-dim">Meta, schema & liên kết</span>
+                                <button
+                                  type="button"
+                                  className="bga-opt-card-collapse"
+                                  onClick={() => toggleCollapsed("seoTech")}
+                                  title={collapsed.seoTech ? "Mở rộng" : "Thu gọn"}
+                                  aria-label="Thu gọn"
+                                >
+                                  <IconChevronDown size={13} stroke={2} />
+                                </button>
+                              </div>
+                              <div className="bga-opt-card-body">
+                                <div className="bga-toggles">
+                                  <label
+                                    className="bga-toggle-card"
+                                    title="Chèn meta description 150-160 ký tự tối ưu CTR"
+                                  >
+                                    <Switch checked={genMetaDesc} onChange={(e) => setGenMetaDesc(e.target.checked)} />
+                                    <div className="bga-toggle-text">
+                                      <b>
+                                        <IconTextGrammar size={12} stroke={1.9} /> Meta description
+                                      </b>
+                                      <span>Mô tả 150-160 ký tự, chứa focus keyword, viral CTR</span>
+                                    </div>
+                                  </label>
+                                  <label
+                                    className="bga-toggle-card"
+                                    title="Bố cục khớp schema.org (FAQPage, HowTo, Article…)"
+                                  >
+                                    <Switch
+                                      checked={genSchemaHint}
+                                      onChange={(e) => setGenSchemaHint(e.target.checked)}
+                                    />
+                                    <div className="bga-toggle-text">
+                                      <b>
+                                        <IconBook size={12} stroke={1.9} /> Schema-friendly
+                                      </b>
+                                      <span>H2/H3 rõ ràng, FAQ dạng Q/A — dễ snippet</span>
+                                    </div>
+                                  </label>
+                                  <label
+                                    className="bga-toggle-card"
+                                    title="Chèn mục Đọc thêm với bài đã xuất bản liên quan"
+                                  >
+                                    <Switch
+                                      checked={genInternalLinks}
+                                      onChange={(e) => setGenInternalLinks(e.target.checked)}
+                                    />
+                                    <div className="bga-toggle-text">
+                                      <b>
+                                        <IconLink size={12} stroke={1.9} /> Liên kết nội bộ
+                                      </b>
+                                      <span>Chèn &quot;Đọc thêm&quot; — tăng dwell time</span>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                          </TabPanel>
+
+                          <TabPanel value="info">
+                            <div className={`bga-opt-card${collapsed.tongquat ? " is-collapsed" : ""}`}>
+                              <div className="bga-opt-card-head">
+                                <span className="bga-opt-card-ic">
+                                  <IconSparkles size={12} stroke={2} />
+                                </span>
+                                <b>Tổng quát</b>
+                                <span className="bga-opt-card-dim">Cơ bản, preset &amp; cấu hình bài</span>
+                                <button
+                                  type="button"
+                                  className="bga-opt-card-collapse"
+                                  onClick={() => toggleCollapsed("tongquat")}
+                                  title={collapsed.tongquat ? "Mở rộng" : "Thu gọn"}
+                                  aria-label={collapsed.tongquat ? "Mở rộng" : "Thu gọn"}
+                                >
+                                  <IconChevronDown size={13} stroke={2} />
+                                </button>
+                              </div>
+                              <div className="bga-opt-card-body">
+                                <div className="bga-presets" title="Preset nhanh — nạp sẵn phong cách & cấu trúc">
+                                  <span className="bga-presets-lbl">Preset:</span>
+                                  {(
+                                    [
+                                      {
+                                        id: "tutorial",
+                                        label: "Hướng dẫn",
+                                        ic: <IconWriting size={12} stroke={1.9} />,
+                                        apply: () => {
+                                          setGenTone("tutorial");
+                                          setGenStructure("howto");
+                                          setGenAudience("intermediate");
+                                          setGenLength("long");
+                                          setGenExtras(["tldr", "code", "checklist"]);
+                                          setGenRegion("vn");
+                                          setGenImageStyle("mixed");
+                                          setGenCta("readmore");
+                                          if (genAutoAi) applyAutoAi("howto");
+                                        },
+                                      },
+                                      {
+                                        id: "review",
+                                        label: "Review",
+                                        ic: <IconPalette size={12} stroke={1.9} />,
+                                        apply: () => {
+                                          setGenTone("analysis");
+                                          setGenStructure("review");
+                                          setGenAudience("mixed");
+                                          setGenLength("medium");
+                                          setGenExtras(["tldr", "faq", "takeaway"]);
+                                          setGenRegion("vn");
+                                          setGenImageStyle("photo");
+                                          setGenCta("comment");
+                                          if (genAutoAi) applyAutoAi("review");
+                                        },
+                                      },
+                                      {
+                                        id: "deepdive",
+                                        label: "Phân tích sâu",
+                                        ic: <IconBrain size={12} stroke={1.9} />,
+                                        apply: () => {
+                                          setGenTone("expert");
+                                          setGenStructure("deepdive");
+                                          setGenAudience("expert");
+                                          setGenLength("long");
+                                          setGenExtras(["stats", "takeaway", "glossary"]);
+                                          setGenRegion("global");
+                                          setGenImageStyle("illustration");
+                                          setGenCta("readmore");
+                                          if (genAutoAi) applyAutoAi("deepdive");
+                                        },
+                                      },
+                                      {
+                                        id: "news",
+                                        label: "Tin xu hướng",
+                                        ic: <IconWorldSearch size={12} stroke={1.9} />,
+                                        apply: () => {
+                                          setGenTone("friendly");
+                                          setGenStructure("news");
+                                          setGenAudience("mixed");
+                                          setGenLength("medium");
+                                          setGenExtras(["tldr", "stats"]);
+                                          setGenRegion("global");
+                                          setGenImageStyle("photo");
+                                          setGenCta("share");
+                                          setGenResearch(true);
+                                          if (genAutoAi) applyAutoAi("news");
+                                        },
+                                      },
+                                      {
+                                        id: "listicle",
+                                        label: "Top N",
+                                        ic: <IconListNumbers size={12} stroke={1.9} />,
+                                        apply: () => {
+                                          setGenTone("friendly");
+                                          setGenStructure("listicle");
+                                          setGenAudience("mixed");
+                                          setGenLength("medium");
+                                          setGenExtras(["tldr", "example"]);
+                                          setGenRegion("vn");
+                                          setGenImageStyle("mixed");
+                                          setGenCta("share");
+                                          if (genAutoAi) applyAutoAi("listicle");
+                                        },
+                                      },
+                                      {
+                                        id: "comparison",
+                                        label: "So sánh",
+                                        ic: <IconArrowsLeftRight size={12} stroke={1.9} />,
+                                        apply: () => {
+                                          setGenTone("analysis");
+                                          setGenStructure("comparison");
+                                          setGenAudience("intermediate");
+                                          setGenLength("medium");
+                                          setGenExtras(["tldr", "stats", "takeaway"]);
+                                          setGenRegion("global");
+                                          setGenImageStyle("mixed");
+                                          setGenCta("comment");
+                                          if (genAutoAi) applyAutoAi("comparison");
+                                        },
+                                      },
+                                      {
+                                        id: "explainer",
+                                        label: "Giải thích",
+                                        ic: <IconBulb size={12} stroke={1.9} />,
+                                        apply: () => {
+                                          setGenTone("friendly");
+                                          setGenStructure("explainer");
+                                          setGenAudience("beginner");
+                                          setGenLength("medium");
+                                          setGenExtras(["tldr", "glossary", "example"]);
+                                          setGenRegion("vn");
+                                          setGenImageStyle("illustration");
+                                          setGenCta("readmore");
+                                          if (genAutoAi) applyAutoAi("explainer");
+                                        },
+                                      },
+                                      {
+                                        id: "story",
+                                        label: "Kể chuyện",
+                                        ic: <IconMessageCircle size={12} stroke={1.9} />,
+                                        apply: () => {
+                                          setGenTone("story");
+                                          setGenStructure("explainer");
+                                          setGenAudience("mixed");
+                                          setGenLength("medium");
+                                          setGenExtras(["tldr", "quote"]);
+                                          setGenRegion("vn");
+                                          setGenImageStyle("photo");
+                                          setGenCta("comment");
+                                          if (genAutoAi) applyAutoAi("explainer");
+                                        },
+                                      },
+                                      {
+                                        id: "seo",
+                                        label: "Chuẩn SEO",
+                                        ic: <IconSearch size={12} stroke={1.9} />,
+                                        apply: () => {
+                                          setGenTone("expert");
+                                          setGenStructure("auto");
+                                          setGenAudience("mixed");
+                                          setGenLength("medium");
+                                          setGenExtras(["tldr", "faq", "takeaway"]);
+                                          setGenRegion("vn");
+                                          setGenImageStyle("mixed");
+                                          setGenCta("newsletter");
+                                          setGenInternalLinks(true);
+                                          if (genAutoAi) applyAutoAi("auto");
+                                        },
+                                      },
+                                    ] as const
+                                  ).map((p) => (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      className={`bga-preset-btn${genPreset === p.id ? " is-on" : ""}`}
+                                      onClick={() => {
+                                        p.apply();
+                                        setGenPreset(p.id);
+                                      }}
+                                      title={`Preset: ${p.label}`}
+                                    >
+                                      {p.ic} {p.label}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                <div className="bga-grid-dense">
+                                  <Field
+                                    label={
+                                      <>
+                                        <IconLayoutList size={11} stroke={1.9} /> Danh mục
+                                      </>
+                                    }
+                                  >
+                                    <Select
+                                      value={genCategory}
+                                      onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
+                                      options={CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c }))}
+                                      selectSize="sm"
+                                    />
+                                  </Field>
+                                  <Field
+                                    label={
+                                      <>
+                                        <IconRuler size={11} stroke={1.9} /> Độ dài
+                                      </>
+                                    }
+                                  >
+                                    <div className="bga-seg bga-seg-sm">
+                                      {GEN_LENGTHS.map((l) => (
+                                        <button
+                                          key={l.id}
+                                          type="button"
+                                          className={genLength === l.id ? "is-on" : ""}
+                                          onClick={() => setGenLength(l.id)}
+                                          title={`${l.words} từ · ${l.sections} section`}
+                                        >
+                                          {l.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </Field>
+                                  <Field
+                                    label={
+                                      <>
+                                        <IconPhoto size={11} stroke={1.9} /> Số ảnh
+                                      </>
+                                    }
+                                  >
+                                    <div className="bga-seg bga-seg-sm">
+                                      {[0, 2, 4, 6, 8, 10].map((n) => (
+                                        <button
+                                          key={n}
+                                          type="button"
+                                          className={genImages === n ? "is-on" : ""}
+                                          onClick={() => setGenImages(n)}
+                                        >
+                                          {n}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </Field>
+                                </div>
+
+                                <Field
+                                  label={
+                                    <>
+                                      <IconMessageCircle size={11} stroke={1.9} /> Yêu cầu thêm (tuỳ chọn)
+                                    </>
+                                  }
+                                  hint="Brief riêng cho bài: ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
+                                >
+                                  <Textarea
+                                    rows={1}
+                                    value={genNotes}
+                                    onChange={(e) => setGenNotes(e.target.value)}
+                                    placeholder="Ý bắt buộc có, ví dụ cần đưa vào, điều cần tránh…"
+                                  />
+                                </Field>
+                              </div>
+                            </div>
+                          </TabPanel>
+
+                          <TabPanel value="sources">
+                            <div className="bga-opt-card">
+                              <div className="bga-opt-card-head">
+                                <span className="bga-opt-card-ic">
+                                  <IconLink size={12} stroke={2} />
+                                </span>
+                                <b>Công cụ liên quan (tuỳ chọn)</b>
+                                <span className="bga-opt-card-dim">Chèn block ở cuối bài</span>
+                              </div>
+                              <div className="bga-opt-card-body">
+                                <RelatedToolsPicker
+                                  value={genRelatedTools}
+                                  onChange={setGenRelatedTools}
+                                  title={topic}
+                                />
+                              </div>
+                            </div>
+                          </TabPanel>
+
+                          <TabPanel value="style">
+                            <div className={`bga-opt-card${collapsed.styleTone ? " is-collapsed" : ""}`}>
+                              <div className="bga-opt-card-head">
+                                <span className="bga-opt-card-ic">
+                                  <IconMicrophone size={12} stroke={2} />
+                                </span>
+                                <b>Giọng &amp; đối tượng</b>
+                                <span className="bga-opt-card-dim">Cách viết, dành cho ai</span>
+                                <button
+                                  type="button"
+                                  className="bga-opt-card-collapse"
+                                  onClick={() => toggleCollapsed("styleTone")}
+                                  title={collapsed.styleTone ? "Mở rộng" : "Thu gọn"}
+                                  aria-label="Thu gọn"
+                                >
+                                  <IconChevronDown size={13} stroke={2} />
+                                </button>
+                              </div>
+                              <div className="bga-opt-card-body">
+                                <div className="bga-grid-dense">
+                                  <Field
+                                    label={
+                                      <>
+                                        <IconMicrophone size={11} stroke={1.9} /> Giọng văn
+                                      </>
+                                    }
+                                    hint={GEN_TONES.find((t) => t.id === genTone)?.hint}
+                                  >
+                                    <Select
+                                      value={genTone}
+                                      onChange={(e) => setGenTone(e.target.value as GenTone)}
+                                      options={GEN_TONES.map((t) => ({ value: t.id, label: t.label }))}
+                                      selectSize="sm"
+                                    />
+                                  </Field>
+                                  <Field
+                                    label={
+                                      <>
+                                        <IconUsers size={11} stroke={1.9} /> Đối tượng
+                                      </>
+                                    }
+                                    hint={GEN_AUDIENCES.find((a) => a.id === genAudience)?.hint}
+                                  >
+                                    <Select
+                                      value={genAudience}
+                                      onChange={(e) => setGenAudience(e.target.value as GenAudience)}
+                                      options={GEN_AUDIENCES.map((a) => ({ value: a.id, label: a.label }))}
+                                      selectSize="sm"
+                                    />
+                                  </Field>
+                                  <Field
+                                    label={
+                                      <>
+                                        <IconTarget size={11} stroke={1.9} /> Vùng mục tiêu
+                                      </>
+                                    }
+                                    hint={GEN_REGIONS.find((r) => r.id === genRegion)?.hint}
+                                  >
+                                    <Select
+                                      value={genRegion}
+                                      onChange={(e) => setGenRegion(e.target.value as GenRegion)}
+                                      options={GEN_REGIONS.map((r) => ({ value: r.id, label: r.label }))}
+                                      selectSize="sm"
+                                    />
+                                  </Field>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={`bga-opt-card${collapsed.styleStruct ? " is-collapsed" : ""}`}>
+                              <div className="bga-opt-card-head">
+                                <span className="bga-opt-card-ic">
+                                  <IconArticle size={12} stroke={2} />
+                                </span>
+                                <b>Cấu trúc &amp; phân phối</b>
+                                <span className="bga-opt-card-dim">Khung bài, CTA, ảnh minh hoạ</span>
+                                <button
+                                  type="button"
+                                  className="bga-opt-card-collapse"
+                                  onClick={() => toggleCollapsed("styleStruct")}
+                                  title={collapsed.styleStruct ? "Mở rộng" : "Thu gọn"}
+                                  aria-label="Thu gọn"
+                                >
+                                  <IconChevronDown size={13} stroke={2} />
+                                </button>
+                              </div>
+                              <div className="bga-opt-card-body">
+                                <div className="bga-grid-dense">
+                                  <Field
+                                    label={
+                                      <>
+                                        <IconArticle size={11} stroke={1.9} /> Cấu trúc
+                                      </>
+                                    }
+                                    hint={GEN_STRUCTURES.find((s) => s.id === genStructure)?.hint}
+                                  >
+                                    <Select
+                                      value={genStructure}
+                                      onChange={(e) => setGenStructure(e.target.value as GenStructure)}
+                                      options={GEN_STRUCTURES.map((s) => ({ value: s.id, label: s.label }))}
+                                      selectSize="sm"
+                                    />
+                                  </Field>
+                                  <Field
+                                    label={
+                                      <>
+                                        <IconMessageCircle size={11} stroke={1.9} /> Call-to-action
+                                      </>
+                                    }
+                                    hint={GEN_CTAS.find((c) => c.id === genCta)?.hint}
+                                  >
+                                    <Select
+                                      value={genCta}
+                                      onChange={(e) => setGenCta(e.target.value as GenCta)}
+                                      options={GEN_CTAS.map((c) => ({ value: c.id, label: c.label }))}
+                                      selectSize="sm"
+                                    />
+                                  </Field>
+                                  <Field
+                                    label={
+                                      <>
+                                        <IconPhoto size={11} stroke={1.9} /> Phong cách ảnh
+                                      </>
+                                    }
+                                    hint={GEN_IMAGE_STYLES.find((s) => s.id === genImageStyle)?.hint}
+                                  >
+                                    <Select
+                                      value={genImageStyle}
+                                      onChange={(e) => setGenImageStyle(e.target.value as GenImageStyle)}
+                                      options={GEN_IMAGE_STYLES.map((s) => ({ value: s.id, label: s.label }))}
+                                      selectSize="sm"
+                                    />
+                                  </Field>
+                                </div>
+                              </div>
+                            </div>
+                          </TabPanel>
+
+                          <TabPanel value="advanced">
+                            <div className={`bga-opt-card${collapsed.advAi ? " is-collapsed" : ""}`}>
+                              <div className="bga-opt-card-head">
+                                <span className="bga-opt-card-ic">
+                                  <IconBrain size={12} stroke={2} />
+                                </span>
+                                <b>Chọn AI</b>
+                                <span className="bga-opt-card-dim">
+                                  {genAutoAi ? "Tự chọn theo cấu trúc" : "Chọn thủ công"}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="bga-opt-card-collapse"
+                                  onClick={() => toggleCollapsed("advAi")}
+                                  title={collapsed.advAi ? "Mở rộng" : "Thu gọn"}
+                                  aria-label="Thu gọn"
+                                >
+                                  <IconChevronDown size={13} stroke={2} />
+                                </button>
+                              </div>
+                              <div className="bga-opt-card-body">
+                                <label
+                                  className="bga-toggle-card"
+                                  title="AI tự chọn theo cấu trúc bài & độ ưu tiên; model cụ thể sẽ hiện ở bước sinh bài"
+                                >
+                                  <Switch
+                                    checked={genAutoAi}
+                                    onChange={(e) => {
+                                      const on = e.target.checked;
+                                      setGenAutoAi(on);
+                                      if (on) applyAutoAi(genStructure);
+                                    }}
+                                  />
+                                  <div className="bga-toggle-text">
+                                    <b>
+                                      <IconSparkles size={12} stroke={1.9} /> AI tự chọn theo cấu trúc
+                                    </b>
+                                    <span>Model cuối cùng dùng sẽ hiện ở bước &ldquo;Viết bài&rdquo;.</span>
+                                  </div>
+                                </label>
+                                <div style={{ marginTop: 8 }} />
+                                <Field label={genAutoAi ? "Độ ưu tiên" : "Model AI"}>
+                                  {genAutoAi ? (
+                                    <Select
+                                      value={genAiPref}
+                                      onChange={(e) => {
+                                        const pref = e.target.value as AiPreference;
+                                        setGenAiPref(pref);
+                                        applyAutoAi(genStructure, pref);
+                                      }}
+                                      selectSize="sm"
+                                      options={[
+                                        { value: "balanced", label: "Cân bằng — AI khớp cấu trúc bài" },
+                                        { value: "quality", label: "Chất lượng — ưu tiên model mạnh (tech/analysis)" },
+                                        { value: "speed", label: "Tốc độ — ưu tiên model nhanh" },
+                                      ]}
+                                    />
+                                  ) : (
+                                    <Select
+                                      value={genModel}
+                                      onChange={(e) => setGenModel(e.target.value)}
+                                      selectSize="sm"
+                                      options={(Object.keys(AI_MODELS) as AiProvider[]).flatMap<SelectOption>((p) =>
+                                        AI_MODELS[p].map((m) => ({
+                                          value: `${p}|${m.id}`,
+                                          label: `${AI_PROVIDER_LABEL[p]} · ${m.label}${m.search ? " · web" : ""}${providers[p] ? "" : " (chưa có key)"}`,
+                                          disabled: !providers[p],
+                                        })),
+                                      )}
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
+
+                            <div className={`bga-opt-card${collapsed.advQuality ? " is-collapsed" : ""}`}>
+                              <div className="bga-opt-card-head">
+                                <span className="bga-opt-card-ic">
+                                  <IconAdjustmentsHorizontal size={12} stroke={2} />
+                                </span>
+                                <b>Chất lượng nội dung</b>
+                                <span className="bga-opt-card-dim">E-E-A-T, humanize, sáng tạo</span>
+                                <button
+                                  type="button"
+                                  className="bga-opt-card-collapse"
+                                  onClick={() => toggleCollapsed("advQuality")}
+                                  title={collapsed.advQuality ? "Mở rộng" : "Thu gọn"}
+                                  aria-label="Thu gọn"
+                                >
+                                  <IconChevronDown size={13} stroke={2} />
+                                </button>
+                              </div>
+                              <div className="bga-opt-card-body">
+                                <Field label="Mức sáng tạo" hint="Cân bằng độ bám nguồn và góc nhìn riêng">
+                                  <div className="bga-seg bga-seg-sm">
+                                    {(
+                                      [
+                                        { v: "safe", l: "An toàn" },
+                                        { v: "balanced", l: "Cân bằng" },
+                                        { v: "creative", l: "Sáng tạo" },
+                                      ] as const
+                                    ).map((o) => (
+                                      <button
+                                        key={o.v}
+                                        type="button"
+                                        className={genCreativity === o.v ? "is-on" : ""}
+                                        onClick={() => setGenCreativity(o.v)}
+                                      >
+                                        {o.l}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </Field>
+                                <div className="bga-toggles" style={{ marginTop: 8 }}>
+                                  <label className="bga-toggle-card" title="Giảm giọng máy, câu đa dạng, tự nhiên hơn">
+                                    <Switch checked={genHumanize} onChange={(e) => setGenHumanize(e.target.checked)} />
+                                    <div className="bga-toggle-text">
+                                      <b>
+                                        <IconWand size={12} stroke={1.9} /> Humanize
+                                      </b>
+                                      <span>Giảm &ldquo;AI tells&rdquo; — tự nhiên, đa dạng câu</span>
+                                    </div>
+                                  </label>
+                                  <label
+                                    className="bga-toggle-card"
+                                    title="E-E-A-T: kinh nghiệm, chuyên môn, uy tín, đáng tin"
+                                  >
+                                    <Switch checked={genEEAT} onChange={(e) => setGenEEAT(e.target.checked)} />
+                                    <div className="bga-toggle-text">
+                                      <b>
+                                        <IconShieldCheck size={12} stroke={1.9} /> E-E-A-T boost
+                                      </b>
+                                      <span>Trích dẫn uy tín, giọng chuyên gia có bằng chứng</span>
+                                    </div>
+                                  </label>
+                                  <label
+                                    className="bga-toggle-card"
+                                    title="Diễn giải lại thay vì copy nguyên văn nguồn"
+                                  >
+                                    <Switch
+                                      checked={genOriginality}
+                                      onChange={(e) => setGenOriginality(e.target.checked)}
+                                    />
+                                    <div className="bga-toggle-text">
+                                      <b>
+                                        <IconSparkles size={12} stroke={1.9} /> Nguyên bản
+                                      </b>
+                                      <span>Tổng hợp &amp; diễn giải — tránh trùng nguồn</span>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={`bga-opt-card${collapsed.advFlow ? " is-collapsed" : ""}`}>
+                              <div className="bga-opt-card-head">
+                                <span className="bga-opt-card-ic">
+                                  <IconCircleCheckFilled size={12} />
+                                </span>
+                                <b>Quy trình</b>
+                                <span className="bga-opt-card-dim">Research & kiểm chứng</span>
+                                <button
+                                  type="button"
+                                  className="bga-opt-card-collapse"
+                                  onClick={() => toggleCollapsed("advFlow")}
+                                  title={collapsed.advFlow ? "Mở rộng" : "Thu gọn"}
+                                  aria-label="Thu gọn"
+                                >
+                                  <IconChevronDown size={13} stroke={2} />
+                                </button>
+                              </div>
+                              <div className="bga-opt-card-body">
+                                <div className="bga-toggles">
+                                  <label
+                                    className="bga-toggle-card"
+                                    title="Tra cứu web trước khi viết để có dữ kiện mới"
+                                  >
+                                    <Switch checked={genResearch} onChange={(e) => setGenResearch(e.target.checked)} />
+                                    <div className="bga-toggle-text">
+                                      <b>
+                                        <IconWorldSearch size={12} stroke={1.9} /> Tra cứu web
+                                      </b>
+                                      <span>Dữ kiện mới, kèm nguồn tham khảo</span>
+                                    </div>
+                                  </label>
+                                  <label
+                                    className="bga-toggle-card"
+                                    title="AI thứ hai rà lại bài, bỏ/làm mềm câu nghi bịa"
+                                  >
+                                    <Switch
+                                      checked={genFactCheck}
+                                      onChange={(e) => setGenFactCheck(e.target.checked)}
+                                    />
+                                    <div className="bga-toggle-text">
+                                      <b>
+                                        <IconCircleCheckFilled size={12} /> Kiểm chứng dữ kiện
+                                      </b>
+                                      <span>Pass 2: bắt hallucination (chậm hơn ~15s)</span>
+                                    </div>
+                                  </label>
+                                  <label
+                                    className="bga-toggle-card"
+                                    title="Tìm video thật liên quan tới chủ đề, nhúng sau phần mở bài"
+                                  >
+                                    <Switch
+                                      checked={genIncludeVideo}
+                                      onChange={(e) => setGenIncludeVideo(e.target.checked)}
+                                    />
+                                    <div className="bga-toggle-text">
+                                      <b>
+                                        <IconBrandYoutube size={12} stroke={1.9} /> Video YouTube
+                                      </b>
+                                      <span>
+                                        {genIncludeVideo ? "Chèn 1 video sau mở bài" : "Bài chỉ gồm chữ + ảnh"}
+                                      </span>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                          </TabPanel>
+                        </Tabs>
+                      </fieldset>
+
+                      {genErr && !genLoading && Object.keys(genSteps).length === 0 && (
+                        <div className="fx-err" style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                          <IconAlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {genErr}
+                        </div>
+                      )}
+                      {batchFailed.length > 0 && (
+                        <div
+                          className="fx-err"
+                          style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "stretch" }}
+                        >
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            <IconAlertTriangle size={14} />
+                            <b>{batchFailed.length} bài chưa xong — chọn &ldquo;Thử lại&rdquo; ở dưới để sinh lại.</b>
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
+                            {batchFailed.map((f) => (
+                              <li key={f.title}>
+                                <b>{f.title}</b>
+                                {f.error ? ` — ${f.error}` : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </>
                   )}
-                </button>
-              ) : (
-                <>
-                  <button className="fx-btn" onClick={() => setGenerateOpen(false)}>
-                    Đóng
-                  </button>
-                  {batchFailed.length > 0 && (
+                </div>
+                <div className="fx-modal-foot">
+                  {genLoading ? (
                     <button
-                      className="fx-btn fx-btn-warn"
-                      onClick={() => {
-                        const retryItems = batchFailed.map(({ title, angle }) => ({ title, angle }));
-                        setBatchFailed([]);
-                        setGenSteps({});
-                        setGenErr("");
-                        setGenAborted(false);
-                        generateBatch(retryItems);
-                      }}
-                      title={`Thử lại ${batchFailed.length} bài lỗi`}
+                      className="fx-btn fx-btn-danger"
+                      onClick={cancelGenerate}
+                      disabled={genAborted}
+                      style={{ marginLeft: "auto" }}
                     >
-                      <IconRotateClockwise size={14} /> Thử lại {batchFailed.length} bài lỗi
+                      {genAborted ? (
+                        <>
+                          <IconLoader2 size={14} className="spin" /> Đang huỷ…
+                        </>
+                      ) : (
+                        <>
+                          <IconX size={14} stroke={2} /> Huỷ sinh bài
+                        </>
+                      )}
                     </button>
+                  ) : (
+                    <>
+                      <button className="fx-btn" onClick={() => setGenerateOpen(false)}>
+                        Đóng
+                      </button>
+                      {batchFailed.length > 0 && (
+                        <button
+                          className="fx-btn fx-btn-warn"
+                          onClick={() => {
+                            const retryItems = batchFailed.map(({ title, angle }) => ({ title, angle }));
+                            setBatchFailed([]);
+                            setGenSteps({});
+                            setGenErr("");
+                            setGenAborted(false);
+                            generateBatch(retryItems);
+                          }}
+                          title={`Thử lại ${batchFailed.length} bài lỗi`}
+                        >
+                          <IconRotateClockwise size={14} /> Thử lại {batchFailed.length} bài lỗi
+                        </button>
+                      )}
+                      {Object.keys(genSteps).length > 0 && (genAborted || genErr) && batchFailed.length === 0 && (
+                        <button
+                          className="fx-btn"
+                          onClick={() => {
+                            setGenSteps({});
+                            setGenErr("");
+                            setGenAborted(false);
+                            if (selectedCount > 0) generateBatch();
+                            else generate();
+                          }}
+                          title="Thử sinh lại ngay với cùng tham số"
+                        >
+                          <IconRotateClockwise size={14} /> Thử lại
+                        </button>
+                      )}
+                      <button
+                        className="fx-btn fx-btn-primary"
+                        disabled={!topic.trim() && selectedCount === 0}
+                        title={
+                          !topic.trim() && selectedCount === 0 ? "Nhập chủ đề hoặc chọn ít nhất 1 gợi ý" : undefined
+                        }
+                        onClick={() => {
+                          setGenSteps({});
+                          setGenErr("");
+                          setGenAborted(false);
+                          setBatchFailed([]);
+                          selectedCount > 0 ? generateBatch() : generate();
+                        }}
+                      >
+                        <IconSparkles size={14} />
+                        {selectedCount > 1 ? `Sinh ${selectedCount} bài` : "Sinh bài AI"}
+                      </button>
+                    </>
                   )}
-                  {Object.keys(genSteps).length > 0 && (genAborted || genErr) && batchFailed.length === 0 && (
-                    <button
-                      className="fx-btn"
-                      onClick={() => {
-                        setGenSteps({});
-                        setGenErr("");
-                        setGenAborted(false);
-                        if (selectedCount > 0) generateBatch();
-                        else generate();
-                      }}
-                      title="Thử sinh lại ngay với cùng tham số"
-                    >
-                      <IconRotateClockwise size={14} /> Thử lại
-                    </button>
-                  )}
-                  <button
-                    className="fx-btn fx-btn-primary"
-                    disabled={!topic.trim() && selectedCount === 0}
-                    title={!topic.trim() && selectedCount === 0 ? "Nhập chủ đề hoặc chọn ít nhất 1 gợi ý" : undefined}
-                    onClick={() => {
-                      setGenSteps({});
-                      setGenErr("");
-                      setGenAborted(false);
-                      setBatchFailed([]);
-                      selectedCount > 0 ? generateBatch() : generate();
-                    }}
-                  >
-                    <IconSparkles size={14} />
-                    {selectedCount > 1 ? `Sinh ${selectedCount} bài` : "Sinh bài AI"}
-                  </button>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -4353,9 +4407,7 @@ export default function BlogAdminTool({
                       )}
                       <span style={{ display: "block", textAlign: "left" }}>
                         <b style={{ display: "block", lineHeight: 1.3, fontSize: 12 }}>{v.title}</b>
-                        {v.channel && (
-                          <span style={{ color: "var(--dim)", fontSize: 11 }}>{v.channel}</span>
-                        )}
+                        {v.channel && <span style={{ color: "var(--dim)", fontSize: 11 }}>{v.channel}</span>}
                       </span>
                     </button>
                   ))}
@@ -4481,9 +4533,7 @@ export default function BlogAdminTool({
                     autoFocus
                     value={seriesEditor.slug}
                     disabled={seriesSaving}
-                    onChange={(e) =>
-                      setSeriesEditor((cur) => (cur ? { ...cur, slug: e.target.value } : cur))
-                    }
+                    onChange={(e) => setSeriesEditor((cur) => (cur ? { ...cur, slug: e.target.value } : cur))}
                     placeholder="vd: Next.js 14 từ đầu"
                   />
                 </Field>
@@ -4500,9 +4550,7 @@ export default function BlogAdminTool({
                     <input
                       type="text"
                       value={seriesEditor.pickQ}
-                      onChange={(e) =>
-                        setSeriesEditor((cur) => (cur ? { ...cur, pickQ: e.target.value } : cur))
-                      }
+                      onChange={(e) => setSeriesEditor((cur) => (cur ? { ...cur, pickQ: e.target.value } : cur))}
                       placeholder="Tìm tiêu đề, slug…"
                       className="bga-pinned-picker-input"
                       style={{ marginLeft: "auto" }}
@@ -4554,9 +4602,7 @@ export default function BlogAdminTool({
                                 referrerPolicy="no-referrer"
                               />
                             ) : (
-                              <span
-                                style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }}
-                              />
+                              <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
                             )}
                           </div>
                           <div className="bga-series-item-text">
@@ -4580,9 +4626,7 @@ export default function BlogAdminTool({
                   </div>
                   <div className="bga-series-list">
                     {seriesEditor.slugs.length === 0 ? (
-                      <div className="bga-pinned-picker-empty">
-                        Chọn bài ở cột trái để thêm vào series.
-                      </div>
+                      <div className="bga-pinned-picker-empty">Chọn bài ở cột trái để thêm vào series.</div>
                     ) : (
                       seriesEditor.slugs.map((s, i) => {
                         const p = posts.find((x) => x.slug === s);

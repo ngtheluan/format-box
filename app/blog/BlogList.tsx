@@ -2,12 +2,14 @@
 
 import { BlogCard, Corners } from "@/components/BlogCard";
 import { BlogCover } from "@/components/BlogCover";
-import { Stack } from "@/components/ui";
+import { IconButton, Stack } from "@/components/ui";
 import {
   DEFAULT_CATEGORIES,
   formatDateVi,
   groupPostsBySeries,
+  MAX_PINNED,
   parseSeriesFromPost,
+  PINNED_IN_CAROUSEL,
   slugifyLabel,
   type BlogCategoryMap,
   type BlogPost,
@@ -19,6 +21,7 @@ import {
   IconArrowRight,
   IconArticle,
   IconBook,
+  IconCircleFilled,
   IconClock,
   IconFlame,
   IconListNumbers,
@@ -32,7 +35,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DidYouKnow } from "./DidYouKnow";
 
 const PAGE = 12;
-const SIDE = 4; // recent posts shown beside the featured story
+const CAROUSEL_MS = 5000;
 
 function PostBadges({ date, helpful }: { date: string; helpful: number }) {
   const ageDays = (Date.now() - new Date(date).getTime()) / 86400000;
@@ -63,6 +66,97 @@ function initials(name: string) {
   const first = parts[0][0];
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return (first + last).toUpperCase();
+}
+
+function FeaturedCarousel({
+  posts,
+  catLabel,
+  readLabel,
+  popularity,
+}: {
+  posts: BlogPost[];
+  catLabel: (key: string) => string;
+  readLabel: string;
+  popularity?: Record<string, number>;
+}) {
+  const { t } = useI18n();
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const count = posts.length;
+
+  // Timeout keyed on `index` so picking a dot restarts the full interval.
+  useEffect(() => {
+    if (paused || count < 2) return;
+    const id = setTimeout(() => setIndex((i) => (i + 1) % count), CAROUSEL_MS);
+    return () => clearTimeout(id);
+  }, [index, paused, count]);
+
+  return (
+    <article
+      className="bz-tile bz-feat"
+      onPointerEnter={(e) => e.pointerType === "mouse" && setPaused(true)}
+      onPointerLeave={() => setPaused(false)}
+      onFocus={(e) => e.target.matches(":focus-visible") && setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      <Corners />
+      <div className="bz-carousel">
+        <div className="bz-carousel-track" style={{ transform: `translateX(-${index * 100}%)` }}>
+          {posts.map((p, i) => (
+            <Link
+              key={p.slug}
+              href={`/blog/${p.slug}`}
+              prefetch={false}
+              className="bz-feat-link"
+              aria-hidden={i !== index}
+              tabIndex={i === index ? undefined : -1}
+            >
+              <span className="bz-media">
+                <BlogCover post={p} variant="hero" size={[1200, 675]} />
+                <PostBadges date={p.date} helpful={popularity?.[p.slug] ?? 0} />
+              </span>
+              <span className="bz-feat-body">
+                <span className="bz-feat-cats">
+                  <span className="bz-cat">{catLabel(p.category)}</span>
+                  {p.tags.length > 0 && <span className="bz-tags">{p.tags.slice(0, 3).join(" · ")}</span>}
+                </span>
+                <h2>{p.title}</h2>
+                {p.excerpt && <span className="bz-excerpt">{p.excerpt}</span>}
+                <span className="bz-meta">
+                  <time dateTime={p.date}>{formatDateVi(p.date)}</time>
+                  <i aria-hidden="true">·</i>
+                  <span>
+                    {p.readMin} {readLabel}
+                  </span>
+                </span>
+                <span className="bz-byline">
+                  <span className="bz-avatar">{initials(p.author)}</span>
+                  {p.author}
+                </span>
+              </span>
+            </Link>
+          ))}
+        </div>
+        {count > 1 && (
+          <div className="bz-carousel-dots">
+            {posts.map((p, i) => (
+              <IconButton
+                key={p.slug}
+                size="sm"
+                round
+                className={i === index ? "is-active" : undefined}
+                aria-label={`${t("blog_carousel_goto")} ${i + 1}`}
+                aria-current={i === index}
+                onClick={() => setIndex(i)}
+              >
+                <IconCircleFilled size={8} />
+              </IconButton>
+            ))}
+          </div>
+        )}
+      </div>
+    </article>
+  );
 }
 
 export function BlogList({
@@ -127,13 +221,12 @@ export function BlogList({
     });
   }, [all, active, q, catMap]);
 
-  // Featured split is independent of the topic filter: pinned posts fill it
-  // (first = hero, the rest beside it); with nothing pinned, fall back to the latest posts.
-  const pinned = all.filter((p) => p.pinned);
-  const hero = pinned[0] ?? null;
-  const side = pinned.slice(1, 1 + SIDE);
+  // Featured split is independent of the topic filter.
+  const pinned = all.filter((p) => p.pinned).slice(0, MAX_PINNED);
+  const carousel = pinned.slice(0, PINNED_IN_CAROUSEL);
+  const side = pinned.slice(PINNED_IN_CAROUSEL);
   // The grid skips featured posts on the default view; a topic view lists every post in it.
-  const usedSlugs = new Set<string>(!active && !q.trim() && hero ? [hero.slug, ...side.map((p) => p.slug)] : []);
+  const usedSlugs = new Set<string>(!active && !q.trim() ? pinned.map((p) => p.slug) : []);
   const rest = filtered.filter((p) => !usedSlugs.has(p.slug));
   const shown = rest.slice(0, limit);
   const hasMore = rest.length > shown.length;
@@ -241,36 +334,9 @@ export function BlogList({
       </header>
 
       {/* FEATURED SPLIT — big story (7) + side list (5); unaffected by the topic filter */}
-      {!isTagPage && !q.trim() && hero && (
+      {!isTagPage && !q.trim() && carousel.length > 0 && (
         <div className={`bz-top${side.length ? "" : " bz-top--solo"}`} aria-label={t("blog_featured")}>
-          <article className="bz-tile bz-feat">
-            <Corners />
-            <Link href={`/blog/${hero.slug}`} prefetch={false} className="bz-feat-link">
-              <span className="bz-media">
-                <BlogCover post={hero} variant="hero" size={[1200, 675]} />
-                <PostBadges date={hero.date} helpful={popularity?.[hero.slug] ?? 0} />
-              </span>
-              <span className="bz-feat-body">
-                <span className="bz-feat-cats">
-                  <span className="bz-cat">{catLabel(hero.category)}</span>
-                  {hero.tags.length > 0 && <span className="bz-tags">{hero.tags.slice(0, 3).join(" · ")}</span>}
-                </span>
-                <h2>{hero.title}</h2>
-                {hero.excerpt && <span className="bz-excerpt">{hero.excerpt}</span>}
-                <span className="bz-meta">
-                  <time dateTime={hero.date}>{formatDateVi(hero.date)}</time>
-                  <i aria-hidden="true">·</i>
-                  <span>
-                    {hero.readMin} {readLabel}
-                  </span>
-                </span>
-                <span className="bz-byline">
-                  <span className="bz-avatar">{initials(hero.author)}</span>
-                  {hero.author}
-                </span>
-              </span>
-            </Link>
-          </article>
+          <FeaturedCarousel posts={carousel} catLabel={catLabel} readLabel={readLabel} popularity={popularity} />
 
           {side.length > 0 && (
             <div className="bz-side">
