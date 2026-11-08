@@ -162,20 +162,38 @@ const CSS = `
   --bg2: rgba(6,14,34,.24);
   --bg3: rgba(255,255,255,.16);
   --bg4: rgba(255,255,255,.22);
-  --text: #fff;
-  --bright: #fff;
+  --wt-ink: #fff;
+  --wt-bar: rgba(255,255,255,.88);
+  --wt-glow-dot: rgba(255,255,255,.7);
+  --text: var(--wt-ink);
+  --bright: var(--wt-ink);
   --dim: rgba(255,255,255,.72);
   --border: rgba(255,255,255,.16);
-  --accent: #fff;
+  --accent: var(--wt-ink);
   --wt-sun: #fcd34d;
   --wt-rain: #93c5fd;
   --wt-soft: rgba(255,255,255,.88);
-  position: relative; isolation: isolate; color: #fff;
+  position: relative; isolation: isolate; color: var(--wt-ink);
   display: flex; flex-direction: column; gap: 10px;
   padding: 14px; border-radius: 20px; overflow: hidden;
   transition: background .6s ease;
 }
 .wt-layer { position: absolute; inset: 0; overflow: hidden; z-index: -1; pointer-events: none; }
+
+/* Dark mode: same sky, but sunk towards the page colour so it does not glare. */
+[data-theme="dark"] .wt-sky {
+  --wt-ink: #dfe6f3;
+  --wt-bar: rgba(223,230,243,.62);
+  --wt-glow-dot: rgba(223,230,243,.25);
+  --wt-sun: #e3bd5c;
+  --wt-rain: #83add9;
+  --wt-soft: rgba(223,230,243,.78);
+  box-shadow: inset 0 0 0 1px rgba(148,184,255,.14);
+}
+[data-theme="dark"] .wt-layer::after {
+  content: ""; position: absolute; inset: 0;
+  background: rgba(10,17,33,.58);
+}
 
 .wt-glass {
   background: rgba(6,14,34,.24);
@@ -225,7 +243,7 @@ const CSS = `
 
 .wt-panel { padding: 10px 12px; }
 .wt-head { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,.78); }
-.wt-head-read { margin-left: auto; font-weight: 500; color: #fff; font-variant-numeric: tabular-nums; }
+.wt-head-read { margin-left: auto; font-weight: 500; color: var(--wt-ink); font-variant-numeric: tabular-nums; }
 
 .wt-day {
   display: grid; grid-template-columns: 56px 20px 36px 26px minmax(36px, 1fr) 26px; align-items: center; gap: 6px;
@@ -237,7 +255,7 @@ const CSS = `
 .wt-day-lo { color: rgba(255,255,255,.65); text-align: right; }
 .wt-day-hi { font-weight: 600; }
 .wt-track { position: relative; height: 4px; border-radius: 999px; background: rgba(255,255,255,.18); }
-.wt-fill { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: rgba(255,255,255,.88); }
+.wt-fill { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--wt-bar); }
 .wt-pin {
   position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; transform: translate(-50%, -50%);
   background: var(--wt-sun); box-shadow: 0 0 0 2px rgba(6,14,34,.55);
@@ -249,12 +267,12 @@ const CSS = `
 .wt-h-row { display: grid; position: relative; }
 .wt-h-active { position: absolute; top: 0; bottom: 0; border-radius: 8px; background: rgba(255,255,255,.11); pointer-events: none; transition: left .12s ease-out; }
 .wt-h-time { text-align: center; padding-top: 3px; font-size: 11px; color: rgba(255,255,255,.72); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.wt-h-time--now { color: #fff; font-weight: 600; font-size: 10px; }
+.wt-h-time--now { color: var(--wt-ink); font-weight: 600; font-size: 10px; }
 .wt-h-icon { display: flex; justify-content: center; padding-top: 5px; }
 .wt-h-plot { position: relative; height: 92px; }
 .wt-h-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .wt-h-label { position: absolute; transform: translate(-50%, calc(-100% - 7px)); font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.wt-h-dot { position: absolute; width: 9px; height: 9px; border-radius: 50%; transform: translate(-50%, -50%); background: #fff; box-shadow: 0 0 0 2px rgba(6,14,34,.5), 0 0 14px rgba(255,255,255,.7); }
+.wt-h-dot { position: absolute; width: 9px; height: 9px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--wt-ink); box-shadow: 0 0 0 2px rgba(6,14,34,.5), 0 0 14px var(--wt-glow-dot); }
 .wt-h-bars { height: 24px; align-items: end; gap: 2px; padding: 0 3px; border-top: 1px solid rgba(255,255,255,.12); }
 .wt-h-bar { background: var(--wt-rain); border-radius: 3px 3px 0 0; }
 .wt-h-rainlbl { display: flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 11px; color: rgba(255,255,255,.72); }
@@ -267,7 +285,7 @@ const CSS = `
 .wt-metric-val small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: rgba(255,255,255,.75); margin-left: 3px; }
 .wt-metric-sub { margin-top: auto; font-size: 11px; color: rgba(255,255,255,.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wt-meter { margin-top: auto; height: 4px; border-radius: 999px; background: rgba(255,255,255,.18); overflow: hidden; }
-.wt-meter span { display: block; height: 100%; border-radius: 999px; background: rgba(255,255,255,.88); }
+.wt-meter span { display: block; height: 100%; border-radius: 999px; background: var(--wt-bar); }
 .wt-compass { position: absolute; right: 9px; bottom: 9px; }
 
 .wt-sunband { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 12px; }
@@ -414,8 +432,8 @@ function Compass({ deg }: { deg: number }) {
       ))}
       {/* METAR and Open-Meteo give the direction the wind comes from; the arrow shows where it blows. */}
       <g transform={`rotate(${deg + 180} 19 19)`}>
-        <line x1="19" y1="28" x2="19" y2="11" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-        <path d="M19 8 L23.5 14 L14.5 14 Z" fill="#fff" />
+        <line x1="19" y1="28" x2="19" y2="11" stroke="var(--wt-ink)" strokeWidth="2" strokeLinecap="round" />
+        <path d="M19 8 L23.5 14 L14.5 14 Z" fill="var(--wt-ink)" />
       </g>
     </svg>
   );
@@ -526,12 +544,12 @@ function HourlyChart({ rows, nowLabel, rainLabel, title }: {
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
               <defs>
                 <linearGradient id="wt-area" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0" stopColor="#fff" stopOpacity=".3" />
-                  <stop offset="1" stopColor="#fff" stopOpacity="0" />
+                  <stop offset="0" stopColor="var(--wt-ink)" stopOpacity=".3" />
+                  <stop offset="1" stopColor="var(--wt-ink)" stopOpacity="0" />
                 </linearGradient>
               </defs>
               <path d={`${line}L${x(n - 1)} 100L${x(0)} 100Z`} fill="url(#wt-area)" />
-              <path d={line} fill="none" stroke="#fff" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" />
+              <path d={line} fill="none" stroke="var(--wt-ink)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" />
             </svg>
             {[...labels].map((i) => (
               <span key={i} className="wt-h-label" style={{ left: `${x(i)}%`, top: `${y(rows[i].temp)}%` }}>
