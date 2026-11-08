@@ -5092,29 +5092,52 @@ export default function BlogAdminTool({
         .blog-title-click:hover b {
           color: var(--accent, #f97316);
         }
+        @media (min-width: 761px) and (max-width: 1100px) {
+          .fx-table:has(.blog-row) .fx-row {
+            grid-template-columns: 28px 48px minmax(0, 1fr) 92px 96px 84px 76px !important;
+            gap: 10px;
+          }
+          .blog-row .fx-title-cell .fx-t-href {
+            display: none;
+          }
+        }
         @media (max-width: 760px) {
-          .fx-row-head {
+          .fx-table:has(.blog-row) .fx-row-head {
             display: none !important;
           }
           .fx-table:has(.blog-row) {
             overflow: visible !important;
+            border: none;
+            background: none;
+            box-shadow: none;
           }
           .blog-row {
             min-width: 0 !important;
             width: 100% !important;
             display: grid !important;
-            grid-template-columns: 56px auto auto 1fr !important;
+            grid-template-columns: 48px auto auto minmax(0, 1fr) !important;
             grid-template-areas:
               "ico title title title"
               "ico cat   stat  date"
               "act act   act   act" !important;
-            gap: 8px 10px !important;
-            padding: 12px !important;
+            gap: 6px 8px !important;
+            padding: 10px !important;
             align-items: center !important;
             border-radius: 10px;
-            border: 1px solid var(--border);
-            margin-bottom: 10px;
+            border: 1px solid var(--border) !important;
+            margin-bottom: 8px;
             background: var(--bg2, transparent);
+          }
+          .blog-row:last-child {
+            margin-bottom: 0;
+          }
+          /* Bulk-select checkbox sits on the thumbnail so it costs no column. */
+          .blog-row > div:nth-child(1) {
+            grid-area: ico;
+            align-self: start;
+            justify-self: start;
+            z-index: 1;
+            margin: 3px;
           }
           .blog-row .bga-thumb {
             grid-area: ico;
@@ -5125,44 +5148,36 @@ export default function BlogAdminTool({
             min-width: 0;
           }
           .blog-row .fx-title-cell b {
-            font-size: 15px !important;
+            font-size: 14px !important;
             line-height: 1.35 !important;
-            display: block;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            max-width: 100%;
-          }
-          .blog-row .fx-title-cell .fx-t-href {
-            display: none;
-          }
-          .blog-row .fx-title-cell .fx-t-sub {
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
-            overflow: hidden;
-            font-size: 12px;
-            margin-top: 2px;
+            white-space: normal !important;
+            overflow: hidden !important;
+            min-width: 0;
           }
-          .blog-row > div:nth-child(3) {
+          .blog-row > div:nth-child(4) {
             grid-area: cat;
             justify-self: start;
           }
-          .blog-row > div:nth-child(4) {
+          .blog-row > div:nth-child(5) {
             grid-area: stat;
             justify-self: start;
           }
-          .blog-row > div:nth-child(5) {
+          .blog-row > div:nth-child(6) {
             grid-area: date;
             justify-self: end;
             font-size: 11px !important;
             white-space: nowrap;
           }
+          .blog-row .fx-row-actions:empty {
+            display: none !important;
+          }
           .blog-row .fx-row-actions {
             grid-area: act;
             display: flex !important;
-            justify-contentimport { size } from '../../apple-icon';
-: flex-end;
+            justify-content: flex-end;
             flex-wrap: wrap;
             gap: 6px;
             padding-top: 10px;
