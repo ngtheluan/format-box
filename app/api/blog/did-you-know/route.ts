@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
 import {
   deleteDidYouKnow,
+  dykImageCredit,
   listAdminDidYouKnow,
   listPublicDidYouKnow,
   slugify,
@@ -30,6 +31,7 @@ function sanitizeImages(input: unknown): DidYouKnowImage[] {
         url,
         caption_vi: typeof o.caption_vi === "string" ? o.caption_vi : "",
         caption_en: typeof o.caption_en === "string" ? o.caption_en : "",
+        ...dykImageCredit(o),
       };
     })
     .filter(Boolean) as DidYouKnowImage[];

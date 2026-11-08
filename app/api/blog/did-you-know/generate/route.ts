@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { isSuperAdmin } from "@/lib/admin-auth";
-import { slugify, upsertDidYouKnow, type DidYouKnowImage, type DidYouKnowItem } from "@/lib/blog";
+import { dykImageCredit, slugify, updateDidYouKnow, upsertDidYouKnow, type DidYouKnowImage, type DidYouKnowItem } from "@/lib/blog";
 import { callLlm, parseJsonLoose, searchImages } from "@/lib/blog-ai";
 import { AI_MODELS, type AiProvider } from "@/lib/blog-ai-shared";
+import { generateDykQuiz } from "@/lib/dyk-quiz";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ JSON: {"slug":"kebab-case","tag_vi":"...","tag_en":"...","title_vi":"...","title
           url: pick.url,
           caption_vi: (im.caption_vi || "").trim(),
           caption_en: (im.caption_en || im.caption_vi || "").trim(),
+          ...dykImageCredit({ credit: pick.credit, credit_url: pick.creditUrl }),
         } as DidYouKnowImage;
       }),
     );
@@ -88,7 +90,16 @@ JSON: {"slug":"kebab-case","tag_vi":"...","tag_en":"...","title_vi":"...","title
       active: true,
     };
     await upsertDidYouKnow(item);
-    return NextResponse.json({ ok: true, item });
+
+    // Separate and guarded: a failed quiz (or a DB without the `quiz` column yet)
+    // must not lose the exhibit that was just saved.
+    let quizSaved = true;
+    try {
+      await updateDidYouKnow(slug, { quiz: await generateDykQuiz(item, provider) });
+    } catch {
+      quizSaved = false;
+    }
+    return NextResponse.json({ ok: true, item, quizSaved });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "AI lỗi" }, { status: 500 });
   }

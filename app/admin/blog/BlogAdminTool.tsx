@@ -2,7 +2,7 @@
 import "@/app/blog/blog.css";
 import { useToast } from "@/components/Toast";
 import type { SelectOption } from "@/components/ui";
-import { Field, Input, Select, Switch, Tab, TabPanel, Tabs, TabsList, Textarea } from "@/components/ui";
+import { Button, Field, Input, Select, Switch, Tab, TabPanel, Tabs, TabsList, Textarea } from "@/components/ui";
 import {
   MAX_PINNED,
   rewriteImgUrl,
@@ -225,6 +225,35 @@ export default function BlogAdminTool({
     } finally {
       setDykAiLoading(false);
     }
+  }
+
+  const [dykQuizProgress, setDykQuizProgress] = useState("");
+  const dykMissingQuiz = dyk.filter((it) => !it.quiz?.length);
+
+  // One request per item: each is a full LLM call, too slow to batch in one route.
+  async function backfillDykQuiz() {
+    let failed = 0;
+    let lastError = "";
+    for (let i = 0; i < dykMissingQuiz.length; i++) {
+      setDykQuizProgress(`${i + 1}/${dykMissingQuiz.length}`);
+      try {
+        const r = await fetch("/api/blog/did-you-know/quiz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: dykMissingQuiz[i].slug, provider: genProvider }),
+        });
+        if (!r.ok) {
+          failed++;
+          lastError = (await r.json().catch(() => null))?.error || `Lỗi ${r.status}`;
+        }
+      } catch (e: any) {
+        failed++;
+        lastError = e?.message || "Lỗi";
+      }
+    }
+    setDykQuizProgress("");
+    await reloadDyk();
+    toast(failed ? `Lỗi ${failed}/${dykMissingQuiz.length} mục: ${lastError}` : "Đã sinh quiz cho các mục còn thiếu");
   }
 
   function openNewDyk() {
@@ -1820,9 +1849,16 @@ export default function BlogAdminTool({
               <IconPlus size={14} stroke={2.2} /> Thêm series
             </button>
           ) : tab === "knowledge" ? (
-            <button onClick={() => setDykChooserOpen(true)} className="fx-btn fx-btn-primary">
-              <IconPlus size={14} stroke={2.2} /> Thêm kiến thức
-            </button>
+            <>
+              {isSuperAdmin && dykMissingQuiz.length > 0 && (
+                <Button variant="ghost" size="sm" loading={!!dykQuizProgress} onClick={backfillDykQuiz}>
+                  {dykQuizProgress ? `Đang sinh quiz ${dykQuizProgress}` : `Sinh quiz còn thiếu (${dykMissingQuiz.length})`}
+                </Button>
+              )}
+              <button onClick={() => setDykChooserOpen(true)} className="fx-btn fx-btn-primary">
+                <IconPlus size={14} stroke={2.2} /> Thêm kiến thức
+              </button>
+            </>
           ) : null}
         </div>
       </div>
@@ -1931,6 +1967,11 @@ export default function BlogAdminTool({
                     {!it.active && (
                       <span className="fx-badge" data-tone="mute">
                         Tắt
+                      </span>
+                    )}
+                    {!it.quiz?.length && (
+                      <span className="fx-badge" data-tone="mute">
+                        Chưa có quiz
                       </span>
                     )}
                   </div>

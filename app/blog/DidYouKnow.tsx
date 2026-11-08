@@ -1,21 +1,14 @@
 "use client";
 
-import { Modal } from "@/components/ui";
+import { ChillMusic } from "@/components/ChillMusic";
+import { Button, IconButton, Modal } from "@/components/ui";
 import type { DidYouKnowItem as DbDidYouKnowItem } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
-import { IconArrowRight, IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react";
-import { useCallback, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { IconArrowRight, IconPhoto, IconX } from "@tabler/icons-react";
+import { useCallback, useMemo, useState } from "react";
+import { DykExhibit, exhibitNumber, imageCredit, type DykExhibitView } from "./DykExhibit";
 
-type DidYouKnowItem = {
-  slug: string;
-  title: { vi: string; en: string };
-  intro: { vi: string; en: string };
-  tag: { vi: string; en: string };
-  images: { url: string; caption: { vi: string; en: string } }[];
-};
-
-function fromDb(items: DbDidYouKnowItem[]): DidYouKnowItem[] {
+function fromDb(items: DbDidYouKnowItem[]): DykExhibitView[] {
   return items.map((it) => ({
     slug: it.slug,
     tag: { vi: it.tag_vi || "", en: it.tag_en || it.tag_vi || "" },
@@ -24,184 +17,128 @@ function fromDb(items: DbDidYouKnowItem[]): DidYouKnowItem[] {
     images: (it.images || []).map((im) => ({
       url: im.url,
       caption: { vi: im.caption_vi || "", en: im.caption_en || im.caption_vi || "" },
+      credit: imageCredit(im),
+    })),
+    quiz: (it.quiz || []).map((q) => ({
+      question: { vi: q.q_vi, en: q.q_en || q.q_vi },
+      options: q.options_vi.map((vi, i) => ({ vi, en: q.options_en[i] || vi })),
+      answer: q.answer,
+      explain: { vi: q.explain_vi, en: q.explain_en || q.explain_vi },
     })),
   }));
 }
 
-const DYK_PAGE = 9;
+const DYK_PAGE = 8;
 
 export function DidYouKnow({ items }: { items?: DbDidYouKnowItem[] } = {}) {
   const { t, lang } = useI18n();
-  const list: DidYouKnowItem[] = items && items.length ? fromDb(items) : [];
-  const [active, setActive] = useState<DidYouKnowItem | null>(null);
-  const [lightbox, setLightbox] = useState<number | null>(null);
+  const list = useMemo(() => (items && items.length ? fromDb(items) : []), [items]);
+  const [active, setActive] = useState<number | null>(null);
   const [limit, setLimit] = useState(DYK_PAGE);
-  const shown = list.slice(0, limit);
-
-  const tr = useCallback(
-    (v: { vi: string; en: string }) => (lang === "en" ? v.en : v.vi),
-    [lang],
-  );
-
-  const close = useCallback(() => {
-    setLightbox(null);
-    setActive(null);
-  }, []);
-
-  const next = useCallback(() => {
-    if (active == null || lightbox == null) return;
-    setLightbox((i) => (i == null ? 0 : (i + 1) % active.images.length));
-  }, [active, lightbox]);
-
-  const prev = useCallback(() => {
-    if (active == null || lightbox == null) return;
-    setLightbox((i) => (i == null ? 0 : (i - 1 + active.images.length) % active.images.length));
-  }, [active, lightbox]);
-
-  useEffect(() => {
-    if (lightbox == null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") next();
-      else if (e.key === "ArrowLeft") prev();
-      else if (e.key === "Escape") setLightbox(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [lightbox, next, prev]);
+  const close = useCallback(() => setActive(null), []);
 
   if (list.length === 0) return null;
+
+  const shown = list.slice(0, limit);
+  const current = active != null ? list[active] : null;
 
   return (
     <section className="bz-sec dyk-sec" aria-labelledby="dyk-h2">
       <header className="bz-sec-head">
-        <h2 id="dyk-h2">{t("blog_dyk_title")}</h2>
-        <span className="dyk-sub">{t("blog_dyk_sub")}</span>
+        <div>
+          <span className="bz-eyebrow">{t("blog_dyk_museum")}</span>
+          <h2 id="dyk-h2">
+            {t("blog_dyk_title")} ({list.length})
+          </h2>
+          <p className="bz-series-sub">{t("blog_dyk_tagline")}</p>
+        </div>
       </header>
 
       <div className="dyk-grid">
-        {shown.map((it) => (
-          <button
-            key={it.slug}
-            type="button"
-            className="dyk-card"
-            onClick={() => {
-              setActive(it);
-              setLightbox(null);
-            }}
-          >
-            <span className="dyk-thumb">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={it.images[0].url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
-              <span className="dyk-count">{it.images.length}</span>
-            </span>
-            <span className="dyk-body">
-              <span className="dyk-tag">{tr(it.tag)}</span>
-              <span className="dyk-title">{tr(it.title)}</span>
-              <span className="dyk-intro">{tr(it.intro)}</span>
-              <span className="dyk-cta">
-                {t("blog_dyk_open")} <IconArrowRight size={14} stroke={2} />
+        {shown.map((it, i) => {
+          const tag = lang === "en" ? it.tag.en : it.tag.vi;
+          return (
+            <Button key={it.slug} variant="ghost" className="dyk-card" onClick={() => setActive(i)}>
+              <span className="dyk-frame">
+                <span className="dyk-mat">
+                  {it.images[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={it.images[0].url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                  ) : (
+                    <IconPhoto size={28} stroke={1.4} />
+                  )}
+                </span>
+                <span className="dyk-beam" aria-hidden="true" />
+                {it.images[0]?.credit && (
+                  <span className="dyk-credit">
+                    {t("blog_photo")}: {it.images[0].credit.label}
+                  </span>
+                )}
               </span>
-            </span>
-          </button>
-        ))}
+              <span className="dyk-plaque">
+                <span className="dyk-no">
+                  {t("blog_dyk_exhibit")} {exhibitNumber(i)}
+                  {tag && ` · ${tag}`}
+                </span>
+                <span className="dyk-title">{lang === "en" ? it.title.en : it.title.vi}</span>
+                <span className="dyk-cta">
+                  {t("blog_dyk_step_in")} <IconArrowRight size={13} stroke={2} />
+                </span>
+              </span>
+            </Button>
+          );
+        })}
       </div>
 
       {list.length > shown.length && (
         <div className="bz-more">
-          <button type="button" className="bz-btn" onClick={() => setLimit((n) => n + DYK_PAGE)}>
-            {t("blog_load_more")} <IconArrowRight size={14} stroke={2} />
-          </button>
+          <Button
+            variant="ghost"
+            size="sm"
+            rightIcon={<IconArrowRight size={14} stroke={2} />}
+            onClick={() => setLimit((n) => n + DYK_PAGE)}
+          >
+            {t("blog_load_more")}
+          </Button>
         </div>
       )}
 
       <Modal
-        open={active != null}
+        open={current != null}
         onClose={close}
-        size="xl"
-        closeOnEsc={lightbox == null}
-        closeOnOverlay={lightbox == null}
-        title={active ? tr(active.title) : null}
-        description={active ? tr(active.intro) : null}
+        hideClose
+        ariaLabel={current ? (lang === "en" ? current.title.en : current.title.vi) : undefined}
+        className="mu-room"
       >
-        {active && (
-          <div className="dyk-gallery">
-            {active.images.map((img, i) => (
-              <button
-                key={img.url}
-                type="button"
-                className="dyk-gal-item"
-                onClick={() => setLightbox(i)}
-                aria-label={tr(img.caption)}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.url} alt={tr(img.caption)} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
-                <span className="dyk-gal-cap">{tr(img.caption)}</span>
-              </button>
-            ))}
+        {current && active != null && (
+          <div className="mu-shell">
+            {/* Lives outside the keyed exhibit so the music carries on between exhibits. */}
+            <header className="mu-top">
+              <span className="mu-loc">
+                <b>
+                  {t("blog_dyk_exhibit")} {exhibitNumber(active)}
+                </b>
+                {(lang === "en" ? current.tag.en : current.tag.vi) && (
+                  <i>{lang === "en" ? current.tag.en : current.tag.vi}</i>
+                )}
+                <span>{lang === "en" ? current.title.en : current.title.vi}</span>
+              </span>
+              <span className="mu-top-acts">
+                <ChillMusic />
+                <IconButton size="sm" aria-label={t("blog_dyk_close")} onClick={close}>
+                  <IconX size={16} stroke={2} />
+                </IconButton>
+              </span>
+            </header>
+            <DykExhibit
+              key={current.slug}
+              item={current}
+              onClose={close}
+              onNext={active + 1 < list.length ? () => setActive(active + 1) : undefined}
+            />
           </div>
         )}
       </Modal>
-
-      {active &&
-        lightbox != null &&
-        typeof window !== "undefined" &&
-        createPortal(
-          <div
-            className="dyk-lightbox"
-            role="dialog"
-            aria-modal="true"
-            onClick={() => setLightbox(null)}
-          >
-            <button
-              type="button"
-              className="dyk-lb-btn dyk-lb-close"
-              aria-label={t("blog_dyk_close")}
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightbox(null);
-              }}
-            >
-              <IconX size={20} stroke={2} />
-            </button>
-            <button
-              type="button"
-              className="dyk-lb-btn dyk-lb-prev"
-              aria-label={t("blog_dyk_prev")}
-              onClick={(e) => {
-                e.stopPropagation();
-                prev();
-              }}
-            >
-              <IconChevronLeft size={28} stroke={2} />
-            </button>
-            <figure className="dyk-lb-figure" onClick={(e) => e.stopPropagation()}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={active.images[lightbox].url}
-                alt={tr(active.images[lightbox].caption)}
-                referrerPolicy="no-referrer"
-              />
-              <figcaption>
-                <span>{tr(active.images[lightbox].caption)}</span>
-                <span className="dyk-lb-count">
-                  {lightbox + 1} / {active.images.length}
-                </span>
-              </figcaption>
-            </figure>
-            <button
-              type="button"
-              className="dyk-lb-btn dyk-lb-next"
-              aria-label={t("blog_dyk_next")}
-              onClick={(e) => {
-                e.stopPropagation();
-                next();
-              }}
-            >
-              <IconChevronRight size={28} stroke={2} />
-            </button>
-          </div>,
-          document.body,
-        )}
     </section>
   );
 }

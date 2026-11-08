@@ -2539,89 +2539,124 @@
 /* ============================================================
    DID-YOU-KNOW — curious facts tile with image-gallery modal
    ============================================================ */
+/* ---------- "Có thể bạn chưa biết": exhibit cards + rooms, on the blog's own tokens ---------- */
 .dyk-sec {
   margin-top: 12px;
 }
-.dyk-h2 {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.dyk-h2 svg {
-  color: var(--accent);
-}
-.dyk-sub {
-  font-size: 0.78rem;
-  color: var(--dim);
-}
 .dyk-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
-.dyk-card {
+.ui-btn.dyk-card,
+.ui-btn.dyk-card:not(:disabled):hover {
   display: flex;
-  gap: 10px;
-  padding: 6px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  height: auto;
+  padding: 5px;
   border: 1px solid var(--border);
+  border-radius: 0;
   background: var(--bg2);
   color: inherit;
-  cursor: pointer;
+  font-weight: 400;
   text-align: left;
-  font: inherit;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    transform 0.15s;
+  white-space: normal;
+  transform: none;
+  box-shadow: none;
+  transition: border-color 1.2s ease;
 }
-.dyk-card:hover {
-  background: var(--bg3);
+.ui-btn.dyk-card:not(:disabled):hover {
   border-color: var(--border-h);
 }
-.dyk-card:hover .dyk-thumb img {
-  transform: scale(1.04);
-}
-.dyk-thumb {
-  position: relative;
-  flex: 0 0 128px;
-  aspect-ratio: 4 / 5;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--bg3);
-}
-.dyk-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: transform 0.3s ease;
-}
-.dyk-count {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(8, 10, 20, 0.65);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  color: #fff;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.dyk-body {
+.dyk-card .ui-btn-label {
   display: flex;
   flex: 1;
-  min-width: 0;
   flex-direction: column;
-  gap: 6px;
-  padding: 4px 8px 6px 2px;
+  align-items: stretch;
+  min-width: 0;
 }
-.dyk-tag {
-  font-size: 0.68rem;
+.dyk-frame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+.dyk-mat {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--bg3);
+  color: var(--dim);
+}
+.dyk-mat img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  filter: brightness(0.88) saturate(0.82);
+  transition:
+    filter 1.6s ease,
+    transform 3s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.dyk-card:hover .dyk-mat img,
+.dyk-card:focus-visible .dyk-mat img {
+  filter: brightness(1) saturate(0.94);
+  transform: scale(1.03);
+}
+/* A warm, low veil of light that settles over the image on hover. */
+.dyk-beam,
+.mu-canvas::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(90% 70% at 50% 15%, rgba(255, 233, 204, 0.42), transparent 72%);
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.8s ease;
+}
+.dyk-card:hover .dyk-beam,
+.dyk-card:focus-visible .dyk-beam,
+.mu-frame:hover .mu-canvas::after {
+  opacity: 1;
+}
+.dyk-credit,
+.mu-credit {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 1;
+  max-width: calc(100% - 8px);
+  padding: 2px 6px;
+  overflow: hidden;
+  background: rgba(8, 10, 20, 0.55);
+  color: #fff;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mu-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.dyk-plaque {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 5px 5px;
+}
+.dyk-no {
+  font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -2630,203 +2665,555 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+  font-weight: 600;
   line-height: 1.3;
-  font-weight: 700;
   letter-spacing: -0.014em;
   color: var(--bright);
-}
-.dyk-intro {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: var(--text);
-  opacity: 0.9;
 }
 .dyk-cta {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   margin-top: auto;
-  padding-top: 4px;
   font-size: 0.75rem;
   font-weight: 600;
+  color: var(--dim);
+  transition:
+    color 1.2s ease,
+    gap 1.2s ease;
+}
+.dyk-card:hover .dyk-cta {
+  gap: 8px;
   color: var(--accent);
 }
-@media (max-width: 1024px) {
-  .dyk-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 640px) {
-  .dyk-grid {
-    grid-template-columns: 1fr;
-  }
-  .dyk-thumb {
-    flex-basis: 108px;
-  }
-}
 
-/* Gallery grid inside the Modal */
-.dyk-gallery {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+/* Exhibit room: full-screen, sized to the viewport so a visit needs no scrolling */
+.ui-modal-overlay:has(.mu-room) {
+  padding: 0;
+  background: var(--bg);
 }
-@media (max-width: 720px) {
-  .dyk-gallery {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.ui-modal.mu-room {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: none;
+  color: var(--bright);
+  animation: muLightsOn 0.5s ease;
 }
-.dyk-gal-item {
-  position: relative;
-  display: block;
+.mu-room .ui-modal-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
   padding: 0;
   overflow: hidden;
-  aspect-ratio: 4 / 3;
-  border: 1px solid var(--border);
-  background: var(--bg3);
-  cursor: zoom-in;
-  transition:
-    border-color 0.15s,
-    transform 0.15s;
+  color: inherit;
 }
-.dyk-gal-item:hover {
-  border-color: var(--accent);
+.mu-shell {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: radial-gradient(90% 70% at 42% 0, var(--bg2), var(--bg));
 }
-.dyk-gal-item img {
+.mu-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.mu-loc {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  font-size: 0.76rem;
+  color: var(--dim);
+}
+.mu-loc b {
+  flex: none;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.mu-loc i {
+  flex: none;
+  font-style: normal;
+}
+.mu-loc span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mu-top-acts {
+  flex: none;
+  display: inline-flex;
+  gap: 6px;
+}
+.mu-shell:has(.mu-gate) .mu-loc span {
+  /* The entrance already shows the title in full. */
+  visibility: hidden;
+}
+.mu-stage {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  overflow: hidden auto;
+}
+.mu-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Room 0: the entrance */
+.mu-gate {
+  position: relative;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: hidden;
+  text-align: center;
+}
+.mu-gate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 48%,
+    color-mix(in srgb, var(--bg) 72%, transparent),
+    var(--bg) 82%
+  );
+}
+.mu-gate-bg {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
-  transition: transform 0.4s ease;
-}
-.dyk-gal-item:hover img {
+  filter: blur(4px) saturate(0.7);
   transform: scale(1.06);
+  animation: muDrift 18s ease-out forwards;
 }
-.dyk-gal-cap {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 20px 10px 8px;
-  background: linear-gradient(to top, rgba(8, 10, 20, 0.85), transparent);
-  color: #fff;
-  font-size: 0.76rem;
-  line-height: 1.3;
-  opacity: 0;
-  transform: translateY(6px);
-  transition:
-    opacity 0.2s,
-    transform 0.2s;
+.mu-gate-text {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 760px;
 }
-.dyk-gal-item:hover .dyk-gal-cap,
-.dyk-gal-item:focus-visible .dyk-gal-cap {
-  opacity: 1;
-  transform: none;
+.mu-gate-text h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 3.4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--bright);
+}
+.mu-gate-text p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.mu-gate-meta {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  color: var(--bright);
 }
 
-/* Lightbox — full-viewport viewer launched from the gallery */
-.dyk-lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
+/* Rooms 1..n: one framed image under a spotlight, placard beside it */
+.mu-exhibit {
+  flex: 1;
+  min-width: 0;
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   align-items: center;
-  padding: 24px;
-  background: rgba(4, 6, 14, 0.92);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  animation: dykFade 0.15s ease;
+  gap: 36px;
+  padding: 26px 44px;
 }
-@keyframes dykFade {
+.mu-frame {
+  position: relative;
+  justify-self: center;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+}
+.mu-canvas {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+.mu-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: min(58dvh, 520px);
+  animation: muReveal 0.9s ease;
+  transition:
+    filter 1.6s ease,
+    transform 3s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.mu-frame:hover img {
+  filter: saturate(0.94);
+  transform: scale(1.02);
+}
+.mu-beam {
+  position: absolute;
+  inset: -60px -40px 40%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 10%, transparent), transparent);
+  pointer-events: none;
+}
+.mu-placard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  animation: muRise 0.6s ease both;
+}
+.mu-caption {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.014em;
+  color: var(--bright);
+}
+.mu-rule {
+  width: 36px;
+  height: 1px;
+  margin: 6px 0;
+  background: var(--accent);
+}
+.mu-note {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+/* Footer: walk controls and the filmstrip of rooms */
+.mu-foot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "prev strip next";
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+}
+.mu-foot-prev {
+  grid-area: prev;
+}
+.mu-foot-next {
+  grid-area: next;
+}
+.mu-strip {
+  grid-area: strip;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  overflow-x: auto;
+}
+.ui-btn.mu-thumb,
+.ui-btn.mu-thumb:not(:disabled):hover {
+  flex: none;
+  width: 54px;
+  height: 40px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg2);
+  color: var(--accent);
+  transform: none;
+}
+.ui-btn.mu-thumb.is-active,
+.ui-btn.mu-thumb.is-active:not(:disabled):hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.mu-thumb .ui-btn-label {
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+}
+.mu-thumb img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: filter 0.4s ease;
+}
+.mu-thumb.is-veiled img {
+  filter: blur(4px) brightness(0.45);
+}
+
+/* Final room: the quiz */
+.mu-quiz-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+.mu-quiz-wrap[hidden] {
+  display: none;
+}
+.mu-quiz,
+.mu-result {
+  width: 100%;
+  max-width: 720px;
+  margin: auto;
+  animation: muRise 0.5s ease both;
+}
+.mu-quiz-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mu-quiz h3 {
+  margin: 12px 0 18px;
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+  font-weight: 600;
+  letter-spacing: -0.016em;
+  line-height: 1.3;
+  color: var(--bright);
+}
+.mu-opts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.ui-btn.mu-opt,
+.ui-btn.mu-opt:not(:disabled):hover {
+  justify-content: flex-start;
+  height: auto;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg2);
+  color: var(--bright);
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  transform: none;
+}
+.ui-btn.mu-opt:not([aria-disabled="true"]):hover {
+  border-color: var(--accent);
+}
+.mu-opt .ui-btn-label {
+  align-items: flex-start;
+  gap: 10px;
+}
+.mu-opt-key {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.ui-btn.mu-opt.is-right,
+.ui-btn.mu-opt.is-right:not(:disabled):hover {
+  border-color: var(--ok);
+}
+.mu-opt.is-right .mu-opt-key {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--bg);
+}
+.ui-btn.mu-opt.is-wrong,
+.ui-btn.mu-opt.is-wrong:not(:disabled):hover {
+  border-color: var(--err);
+}
+.mu-opt.is-wrong .mu-opt-key {
+  border-color: var(--err);
+  background: var(--err);
+  color: var(--bg);
+}
+.mu-opt.is-faded {
+  opacity: 0.5;
+}
+.mu-quiz-after {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  margin-top: 16px;
+}
+.mu-quiz-after .ui-btn {
+  flex: none;
+  margin-left: auto;
+}
+.mu-explain {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+.mu-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  color: var(--accent);
+}
+.mu-score {
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--bright);
+}
+.mu-score small {
+  font-size: 1.2rem;
+  color: var(--dim);
+}
+.mu-rank {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.mu-end {
+  margin: 12px 0 18px;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.mu-result-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+@keyframes muLightsOn {
   from {
     opacity: 0;
   }
+}
+@keyframes muReveal {
+  from {
+    filter: brightness(0.15) saturate(0.4);
+  }
+}
+@keyframes muRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes muDrift {
   to {
-    opacity: 1;
+    transform: scale(1.16);
   }
 }
-.dyk-lb-figure {
-  grid-column: 2;
-  justify-self: center;
-  max-width: min(100%, 1200px);
-  max-height: calc(100vh - 48px);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-}
-.dyk-lb-figure img {
-  min-height: 0;
-  max-width: 100%;
-  max-height: calc(100vh - 110px);
-  object-fit: contain;
-  display: block;
-  margin: 0 auto;
-  border-radius: 4px;
-  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7);
-}
-.dyk-lb-figure figcaption {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.84rem;
-  line-height: 1.4;
-}
-.dyk-lb-count {
-  font-family: var(--mono);
-  font-size: 0.76rem;
-  color: rgba(255, 255, 255, 0.6);
-  letter-spacing: 0.08em;
-}
-.dyk-lb-btn {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    transform 0.15s,
-    border-color 0.15s;
-}
-.dyk-lb-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: scale(1.05);
-}
-.dyk-lb-prev {
-  grid-column: 1;
-  justify-self: start;
-}
-.dyk-lb-next {
-  grid-column: 3;
-  justify-self: end;
-}
-.dyk-lb-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-}
-@media (max-width: 640px) {
-  .dyk-lightbox {
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
-    padding: 12px;
+@media (prefers-reduced-motion: reduce) {
+  .dyk-mat img,
+  .mu-frame img {
+    transition: none;
+    transform: none !important;
   }
-  .dyk-lb-btn {
-    width: 40px;
-    height: 40px;
+  .ui-modal.mu-room,
+  .mu-gate-bg,
+  .mu-frame img,
+  .mu-placard,
+  .mu-quiz,
+  .mu-result {
+    animation: none;
+  }
+}
+@media (max-width: 1024px) {
+  .dyk-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .dyk-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .dyk-mat {
+    aspect-ratio: 3 / 2;
+  }
+  .dyk-plaque {
+    gap: 3px;
+    padding: 6px 3px 3px;
+  }
+  .dyk-no {
+    overflow: hidden;
+    font-size: 0.6rem;
+    letter-spacing: 0.05em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dyk-title {
+    font-size: 0.84rem;
+  }
+  .dyk-cta {
+    padding-top: 2px;
+    font-size: 0.7rem;
+  }
+  .mu-loc span {
+    display: none;
+  }
+  .mu-exhibit {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 18px;
+    padding: 18px 16px;
+  }
+  .mu-frame img {
+    max-height: 38dvh;
+  }
+  .mu-placard {
+    padding: 14px;
+  }
+  .mu-foot {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "strip strip"
+      "prev next";
+    padding: 8px 12px;
+  }
+  .mu-strip {
+    justify-content: flex-start;
+  }
+  .mu-foot-next {
+    justify-self: end;
+  }
+  .mu-quiz-wrap {
+    padding: 16px;
+  }
+  .mu-opts {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2884,11 +3271,57 @@
   min-width: 28px;
   padding: 0 6px;
 }
+.bd-tools-music {
+  position: relative;
+}
 .bd-tools-music-vol {
-  width: 80px;
-  margin: 0 6px;
-  accent-color: var(--accent);
-  cursor: pointer;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 240px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg2);
+  box-shadow: 0 14px 30px -16px rgba(0, 0, 0, 0.55);
+  color: var(--dim);
+}
+.bd-tools-music-vol .ui-slider-el {
+  height: 8px;
+}
+.bd-tools-music-val {
+  flex: none;
+  min-width: 38px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: right;
+  color: var(--bright);
+}
+@media (max-width: 640px) {
+  /* Bottom sheet: the toolbar can sit anywhere on a phone, so anchoring would clip. */
+  .bd-tools-music-vol {
+    position: fixed;
+    top: auto;
+    right: 12px;
+    /* Clears the site's fixed bottom tab bar. */
+    bottom: calc(88px + env(safe-area-inset-bottom));
+    left: 12px;
+    z-index: 1000;
+    width: auto;
+    padding: 16px;
+  }
+  .bd-tools-music-vol .ui-slider-el::-webkit-slider-thumb {
+    width: 26px;
+    height: 26px;
+  }
+  .bd-tools-music-vol .ui-slider-el::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+  }
 }
 .bd-tools-group button:disabled {
   opacity: 0.4;
@@ -3643,6 +4076,27 @@
   }
   .bz-series-title {
     font-size: 1.05rem;
+  }
+}
+
+/* Series detail skeleton (series/[slug]/loading.tsx) */
+.bz-skel .bz-series-card {
+  pointer-events: none;
+}
+.bz-skel-fill {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+.bz-skel-series-cta {
+  width: 126px;
+  height: 37px;
+}
+@media (max-width: 820px) {
+  .bz-skel-series-cta {
+    width: 100%;
   }
 }
 

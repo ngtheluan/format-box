@@ -71,21 +71,31 @@ export default function Loading() {
 
         <section className="bz-sec dyk-sec" aria-hidden="true" style={{ margin: "16px 0" }}>
           <header className="bz-sec-head">
-            <span className="bz-skel-line bz-skel-sec-title" />
-            <span className="bz-skel-line" style={{ height: 12, width: 180 }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span className="bz-skel-line bz-skel-eyebrow" style={{ marginBottom: 0 }} />
+              <span className="bz-skel-line bz-skel-sec-title" />
+              <span className="bz-skel-line" style={{ height: 12, width: 260, maxWidth: "100%" }} />
+            </div>
           </header>
           <div className="dyk-grid">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="dyk-card" style={{ cursor: "default" }}>
-                <span className="dyk-thumb bz-skel-media" style={{ aspectRatio: "4 / 5" }} />
-                <span className="dyk-body">
-                  <span className="bz-skel-line" style={{ height: 10, width: 70 }} />
-                  <span className="bz-skel-line" style={{ height: 16 }} />
-                  <span className="bz-skel-line short" style={{ height: 16 }} />
-                  <span className="bz-skel-line" style={{ height: 12 }} />
-                  <span className="bz-skel-line" style={{ height: 12 }} />
-                  <span className="bz-skel-line short" style={{ height: 12 }} />
-                  <span className="bz-skel-line" style={{ height: 12, width: 90, marginTop: "auto" }} />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="ui-btn dyk-card" style={{ cursor: "default", pointerEvents: "none" }}>
+                <span className="ui-btn-label">
+                  <span className="dyk-frame">
+                    <span className="dyk-mat">
+                      <span className="bz-skel-media bz-skel-fill" />
+                    </span>
+                  </span>
+                  <span className="dyk-plaque">
+                    <span className="bz-skel-line" style={{ height: 10, width: "70%", margin: "2px 0" }} />
+                    <span style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      <span className="bz-skel-line" style={{ height: 14 }} />
+                      <span className="bz-skel-line short" style={{ height: 14 }} />
+                    </span>
+                    <span className="dyk-cta">
+                      <span className="bz-skel-line" style={{ height: 11, width: 80 }} />
+                    </span>
+                  </span>
                 </span>
               </div>
             ))}

@@ -12,6 +12,8 @@ export type ModalProps = {
   closeOnOverlay?: boolean;
   closeOnEsc?: boolean;
   hideClose?: boolean;
+  className?: string;
+  ariaLabel?: string;
   children?: ReactNode;
 };
 
@@ -25,6 +27,8 @@ export default function Modal({
   closeOnOverlay = true,
   closeOnEsc = true,
   hideClose,
+  className,
+  ariaLabel,
   children,
 }: ModalProps) {
   useEffect(() => {
@@ -69,7 +73,8 @@ export default function Modal({
       <div
         role="dialog"
         aria-modal="true"
-        className={`ui-modal ui-modal--${size}`}
+        aria-label={ariaLabel}
+        className={`ui-modal ui-modal--${size}${className ? ` ${className}` : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         {(title || !hideClose) && (

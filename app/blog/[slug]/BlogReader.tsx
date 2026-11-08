@@ -16,8 +16,6 @@ import {
   IconFlag,
   IconLetterA,
   IconLink,
-  IconMusic,
-  IconMusicOff,
   IconPencil,
   IconPrinter,
   IconThumbDown,
@@ -27,6 +25,7 @@ import {
 import type { Icon } from "@tabler/icons-react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
+import { ChillMusic } from "@/components/ChillMusic";
 import type { BlogVotes, ReactionKind, TocItem } from "@/lib/blog";
 import type { Tool } from "@/lib/tools-shared";
 import { ToolIcon } from "@/lib/tool-icons";
@@ -539,166 +538,6 @@ export function ReaderTools({ slug, title, markdown }: { slug: string; title: st
           {toast}
         </span>
       )}
-    </div>
-  );
-}
-
-// Chill background music while reading. Four royalty-free instrumental tracks
-// from Pixabay (Pixabay Content License — free, no attribution required).
-// Default: on, 10% volume. User can toggle, pick a track, change volume, and
-// the choices stick in localStorage.
-const CHILL_TRACKS = [
-  {
-    key: "lofi",
-    label: "Lofi Chill",
-    url: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3",
-  },
-  {
-    key: "forest",
-    label: "Forest Lullaby",
-    url: "https://cdn.pixabay.com/download/audio/2021/11/23/audio_64b2dd1bce.mp3",
-  },
-];
-
-const DEFAULT_VOL = 0.1;
-
-function ChillMusic({ onFlash }: { onFlash: (msg: string) => void }) {
-  const [trackIdx, setTrackIdx] = useState(0);
-  const [on, setOn] = useState(true);
-  const [vol, setVol] = useState(DEFAULT_VOL);
-  const [showVol, setShowVol] = useState(false);
-  const [ready, setReady] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Restore last choice.
-  useEffect(() => {
-    try {
-      const t = Number(localStorage.getItem("fb-blog-music-track") || "0");
-      if (Number.isFinite(t) && t >= 0 && t < CHILL_TRACKS.length) setTrackIdx(t);
-      const o = localStorage.getItem("fb-blog-music-on");
-      if (o === "0") setOn(false);
-      const v = Number(localStorage.getItem("fb-blog-music-vol"));
-      if (Number.isFinite(v) && v >= 0 && v <= 1) setVol(v);
-    } catch {}
-    setReady(true);
-  }, []);
-
-  // Keep audio element volume synced.
-  useEffect(() => {
-    if (!ready) return;
-    const el = audioRef.current;
-    if (el) el.volume = vol;
-    try {
-      localStorage.setItem("fb-blog-music-vol", String(vol));
-    } catch {}
-  }, [vol, ready]);
-
-  // Autoplay attempt on first mount. Browsers may block it until the user
-  // interacts; in that case we leave the audio paused and let the toggle start it.
-  useEffect(() => {
-    if (!ready) return;
-    const el = audioRef.current;
-    if (!el) return;
-    el.volume = vol;
-    if (on) {
-      el.play().catch(() => {
-        // Autoplay blocked — wait for first user interaction, then start.
-        const start = () => {
-          el.play().catch(() => {});
-          window.removeEventListener("pointerdown", start);
-          window.removeEventListener("keydown", start);
-        };
-        window.addEventListener("pointerdown", start, { once: true });
-        window.addEventListener("keydown", start, { once: true });
-      });
-    } else {
-      el.pause();
-    }
-    try {
-      localStorage.setItem("fb-blog-music-on", on ? "1" : "0");
-    } catch {}
-  }, [on, ready]);
-
-  // Changing track: reset src and keep playing if we were.
-  useEffect(() => {
-    if (!ready) return;
-    const el = audioRef.current;
-    if (!el) return;
-    const wasOn = on;
-    el.load();
-    if (wasOn) el.play().catch(() => {});
-    try {
-      localStorage.setItem("fb-blog-music-track", String(trackIdx));
-    } catch {}
-  }, [trackIdx, ready, on]);
-
-  function toggle() {
-    setOn((v) => {
-      const next = !v;
-      onFlash(next ? `Nhạc nền: ${CHILL_TRACKS[trackIdx].label}` : "Đã tắt nhạc nền");
-      return next;
-    });
-  }
-
-  function cycleTrack() {
-    setTrackIdx((i) => {
-      const next = (i + 1) % CHILL_TRACKS.length;
-      onFlash(`Nhạc nền: ${CHILL_TRACKS[next].label}`);
-      return next;
-    });
-  }
-
-  const track = CHILL_TRACKS[trackIdx];
-  const volPct = Math.round(vol * 100);
-  return (
-    <div className="bd-tools-group bd-tools-music" aria-label="Nhạc nền">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-pressed={on}
-        aria-label={on ? "Tắt nhạc nền" : "Bật nhạc nền"}
-        title={on ? `Đang phát: ${track.label} — bấm để tắt` : "Bật nhạc nền chill"}
-        className={on ? "is-on" : ""}
-      >
-        {on ? <IconMusic size={14} stroke={1.9} /> : <IconMusicOff size={14} stroke={1.9} />}
-      </button>
-      <button
-        type="button"
-        onClick={cycleTrack}
-        aria-label="Đổi bài nhạc"
-        title={`Bài: ${track.label} — bấm để đổi`}
-      >
-        {trackIdx + 1}/{CHILL_TRACKS.length}
-      </button>
-      <button
-        type="button"
-        onClick={() => setShowVol((v) => !v)}
-        aria-label="Âm lượng"
-        aria-expanded={showVol}
-        title={`Âm lượng: ${volPct}%`}
-        className={showVol ? "is-on" : ""}
-      >
-        {volPct}%
-      </button>
-      {showVol && (
-        <input
-          type="range"
-          className="bd-tools-music-vol"
-          min={0}
-          max={100}
-          value={volPct}
-          onChange={(e) => setVol(Number(e.target.value) / 100)}
-          aria-label="Thanh âm lượng"
-        />
-      )}
-      <audio
-        ref={audioRef}
-        src={track.url}
-        loop
-        preload="auto"
-        crossOrigin="anonymous"
-        style={{ display: "none" }}
-      />
     </div>
   );
 }

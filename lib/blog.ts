@@ -143,7 +143,13 @@ export async function deleteCategory(slug: string): Promise<void> {
   revalidateTag("blog-categories");
 }
 
-export type DidYouKnowImage = { url: string; caption_vi: string; caption_en: string };
+export type DidYouKnowImage = {
+  url: string;
+  caption_vi: string;
+  caption_en: string;
+  credit?: string;
+  credit_url?: string;
+};
 
 export type DidYouKnowItem = {
   slug: string;
@@ -156,9 +162,54 @@ export type DidYouKnowItem = {
   images: DidYouKnowImage[];
   sort: number;
   active: boolean;
+  quiz?: DidYouKnowQuizQuestion[];
 };
 
-type DbDyk = Omit<DidYouKnowItem, "images"> & { images: unknown };
+export type DidYouKnowQuizQuestion = {
+  q_vi: string;
+  q_en: string;
+  options_vi: string[];
+  options_en: string[];
+  answer: number;
+  explain_vi: string;
+  explain_en: string;
+};
+
+type DbDyk = Omit<DidYouKnowItem, "images" | "quiz"> & { images: unknown; quiz?: unknown };
+
+export function normDykQuiz(x: unknown): DidYouKnowQuizQuestion[] {
+  if (!Array.isArray(x)) return [];
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const out: DidYouKnowQuizQuestion[] = [];
+  for (const it of x) {
+    if (!it || typeof it !== "object") continue;
+    const o = it as any;
+    const q_vi = str(o.q_vi);
+    const options_vi: string[] = Array.isArray(o.options_vi) ? o.options_vi.map(str) : [];
+    const answer = Number(o.answer);
+    if (!q_vi || options_vi.length < 2 || !options_vi.every(Boolean)) continue;
+    if (!Number.isInteger(answer) || answer < 0 || answer >= options_vi.length) continue;
+    const en: string[] = Array.isArray(o.options_en) ? o.options_en.map(str) : [];
+    out.push({
+      q_vi,
+      q_en: str(o.q_en),
+      options_vi,
+      options_en: options_vi.map((v, i) => en[i] || v),
+      answer,
+      explain_vi: str(o.explain_vi),
+      explain_en: str(o.explain_en),
+    });
+  }
+  return out;
+}
+
+// credit_url ends up in an href, so only http(s) links survive.
+export function dykImageCredit(o: { credit?: unknown; credit_url?: unknown }): Pick<DidYouKnowImage, "credit" | "credit_url"> {
+  return {
+    ...(typeof o.credit === "string" && o.credit ? { credit: o.credit } : {}),
+    ...(typeof o.credit_url === "string" && /^https?:\/\//i.test(o.credit_url) ? { credit_url: o.credit_url } : {}),
+  };
+}
 
 function normDykImages(x: unknown): DidYouKnowImage[] {
   if (!Array.isArray(x)) return [];
@@ -172,13 +223,14 @@ function normDykImages(x: unknown): DidYouKnowImage[] {
         url,
         caption_vi: typeof o.caption_vi === "string" ? o.caption_vi : "",
         caption_en: typeof o.caption_en === "string" ? o.caption_en : "",
+        ...dykImageCredit(o),
       };
     })
     .filter(Boolean) as DidYouKnowImage[];
 }
 
 function normDyk(r: DbDyk): DidYouKnowItem {
-  return { ...r, images: normDykImages(r.images) };
+  return { ...r, images: normDykImages(r.images), quiz: normDykQuiz(r.quiz) };
 }
 
 async function fetchPublicDidYouKnow(): Promise<DidYouKnowItem[]> {
@@ -187,7 +239,8 @@ async function fetchPublicDidYouKnow(): Promise<DidYouKnowItem[]> {
   const data = await withRetry(async () => {
     const { data, error } = await sb
       .from("blog_did_you_know")
-      .select("slug, tag_vi, tag_en, title_vi, title_en, intro_vi, intro_en, images, sort, active")
+      // `*` rather than a column list so a DB without the `quiz` column keeps working.
+      .select("*")
       .eq("active", true)
       .order("sort", { ascending: true });
     if (error) throw error;
@@ -209,7 +262,7 @@ export async function listAdminDidYouKnow(): Promise<DidYouKnowItem[]> {
   const sb = supabaseAdmin();
   const { data } = await sb
     .from("blog_did_you_know")
-    .select("slug, tag_vi, tag_en, title_vi, title_en, intro_vi, intro_en, images, sort, active")
+    .select("*")
     .order("sort", { ascending: true });
   return ((data as DbDyk[] | null) ?? []).map(normDyk);
 }
