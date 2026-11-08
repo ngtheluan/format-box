@@ -16,6 +16,7 @@ import {
   type DidYouKnowItem,
   type SeriesGroup,
 } from "@/lib/blog";
+import { toggleSavedPost, useSavedSlugs } from "@/lib/blog-saved";
 import { useI18n } from "@/lib/i18n";
 import {
   IconArrowRight,
@@ -516,38 +517,9 @@ function formatReadTime(min: number): string {
 }
 
 function SavedPosts({ posts, popularity }: { posts: BlogPost[]; popularity?: Record<string, number> }) {
-  const [slugs, setSlugs] = useState<string[]>([]);
-  const [ready, setReady] = useState(false);
+  const slugs = useSavedSlugs();
 
-  const read = () => {
-    try {
-      const raw = localStorage.getItem("fb-blog-saved");
-      const list: string[] = raw ? JSON.parse(raw) : [];
-      setSlugs(Array.isArray(list) ? list : []);
-    } catch {
-      setSlugs([]);
-    }
-  };
-
-  useEffect(() => {
-    read();
-    setReady(true);
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "fb-blog-saved") read();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  function remove(slug: string) {
-    try {
-      const next = slugs.filter((s) => s !== slug);
-      localStorage.setItem("fb-blog-saved", JSON.stringify(next));
-      setSlugs(next);
-    } catch {}
-  }
-
-  if (!ready || slugs.length === 0) return null;
+  if (slugs.length === 0) return null;
   const byId = new Map(posts.map((p) => [p.slug, p] as const));
   const items = slugs.map((s) => byId.get(s)).filter(Boolean) as BlogPost[];
   if (items.length === 0) return null;
@@ -588,7 +560,7 @@ function SavedPosts({ posts, popularity }: { posts: BlogPost[]; popularity?: Rec
               <button
                 type="button"
                 className="bz-saved-rm"
-                onClick={() => remove(p.slug)}
+                onClick={() => toggleSavedPost(p.slug)}
                 aria-label={`Bỏ lưu ${p.title}`}
                 title="Bỏ lưu"
               >

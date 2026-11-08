@@ -26,6 +26,7 @@ import type { Icon } from "@tabler/icons-react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { ChillMusic } from "@/components/ChillMusic";
+import { toggleSavedPost, useSavedSlugs } from "@/lib/blog-saved";
 import type { BlogVotes, ReactionKind, TocItem } from "@/lib/blog";
 import type { Tool } from "@/lib/tools-shared";
 import { ToolIcon } from "@/lib/tool-icons";
@@ -393,18 +394,13 @@ export function ReportError({ slug, title }: { slug: string; title: string }) {
 const FONT_STEPS = [0.92, 1, 1.08, 1.18];
 export function ReaderTools({ slug, title, markdown }: { slug: string; title: string; markdown: string }) {
   const [step, setStep] = useState(1);
-  const [saved, setSaved] = useState(false);
+  const saved = useSavedSlugs().includes(slug);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     try {
       const s = Number(localStorage.getItem("fb-blog-fs") || "1");
       if (Number.isFinite(s) && s >= 0 && s < FONT_STEPS.length) setStep(s);
-    } catch {}
-    try {
-      const raw = localStorage.getItem("fb-blog-saved");
-      const list: string[] = raw ? JSON.parse(raw) : [];
-      setSaved(list.includes(slug));
     } catch {}
   }, [slug]);
 
@@ -430,15 +426,7 @@ export function ReaderTools({ slug, title, markdown }: { slug: string; title: st
   }
 
   function toggleSave() {
-    try {
-      const raw = localStorage.getItem("fb-blog-saved");
-      const list: string[] = raw ? JSON.parse(raw) : [];
-      const on = !list.includes(slug);
-      const next = on ? [...list, slug] : list.filter((s) => s !== slug);
-      localStorage.setItem("fb-blog-saved", JSON.stringify(next));
-      setSaved(on);
-      flash(on ? "Đã lưu bài" : "Đã bỏ lưu");
-    } catch {}
+    flash(toggleSavedPost(slug) ? "Đã lưu bài" : "Đã bỏ lưu");
   }
 
   function printMarkdown() {

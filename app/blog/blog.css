@@ -2246,6 +2246,39 @@
   background: var(--bg3);
   border-color: var(--border-h);
 }
+.bzc-link {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: inherit;
+}
+/* Sits on the cover's top-right corner: .bzc's 5px padding + 6px inset. */
+.ui-iconbtn.bzc-save {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  z-index: 3;
+  background: rgba(8, 10, 20, 0.55);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.ui-iconbtn.bzc-save:hover {
+  background: rgba(8, 10, 20, 0.75);
+  color: #fff;
+}
+.ui-iconbtn.bzc-save.is-on,
+.ui-iconbtn.bzc-save.is-on:hover {
+  background: var(--accent);
+  color: #fff;
+}
+@media (pointer: coarse) {
+  .ui-iconbtn.bzc-save {
+    width: 36px;
+    height: 36px;
+  }
+}
 .bzc-media {
   position: relative;
   display: block;
@@ -4695,12 +4728,14 @@
 
 /* Focus visible — same lift as hover for keyboard users */
 .bzc:focus-visible,
+.bzc:has(> .bzc-link:focus-visible),
 .bz-feat-link:focus-visible,
 .bz-side-item a:focus-visible,
 .bz-series-card-link:focus-visible {
   outline: none;
 }
 .bzc:focus-visible,
+.bzc:has(> .bzc-link:focus-visible),
 .bz-feat:focus-within,
 .bz-side-item:focus-within,
 .bz-series-card:focus-within {

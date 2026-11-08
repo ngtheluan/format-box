@@ -3,6 +3,7 @@ import Link from "next/link";
 import { IconFlame, IconListNumbers, IconSparkles } from "@tabler/icons-react";
 import { formatDateVi, type BlogPost } from "@/lib/blog";
 import { BlogCover } from "@/components/BlogCover";
+import { BlogSaveButton } from "@/components/BlogSaveButton";
 
 type Props = {
   post: BlogPost;
@@ -38,48 +39,52 @@ export function BlogCard({ post: p, catLabel, readLabel, helpful = 0, seriesSlug
   const isNew = Number.isFinite(ageDays) && ageDays >= 0 && ageDays <= 7;
   const isHot = helpful > 10;
   return (
-    <Link href={`/blog/${p.slug}`} prefetch={false} className="bzc">
+    <article className="bzc">
       <Corners />
-      <span className="bzc-media">
-        <BlogCover post={p} size={[800, 450]} />
-        {seriesSlug && (
-          <span className="bzc-series-badge" aria-label="Thuộc series">
-            <IconListNumbers size={11} stroke={2.2} />
-            Series
+      <Link href={`/blog/${p.slug}`} prefetch={false} className="bzc-link">
+        <span className="bzc-media">
+          <BlogCover post={p} size={[800, 450]} />
+          {seriesSlug && (
+            <span className="bzc-series-badge" aria-label="Thuộc series">
+              <IconListNumbers size={11} stroke={2.2} />
+              Series
+            </span>
+          )}
+          {(isNew || isHot) && (
+            <span className="bzc-badges" aria-hidden="true">
+              {isNew && (
+                <span className="bzc-badge is-new">
+                  <IconSparkles size={11} stroke={2.2} />
+                  Mới
+                </span>
+              )}
+              {isHot && (
+                <span className="bzc-badge is-hot" title={`${helpful} lượt đánh giá hữu ích`}>
+                  <IconFlame size={11} stroke={2.2} />
+                  Hữu ích
+                </span>
+              )}
+            </span>
+          )}
+        </span>
+        <span className="bzc-body">
+          <span className="bzc-cat">{catLabel}</span>
+          <h3 className="bzc-title">{p.title}</h3>
+          <span className="bzc-meta">
+            <time dateTime={p.date}>{formatDateVi(p.date)}</time>
+            <i aria-hidden="true">·</i>
+            <span>
+              {p.readMin} {readLabel}
+            </span>
           </span>
-        )}
-        {(isNew || isHot) && (
-          <span className="bzc-badges" aria-hidden="true">
-            {isNew && (
-              <span className="bzc-badge is-new">
-                <IconSparkles size={11} stroke={2.2} />
-                Mới
-              </span>
-            )}
-            {isHot && (
-              <span className="bzc-badge is-hot" title={`${helpful} lượt đánh giá hữu ích`}>
-                <IconFlame size={11} stroke={2.2} />
-                Hữu ích
-              </span>
-            )}
-          </span>
-        )}
-      </span>
-      <span className="bzc-body">
-        <span className="bzc-cat">{catLabel}</span>
-        <h3 className="bzc-title">{p.title}</h3>
-        <span className="bzc-meta">
-          <time dateTime={p.date}>{formatDateVi(p.date)}</time>
-          <i aria-hidden="true">·</i>
-          <span>
-            {p.readMin} {readLabel}
+          <span className="bzc-author">
+            <span className="bz-avatar">{initials(p.author)}</span>
+            {p.author}
           </span>
         </span>
-        <span className="bzc-author">
-          <span className="bz-avatar">{initials(p.author)}</span>
-          {p.author}
-        </span>
-      </span>
-    </Link>
+      </Link>
+      {/* Beside the link, not inside it: a button can't be nested in an anchor. */}
+      <BlogSaveButton slug={p.slug} />
+    </article>
   );
 }

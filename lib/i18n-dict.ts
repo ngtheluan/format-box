@@ -133,6 +133,8 @@ export const DICT = {
   },
   blog_dyk_museum: { vi: "Bảo tàng tri thức", en: "Museum of Knowledge" },
   blog_dyk_exhibit: { vi: "Hiện vật", en: "Exhibit" },
+  blog_save: { vi: "Lưu bài", en: "Save post" },
+  blog_unsave: { vi: "Bỏ lưu", en: "Remove from saved" },
   blog_music: { vi: "Nhạc nền", en: "Background music" },
   blog_music_on: { vi: "Bật nhạc nền", en: "Turn music on" },
   blog_music_off: { vi: "Tắt nhạc nền", en: "Turn music off" },
