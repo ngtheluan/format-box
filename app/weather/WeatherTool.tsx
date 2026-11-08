@@ -1,30 +1,35 @@
 "use client";
-import { Alert, Button, Card, Skeleton } from "@/components/ui";
+import { Alert, Button, IconButton, Input, Skeleton } from "@/components/ui";
 import {
+  IconArrowDown,
+  IconArrowUp,
+  IconCalendar,
+  IconClock,
   IconCloud,
   IconCloudRain,
   IconCloudSnow,
   IconCloudStorm,
+  IconCurrentLocation,
   IconDroplet,
+  IconDroplets,
+  IconEye,
+  IconGauge,
   IconMapPin,
   IconMist,
+  IconMoon,
+  IconRadar2,
   IconRefresh,
   IconSearch,
   IconSun,
-  IconWind,
-  IconGauge,
-  IconTemperature,
-  IconCurrentLocation,
-  IconEye,
-  IconUmbrella,
-  IconClock,
-  IconCalendar,
-  IconDroplets,
-  IconSunHigh,
+  IconSunrise,
   IconSunset,
+  IconTemperature,
+  IconUmbrella,
+  IconWind,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
+import { applyObservation, type Forecast, type ForecastDaily, type Observation } from "@/lib/weather-obs";
 
 type GeoResult = {
   id: number;
@@ -33,440 +38,295 @@ type GeoResult = {
   admin1?: string;
   latitude: number;
   longitude: number;
-  timezone?: string;
 };
 
-type CurrentWeather = {
-  temperature_2m: number;
-  apparent_temperature: number;
-  relative_humidity_2m: number;
-  weather_code: number;
-  wind_speed_10m: number;
-  wind_direction_10m: number;
-  surface_pressure: number;
-  is_day: number;
-  time: string;
-  cloud_cover?: number;
-  visibility?: number;
-  dew_point_2m?: number;
-  uv_index?: number;
-  precipitation?: number;
-};
-
-type Daily = {
-  time: string[];
-  weather_code: number[];
-  temperature_2m_max: number[];
-  temperature_2m_min: number[];
-  precipitation_probability_max: number[];
-  wind_speed_10m_max: number[];
-  sunrise: string[];
-  sunset: string[];
-  uv_index_max: number[];
-};
-
-type Hourly = {
-  time: string[];
-  temperature_2m: number[];
-  weather_code: number[];
-  precipitation_probability: number[];
-};
-
-type WeatherData = {
-  current: CurrentWeather;
-  daily: Daily;
-  hourly: Hourly;
-  timezone: string;
-};
-
-const WMO: Record<number, { key: string; icon: typeof IconSun }> = {
-  0: { key: "wt_w_clear", icon: IconSun },
-  1: { key: "wt_w_mclear", icon: IconSun },
-  2: { key: "wt_w_pcloud", icon: IconCloud },
-  3: { key: "wt_w_cloud", icon: IconCloud },
-  45: { key: "wt_w_fog", icon: IconMist },
-  48: { key: "wt_w_rfog", icon: IconMist },
-  51: { key: "wt_w_drizl", icon: IconCloudRain },
-  53: { key: "wt_w_drizm", icon: IconCloudRain },
-  55: { key: "wt_w_drizh", icon: IconCloudRain },
-  61: { key: "wt_w_rainl", icon: IconCloudRain },
-  63: { key: "wt_w_rainm", icon: IconCloudRain },
-  65: { key: "wt_w_rainh", icon: IconCloudRain },
-  71: { key: "wt_w_snowl", icon: IconCloudSnow },
-  73: { key: "wt_w_snowm", icon: IconCloudSnow },
-  75: { key: "wt_w_snowh", icon: IconCloudSnow },
-  80: { key: "wt_w_showl", icon: IconCloudRain },
-  81: { key: "wt_w_showm", icon: IconCloudRain },
-  82: { key: "wt_w_showh", icon: IconCloudRain },
-  95: { key: "wt_w_storm", icon: IconCloudStorm },
-  96: { key: "wt_w_stormh1", icon: IconCloudStorm },
-  99: { key: "wt_w_stormh2", icon: IconCloudStorm },
-};
-
-function describe(code: number) {
-  return WMO[code] ?? { key: "wt_w_unknown", icon: IconCloud };
-}
-
+type Loaded = { forecast: Forecast; observation: Observation | null };
+type Lang = "vi" | "en";
 type Scene = "clear" | "cloud" | "rain" | "snow" | "storm" | "fog";
 
-function sceneOf(code: number, isDay: number): Scene {
-  if ([95, 96, 99].includes(code)) return "storm";
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return "snow";
-  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "rain";
-  if ([45, 48].includes(code)) return "fog";
-  if ([2, 3].includes(code)) return "cloud";
-  return isDay ? "clear" : "cloud";
+const WMO: Record<number, { key: string; icon: typeof IconSun; scene: Scene }> = {
+  0: { key: "wt_w_clear", icon: IconSun, scene: "clear" },
+  1: { key: "wt_w_mclear", icon: IconSun, scene: "clear" },
+  2: { key: "wt_w_pcloud", icon: IconCloud, scene: "clear" },
+  3: { key: "wt_w_cloud", icon: IconCloud, scene: "cloud" },
+  45: { key: "wt_w_fog", icon: IconMist, scene: "fog" },
+  48: { key: "wt_w_rfog", icon: IconMist, scene: "fog" },
+  51: { key: "wt_w_drizl", icon: IconCloudRain, scene: "rain" },
+  53: { key: "wt_w_drizm", icon: IconCloudRain, scene: "rain" },
+  55: { key: "wt_w_drizh", icon: IconCloudRain, scene: "rain" },
+  61: { key: "wt_w_rainl", icon: IconCloudRain, scene: "rain" },
+  63: { key: "wt_w_rainm", icon: IconCloudRain, scene: "rain" },
+  65: { key: "wt_w_rainh", icon: IconCloudRain, scene: "rain" },
+  71: { key: "wt_w_snowl", icon: IconCloudSnow, scene: "snow" },
+  73: { key: "wt_w_snowm", icon: IconCloudSnow, scene: "snow" },
+  75: { key: "wt_w_snowh", icon: IconCloudSnow, scene: "snow" },
+  80: { key: "wt_w_showl", icon: IconCloudRain, scene: "rain" },
+  81: { key: "wt_w_showm", icon: IconCloudRain, scene: "rain" },
+  82: { key: "wt_w_showh", icon: IconCloudRain, scene: "rain" },
+  95: { key: "wt_w_storm", icon: IconCloudStorm, scene: "storm" },
+  96: { key: "wt_w_stormh1", icon: IconCloudStorm, scene: "storm" },
+  99: { key: "wt_w_stormh2", icon: IconCloudStorm, scene: "storm" },
+};
+
+function describe(code: number, isDay = true) {
+  const d = WMO[code] ?? { key: "wt_w_unknown", icon: IconCloud, scene: "cloud" as Scene };
+  return !isDay && d.icon === IconSun ? { ...d, icon: IconMoon } : d;
 }
 
-function WeatherAnim({ scene, isDay }: { scene: Scene; isDay: boolean }) {
-  const bg: Record<Scene, string> = {
-    clear: isDay
-      ? "linear-gradient(135deg, #fde68a 0%, #fbbf24 60%, #f59e0b 100%)"
-      : "linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%)",
-    cloud: "linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)",
-    rain: "linear-gradient(135deg, #475569 0%, #1e293b 100%)",
-    snow: "linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)",
-    storm: "linear-gradient(135deg, #1f2937 0%, #0f172a 100%)",
-    fog: "linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)",
-  };
+function iconColor(code: number, isDay: boolean) {
+  const scene = describe(code).scene;
+  if (scene === "clear") return code !== 2 && isDay ? "var(--wt-sun)" : "var(--wt-soft)";
+  if (scene === "rain" || scene === "storm") return "var(--wt-rain)";
+  return "var(--wt-soft)";
+}
+
+const sky = (a: string, b: string, c: string) => `linear-gradient(165deg, ${a} 0%, ${b} 55%, ${c} 100%)`;
+
+const SKY: Record<Scene, [day: string, night: string]> = {
+  clear: [sky("#0a3a8c", "#1257b0", "#1b6fc2"), sky("#070b24", "#141a4a", "#2a2a6e")],
+  cloud: [sky("#3d4d63", "#4a5b72", "#5a6b80"), sky("#141c2b", "#1f2a3c", "#2b3850")],
+  rain: [sky("#25344a", "#2c4260", "#36516f"), sky("#0e1626", "#16243c", "#1e3150")],
+  storm: [sky("#1c1740", "#262050", "#141a33"), sky("#0c0a1f", "#15122e", "#0a0f20")],
+  snow: [sky("#3a5885", "#4a6a96", "#5a7aa3"), sky("#1a2c4a", "#25395a", "#324a6c")],
+  fog: [sky("#4b5866", "#59677a", "#66748a"), sky("#222c38", "#2d3948", "#3a4757")],
+};
+const GOLDEN_SKY = sky("#1c1b5a", "#5b2d7d", "#a8445f");
+const GOLDEN_MINUTES = 40;
+
+const repeat = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+function SkyLayer({ scene, isDay, cloudy }: { scene: Scene; isDay: boolean; cloudy: boolean }) {
+  const showClouds = cloudy || scene === "cloud" || scene === "rain" || scene === "storm";
+  const drops = scene === "rain" ? 40 : scene === "storm" ? 56 : 0;
   return (
-    <div className="wt-anim" style={{ background: bg[scene] }} aria-hidden>
-      {scene === "clear" && isDay && (
-        <>
-          <div className="wt-sun" />
-          <div className="wt-sun-rays" />
-        </>
-      )}
+    <div className="wt-layer" aria-hidden>
+      {scene === "clear" && isDay && <div className="wt-glow" />}
       {scene === "clear" && !isDay && (
         <>
           <div className="wt-moon" />
-          {Array.from({ length: 20 }).map((_, i) => (
+          {repeat(44).map((i) => (
             <div
               key={i}
               className="wt-star"
-              style={{
-                left: `${(i * 53) % 100}%`,
-                top: `${(i * 37) % 90}%`,
-                animationDelay: `${(i % 5) * 0.4}s`,
-              }}
+              style={{ left: `${(i * 53) % 100}%`, top: `${(i * 37) % 100}%`, animationDelay: `${(i % 5) * 0.5}s` }}
             />
           ))}
         </>
       )}
-      {(scene === "cloud" || scene === "rain" || scene === "storm" || scene === "fog") && (
+      {showClouds && (
         <>
           <div className="wt-cloud wt-cloud-1" />
           <div className="wt-cloud wt-cloud-2" />
           <div className="wt-cloud wt-cloud-3" />
         </>
       )}
-      {scene === "rain" &&
-        Array.from({ length: 40 }).map((_, i) => (
+      {repeat(drops).map((i) => (
+        <div
+          key={i}
+          className="wt-drop"
+          style={{
+            left: `${(i * 2.7) % 100}%`,
+            animationDelay: `${(i % 10) * 0.13}s`,
+            animationDuration: `${0.8 + ((i * 13) % 40) / 100}s`,
+          }}
+        />
+      ))}
+      {scene === "storm" && <div className="wt-bolt" />}
+      {scene === "snow" &&
+        repeat(36).map((i) => (
           <div
             key={i}
-            className="wt-drop"
+            className="wt-flake"
             style={{
-              left: `${(i * 2.7) % 100}%`,
-              animationDelay: `${(i % 10) * 0.15}s`,
-              animationDuration: `${0.6 + ((i * 13) % 40) / 100}s`,
+              left: `${(i * 2.9) % 100}%`,
+              animationDelay: `${(i % 8) * -1.1}s`,
+              animationDuration: `${6 + ((i * 7) % 40) / 10}s`,
             }}
           />
         ))}
-      {scene === "storm" && (
-        <>
-          {Array.from({ length: 50 }).map((_, i) => (
-            <div
-              key={i}
-              className="wt-drop"
-              style={{
-                left: `${(i * 2.1) % 100}%`,
-                animationDelay: `${(i % 10) * 0.12}s`,
-                animationDuration: `${0.5 + ((i * 11) % 40) / 100}s`,
-              }}
-            />
-          ))}
-          <div className="wt-bolt" />
-        </>
-      )}
-      {scene === "snow" &&
-        Array.from({ length: 35 }).map((_, i) => {
-          const sz = 8 + (i % 4) * 3;
-          return (
-            <div
-              key={i}
-              className="wt-flake"
-              style={{
-                left: `${(i * 3.1) % 100}%`,
-                animationDelay: `${(i % 8) * 0.5}s`,
-                animationDuration: `${4 + ((i * 7) % 40) / 10}s`,
-                width: sz,
-                height: sz,
-              }}
-            >
-              <svg viewBox="0 0 24 24" width={sz} height={sz} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M12 3v18M4.5 7.5l15 9M4.5 16.5l15-9" />
-              </svg>
-            </div>
-          );
-        })}
       {scene === "fog" && (
         <>
           <div className="wt-fog wt-fog-1" />
           <div className="wt-fog wt-fog-2" />
+          <div className="wt-fog wt-fog-3" />
         </>
       )}
     </div>
   );
 }
 
-const ANIM_CSS = `
-.wt-anim {
-  position: absolute; inset: 0; overflow: hidden; border-radius: inherit;
-  z-index: 0; pointer-events: none;
+const CSS = `
+/* The panel sits on its own sky, so shared components are re-themed here. */
+.wt-sky {
+  --bg: rgba(6,14,34,.24);
+  --bg2: rgba(6,14,34,.24);
+  --bg3: rgba(255,255,255,.16);
+  --bg4: rgba(255,255,255,.22);
+  --text: #fff;
+  --bright: #fff;
+  --dim: rgba(255,255,255,.72);
+  --border: rgba(255,255,255,.16);
+  --accent: #fff;
+  --wt-sun: #fcd34d;
+  --wt-rain: #93c5fd;
+  --wt-soft: rgba(255,255,255,.88);
+  position: relative; isolation: isolate; color: #fff;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px; border-radius: 20px; overflow: hidden;
+  transition: background .6s ease;
 }
-.wt-anim::after {
-  content: ""; position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,.35) 100%);
-  pointer-events: none;
-}
-.wt-hero { position: relative; overflow: hidden; color: #fff; border: none !important; }
-.wt-hero > *:not(.wt-anim) { position: relative; z-index: 1; }
-.wt-hero * { color: #fff; }
+.wt-layer { position: absolute; inset: 0; overflow: hidden; z-index: -1; pointer-events: none; }
 
 .wt-glass {
-  background: rgba(255,255,255,.14);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(6,14,34,.24);
+  border: 1px solid rgba(255,255,255,.14);
   border-radius: 14px;
-  padding: 12px 14px;
-  color: #fff;
-}
-.wt-glass-lbl {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 10.5px; font-weight: 600;
-  letter-spacing: .05em; text-transform: uppercase;
-  color: rgba(255,255,255,.75);
-}
-.wt-glass-val { font-size: 22px; font-weight: 600; margin-top: 6px; line-height: 1.15; }
-.wt-glass-sub { font-size: 11px; color: rgba(255,255,255,.72); margin-top: 2px; }
-
-/* Section header (hourly / daily cards) */
-.wt-sec-head {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-  opacity: .55; margin: 0 0 12px; padding-bottom: 10px;
-  border-bottom: 1px solid var(--line, rgba(0,0,0,.06));
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
 }
 
-/* Hourly row */
-.wt-hourly-row { display: flex; gap: 4px; overflow-x: auto; padding: 4px 0 8px; scroll-snap-type: x mandatory; }
-.wt-hourly-row::-webkit-scrollbar { height: 4px; }
-.wt-hourly-row::-webkit-scrollbar-thumb { background: var(--line, rgba(0,0,0,.15)); border-radius: 4px; }
-.wt-hour {
-  display: flex; flex-direction: column; align-items: center;
-  min-width: 56px; padding: 10px 6px; border-radius: 12px;
-  flex-shrink: 0; scroll-snap-align: start;
-  transition: background .15s;
+.wt-bar { position: relative; z-index: 5; display: flex; gap: 6px; align-items: center; }
+.wt-search { flex: 1; position: relative; min-width: 0; }
+.wt-search .ui-input { border-radius: 999px; }
+.wt-sky .ui-input-el::placeholder { color: rgba(255,255,255,.65); }
+.wt-sky .ui-input:focus-within { box-shadow: 0 0 0 3px rgba(255,255,255,.14); }
+.wt-sky .ui-iconbtn--subtle { background: rgba(6,14,34,.24); }
+.wt-sky .ui-iconbtn--subtle:hover { background: rgba(255,255,255,.18); }
+.wt-spin svg { animation: wt-rotate .9s linear infinite; }
+.wt-suggest {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  display: flex; flex-direction: column; padding: 4px; max-height: 280px; overflow-y: auto;
+  background: rgba(13,22,44,.97); border: 1px solid rgba(255,255,255,.14); border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.4);
 }
-.wt-hour:hover { background: var(--surface-2, rgba(0,0,0,.03)); }
-.wt-hour-time { font-size: 11px; font-weight: 500; opacity: .6; }
-.wt-hour-now {
-  font-size: 10px; font-weight: 700; color: #6366f1;
-  letter-spacing: .05em; text-transform: uppercase;
+.wt-suggest .ui-btn { justify-content: flex-start; text-align: left; }
+.wt-suggest-sub { color: rgba(255,255,255,.62); margin-left: 6px; font-weight: 400; }
+
+.wt-grid { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 10px; }
+.wt-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+@media (max-width: 860px) { .wt-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.wt-hero { display: flex; flex-direction: column; gap: 4px; padding: 6px 6px 8px; }
+.wt-place { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.wt-place b { font-size: 18px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wt-clock { margin-left: auto; font-size: 12px; color: rgba(255,255,255,.75); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wt-temp {
+  font-size: clamp(88px, 10vw, 118px); font-weight: 200; line-height: 1; letter-spacing: -.05em;
+  font-variant-numeric: tabular-nums; text-shadow: 0 6px 30px rgba(0,0,0,.18); margin-top: 6px;
 }
-.wt-hour-icon { margin: 8px 0 6px; }
-.wt-hour-temp { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
-.wt-hour-rain {
-  display: flex; align-items: center; gap: 2px;
-  font-size: 10px; margin-top: 4px; color: #38bdf8; font-weight: 600;
-  min-height: 14px;
+.wt-cond { font-size: 19px; font-weight: 500; letter-spacing: -.01em; }
+.wt-range { display: flex; align-items: center; gap: 10px; font-size: 13px; color: rgba(255,255,255,.88); font-variant-numeric: tabular-nums; }
+.wt-range span { display: inline-flex; align-items: center; gap: 2px; }
+.wt-source {
+  display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; max-width: 100%; margin-top: 8px;
+  padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 500;
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.18);
 }
 
-/* Daily row */
-.wt-day-list { display: flex; flex-direction: column; }
+.wt-panel { padding: 10px 12px; }
+.wt-head { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,.78); }
+.wt-head-read { margin-left: auto; font-weight: 500; color: #fff; font-variant-numeric: tabular-nums; }
+
 .wt-day {
-  display: grid;
-  grid-template-columns: 54px 26px 40px 1fr auto;
-  align-items: center; gap: 10px;
-  padding: 12px 4px;
-  border-bottom: 1px solid var(--line, rgba(0,0,0,.05));
-  font-size: 14px;
+  display: grid; grid-template-columns: 56px 20px 36px 26px minmax(36px, 1fr) 26px; align-items: center; gap: 6px;
+  padding: 5px 6px; margin: 0 -6px; border-radius: 8px; font-size: 13px; font-variant-numeric: tabular-nums;
 }
-.wt-day:last-child { border-bottom: none; }
-.wt-day-name { font-weight: 600; letter-spacing: -0.01em; }
-.wt-day-icon { color: var(--wt-day-ic, currentColor); opacity: .9; }
-.wt-day-rain {
-  display: inline-flex; align-items: center; gap: 2px;
-  font-size: 11px; color: #38bdf8; font-weight: 600; min-height: 14px;
-}
-.wt-day-bar-wrap {
-  display: flex; align-items: center; gap: 10px;
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-}
-.wt-day-lo { opacity: .5; min-width: 26px; text-align: right; }
-.wt-day-hi { font-weight: 600; min-width: 26px; }
-.wt-day-bar {
-  position: relative; flex: 1; min-width: 60px; height: 5px;
-  background: var(--line, rgba(0,0,0,.08)); border-radius: 999px;
-  overflow: hidden;
-}
-.wt-day-bar-fill {
-  position: absolute; top: 0; bottom: 0; border-radius: 999px;
-  background: linear-gradient(90deg, #60a5fa 0%, #34d399 40%, #fbbf24 70%, #fb7185 100%);
-}
-.wt-day-bar-now {
-  position: absolute; top: 50%; width: 8px; height: 8px;
-  background: #fff; border: 2px solid #6366f1;
-  border-radius: 50%; transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 2px rgba(99,102,241,.15);
+.wt-day--today { background: rgba(255,255,255,.1); }
+.wt-day-name { font-weight: 600; white-space: nowrap; }
+.wt-day-rain { display: inline-flex; align-items: center; gap: 1px; font-size: 11px; color: var(--wt-rain); }
+.wt-day-lo { color: rgba(255,255,255,.65); text-align: right; }
+.wt-day-hi { font-weight: 600; }
+.wt-track { position: relative; height: 4px; border-radius: 999px; background: rgba(255,255,255,.18); }
+.wt-fill { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: rgba(255,255,255,.88); }
+.wt-pin {
+  position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; transform: translate(-50%, -50%);
+  background: var(--wt-sun); box-shadow: 0 0 0 2px rgba(6,14,34,.55);
 }
 
-/* Precipitation mini chart */
-.wt-precip {
-  display: grid; grid-template-columns: 1fr; gap: 6px;
-  margin-top: 12px;
-}
-.wt-precip-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  font-size: 11px; opacity: .6;
-}
-.wt-precip-bars {
-  display: grid; grid-auto-columns: 1fr; grid-auto-flow: column;
-  align-items: end; gap: 3px; height: 56px;
-  padding: 4px 2px; border-radius: 8px;
-  background: var(--surface-2, rgba(0,0,0,.02));
-}
-.wt-precip-bar {
-  height: 100%; display: flex; flex-direction: column; justify-content: flex-end;
-  align-items: stretch; position: relative;
-}
-.wt-precip-bar-fill {
-  background: linear-gradient(to top, #38bdf8, #60a5fa);
-  border-radius: 3px 3px 1px 1px;
-  min-height: 2px; transition: height .3s;
-}
-.wt-precip-bar-empty { background: var(--line, rgba(0,0,0,.06)); border-radius: 2px; min-height: 2px; }
-.wt-precip-axis {
-  display: grid; grid-auto-columns: 1fr; grid-auto-flow: column;
-  gap: 3px; padding: 0 2px;
-  font-size: 9px; opacity: .55; text-align: center;
-}
+.wt-h-scroll { overflow-x: auto; scrollbar-width: none; }
+.wt-h-scroll::-webkit-scrollbar { display: none; }
+.wt-h-inner { position: relative; touch-action: pan-x; }
+.wt-h-row { display: grid; position: relative; }
+.wt-h-active { position: absolute; top: 0; bottom: 0; border-radius: 8px; background: rgba(255,255,255,.11); pointer-events: none; transition: left .12s ease-out; }
+.wt-h-time { text-align: center; padding-top: 3px; font-size: 11px; color: rgba(255,255,255,.72); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wt-h-time--now { color: #fff; font-weight: 600; font-size: 10px; }
+.wt-h-icon { display: flex; justify-content: center; padding-top: 5px; }
+.wt-h-plot { position: relative; height: 92px; }
+.wt-h-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wt-h-label { position: absolute; transform: translate(-50%, calc(-100% - 7px)); font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wt-h-dot { position: absolute; width: 9px; height: 9px; border-radius: 50%; transform: translate(-50%, -50%); background: #fff; box-shadow: 0 0 0 2px rgba(6,14,34,.5), 0 0 14px rgba(255,255,255,.7); }
+.wt-h-bars { height: 24px; align-items: end; gap: 2px; padding: 0 3px; border-top: 1px solid rgba(255,255,255,.12); }
+.wt-h-bar { background: var(--wt-rain); border-radius: 3px 3px 0 0; }
+.wt-h-rainlbl { display: flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 11px; color: rgba(255,255,255,.72); }
 
-/* Sun arc */
-.wt-sun-card {
-  margin-top: 14px; padding: 14px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(251,191,36,.08), rgba(99,102,241,.08));
-  border: 1px solid var(--line, rgba(0,0,0,.06));
-}
-.wt-sun-head {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-  opacity: .55; margin-bottom: 12px;
-}
-.wt-sun-arc-wrap { position: relative; height: 80px; margin: 0 4px; }
-.wt-sun-times {
-  display: flex; justify-content: space-between; margin-top: 4px;
-  font-size: 12px; font-variant-numeric: tabular-nums;
-}
-.wt-sun-times b { font-weight: 600; }
-.wt-sun-times span { display: block; font-size: 10px; opacity: .55; letter-spacing: .04em; text-transform: uppercase; }
+.wt-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 560px) { .wt-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.wt-metric { position: relative; display: flex; flex-direction: column; gap: 3px; min-width: 0; min-height: 88px; padding: 9px 11px; }
+.wt-metric-lbl { display: flex; align-items: center; gap: 4px; font-size: 11px; color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wt-metric-val { font-size: 23px; font-weight: 500; line-height: 1.15; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.wt-metric-val small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: rgba(255,255,255,.75); margin-left: 3px; }
+.wt-metric-sub { margin-top: auto; font-size: 11px; color: rgba(255,255,255,.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wt-meter { margin-top: auto; height: 4px; border-radius: 999px; background: rgba(255,255,255,.18); overflow: hidden; }
+.wt-meter span { display: block; height: 100%; border-radius: 999px; background: rgba(255,255,255,.88); }
+.wt-compass { position: absolute; right: 9px; bottom: 9px; }
 
-.wt-sun {
-  position: absolute; right: 8%; top: 12%;
-  width: 90px; height: 90px; border-radius: 50%;
-  background: radial-gradient(circle, #fffbeb 0%, #fde047 55%, #f59e0b 100%);
-  box-shadow: 0 0 60px rgba(253,224,71,.8);
-  animation: wt-pulse 4s ease-in-out infinite;
-}
-.wt-sun-rays {
-  position: absolute; right: calc(8% - 30px); top: calc(12% - 30px);
-  width: 150px; height: 150px;
-  background: conic-gradient(from 0deg, transparent 0deg 20deg, rgba(255,255,255,.35) 20deg 30deg, transparent 30deg 60deg, rgba(255,255,255,.25) 60deg 70deg, transparent 70deg);
-  border-radius: 50%;
-  animation: wt-spin 30s linear infinite;
-  filter: blur(1px);
+.wt-sunband { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 12px; }
+.wt-sunband-t { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wt-sunband-t span { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 400; color: rgba(255,255,255,.75); margin-bottom: 1px; }
+.wt-sunband-t:last-child { text-align: right; }
+.wt-sunband-t:last-child span { justify-content: flex-end; }
+
+.wt-foot { font-size: 11px; color: var(--dim); text-align: center; margin-top: 8px; }
+.wt-foot a { color: inherit; text-decoration: underline; }
+.wt-err { margin-bottom: 8px; }
+
+.wt-glow {
+  position: absolute; left: 12%; top: -180px; width: 520px; height: 520px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,232,160,.55) 0%, rgba(255,224,130,.18) 38%, transparent 68%);
+  animation: wt-pulse 7s ease-in-out infinite;
 }
 .wt-moon {
-  position: absolute; right: 10%; top: 15%;
-  width: 60px; height: 60px; border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #f1f5f9 0%, #cbd5e1 100%);
-  box-shadow: 0 0 40px rgba(203,213,225,.5);
+  position: absolute; left: 27%; top: 44px; width: 46px; height: 46px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #f8fafc 0%, #cbd5e1 100%);
+  box-shadow: 0 0 60px 14px rgba(203,213,225,.25);
 }
-.wt-star {
-  position: absolute; width: 2px; height: 2px;
-  background: #fff; border-radius: 50%;
-  animation: wt-twinkle 2s ease-in-out infinite;
-}
+.wt-star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; animation: wt-twinkle 3s ease-in-out infinite; }
 .wt-cloud {
-  position: absolute; height: 40px; border-radius: 40px;
-  background: rgba(255,255,255,.35);
-  filter: blur(2px);
-  animation: wt-drift linear infinite;
+  position: absolute; left: 0; border-radius: 50%; background: rgba(255,255,255,.16);
+  filter: blur(34px); animation: wt-drift linear infinite;
 }
-.wt-cloud::before, .wt-cloud::after {
-  content: ""; position: absolute; background: inherit; border-radius: 50%;
-}
-.wt-cloud::before { width: 40px; height: 40px; top: -18px; left: 15px; }
-.wt-cloud::after { width: 30px; height: 30px; top: -12px; left: 45px; }
-.wt-cloud-1 { width: 90px; top: 15%; animation-duration: 40s; }
-.wt-cloud-2 { width: 120px; top: 45%; animation-duration: 55s; animation-delay: -20s; background: rgba(255,255,255,.25); }
-.wt-cloud-3 { width: 70px; top: 70%; animation-duration: 35s; animation-delay: -10s; background: rgba(255,255,255,.4); }
+.wt-cloud-1 { width: 420px; height: 150px; top: 2%; animation-duration: 70s; animation-delay: -12s; }
+.wt-cloud-2 { width: 560px; height: 190px; top: 40%; animation-duration: 95s; animation-delay: -55s; background: rgba(255,255,255,.1); }
+.wt-cloud-3 { width: 380px; height: 140px; top: 74%; animation-duration: 80s; animation-delay: -34s; }
 .wt-drop {
-  position: absolute; top: -20px;
-  width: 2px; height: 14px;
-  background: linear-gradient(to bottom, transparent, rgba(191,219,254,.9));
+  position: absolute; top: -24px; width: 1.5px; height: 18px;
+  background: linear-gradient(to bottom, transparent, rgba(191,219,254,.6));
   animation: wt-fall linear infinite;
 }
-.wt-flake {
-  position: absolute; top: -20px;
-  color: rgba(255,255,255,.95);
-  animation: wt-snowfall linear infinite;
-  text-shadow: 0 0 4px rgba(255,255,255,.5);
-}
-.wt-bolt {
-  position: absolute; inset: 0;
-  background: rgba(255,255,255,0);
-  animation: wt-flash 5s ease-in-out infinite;
-}
+.wt-flake { position: absolute; top: -10px; width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.8); animation: wt-snow linear infinite; }
+.wt-bolt { position: absolute; inset: 0; animation: wt-flash 7s ease-in-out infinite; }
 .wt-fog {
-  position: absolute; left: -20%; right: -20%; height: 80px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent);
-  filter: blur(8px);
-  animation: wt-fog-move linear infinite;
+  position: absolute; left: -30%; right: -30%; height: 130px; filter: blur(26px);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.24), transparent);
+  animation: wt-fog-move 30s ease-in-out infinite alternate;
 }
-.wt-fog-1 { top: 30%; animation-duration: 25s; }
-.wt-fog-2 { top: 60%; animation-duration: 35s; animation-direction: reverse; }
-
-@keyframes wt-spin { to { transform: rotate(360deg); } }
-@keyframes wt-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-@keyframes wt-twinkle { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
-@keyframes wt-drift {
-  from { transform: translateX(-160px); }
-  to { transform: translateX(calc(100vw + 160px)); }
-}
-@keyframes wt-fall {
-  from { transform: translateY(0); opacity: 1; }
-  to { transform: translateY(320px); opacity: .3; }
-}
-@keyframes wt-snowfall {
-  from { transform: translateY(0) translateX(0); opacity: 1; }
-  to { transform: translateY(320px) translateX(30px); opacity: .4; }
-}
+.wt-fog-1 { top: 8%; }
+.wt-fog-2 { top: 44%; animation-direction: alternate-reverse; }
+.wt-fog-3 { top: 76%; animation-duration: 42s; }
+@keyframes wt-rotate { to { transform: rotate(360deg); } }
+@keyframes wt-pulse { 50% { transform: scale(1.06); opacity: .85; } }
+@keyframes wt-twinkle { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes wt-drift { from { transform: translateX(-600px); } to { transform: translateX(calc(100vw + 100px)); } }
+@keyframes wt-fall { to { transform: translateY(820px); } }
+@keyframes wt-snow { to { transform: translate(40px, 820px); opacity: .3; } }
 @keyframes wt-flash {
-  0%, 92%, 100% { background: rgba(255,255,255,0); }
-  93%, 94% { background: rgba(255,255,255,.7); }
-  95% { background: rgba(255,255,255,0); }
-  96%, 97% { background: rgba(255,255,255,.5); }
+  0%, 92%, 95%, 100% { background: rgba(255,255,255,0); }
+  93%, 94% { background: rgba(255,255,255,.35); }
+  96%, 97% { background: rgba(255,255,255,.2); }
 }
-@keyframes wt-fog-move {
-  from { transform: translateX(-30%); }
-  to { transform: translateX(30%); }
-}
+@keyframes wt-fog-move { from { transform: translateX(-16%); } to { transform: translateX(16%); } }
 @media (prefers-reduced-motion: reduce) {
-  .wt-anim * { animation: none !important; }
+  .wt-layer *, .wt-spin svg { animation: none !important; }
 }
 `;
 
@@ -476,10 +336,9 @@ const DEFAULT_CITY: GeoResult = {
   country: "Vietnam",
   latitude: 10.8231,
   longitude: 106.6297,
-  timezone: "Asia/Ho_Chi_Minh",
 };
 
-async function geocode(q: string, lang: "vi" | "en" = "vi"): Promise<GeoResult[]> {
+async function geocode(q: string, lang: Lang): Promise<GeoResult[]> {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=${lang}&format=json`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Geocode HTTP ${res.status}`);
@@ -487,7 +346,7 @@ async function geocode(q: string, lang: "vi" | "en" = "vi"): Promise<GeoResult[]
   return (j.results ?? []) as GeoResult[];
 }
 
-async function fetchWeather(loc: GeoResult): Promise<WeatherData> {
+async function fetchForecast(loc: GeoResult): Promise<Forecast> {
   const params = new URLSearchParams({
     latitude: String(loc.latitude),
     longitude: String(loc.longitude),
@@ -501,42 +360,241 @@ async function fetchWeather(loc: GeoResult): Promise<WeatherData> {
   });
   const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
   if (!res.ok) throw new Error(`Weather HTTP ${res.status}`);
-  return (await res.json()) as WeatherData;
+  return (await res.json()) as Forecast;
 }
 
-function fmtDayName(iso: string, lang: "vi" | "en") {
-  const d = new Date(iso);
-  const names = lang === "vi"
-    ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"]
-    : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return names[d.getDay()];
+/** Never rejects: a missing observation just means the model value is shown. */
+async function fetchObservation(loc: GeoResult): Promise<Observation | null> {
+  try {
+    const res = await fetch(`/api/weather?lat=${loc.latitude.toFixed(3)}&lon=${loc.longitude.toFixed(3)}`);
+    if (!res.ok) return null;
+    return ((await res.json()) as { observation: Observation | null }).observation;
+  } catch {
+    return null;
+  }
 }
 
-function fmtHour(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:00`;
+// Open-Meteo times are wall-clock strings for the searched city, so they are
+// read as text. `new Date()` would reinterpret them in the viewer's timezone.
+const hhmm = (iso: string) => iso.slice(11, 16);
+
+function fmtDayName(day: string, lang: Lang) {
+  return new Intl.DateTimeFormat(lang === "vi" ? "vi-VN" : "en-US", { weekday: "short", timeZone: "UTC" }).format(
+    new Date(`${day}T00:00:00Z`),
+  );
+}
+
+function isDayAt(iso: string, daily: ForecastDaily) {
+  const i = daily.time.indexOf(iso.slice(0, 10));
+  if (i < 0) return true;
+  return iso >= daily.sunrise[i] && iso <= daily.sunset[i];
+}
+
+function minutesOf(iso: string) {
+  return Number(iso.slice(11, 13)) * 60 + Number(iso.slice(14, 16));
+}
+
+const uvLevel = (uv: number) => (uv < 3 ? 0 : uv < 6 ? 1 : uv < 8 ? 2 : uv < 11 ? 3 : 4);
+const clampPct = (v: number) => Math.max(0, Math.min(100, v));
+
+function Meter({ pct }: { pct: number }) {
+  return (
+    <div className="wt-meter">
+      <span style={{ width: `${clampPct(pct)}%` }} />
+    </div>
+  );
+}
+
+function Compass({ deg }: { deg: number }) {
+  return (
+    <svg className="wt-compass" width="38" height="38" viewBox="0 0 38 38" aria-hidden>
+      <circle cx="19" cy="19" r="17" fill="none" stroke="rgba(255,255,255,.22)" />
+      {[0, 90, 180, 270].map((a) => (
+        <line key={a} x1="19" y1="3" x2="19" y2="6.5" stroke="rgba(255,255,255,.55)" transform={`rotate(${a} 19 19)`} />
+      ))}
+      {/* METAR and Open-Meteo give the direction the wind comes from; the arrow shows where it blows. */}
+      <g transform={`rotate(${deg + 180} 19 19)`}>
+        <line x1="19" y1="28" x2="19" y2="11" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+        <path d="M19 8 L23.5 14 L14.5 14 Z" fill="#fff" />
+      </g>
+    </svg>
+  );
+}
+
+function Metric({ icon, label, value, unit, sub, children }: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  unit?: string;
+  sub?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="wt-glass wt-metric">
+      <div className="wt-metric-lbl">{icon}{label}</div>
+      <div className="wt-metric-val">{value}{unit && <small>{unit}</small>}</div>
+      {sub && <div className="wt-metric-sub">{sub}</div>}
+      {children}
+    </div>
+  );
+}
+
+type HourRow = { iso: string; temp: number; code: number; rain: number; isDay: boolean };
+
+function pickLabels(rows: HourRow[]) {
+  const temps = rows.map((r) => r.temp);
+  const chosen = new Set([0, temps.indexOf(Math.max(...temps)), temps.indexOf(Math.min(...temps))]);
+  rows.forEach((_, i) => {
+    if (i % 3 === 0 && ![...chosen].some((c) => Math.abs(c - i) < 2)) chosen.add(i);
+  });
+  return chosen;
+}
+
+/** Catmull-Rom spline through the points, written as cubic Bézier segments. */
+function smoothPath(pts: [number, number][]) {
+  const f = (v: number) => v.toFixed(2);
+  let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    d += `C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+  }
+  return d;
+}
+
+function HourlyChart({ rows, nowLabel, rainLabel, title }: {
+  rows: HourRow[];
+  nowLabel: string;
+  rainLabel: string;
+  title: string;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const n = rows.length;
+  const temps = rows.map((r) => r.temp);
+  const lo = Math.min(...temps);
+  const span = Math.max(1, Math.max(...temps) - lo);
+  const x = (i: number) => ((i + 0.5) / n) * 100;
+  const y = (temp: number) => 84 - ((temp - lo) / span) * 54;
+  const line = smoothPath(rows.map((r, i) => [x(i), y(r.temp)]));
+  const labels = pickLabels(rows);
+  const columns = { gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` };
+  const active = hover ?? 0;
+  const peak = Math.max(...rows.map((r) => r.rain));
+
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    setHover(Math.max(0, Math.min(n - 1, Math.floor(((e.clientX - box.left) / box.width) * n))));
+  };
+
+  return (
+    <div className="wt-glass wt-panel">
+      <h3 className="wt-head">
+        <IconClock size={13} stroke={2} />
+        {title}
+        <span className="wt-head-read">
+          {active === 0 ? nowLabel : hhmm(rows[active].iso)} · {Math.round(rows[active].temp)}° · {rows[active].rain}%
+        </span>
+      </h3>
+      <div className="wt-h-scroll">
+        <div
+          className="wt-h-inner"
+          style={{ minWidth: n * 34 }}
+          onPointerMove={onMove}
+          onPointerLeave={() => setHover(null)}
+        >
+          <div className="wt-h-active" style={{ left: `${(active / n) * 100}%`, width: `${100 / n}%` }} />
+          <div className="wt-h-row" style={columns}>
+            {rows.map((r, i) => (
+              <div key={r.iso} className={`wt-h-time${i === 0 ? " wt-h-time--now" : ""}`}>
+                {i === 0 ? nowLabel : `${r.iso.slice(11, 13)}h`}
+              </div>
+            ))}
+          </div>
+          <div className="wt-h-row" style={columns}>
+            {rows.map((r) => {
+              const Icon = describe(r.code, r.isDay).icon;
+              return (
+                <div key={r.iso} className="wt-h-icon">
+                  <Icon size={17} stroke={1.8} style={{ color: iconColor(r.code, r.isDay) }} />
+                </div>
+              );
+            })}
+          </div>
+          <div className="wt-h-plot">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+              <defs>
+                <linearGradient id="wt-area" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stopColor="#fff" stopOpacity=".3" />
+                  <stop offset="1" stopColor="#fff" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path d={`${line}L${x(n - 1)} 100L${x(0)} 100Z`} fill="url(#wt-area)" />
+              <path d={line} fill="none" stroke="#fff" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" />
+            </svg>
+            {[...labels].map((i) => (
+              <span key={i} className="wt-h-label" style={{ left: `${x(i)}%`, top: `${y(rows[i].temp)}%` }}>
+                {Math.round(rows[i].temp)}°
+              </span>
+            ))}
+            <span className="wt-h-dot" style={{ left: `${x(active)}%`, top: `${y(rows[active].temp)}%` }} />
+          </div>
+          <div className="wt-h-row wt-h-bars" style={columns}>
+            {rows.map((r) => (
+              <div key={r.iso} className="wt-h-bar" style={{ height: `${Math.max(r.rain > 0 ? 8 : 0, r.rain)}%` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="wt-h-rainlbl">
+        <IconDroplets size={12} stroke={2} />
+        {rainLabel} · {peak}%
+      </div>
+    </div>
+  );
+}
+
+function SunArc({ now, sunrise, sunset }: { now: string; sunrise: string; sunset: string }) {
+  const rise = minutesOf(sunrise);
+  const progress = Math.max(0, Math.min(1, (minutesOf(now) - rise) / Math.max(1, minutesOf(sunset) - rise)));
+  const point = (p: number) => `${(10 + p * 300).toFixed(1)},${(46 - Math.sin(p * Math.PI) * 38).toFixed(1)}`;
+  const path = (to: number) => repeat(41).map((i) => point((i / 40) * to)).join(" ");
+  const [cx, cy] = point(progress).split(",");
+  return (
+    <svg viewBox="0 0 320 52" width="100%" height="52" aria-hidden>
+      <line x1="0" y1="46" x2="320" y2="46" stroke="rgba(255,255,255,.2)" />
+      <polyline points={path(1)} fill="none" stroke="rgba(255,255,255,.28)" strokeWidth="2" strokeDasharray="2 5" strokeLinecap="round" />
+      <polyline points={path(progress)} fill="none" stroke="var(--wt-sun)" strokeWidth="2" strokeLinecap="round" />
+      <circle cx={cx} cy={cy} r="11" fill="var(--wt-sun)" opacity=".25" />
+      <circle cx={cx} cy={cy} r="5.5" fill="var(--wt-sun)" />
+    </svg>
+  );
 }
 
 export default function WeatherTool() {
   const { t, lang } = useI18n();
   const [loc, setLoc] = useState<GeoResult>(DEFAULT_CITY);
-  const [data, setData] = useState<WeatherData | null>(null);
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [suggests, setSuggests] = useState<GeoResult[]>([]);
-  const [searching, setSearching] = useState(false);
+  const latestLoad = useRef(0);
 
   const load = useCallback(async (target: GeoResult) => {
+    const id = ++latestLoad.current;
     setLoading(true);
     setErr(null);
     try {
-      const w = await fetchWeather(target);
-      setData(w);
+      const [forecast, observation] = await Promise.all([fetchForecast(target), fetchObservation(target)]);
+      if (id !== latestLoad.current) return;
+      const merged = observation ? applyObservation(forecast, observation) : null;
+      setLoaded({ forecast: merged ?? forecast, observation: merged ? observation : null });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "unknown");
+      if (id === latestLoad.current) setErr(e instanceof Error ? e.message : "unknown");
     } finally {
-      setLoading(false);
+      if (id === latestLoad.current) setLoading(false);
     }
   }, []);
 
@@ -545,22 +603,20 @@ export default function WeatherTool() {
   }, [loc, load]);
 
   useEffect(() => {
-    if (query.trim().length < 2) {
+    const q = query.trim();
+    if (q.length < 2) {
       setSuggests([]);
       return;
     }
+    let stale = false;
     const id = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const r = await geocode(query.trim(), lang);
-        setSuggests(r);
-      } catch {
-        setSuggests([]);
-      } finally {
-        setSearching(false);
-      }
+      const found = await geocode(q, lang).catch(() => []);
+      if (!stale) setSuggests(found);
     }, 300);
-    return () => clearTimeout(id);
+    return () => {
+      stale = true;
+      clearTimeout(id);
+    };
   }, [query, lang]);
 
   const useMyLocation = () => {
@@ -569,559 +625,312 @@ export default function WeatherTool() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      (pos) =>
         setLoc({
           id: 0,
           name: t("wt_my_loc_name"),
           country: "",
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
-        });
-      },
+        }),
       (e) => setErr(e.message),
-      { timeout: 10000 }
+      { timeout: 10000 },
     );
   };
 
+  const data = loaded?.forecast;
+  const observation = loaded?.observation ?? null;
   const current = data?.current;
-  const currentDesc = current ? describe(current.weather_code) : null;
 
-  const next24 = useMemo(() => {
+  const hours = useMemo<HourRow[]>(() => {
     if (!data) return [];
-    const now = Date.now();
-    const idxs: number[] = [];
-    for (let i = 0; i < data.hourly.time.length; i++) {
-      const t = new Date(data.hourly.time[i]).getTime();
-      if (t >= now - 30 * 60 * 1000 && idxs.length < 24) idxs.push(i);
-    }
-    return idxs;
+    const start = data.hourly.time.findIndex((h) => h.slice(0, 13) === data.current.time.slice(0, 13));
+    if (start < 0) return [];
+    return data.hourly.time.slice(start, start + 24).map((iso, k) => {
+      const i = start + k;
+      return {
+        iso,
+        temp: data.hourly.temperature_2m[i],
+        // The first column is "now", so it must agree with the hero.
+        code: k === 0 ? data.current.weather_code : data.hourly.weather_code[i],
+        rain: data.hourly.precipitation_probability[i] ?? 0,
+        isDay: isDayAt(iso, data.daily),
+      };
+    });
   }, [data]);
 
-  const scene = current ? sceneOf(current.weather_code, current.is_day) : "cloud";
-  const todayMax = data?.daily.temperature_2m_max?.[0];
-  const todayMin = data?.daily.temperature_2m_min?.[0];
-  const feelsSub = current
-    ? current.apparent_temperature > current.temperature_2m + 1
-      ? lang === "vi" ? "Nóng hơn" : "Warmer"
-      : current.apparent_temperature < current.temperature_2m - 1
-      ? lang === "vi" ? "Lạnh hơn" : "Cooler"
-      : lang === "vi" ? "Tương đương" : "Similar"
-    : "";
-  const dewSub = current?.dew_point_2m != null
-    ? `${lang === "vi" ? "Điểm sương" : "Dew"} ${Math.round(current.dew_point_2m)}°`
-    : "";
+  const ageLabel = (() => {
+    if (!observation) return "";
+    const mins = Math.max(0, Math.round((Date.now() - observation.observedAt) / 60000));
+    return mins < 1 ? t("wt_just_now") : t("wt_min_ago").replace("{n}", String(mins));
+  })();
+
+  const isDay = current ? !!current.is_day : false;
+  const desc = current ? describe(current.weather_code, isDay) : null;
+  const scene: Scene = desc?.scene ?? "cloud";
+
+  const background = (() => {
+    if (current && data && scene === "clear") {
+      const now = minutesOf(current.time);
+      const golden = [data.daily.sunrise[0], data.daily.sunset[0]].some(
+        (edge) => Math.abs(now - minutesOf(edge)) <= GOLDEN_MINUTES,
+      );
+      if (golden) return GOLDEN_SKY;
+    }
+    return SKY[scene][isDay ? 0 : 1];
+  })();
+
+  const windDir = (deg: number) => t(`wt_dir_${Math.round(deg / 45) % 8}` as never);
+  const uv = current ? current.uv_index ?? data?.daily.uv_index_max[0] ?? 0 : 0;
+  const feelsDiff = current ? current.apparent_temperature - current.temperature_2m : 0;
+  const daylightMins = data ? minutesOf(data.daily.sunset[0]) - minutesOf(data.daily.sunrise[0]) : 0;
 
   return (
     <div className="fp-tool">
-      <style>{ANIM_CSS}</style>
-      {/* Search bar */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, position: "relative" }}>
-        <div style={{ flex: "1 1 280px", position: "relative" }}>
-          <IconSearch
-            size={16}
-            stroke={1.8}
-            style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.5 }}
-          />
-          <input
-            type="search"
-            placeholder={t("wt_search_ph")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "10px 12px 10px 36px",
-              borderRadius: 10,
-              border: "1px solid var(--line, #e5e7eb)",
-              background: "var(--surface, #fff)",
-              color: "inherit",
-              fontSize: 14,
-            }}
-          />
-          {suggests.length > 0 && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                marginTop: 4,
-                background: "var(--surface, #fff)",
-                border: "1px solid var(--line, #e5e7eb)",
-                borderRadius: 10,
-                boxShadow: "0 8px 24px rgba(0,0,0,.08)",
-                zIndex: 10,
-                maxHeight: 300,
-                overflowY: "auto",
-              }}
-            >
-              {suggests.map((s) => (
-                <button
-                  key={`${s.id}-${s.latitude}`}
-                  type="button"
-                  onClick={() => {
-                    setLoc(s);
-                    setQuery("");
-                    setSuggests([]);
-                  }}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "10px 12px",
-                    background: "transparent",
-                    border: 0,
-                    cursor: "pointer",
-                    borderBottom: "1px solid var(--line, #f1f5f9)",
-                    fontSize: 13,
-                    color: "inherit",
-                  }}
-                >
-                  <b>{s.name}</b>
-                  <span style={{ opacity: 0.6, marginLeft: 6 }}>
-                    {[s.admin1, s.country].filter(Boolean).join(", ")}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <Button variant="ghost" size="sm" onClick={useMyLocation} leftIcon={<IconCurrentLocation size={14} />}>
-          {t("wt_my_loc")}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => load(loc)}
-          loading={loading}
-          leftIcon={!loading ? <IconRefresh size={14} /> : undefined}
-        >
-          {t("wt_refresh")}
-        </Button>
-      </div>
-
+      <style>{CSS}</style>
       {err && (
-        <Alert tone="danger" title={t("wt_err_title")}>
-          {err}
-        </Alert>
+        <div className="wt-err">
+          <Alert tone="danger" title={t("wt_err_title")}>
+            {err}
+          </Alert>
+        </div>
       )}
+      <div className="wt-sky" style={{ background }}>
+        <SkyLayer scene={scene} isDay={isDay} cloudy={current?.weather_code === 2} />
 
-      {/* Current */}
-      {loading && !data ? (
-        <Card padding="lg" variant="outline">
-          <Skeleton width={200} height={20} />
-          <div style={{ marginTop: 16 }}>
-            <Skeleton width={140} height={56} />
+        <div className="wt-bar">
+          <div className="wt-search">
+            <Input
+              inputSize="md"
+              type="search"
+              placeholder={t("wt_search_ph")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              leftIcon={<IconSearch size={15} stroke={1.8} />}
+            />
+            {suggests.length > 0 && (
+              <div className="wt-suggest">
+                {suggests.map((s) => (
+                  <Button
+                    key={`${s.id}-${s.latitude}`}
+                    variant="ghost"
+                    size="sm"
+                    block
+                    onClick={() => {
+                      setLoc(s);
+                      setQuery("");
+                      setSuggests([]);
+                    }}
+                  >
+                    {s.name}
+                    <span className="wt-suggest-sub">{[s.admin1, s.country].filter(Boolean).join(", ")}</span>
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
-        </Card>
-      ) : current && currentDesc ? (
-        <Card padding="lg" variant="outline" className="wt-hero">
-          <WeatherAnim scene={scene} isDay={!!current.is_day} />
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13 }}>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 5,
-              padding: "3px 8px", borderRadius: 999,
-              background: "rgba(255,255,255,.2)", fontSize: 11, fontWeight: 600,
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e" }} />
-              {t("wt_live")}
-            </span>
-            <IconMapPin size={14} stroke={2} />
-            <b style={{ fontSize: 15 }}>{loc.name}</b>
-            {loc.country && <span style={{ opacity: 0.75 }}>· {loc.country}</span>}
-            <span style={{ opacity: 0.7, fontSize: 12, marginLeft: "auto" }}>
-              {new Date(current.time).toLocaleString(lang === "vi" ? "vi-VN" : "en-US", {
-                hour12: false, hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit",
-              })}
-            </span>
-          </div>
-
-          {/* Apple-style hero: big temp + condition */}
-          <div style={{ textAlign: "center", padding: "16px 0 8px" }}>
-            <div style={{ fontSize: 80, fontWeight: 200, lineHeight: 1, letterSpacing: "-0.03em" }}>
-              {Math.round(current.temperature_2m)}°
-            </div>
-            <div style={{ fontSize: 17, fontWeight: 500, marginTop: 4, textTransform: "capitalize" }}>
-              {t(currentDesc.key as never)}
-            </div>
-            <div style={{ fontSize: 14, opacity: 0.85, marginTop: 2 }}>
-              {t("wt_hi")} {Math.round(todayMax ?? current.temperature_2m)}°
-              <span style={{ margin: "0 6px", opacity: 0.5 }}>·</span>
-              {t("wt_lo")} {Math.round(todayMin ?? current.temperature_2m)}°
-            </div>
-          </div>
-
-          {/* Glass stat grid — Apple weather style */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-              gap: 10,
-              marginTop: 16,
-            }}
+          <IconButton
+            variant="subtle"
+            size="md"
+            round
+            aria-label={t("wt_my_loc")}
+            title={t("wt_my_loc")}
+            onClick={useMyLocation}
           >
-            <GlassStat
-              icon={<IconTemperature size={13} />}
-              label={t("wt_feels_full")}
-              value={`${Math.round(current.apparent_temperature)}°`}
-              sub={feelsSub}
-            />
-            <GlassStat
-              icon={<IconWind size={13} />}
-              label={t("wt_wind")}
-              value={`${current.wind_speed_10m.toFixed(0)} km/h`}
-              sub={windDirText(current.wind_direction_10m, lang)}
-            />
-            <GlassStat
-              icon={<IconDroplet size={13} />}
-              label={t("wt_humidity")}
-              value={`${current.relative_humidity_2m}%`}
-              sub={dewSub}
-            />
-            <GlassStat
-              icon={<IconSun size={13} />}
-              label={t("wt_uv")}
-              value={String(Math.round(current.uv_index ?? data?.daily.uv_index_max[0] ?? 0))}
-              sub={uvLabel(current.uv_index ?? data?.daily.uv_index_max[0] ?? 0, lang)}
-            />
-            <GlassStat
-              icon={<IconEye size={13} />}
-              label={t("wt_visibility")}
-              value={
-                current.visibility != null
-                  ? `${(current.visibility / 1000).toFixed(0)} km`
-                  : "—"
-              }
-            />
-            <GlassStat
-              icon={<IconGauge size={13} />}
-              label={t("wt_pressure")}
-              value={`${Math.round(current.surface_pressure)}`}
-              sub="hPa"
-            />
-            <GlassStat
-              icon={<IconCloud size={13} />}
-              label={t("wt_cloud")}
-              value={`${current.cloud_cover ?? 0}%`}
-            />
-            <GlassStat
-              icon={<IconUmbrella size={13} />}
-              label={t("wt_precip")}
-              value={`${(current.precipitation ?? 0).toFixed(1)} mm`}
-            />
-          </div>
-        </Card>
-      ) : null}
+            <IconCurrentLocation size={16} stroke={1.8} />
+          </IconButton>
+          <IconButton
+            variant="subtle"
+            size="md"
+            round
+            aria-label={t("wt_refresh")}
+            title={t("wt_refresh")}
+            className={loading ? "wt-spin" : undefined}
+            disabled={loading}
+            onClick={() => load(loc)}
+          >
+            <IconRefresh size={16} stroke={1.8} />
+          </IconButton>
+        </div>
 
-      {/* Hourly + Daily side-by-side on wide screens */}
-      {data && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 12,
-            marginTop: 16,
-          }}
-        >
-      {next24.length > 0 && (
-        <Card padding="md" variant="outline">
-          <h3 className="wt-sec-head">
-            <IconClock size={13} stroke={2} />
-            {t("wt_next24")}
-          </h3>
-          <div className="wt-hourly-row">
-            {next24.map((i, idx) => {
-              const d = describe(data.hourly.weather_code[i]);
-              const HIcon = d.icon;
-              const rain = data.hourly.precipitation_probability[i] ?? 0;
-              const hourIso = data.hourly.time[i];
-              const isNow = idx === 0;
-              const color = iconColor(data.hourly.weather_code[i], hourIso, data);
-              return (
-                <div key={i} className="wt-hour">
-                  {isNow ? (
-                    <div className="wt-hour-now">{lang === "vi" ? "Bây giờ" : "Now"}</div>
-                  ) : (
-                    <div className="wt-hour-time">{fmtHour(hourIso)}</div>
-                  )}
-                  <HIcon size={22} stroke={1.7} className="wt-hour-icon" style={{ color }} />
-                  <div className="wt-hour-temp">{Math.round(data.hourly.temperature_2m[i])}°</div>
-                  <div className="wt-hour-rain">
-                    {rain >= 15 ? (
-                      <>
-                        <IconDroplets size={11} stroke={2} /> {rain}%
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
+        {loading && !data && (
+          <div className="wt-grid">
+            <Skeleton width="100%" height={460} radius={14} />
+            <Skeleton width="100%" height={460} radius={14} />
           </div>
+        )}
 
-          {/* Precipitation next 12h */}
-          {(() => {
-            const slice = next24.slice(0, 12);
-            const maxRain = Math.max(10, ...slice.map((i) => data.hourly.precipitation_probability[i] ?? 0));
-            return (
-              <div className="wt-precip">
-                <div className="wt-precip-head">
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600 }}>
-                    <IconDroplets size={12} stroke={2} />
-                    {lang === "vi" ? "Xác suất mưa 12h" : "Rain chance 12h"}
+        {current && data && desc && (
+          <div className="wt-grid">
+            <div className="wt-col">
+              <div className="wt-hero">
+                <div className="wt-place">
+                  <IconMapPin size={16} stroke={2} />
+                  <b title={[loc.name, loc.country].filter(Boolean).join(", ")}>{loc.name}</b>
+                  <span className="wt-clock">
+                    {current.time.slice(8, 10)}/{current.time.slice(5, 7)} · {hhmm(current.time)}
                   </span>
-                  <span>{maxRain}% {lang === "vi" ? "cao nhất" : "max"}</span>
                 </div>
-                <div className="wt-precip-bars">
-                  {slice.map((i) => {
-                    const v = data.hourly.precipitation_probability[i] ?? 0;
-                    const h = Math.max(2, (v / 100) * 48);
+                <div className="wt-temp">{Math.round(current.temperature_2m)}°</div>
+                <div className="wt-cond">{t(desc.key as never)}</div>
+                <div className="wt-range">
+                  <span>
+                    <IconArrowUp size={13} stroke={2} aria-label={t("wt_hi")} />
+                    {Math.round(data.daily.temperature_2m_max[0])}°
+                  </span>
+                  <span>
+                    <IconArrowDown size={13} stroke={2} aria-label={t("wt_lo")} />
+                    {Math.round(data.daily.temperature_2m_min[0])}°
+                  </span>
+                  <span>
+                    {t("wt_feels_full")} {Math.round(current.apparent_temperature)}°
+                  </span>
+                </div>
+                <div className="wt-source" title={observation ? observation.stationName : t("wt_src_model_hint")}>
+                  <IconRadar2 size={12} stroke={2} />
+                  {observation
+                    ? `${t("wt_src_station")} · ${observation.stationId} · ${observation.distanceKm} km · ${ageLabel}`
+                    : t("wt_src_model")}
+                </div>
+              </div>
+
+              <div className="wt-glass wt-panel">
+                <h3 className="wt-head">
+                  <IconCalendar size={13} stroke={2} />
+                  {t("wt_forecast7")}
+                </h3>
+                {(() => {
+                  const weekMin = Math.min(...data.daily.temperature_2m_min);
+                  const span = Math.max(1, Math.max(...data.daily.temperature_2m_max) - weekMin);
+                  const pct = (v: number) => clampPct(((v - weekMin) / span) * 100);
+                  return data.daily.time.map((day, i) => {
+                    const code = data.daily.weather_code[i];
+                    const DayIcon = describe(code).icon;
+                    const lo = data.daily.temperature_2m_min[i];
+                    const hi = data.daily.temperature_2m_max[i];
+                    const rain = data.daily.precipitation_probability_max[i] ?? 0;
                     return (
-                      <div key={`p${i}`} className="wt-precip-bar" title={`${v}%`}>
-                        {v > 0 ? (
-                          <div
-                            className="wt-precip-bar-fill"
-                            style={{ height: `${h}px`, opacity: 0.35 + (v / 100) * 0.65 }}
-                          />
-                        ) : (
-                          <div className="wt-precip-bar-empty" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="wt-precip-axis">
-                  {slice.map((i, idx) => (
-                    <span key={`a${i}`}>{idx % 2 === 0 ? new Date(data.hourly.time[i]).getHours() + "h" : ""}</span>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Sun position arc */}
-          {data.daily.sunrise?.[0] && data.daily.sunset?.[0] && current && (() => {
-            const now = new Date(current.time).getTime();
-            const sr = new Date(data.daily.sunrise[0]).getTime();
-            const ss = new Date(data.daily.sunset[0]).getTime();
-            const t = Math.max(0, Math.min(1, (now - sr) / (ss - sr)));
-            const cx = 20 + t * 260;
-            const cy = 70 - Math.sin(t * Math.PI) * 55;
-            return (
-              <div className="wt-sun-card">
-                <div className="wt-sun-head">
-                  <IconSun size={13} stroke={2} /> {lang === "vi" ? "Mặt trời" : "Sun"}
-                </div>
-                <div className="wt-sun-arc-wrap">
-                  <svg viewBox="0 0 300 80" width="100%" height="80" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="wt-arc-g" x1="0" x2="1" y1="0" y2="0">
-                        <stop offset="0" stopColor="#fbbf24" />
-                        <stop offset=".5" stopColor="#f97316" />
-                        <stop offset="1" stopColor="#6366f1" />
-                      </linearGradient>
-                    </defs>
-                    <path
-                      d="M 20 70 Q 150 -40 280 70"
-                      fill="none"
-                      stroke="var(--line, rgba(0,0,0,.12))"
-                      strokeWidth="1.5"
-                      strokeDasharray="3 4"
-                    />
-                    <path
-                      d="M 20 70 Q 150 -40 280 70"
-                      fill="none"
-                      stroke="url(#wt-arc-g)"
-                      strokeWidth="2"
-                      strokeDasharray={`${t * 340} 400`}
-                    />
-                    <line x1="20" y1="70" x2="280" y2="70" stroke="var(--line, rgba(0,0,0,.15))" strokeWidth="1" />
-                    <circle cx={cx} cy={cy} r="7" fill="#fbbf24" stroke="#fff" strokeWidth="2" />
-                    <circle cx={cx} cy={cy} r="12" fill="#fbbf24" opacity=".2" />
-                  </svg>
-                </div>
-                <div className="wt-sun-times">
-                  <div>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, justifyContent: "flex-start" }}>
-                      <IconSunHigh size={12} stroke={2} /> {lang === "vi" ? "Bình minh" : "Sunrise"}
-                    </span>
-                    <b>{fmtTime(data.daily.sunrise[0])}</b>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <span>{lang === "vi" ? "Ban ngày" : "Daylight"}</span>
-                    <b>{daylightDuration(data.daily.sunrise[0], data.daily.sunset[0], lang)}</b>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
-                      <IconSunset size={12} stroke={2} /> {lang === "vi" ? "Hoàng hôn" : "Sunset"}
-                    </span>
-                    <b>{fmtTime(data.daily.sunset[0])}</b>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-        </Card>
-      )}
-
-      {/* Daily */}
-        <Card padding="md" variant="outline">
-          <h3 className="wt-sec-head">
-            <IconCalendar size={13} stroke={2} />
-            {t("wt_forecast7")}
-          </h3>
-          {(() => {
-            const weekMin = Math.min(...data.daily.temperature_2m_min);
-            const weekMax = Math.max(...data.daily.temperature_2m_max);
-            const span = Math.max(1, weekMax - weekMin);
-            const nowTemp = current?.temperature_2m ?? null;
-            return (
-              <div className="wt-day-list">
-                {data.daily.time.map((day, i) => {
-                  const d = describe(data.daily.weather_code[i]);
-                  const DIcon = d.icon;
-                  const lo = data.daily.temperature_2m_min[i];
-                  const hi = data.daily.temperature_2m_max[i];
-                  const leftPct = ((lo - weekMin) / span) * 100;
-                  const widthPct = ((hi - lo) / span) * 100;
-                  const nowPct =
-                    i === 0 && nowTemp != null
-                      ? Math.max(0, Math.min(100, ((nowTemp - weekMin) / span) * 100))
-                      : null;
-                  const rain = data.daily.precipitation_probability_max[i] ?? 0;
-                  return (
-                    <div key={day} className="wt-day">
-                      <span className="wt-day-name">
-                        {i === 0 ? t("wt_today") : fmtDayName(day, lang)}
-                      </span>
-                      <DIcon
-                        size={22}
-                        stroke={1.7}
-                        className="wt-day-icon"
-                        style={{ color: iconColor(data.daily.weather_code[i], day, data) }}
-                      />
-                      <span className="wt-day-rain">
-                        {rain >= 15 ? (
-                          <>
-                            <IconDroplets size={12} stroke={2} /> {rain}%
-                          </>
-                        ) : null}
-                      </span>
-                      <div className="wt-day-bar-wrap">
-                        <span className="wt-day-lo">{Math.round(lo)}°</span>
-                        <div className="wt-day-bar">
-                          <div
-                            className="wt-day-bar-fill"
-                            style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                          />
-                          {nowPct != null && (
-                            <div className="wt-day-bar-now" style={{ left: `${nowPct}%` }} />
+                      <div key={day} className={`wt-day${i === 0 ? " wt-day--today" : ""}`}>
+                        <span className="wt-day-name">{i === 0 ? t("wt_today") : fmtDayName(day, lang)}</span>
+                        <DayIcon size={17} stroke={1.8} style={{ color: iconColor(code, true) }} />
+                        <span className="wt-day-rain">
+                          {rain >= 15 && (
+                            <>
+                              <IconDroplets size={10} stroke={2} />
+                              {rain}%
+                            </>
                           )}
+                        </span>
+                        <span className="wt-day-lo">{Math.round(lo)}°</span>
+                        <div className="wt-track">
+                          <div className="wt-fill" style={{ left: `${pct(lo)}%`, width: `${pct(hi) - pct(lo)}%` }} />
+                          {i === 0 && <div className="wt-pin" style={{ left: `${pct(current.temperature_2m)}%` }} />}
                         </div>
                         <span className="wt-day-hi">{Math.round(hi)}°</span>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
-            );
-          })()}
-        </Card>
-        </div>
-      )}
+            </div>
 
-      <div style={{ marginTop: 16, fontSize: 12, opacity: 0.6, textAlign: "center" }}>
-        <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
-          Open-Meteo
-        </a>{" "}
-        — {t("wt_source")}
+            <div className="wt-col">
+              {hours.length > 0 && (
+                <HourlyChart
+                  rows={hours}
+                  nowLabel={t("wt_now")}
+                  rainLabel={t("wt_rain_chance")}
+                  title={t("wt_next24")}
+                />
+              )}
+
+              <div className="wt-metrics">
+                <Metric
+                  icon={<IconTemperature size={13} />}
+                  label={t("wt_feels_full")}
+                  value={`${Math.round(current.apparent_temperature)}°`}
+                  sub={t(feelsDiff > 1 ? "wt_feels_warmer" : feelsDiff < -1 ? "wt_feels_cooler" : "wt_feels_same")}
+                />
+                <Metric
+                  icon={<IconWind size={13} />}
+                  label={t("wt_wind")}
+                  value={current.wind_speed_10m.toFixed(0)}
+                  unit="km/h"
+                  sub={windDir(current.wind_direction_10m)}
+                >
+                  <Compass deg={current.wind_direction_10m} />
+                </Metric>
+                <Metric
+                  icon={<IconDroplet size={13} />}
+                  label={t("wt_humidity")}
+                  value={`${current.relative_humidity_2m}%`}
+                  sub={current.dew_point_2m != null ? `${t("wt_dew")} ${Math.round(current.dew_point_2m)}°` : undefined}
+                />
+                <Metric
+                  icon={<IconSun size={13} />}
+                  label={t("wt_uv")}
+                  value={String(Math.round(uv))}
+                  unit={t(`wt_uv_${uvLevel(uv)}` as never)}
+                >
+                  <Meter pct={(uv / 11) * 100} />
+                </Metric>
+                <Metric
+                  icon={<IconEye size={13} />}
+                  label={t("wt_visibility")}
+                  value={
+                    current.visibility == null
+                      ? "—"
+                      : current.visibility >= 10000
+                        ? "10+"
+                        : (current.visibility / 1000).toFixed(0)
+                  }
+                  unit={current.visibility == null ? undefined : "km"}
+                >
+                  {current.visibility != null && <Meter pct={current.visibility / 100} />}
+                </Metric>
+                <Metric
+                  icon={<IconGauge size={13} />}
+                  label={t("wt_pressure")}
+                  value={String(Math.round(current.surface_pressure))}
+                  unit="hPa"
+                />
+                <Metric icon={<IconCloud size={13} />} label={t("wt_cloud")} value={`${current.cloud_cover ?? 0}%`}>
+                  <Meter pct={current.cloud_cover ?? 0} />
+                </Metric>
+                <Metric
+                  icon={<IconUmbrella size={13} />}
+                  label={t("wt_precip")}
+                  value={(current.precipitation ?? 0).toFixed(1)}
+                  unit="mm"
+                />
+              </div>
+
+              <div className="wt-glass wt-panel wt-sunband">
+                <div className="wt-sunband-t">
+                  <span><IconSunrise size={13} stroke={2} />{t("wt_sunrise")}</span>
+                  {hhmm(data.daily.sunrise[0])}
+                </div>
+                <div title={`${t("wt_daylight")} ${t("wt_daylight_fmt")
+                  .replace("{h}", String(Math.floor(daylightMins / 60)))
+                  .replace("{m}", String(daylightMins % 60))}`}>
+                  <SunArc now={current.time} sunrise={data.daily.sunrise[0]} sunset={data.daily.sunset[0]} />
+                </div>
+                <div className="wt-sunband-t">
+                  <span>{t("wt_sunset")}<IconSunset size={13} stroke={2} /></span>
+                  {hhmm(data.daily.sunset[0])}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="wt-foot">
+        {t("wt_source")}{" "}
+        <a href="https://aviationweather.gov/" target="_blank" rel="noreferrer">NOAA AWC</a>
+        {" · "}
+        <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
       </div>
     </div>
   );
-}
-
-function GlassStat({
-  icon,
-  label,
-  value,
-  sub,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub?: string;
-}) {
-  return (
-    <div className="wt-glass">
-      <div className="wt-glass-lbl">
-        {icon}
-        {label}
-      </div>
-      <div className="wt-glass-val">{value}</div>
-      {sub && <div className="wt-glass-sub">{sub}</div>}
-    </div>
-  );
-}
-
-function daylightDuration(sr: string, ss: string, lang: "vi" | "en") {
-  const ms = new Date(ss).getTime() - new Date(sr).getTime();
-  const h = Math.floor(ms / 3_600_000);
-  const m = Math.floor((ms % 3_600_000) / 60_000);
-  return lang === "vi" ? `${h}g ${m}p` : `${h}h ${m}m`;
-}
-
-function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-function windDirText(deg: number, lang: "vi" | "en") {
-  const dirsVi = ["Bắc", "Đông Bắc", "Đông", "Đông Nam", "Nam", "Tây Nam", "Tây", "Tây Bắc"];
-  const dirsEn = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  const arr = lang === "vi" ? dirsVi : dirsEn;
-  const i = Math.round(deg / 45) % 8;
-  return arr[i];
-}
-
-function iconColor(code: number, iso: string, data: WeatherData): string {
-  // sun/moon based on daylight and category
-  const scene = sceneOf(code, isDayAt(iso, data) ? 1 : 0);
-  switch (scene) {
-    case "clear":
-      return isDayAt(iso, data) ? "#f59e0b" : "#818cf8";
-    case "cloud":
-      return "#94a3b8";
-    case "rain":
-      return "#38bdf8";
-    case "snow":
-      return "#93c5fd";
-    case "storm":
-      return "#a78bfa";
-    case "fog":
-      return "#94a3b8";
-  }
-}
-
-function isDayAt(iso: string, data: WeatherData): boolean {
-  const t = new Date(iso).getTime();
-  const sr = data.daily.sunrise?.[0] ? new Date(data.daily.sunrise[0]).getTime() : 0;
-  const ss = data.daily.sunset?.[0] ? new Date(data.daily.sunset[0]).getTime() : 0;
-  if (!sr || !ss) {
-    const h = new Date(iso).getHours();
-    return h >= 6 && h < 18;
-  }
-  // approximate: use hour-of-day compared to sunrise/sunset hours
-  const dt = new Date(iso);
-  const srH = new Date(data.daily.sunrise[0]);
-  const ssH = new Date(data.daily.sunset[0]);
-  const minsOfDay = dt.getHours() * 60 + dt.getMinutes();
-  const srMin = srH.getHours() * 60 + srH.getMinutes();
-  const ssMin = ssH.getHours() * 60 + ssH.getMinutes();
-  return minsOfDay >= srMin && minsOfDay <= ssMin;
-}
-
-function uvLabel(uv: number, lang: "vi" | "en") {
-  if (uv < 3) return lang === "vi" ? "Thấp" : "Low";
-  if (uv < 6) return lang === "vi" ? "Trung bình" : "Moderate";
-  if (uv < 8) return lang === "vi" ? "Cao" : "High";
-  if (uv < 11) return lang === "vi" ? "Rất cao" : "Very high";
-  return lang === "vi" ? "Nguy hiểm" : "Extreme";
 }

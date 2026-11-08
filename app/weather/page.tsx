@@ -7,9 +7,7 @@ export const metadata = toolMetadata("weather");
 export default function Page() {
   return (
     <div className="page">
-      <div className="tool-card">
-        <WeatherTool />
-      </div>
+      <WeatherTool />
       <ToolSeoContent slug="weather" />
     </div>
   );
