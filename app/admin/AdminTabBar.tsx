@@ -6,6 +6,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import {
   IconHome,
   IconLogout,
+  IconPinFilled,
   IconSettings,
   IconSparkles,
   IconUser,
@@ -99,7 +100,7 @@ export default function AdminTabBar() {
   const isHome = pathname === "/admin";
   const isBlogAdmin = pathname === "/admin/blog";
 
-  function dispatchBlogAction(kind: "manual" | "generate") {
+  function dispatchBlogAction(kind: "manual" | "generate" | "pin") {
     window.dispatchEvent(new CustomEvent("fb:blog-admin-action", { detail: { kind } }));
   }
 
@@ -143,26 +144,40 @@ export default function AdminTabBar() {
             )}
           </>
         )}
-        <button
-          type="button"
-          className={`atab-btn${accountOpen ? " active" : ""}`}
-          onClick={() => setAccountOpen(true)}
-          aria-label="Account"
-          aria-expanded={accountOpen}
-        >
-          <IconUser size={22} stroke={1.8} />
-          <span>Account</span>
-        </button>
-        <button
-          type="button"
-          className={`atab-btn${settingsOpen ? " active" : ""}`}
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Setting"
-          aria-expanded={settingsOpen}
-        >
-          <IconSettings size={22} stroke={1.8} />
-          <span>Setting</span>
-        </button>
+        {isBlogAdmin ? (
+          <button
+            type="button"
+            className="atab-btn"
+            onClick={() => dispatchBlogAction("pin")}
+            aria-label="Ghim bài"
+          >
+            <IconPinFilled size={22} stroke={1.8} />
+            <span>Pin</span>
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className={`atab-btn${accountOpen ? " active" : ""}`}
+              onClick={() => setAccountOpen(true)}
+              aria-label="Account"
+              aria-expanded={accountOpen}
+            >
+              <IconUser size={22} stroke={1.8} />
+              <span>Account</span>
+            </button>
+            <button
+              type="button"
+              className={`atab-btn${settingsOpen ? " active" : ""}`}
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Setting"
+              aria-expanded={settingsOpen}
+            >
+              <IconSettings size={22} stroke={1.8} />
+              <span>Setting</span>
+            </button>
+          </>
+        )}
       </nav>
 
       {settingsOpen &&

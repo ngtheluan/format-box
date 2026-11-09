@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
+  manifest: "/blog/manifest.webmanifest",
   alternates: {
     types: {
       "application/rss+xml": [{ url: "/blog/rss.xml", title: "FormatBox Blog" }],

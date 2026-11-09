@@ -561,13 +561,15 @@ export default function BlogAdminTool({
   // Generate modal
   const [generateOpen, setGenerateOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
 
   // AdminTabBar dispatches these so the bottom bar can trigger the modals.
   const [skipTopicAutoFocus, setSkipTopicAutoFocus] = useState(false);
   useEffect(() => {
     const handler = (e: Event) => {
-      const kind = (e as CustomEvent<{ kind: "manual" | "generate" }>).detail?.kind;
+      const kind = (e as CustomEvent<{ kind: "manual" | "generate" | "pin" }>).detail?.kind;
       if (kind === "manual") setManualOpen(true);
+      else if (kind === "pin") setPinModalOpen(true);
       else if (kind === "generate" && isSuperAdmin) {
         setSkipTopicAutoFocus(true);
         setGenerateOpen(true);
@@ -1830,6 +1832,216 @@ export default function BlogAdminTool({
     toast(`Đã xoá: ${c.label}`);
   }
 
+  function renderPinnedStrip() {
+    const mode: BlogPinMode = pinConfig.mode;
+    const effectivePinned =
+      mode === "manual"
+        ? posts.filter((x) => x.pinned)
+        : resolvePinnedPosts(posts, pinConfig, popularity);
+    const canAdd = mode === "manual" && effectivePinned.length < MAX_PINNED;
+    const candidates = posts
+      .filter((x) => !x.pinned && (x.status || "published") === "published")
+      .filter((x) => {
+        const s = pinPickerQ.trim().toLowerCase();
+        if (!s) return true;
+        return (
+          x.title.toLowerCase().includes(s) ||
+          x.slug.toLowerCase().includes(s) ||
+          (x.excerpt || "").toLowerCase().includes(s)
+        );
+      })
+      .slice(0, 30);
+    const activeCats = cats.filter((c) => c.active);
+    const MODE_OPTIONS: { id: BlogPinMode; label: string; desc: string }[] = [
+      { id: "manual", label: "Thủ công", desc: "Admin tự chọn 6 bài để ghim" },
+      { id: "auto", label: "Tự động", desc: "Bài mới và/hoặc có nhiều lượt đánh giá hữu ích" },
+      { id: "category", label: "Theo danh mục", desc: "6 bài mới nhất thuộc 1 danh mục" },
+    ];
+    return (
+      <div className="bga-pinned-strip">
+        <div className="bga-pinned-head">
+          <IconPinFilled size={13} stroke={2} />
+          <span>
+            Ghim ({effectivePinned.length}/{MAX_PINNED})
+          </span>
+          <div className="bga-pinned-modes" role="tablist" aria-label="Chế độ ghim">
+            {MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                role="tab"
+                aria-selected={mode === opt.id}
+                className={`bga-pinned-mode${mode === opt.id ? " is-active" : ""}`}
+                disabled={pinConfigSaving || mode === opt.id}
+                onClick={() => {
+                  if (opt.id === "category") {
+                    const cat = pinConfig.category || activeCats[0]?.slug;
+                    if (!cat) {
+                      toast("Chưa có danh mục nào đang bật");
+                      return;
+                    }
+                    void savePinConfig({ mode: "category", category: cat });
+                  } else {
+                    void savePinConfig({ mode: opt.id });
+                  }
+                }}
+                title={opt.desc}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {canAdd && (
+            <button
+              type="button"
+              className="bga-pinned-add"
+              onClick={() => setPinPickerOpen((v) => !v)}
+              title="Chọn bài để ghim"
+            >
+              <IconPlus size={12} stroke={2.2} /> Chọn bài
+            </button>
+          )}
+        </div>
+        {mode === "category" && (
+          <div className="bga-pinned-sub">
+            <span className="bga-pinned-sub-label">Danh mục:</span>
+            <Select
+              selectSize="sm"
+              value={pinConfig.category || ""}
+              disabled={pinConfigSaving}
+              placeholder={!pinConfig.category ? "— chọn —" : undefined}
+              options={activeCats.map((c) => ({ value: c.slug, label: c.label }))}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (next) void savePinConfig({ mode: "category", category: next });
+              }}
+            />
+            <span className="bga-pinned-sub-hint">6 bài phát hành mới nhất trong danh mục này.</span>
+          </div>
+        )}
+        {mode === "auto" && (
+          <div className="bga-pinned-sub">
+            <span className="bga-pinned-sub-hint">
+              Hệ thống tự chọn: ưu tiên bài đăng trong 14 ngày gần đây và/hoặc có nhiều lượt &quot;hữu ích&quot;.
+            </span>
+          </div>
+        )}
+        {pinPickerOpen && canAdd && (
+          <div className="bga-pinned-picker">
+            <input
+              type="text"
+              value={pinPickerQ}
+              onChange={(e) => setPinPickerQ(e.target.value)}
+              placeholder="Tìm theo tiêu đề, slug…"
+              className="bga-pinned-picker-input"
+              autoFocus
+            />
+            <div className="bga-pinned-picker-list">
+              {candidates.length === 0 ? (
+                <div className="bga-pinned-picker-empty">Không có bài phù hợp</div>
+              ) : (
+                candidates.map((p) => (
+                  <button
+                    key={p.slug}
+                    type="button"
+                    className="bga-pinned-picker-item"
+                    onClick={async () => {
+                      await togglePin(p);
+                      setPinPickerQ("");
+                    }}
+                  >
+                    <div className="bga-pinned-thumb">
+                      {p.coverImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={rewriteImgUrl(
+                            p.coverImage
+                              .split("#")[0]
+                              .replace(/([?&])w=\d+/, "$1w=120")
+                              .replace(/([?&])h=\d+/, "$1h=80"),
+                          )}
+                          alt=""
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <span
+                          style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }}
+                        />
+                      )}
+                    </div>
+                    <div className="bga-pinned-picker-text">
+                      <b>{p.title}</b>
+                      <span>/blog/{p.slug}</span>
+                    </div>
+                    <IconPin size={13} stroke={1.9} />
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+        {effectivePinned.length === 0 ? (
+          <div className="bga-pinned-empty">
+            {mode === "manual"
+              ? 'Chưa có bài nào được ghim. Bấm "Chọn bài" để thêm.'
+              : mode === "category"
+              ? "Chưa có bài phát hành nào trong danh mục này."
+              : "Chưa đủ dữ liệu để chọn tự động."}
+          </div>
+        ) : (
+          <div className="bga-pinned-list">
+            {effectivePinned.map((p) => (
+              <div key={p.slug} className="bga-pinned-item">
+                <div className="bga-pinned-thumb">
+                  {p.coverImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={rewriteImgUrl(
+                        p.coverImage
+                          .split("#")[0]
+                          .replace(/([?&])w=\d+/, "$1w=120")
+                          .replace(/([?&])h=\d+/, "$1h=80"),
+                      )}
+                      alt=""
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
+                  )}
+                </div>
+                <button className="bga-pinned-title" onClick={() => startEdit(p)} title="Sửa" type="button">
+                  <span>{p.title}</span>
+                </button>
+                {mode === "manual" ? (
+                  <button
+                    className="fx-btn fx-btn-icon"
+                    onClick={() => togglePin(p)}
+                    title="Bỏ ghim"
+                    style={{ color: "var(--warn, #f59e0b)" }}
+                    type="button"
+                  >
+                    <IconPinFilled size={13} stroke={2} />
+                  </button>
+                ) : (
+                  <span
+                    className="fx-btn fx-btn-icon"
+                    title={mode === "auto" ? "Hệ thống tự chọn" : "Theo danh mục"}
+                    aria-hidden="true"
+                    style={{ color: "var(--dim)", pointerEvents: "none" }}
+                  >
+                    <IconPinFilled size={13} stroke={2} />
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <AdminBody
       crumbs={[
@@ -2342,216 +2554,7 @@ export default function BlogAdminTool({
         )
       ) : (
         <>
-          {(() => {
-            const mode: BlogPinMode = pinConfig.mode;
-            // Danh sách hiển thị tuỳ mode (manual dùng cột pinned, auto/category tính động).
-            const effectivePinned =
-              mode === "manual"
-                ? posts.filter((x) => x.pinned)
-                : resolvePinnedPosts(posts, pinConfig, popularity);
-            const canAdd = mode === "manual" && effectivePinned.length < MAX_PINNED;
-            const candidates = posts
-              .filter((x) => !x.pinned && (x.status || "published") === "published")
-              .filter((x) => {
-                const s = pinPickerQ.trim().toLowerCase();
-                if (!s) return true;
-                return (
-                  x.title.toLowerCase().includes(s) ||
-                  x.slug.toLowerCase().includes(s) ||
-                  (x.excerpt || "").toLowerCase().includes(s)
-                );
-              })
-              .slice(0, 30);
-            const activeCats = cats.filter((c) => c.active);
-            const MODE_OPTIONS: { id: BlogPinMode; label: string; desc: string }[] = [
-              { id: "manual", label: "Thủ công", desc: "Admin tự chọn 6 bài để ghim" },
-              { id: "auto", label: "Tự động", desc: "Bài mới và/hoặc có nhiều lượt đánh giá hữu ích" },
-              { id: "category", label: "Theo danh mục", desc: "6 bài mới nhất thuộc 1 danh mục" },
-            ];
-            return (
-              <div className="bga-pinned-strip">
-                <div className="bga-pinned-head">
-                  <IconPinFilled size={13} stroke={2} />
-                  <span>
-                    Ghim ({effectivePinned.length}/{MAX_PINNED})
-                  </span>
-                  <div className="bga-pinned-modes" role="tablist" aria-label="Chế độ ghim">
-                    {MODE_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={mode === opt.id}
-                        className={`bga-pinned-mode${mode === opt.id ? " is-active" : ""}`}
-                        disabled={pinConfigSaving || mode === opt.id}
-                        onClick={() => {
-                          if (opt.id === "category") {
-                            const cat = pinConfig.category || activeCats[0]?.slug;
-                            if (!cat) {
-                              toast("Chưa có danh mục nào đang bật");
-                              return;
-                            }
-                            void savePinConfig({ mode: "category", category: cat });
-                          } else {
-                            void savePinConfig({ mode: opt.id });
-                          }
-                        }}
-                        title={opt.desc}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  {canAdd && (
-                    <button
-                      type="button"
-                      className="bga-pinned-add"
-                      onClick={() => setPinPickerOpen((v) => !v)}
-                      title="Chọn bài để ghim"
-                    >
-                      <IconPlus size={12} stroke={2.2} /> Chọn bài
-                    </button>
-                  )}
-                </div>
-                {mode === "category" && (
-                  <div className="bga-pinned-sub">
-                    <span className="bga-pinned-sub-label">Danh mục:</span>
-                    <Select
-                      selectSize="sm"
-                      value={pinConfig.category || ""}
-                      disabled={pinConfigSaving}
-                      placeholder={!pinConfig.category ? "— chọn —" : undefined}
-                      options={activeCats.map((c) => ({ value: c.slug, label: c.label }))}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        if (next) void savePinConfig({ mode: "category", category: next });
-                      }}
-                    />
-                    <span className="bga-pinned-sub-hint">6 bài phát hành mới nhất trong danh mục này.</span>
-                  </div>
-                )}
-                {mode === "auto" && (
-                  <div className="bga-pinned-sub">
-                    <span className="bga-pinned-sub-hint">
-                      Hệ thống tự chọn: ưu tiên bài đăng trong 14 ngày gần đây và/hoặc có nhiều lượt &quot;hữu ích&quot;.
-                    </span>
-                  </div>
-                )}
-                {pinPickerOpen && canAdd && (
-                  <div className="bga-pinned-picker">
-                    <input
-                      type="text"
-                      value={pinPickerQ}
-                      onChange={(e) => setPinPickerQ(e.target.value)}
-                      placeholder="Tìm theo tiêu đề, slug…"
-                      className="bga-pinned-picker-input"
-                      autoFocus
-                    />
-                    <div className="bga-pinned-picker-list">
-                      {candidates.length === 0 ? (
-                        <div className="bga-pinned-picker-empty">Không có bài phù hợp</div>
-                      ) : (
-                        candidates.map((p) => (
-                          <button
-                            key={p.slug}
-                            type="button"
-                            className="bga-pinned-picker-item"
-                            onClick={async () => {
-                              await togglePin(p);
-                              setPinPickerQ("");
-                            }}
-                          >
-                            <div className="bga-pinned-thumb">
-                              {p.coverImage ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={rewriteImgUrl(
-                                    p.coverImage
-                                      .split("#")[0]
-                                      .replace(/([?&])w=\d+/, "$1w=120")
-                                      .replace(/([?&])h=\d+/, "$1h=80"),
-                                  )}
-                                  alt=""
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <span
-                                  style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }}
-                                />
-                              )}
-                            </div>
-                            <div className="bga-pinned-picker-text">
-                              <b>{p.title}</b>
-                              <span>/blog/{p.slug}</span>
-                            </div>
-                            <IconPin size={13} stroke={1.9} />
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-                {effectivePinned.length === 0 ? (
-                  <div className="bga-pinned-empty">
-                    {mode === "manual"
-                      ? 'Chưa có bài nào được ghim. Bấm "Chọn bài" để thêm.'
-                      : mode === "category"
-                      ? "Chưa có bài phát hành nào trong danh mục này."
-                      : "Chưa đủ dữ liệu để chọn tự động."}
-                  </div>
-                ) : (
-                  <div className="bga-pinned-list">
-                    {effectivePinned.map((p) => (
-                      <div key={p.slug} className="bga-pinned-item">
-                        <div className="bga-pinned-thumb">
-                          {p.coverImage ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={rewriteImgUrl(
-                                p.coverImage
-                                  .split("#")[0]
-                                  .replace(/([?&])w=\d+/, "$1w=120")
-                                  .replace(/([?&])h=\d+/, "$1h=80"),
-                              )}
-                              alt=""
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
-                          )}
-                        </div>
-                        <button className="bga-pinned-title" onClick={() => startEdit(p)} title="Sửa" type="button">
-                          <span>{p.title}</span>
-                        </button>
-                        {mode === "manual" ? (
-                          <button
-                            className="fx-btn fx-btn-icon"
-                            onClick={() => togglePin(p)}
-                            title="Bỏ ghim"
-                            style={{ color: "var(--warn, #f59e0b)" }}
-                            type="button"
-                          >
-                            <IconPinFilled size={13} stroke={2} />
-                          </button>
-                        ) : (
-                          <span
-                            className="fx-btn fx-btn-icon"
-                            title={mode === "auto" ? "Hệ thống tự chọn" : "Theo danh mục"}
-                            aria-hidden="true"
-                            style={{ color: "var(--dim)", pointerEvents: "none" }}
-                          >
-                            <IconPinFilled size={13} stroke={2} />
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          <div className="bga-pinned-inline-only">{renderPinnedStrip()}</div>
           {autoRunning && (
             <div
               className="bga-failed-banner"
@@ -2927,6 +2930,31 @@ export default function BlogAdminTool({
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PIN MODAL */}
+      {pinModalOpen && (
+        <div
+          className="fx-modal-bg fx-modal-sheet"
+          onClick={(e) => e.target === e.currentTarget && setPinModalOpen(false)}
+        >
+          <div
+            className="fx-modal"
+            style={{ maxWidth: 1100, width: "95vw", maxHeight: "92vh", display: "flex", flexDirection: "column" }}
+          >
+            <div className="fx-modal-head">
+              <h2>
+                <IconPinFilled size={16} stroke={2} /> Cấu hình ghim
+              </h2>
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setPinModalOpen(false)}>
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body" style={{ overflow: "auto" }}>
+              {renderPinnedStrip()}
             </div>
           </div>
         </div>

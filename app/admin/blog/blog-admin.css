@@ -2401,6 +2401,12 @@
 }
 
 /* Pinned posts strip */
+/* On mobile (≤640px) the inline strip is hidden; access via Pin button on AdminTabBar. */
+@media (max-width: 640px) {
+  .bga-pinned-inline-only {
+    display: none;
+  }
+}
 .bga-pinned-strip {
   margin-bottom: 10px;
   padding: 8px 10px;
