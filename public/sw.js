@@ -7,7 +7,7 @@
  */
 
 // Bump version mỗi lần đổi format notification để ép Chrome lấy SW mới.
-const SW_VERSION = "fb-fuel-v3";
+const SW_VERSION = "fb-fuel-v4";
 const CACHE_NAME = SW_VERSION;
 const SIG_URL = "/__fb_fuel_sig__";
 const PERIODIC_TAG = "fuel-check";
@@ -149,16 +149,65 @@ self.addEventListener("message", (event) => {
   }
 });
 
+// Blog new-post notifications include an admin action id — handle those before
+// falling back to the generic "focus/open window" behavior used for fuel.
+async function handleBlogAction(event) {
+  const data = event.notification.data || {};
+  const slug = data.slug;
+  if (!slug) return;
+  const path = event.action === "approve" ? "/api/blog/approve" : "/api/blog/reject";
+  const label = event.action === "approve" ? "Đã duyệt" : "Đã từ chối";
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug }),
+    });
+    const ok = res.ok;
+    await self.registration.showNotification(ok ? `${label}: ${data.title || slug}` : "Thao tác lỗi", {
+      body: ok ? "Hoàn tất từ thông báo." : `Không ${event.action === "approve" ? "duyệt" : "từ chối"} được bài. Mở trang admin để thử lại.`,
+      icon: "/icon.svg",
+      badge: "/icon.svg",
+      tag: `fb-blog-ack-${slug}`,
+      data: { url: "/admin/blog" },
+    });
+    // Nhắc tab admin đang mở refresh danh sách.
+    const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of all) {
+      try {
+        if (new URL(client.url).pathname.startsWith("/admin/blog")) {
+          client.postMessage({ type: "blog-post-acted", slug, action: event.action, ok });
+        }
+      } catch {}
+    }
+  } catch {
+    await self.registration.showNotification("Thao tác lỗi", {
+      body: "Không gọi được API. Mở trang admin để thử lại.",
+      icon: "/icon.svg",
+      tag: `fb-blog-ack-${slug}`,
+      data: { url: "/admin/blog" },
+    });
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
+  const data = event.notification.data || {};
+  const isBlog = typeof event.notification.tag === "string" && event.notification.tag.startsWith("fb-blog-");
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/fuel";
+  // Blog "approve" / "reject" chạy nền, không mở tab.
+  if (isBlog && (event.action === "approve" || event.action === "reject")) {
+    event.waitUntil(handleBlogAction(event));
+    return;
+  }
+  const url = data.url || "/fuel";
   event.waitUntil(
     (async () => {
       const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of all) {
         try {
           const u = new URL(client.url);
-          if (u.pathname === url) {
+          if (u.pathname === url || (url.startsWith("/admin/blog") && u.pathname.startsWith("/admin/blog"))) {
             await client.focus();
             return;
           }

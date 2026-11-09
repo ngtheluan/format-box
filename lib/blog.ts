@@ -10,6 +10,14 @@ export type BlogStatus = "draft" | "rejected" | "published";
 export const MAX_PINNED = 6;
 export const PINNED_IN_CAROUSEL = 3;
 
+// Admin có 3 cách chọn 6 bài ghim cho /blog:
+// - "manual": admin tự tick từng bài (cột `pinned` trên blog_posts)
+// - "auto":   hệ thống chọn bài mới + bài có nhiều lượt "hữu ích"
+// - "category": 6 bài mới nhất thuộc 1 danh mục
+export type BlogPinMode = "manual" | "auto" | "category";
+export type BlogPinConfig = { mode: BlogPinMode; category?: string };
+export const DEFAULT_PIN_CONFIG: BlogPinConfig = { mode: "manual" };
+
 export type BlogPost = {
   slug: string;
   title: string;
@@ -832,6 +840,82 @@ const listReactionsCached = unstable_cache(fetchReactions, ["blog:reactions"], {
 
 export async function listReactions(): Promise<Record<string, number>> {
   return listReactionsCached();
+}
+
+// ---------------------------------------------------------------------------
+// Pin config — admin chọn cách ghim 6 bài trên /blog. Lưu trong app_settings
+// (key = "blog_pin_config"), đọc bằng service role. Cache 60s + tag để
+// revalidate khi admin sửa.
+// ---------------------------------------------------------------------------
+const PIN_CONFIG_KEY = "blog_pin_config";
+
+function sanitizePinConfig(value: unknown): BlogPinConfig {
+  const v = value as Partial<BlogPinConfig> | null | undefined;
+  const mode = v?.mode === "auto" || v?.mode === "category" ? v.mode : "manual";
+  const category = typeof v?.category === "string" && v.category ? v.category : undefined;
+  return mode === "category" ? { mode, category } : { mode };
+}
+
+async function fetchPinConfig(): Promise<BlogPinConfig> {
+  try {
+    const sb = supabaseAdmin();
+    const { data } = await sb.from("app_settings").select("value").eq("key", PIN_CONFIG_KEY).maybeSingle();
+    return sanitizePinConfig(data?.value);
+  } catch {
+    return { ...DEFAULT_PIN_CONFIG };
+  }
+}
+
+const getPinConfigCached = unstable_cache(fetchPinConfig, ["blog:pin-config"], {
+  revalidate: 300,
+  tags: ["blog-pin-config"],
+});
+
+export async function getPinConfig(): Promise<BlogPinConfig> {
+  return getPinConfigCached();
+}
+
+export async function setPinConfig(next: BlogPinConfig): Promise<void> {
+  const clean = sanitizePinConfig(next);
+  const sb = supabaseAdmin();
+  await sb
+    .from("app_settings")
+    .upsert({ key: PIN_CONFIG_KEY, value: clean, updated_at: new Date().toISOString() })
+    .throwOnError();
+  revalidateTag("blog-pin-config");
+  revalidateTag("blog-posts");
+}
+
+// Trả về danh sách bài được ghim (đã sắp xếp) tối đa MAX_PINNED, tính theo
+// pin config hiện hành. Dùng chung cho render /blog và preview trong admin.
+export function resolvePinnedPosts(
+  posts: BlogPost[],
+  config: BlogPinConfig,
+  popularity?: Record<string, number>,
+): BlogPost[] {
+  const published = posts.filter((p) => (p.status || "published") === "published");
+  if (config.mode === "manual") {
+    return published.filter((p) => p.pinned).slice(0, MAX_PINNED);
+  }
+  if (config.mode === "category") {
+    const cat = config.category;
+    if (!cat) return [];
+    return published
+      .filter((p) => p.category === cat)
+      .sort((a, b) => +new Date(b.date) - +new Date(a.date))
+      .slice(0, MAX_PINNED);
+  }
+  // auto: kết hợp "mới" + "hữu ích". Điểm = helpful + boost theo tuổi
+  // (<=14 ngày), tie-break theo ngày đăng giảm dần.
+  const now = Date.now();
+  const scored = published.map((p) => {
+    const ageDays = Math.max(0, (now - +new Date(p.date)) / 86400000);
+    const newBoost = ageDays <= 14 ? (14 - ageDays) * 0.6 : 0;
+    const helpful = popularity?.[p.slug] ?? 0;
+    return { p, score: helpful + newBoost, date: +new Date(p.date) };
+  });
+  scored.sort((a, b) => b.score - a.score || b.date - a.date);
+  return scored.slice(0, MAX_PINNED).map((x) => x.p);
 }
 
 // Blog votes — "bài viết có hữu ích không". One vote per reader (user id or IP),

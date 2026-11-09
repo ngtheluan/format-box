@@ -2500,6 +2500,56 @@
 
 .bga-pinned-head {
   justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.bga-pinned-modes {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  margin-left: 8px;
+}
+.bga-pinned-mode {
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.bga-pinned-mode:hover:not(:disabled) {
+  color: var(--text);
+}
+.bga-pinned-mode.is-active {
+  background: var(--warn, #f59e0b);
+  color: #fff;
+  cursor: default;
+}
+.bga-pinned-mode:disabled:not(.is-active) {
+  opacity: 0.5;
+  cursor: wait;
+}
+.bga-pinned-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 2px 0 6px;
+  font-size: 11px;
+  color: var(--dim);
+}
+.bga-pinned-sub-label {
+  font-weight: 700;
+  color: var(--text);
+}
+.bga-pinned-sub-hint {
+  font-style: italic;
 }
 .bga-pinned-add {
   margin-left: auto;

@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { isSuperAdmin } from "@/lib/admin-auth";
 import {
   categoriesToMap,
+  getPinConfig,
   listPublicCategories,
   listPublicDidYouKnow,
   listPublicPosts,
   listReactions,
+  resolvePinnedPosts,
 } from "@/lib/blog";
 import { AutoStallAlert } from "./AutoStallAlert";
 import { BlogList } from "./BlogList";
@@ -20,18 +22,27 @@ export const metadata: Metadata = {
 };
 
 export default async function BlogIndex() {
-  const [posts, cats, dyk, popularity, superAdmin] = await Promise.all([
+  const [posts, cats, dyk, popularity, superAdmin, pinConfig] = await Promise.all([
     listPublicPosts(),
     listPublicCategories(),
     listPublicDidYouKnow(),
     listReactions(),
     isSuperAdmin(),
+    getPinConfig(),
   ]);
+
+  const pinnedPosts = resolvePinnedPosts(posts, pinConfig, popularity);
 
   return (
     <div className="blog-wrap">
       {superAdmin && <AutoStallAlert />}
-      <BlogList posts={posts} categories={categoriesToMap(cats)} didYouKnow={dyk} popularity={popularity} />
+      <BlogList
+        posts={posts}
+        categories={categoriesToMap(cats)}
+        didYouKnow={dyk}
+        popularity={popularity}
+        pinnedSlugs={pinnedPosts.map((p) => p.slug)}
+      />
     </div>
   );
 }

@@ -4,11 +4,15 @@ import { useToast } from "@/components/Toast";
 import type { SelectOption } from "@/components/ui";
 import { Button, Field, Input, Select, Switch, Tab, TabPanel, Tabs, TabsList, Textarea } from "@/components/ui";
 import {
+  DEFAULT_PIN_CONFIG,
   MAX_PINNED,
+  resolvePinnedPosts,
   rewriteImgUrl,
   slugifyLabel,
   type BlogCategory,
   type BlogCategoryRow,
+  type BlogPinConfig,
+  type BlogPinMode,
   type BlogPost,
   type BlogStatus,
   type DidYouKnowImage,
@@ -116,6 +120,8 @@ type Props = {
   initialDidYouKnow?: DidYouKnowItem[];
   providers: Record<AiProvider, boolean>;
   isSuperAdmin?: boolean;
+  initialPinConfig?: BlogPinConfig;
+  popularity?: Record<string, number>;
 };
 
 type StepState = {
@@ -166,6 +172,8 @@ export default function BlogAdminTool({
   initialDidYouKnow,
   providers,
   isSuperAdmin = false,
+  initialPinConfig,
+  popularity,
 }: Props) {
   const toast = useToast();
   const router = useRouter();
@@ -175,6 +183,8 @@ export default function BlogAdminTool({
   const [q, setQ] = useState("");
   const [pinPickerOpen, setPinPickerOpen] = useState(false);
   const [pinPickerQ, setPinPickerQ] = useState("");
+  const [pinConfig, setPinConfig] = useState<BlogPinConfig>(initialPinConfig || DEFAULT_PIN_CONFIG);
+  const [pinConfigSaving, setPinConfigSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [tab, setTab] = useState<"posts" | "categories" | "series" | "knowledge" | "images">("posts");
 
@@ -863,6 +873,8 @@ export default function BlogAdminTool({
   async function generate(override?: { topic?: string; notes?: string }) {
     const t = (override?.topic ?? topic).trim();
     const useRandom = !t;
+    // Trigger from the user-gesture click so Chrome accepts the prompt.
+    void ensureNotifPermission();
     const ac = new AbortController();
     genAbortRef.current = ac;
     userCancelRef.current = false;
@@ -949,6 +961,7 @@ export default function BlogAdminTool({
           setGenerateOpen(false);
         }
         toast(`Đã sinh: ${post.title}`);
+        void notifyNewPost(post.title, post.slug);
         return post;
       }
     } catch (e: any) {
@@ -1069,6 +1082,8 @@ export default function BlogAdminTool({
   // Create the server-side job. The UI then polls /status for progress; the
   // job runs even if the admin closes this tab / browser.
   async function startAutoMode({ unlimited, count, gapMinutes }: AutoRunSettings) {
+    // Fire the permission prompt from this click handler so Chrome allows it.
+    void ensureNotifPermission();
     try {
       const r = await fetch("/api/blog/auto/start", {
         method: "POST",
@@ -1112,12 +1127,111 @@ export default function BlogAdminTool({
     }
   }
 
+  // One tick = one generated post. The server route holds the Supabase lease so
+  // pg_cron and this manual fire cannot overlap. Guard against re-entry on the
+  // client so the 3.5s poll doesn't start a second tick while one is running.
+  const tickingRef = useRef(false);
+  async function fireAutoTick(manual = false) {
+    if (tickingRef.current) {
+      if (manual) toast("Đang có lượt tick chạy, chờ xong rồi thử lại");
+      return;
+    }
+    tickingRef.current = true;
+    try {
+      const r = await fetch("/api/blog/auto/tick", { method: "POST" });
+      const j = await r.json();
+      if (!r.ok) {
+        if (manual) toast(j?.error || "Không chạy được tick");
+        return;
+      }
+      if (j.status) setAutoStatus(j.status);
+      if (manual) toast(`Tick: ${j.result}`);
+    } catch (e: any) {
+      if (manual) toast(e?.message || "Lỗi");
+    } finally {
+      tickingRef.current = false;
+    }
+  }
+
   // Keep status fresh: on mount (resume UI after reopening tab) and poll while
   // the server job is active. Also refresh the draft list after each new post
   // appears so the table stays in sync without full reload.
+  // Register the shared /sw.js so the browser can show rich notifications
+  // (with Duyệt / Từ chối actions) when a new auto-generated post lands.
+  const swRegRef = useRef<ServiceWorkerRegistration | null>(null);
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const existing = await navigator.serviceWorker.getRegistration("/sw.js");
+        const reg = existing || (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
+        if (!cancelled) swRegRef.current = reg;
+      } catch {}
+    })();
+    const onMsg = (e: MessageEvent) => {
+      const d = (e.data || {}) as { type?: string; slug?: string; action?: string; ok?: boolean };
+      if (d.type !== "blog-post-acted" || !d.slug) return;
+      const newStatus: BlogStatus = d.action === "approve" ? "published" : "rejected";
+      setPosts((prev) => prev.map((p) => (p.slug === d.slug ? { ...p, status: newStatus } : p)));
+      toast(d.ok ? `${d.action === "approve" ? "Đã duyệt" : "Đã từ chối"}: ${d.slug}` : `Lỗi thao tác: ${d.slug}`);
+      router.refresh();
+    };
+    navigator.serviceWorker.addEventListener("message", onMsg);
+    return () => {
+      cancelled = true;
+      navigator.serviceWorker.removeEventListener("message", onMsg);
+    };
+  }, [router, toast]);
+
+  // Ask for Notification permission the first time an auto run starts — the
+  // admin wants browser popups so they can approve/reject outside this tab.
+  async function ensureNotifPermission(): Promise<boolean> {
+    if (typeof Notification === "undefined") return false;
+    if (Notification.permission === "granted") return true;
+    if (Notification.permission === "denied") return false;
+    try {
+      const p = await Notification.requestPermission();
+      return p === "granted";
+    } catch {
+      return false;
+    }
+  }
+
+  async function notifyNewPost(postTitle: string, slug: string) {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const reg = swRegRef.current || (await navigator.serviceWorker?.ready.catch(() => null));
+    if (!reg) return;
+    try {
+      await reg.showNotification("Bài blog mới vừa sinh", {
+        body: postTitle,
+        icon: "/icon.svg",
+        badge: "/icon.svg",
+        tag: `fb-blog-new-${slug}`,
+        requireInteraction: true,
+        data: { slug, title: postTitle, url: "/admin/blog" },
+        // Chrome/Edge render these as inline buttons on desktop + Android.
+        // Safari/iOS ignores them silently; clicking the notification body
+        // still focuses /admin/blog.
+        actions: [
+          { action: "approve", title: "Duyệt nhanh" },
+          { action: "reject", title: "Từ chối" },
+        ],
+      } as NotificationOptions & { actions?: { action: string; title: string }[] });
+    } catch {}
+  }
+
   useEffect(() => {
     let cancelled = false;
-    const prevGenRef = { current: 0 };
+    // Seeded from the first poll so toasts don't fire for posts generated
+    // before this tab was opened.
+    const prev = {
+      gen: -1,
+      failed: -1,
+      running: null as boolean | null,
+      topic: "",
+      error: "",
+    };
     async function poll() {
       try {
         const r = await fetch("/api/blog/auto/status", { cache: "no-store" });
@@ -1125,9 +1239,52 @@ export default function BlogAdminTool({
         const j = (await r.json()) as AutoStatusApi;
         if (cancelled) return;
         setAutoStatus(j);
-        if (j.generated > prevGenRef.current) {
-          prevGenRef.current = j.generated;
+        // First poll just records the baseline.
+        if (prev.gen === -1) {
+          prev.gen = j.generated;
+          prev.failed = j.failed;
+          prev.running = j.running;
+          prev.topic = j.currentTopic;
+          prev.error = j.lastError || "";
+          return;
+        }
+        if (j.generated > prev.gen) {
+          const latest = j.recent[0];
+          if (latest) {
+            toast(`Auto · đã sinh "${latest.title}"`);
+            void notifyNewPost(latest.title, latest.slug);
+          }
+          prev.gen = j.generated;
           router.refresh();
+        }
+        if (j.failed > prev.failed) {
+          toast(`Auto · lỗi: ${(j.lastError || "Lỗi không xác định").slice(0, 140)}`);
+          prev.failed = j.failed;
+        }
+        // Topic transitions (e.g. "tech · đang khởi động…" → "tech · lập dàn ý")
+        // let the user follow what the job is doing in real time.
+        if (j.running && j.currentTopic && j.currentTopic !== prev.topic) {
+          toast(`Auto · ${j.currentTopic}`);
+          prev.topic = j.currentTopic;
+        }
+        // Job stopped on its own (ran out of retries, reached target, etc.).
+        if (prev.running === true && !j.running) {
+          const why = j.lastError
+            ? `lỗi: ${j.lastError.slice(0, 120)}`
+            : `đã sinh ${j.generated} bài`;
+          toast(`Auto đã dừng · ${why}`);
+        }
+        prev.running = j.running;
+        prev.error = j.lastError || "";
+        // Keep the queue moving even when pg_cron can't reach this host
+        // (local dev) or is lagging (gap minute boundary). Fires at most one
+        // tick at a time — the ref guard inside fireAutoTick prevents overlap.
+        if (
+          j.running &&
+          !tickingRef.current &&
+          (j.lockedUntil == null || j.lockedUntil < Date.now() - 2_000)
+        ) {
+          void fireAutoTick();
         }
       } catch {}
     }
@@ -1137,7 +1294,7 @@ export default function BlogAdminTool({
       cancelled = true;
       clearInterval(id);
     };
-  }, [router]);
+  }, [router, toast]);
 
   async function bulkApprove() {
     const slugs = Array.from(selectedDraftSlugs);
@@ -1224,6 +1381,30 @@ export default function BlogAdminTool({
         ideasAbortRef.current = null;
         setIdeasLoading(false);
       }
+    }
+  }
+
+  async function savePinConfig(next: BlogPinConfig) {
+    const prev = pinConfig;
+    setPinConfig(next);
+    setPinConfigSaving(true);
+    try {
+      const r = await fetch("/api/blog/pin-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || `Lỗi ${r.status}`);
+      const label =
+        next.mode === "manual" ? "Thủ công" : next.mode === "auto" ? "Tự động" : `Danh mục: ${CAT_LABEL[next.category!] || next.category}`;
+      toast(`Đã chuyển chế độ ghim: ${label}`);
+      router.refresh();
+    } catch (e: any) {
+      setPinConfig(prev);
+      toast(e?.message || "Lỗi");
+    } finally {
+      setPinConfigSaving(false);
     }
   }
 
@@ -2162,8 +2343,13 @@ export default function BlogAdminTool({
       ) : (
         <>
           {(() => {
-            const pinned = posts.filter((x) => x.pinned);
-            const canAdd = pinned.length < MAX_PINNED;
+            const mode: BlogPinMode = pinConfig.mode;
+            // Danh sách hiển thị tuỳ mode (manual dùng cột pinned, auto/category tính động).
+            const effectivePinned =
+              mode === "manual"
+                ? posts.filter((x) => x.pinned)
+                : resolvePinnedPosts(posts, pinConfig, popularity);
+            const canAdd = mode === "manual" && effectivePinned.length < MAX_PINNED;
             const candidates = posts
               .filter((x) => !x.pinned && (x.status || "published") === "published")
               .filter((x) => {
@@ -2176,13 +2362,46 @@ export default function BlogAdminTool({
                 );
               })
               .slice(0, 30);
+            const activeCats = cats.filter((c) => c.active);
+            const MODE_OPTIONS: { id: BlogPinMode; label: string; desc: string }[] = [
+              { id: "manual", label: "Thủ công", desc: "Admin tự chọn 6 bài để ghim" },
+              { id: "auto", label: "Tự động", desc: "Bài mới và/hoặc có nhiều lượt đánh giá hữu ích" },
+              { id: "category", label: "Theo danh mục", desc: "6 bài mới nhất thuộc 1 danh mục" },
+            ];
             return (
               <div className="bga-pinned-strip">
                 <div className="bga-pinned-head">
                   <IconPinFilled size={13} stroke={2} />
                   <span>
-                    Đang ghim ({pinned.length}/{MAX_PINNED})
+                    Ghim ({effectivePinned.length}/{MAX_PINNED})
                   </span>
+                  <div className="bga-pinned-modes" role="tablist" aria-label="Chế độ ghim">
+                    {MODE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === opt.id}
+                        className={`bga-pinned-mode${mode === opt.id ? " is-active" : ""}`}
+                        disabled={pinConfigSaving || mode === opt.id}
+                        onClick={() => {
+                          if (opt.id === "category") {
+                            const cat = pinConfig.category || activeCats[0]?.slug;
+                            if (!cat) {
+                              toast("Chưa có danh mục nào đang bật");
+                              return;
+                            }
+                            void savePinConfig({ mode: "category", category: cat });
+                          } else {
+                            void savePinConfig({ mode: opt.id });
+                          }
+                        }}
+                        title={opt.desc}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                   {canAdd && (
                     <button
                       type="button"
@@ -2194,6 +2413,30 @@ export default function BlogAdminTool({
                     </button>
                   )}
                 </div>
+                {mode === "category" && (
+                  <div className="bga-pinned-sub">
+                    <span className="bga-pinned-sub-label">Danh mục:</span>
+                    <Select
+                      selectSize="sm"
+                      value={pinConfig.category || ""}
+                      disabled={pinConfigSaving}
+                      placeholder={!pinConfig.category ? "— chọn —" : undefined}
+                      options={activeCats.map((c) => ({ value: c.slug, label: c.label }))}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        if (next) void savePinConfig({ mode: "category", category: next });
+                      }}
+                    />
+                    <span className="bga-pinned-sub-hint">6 bài phát hành mới nhất trong danh mục này.</span>
+                  </div>
+                )}
+                {mode === "auto" && (
+                  <div className="bga-pinned-sub">
+                    <span className="bga-pinned-sub-hint">
+                      Hệ thống tự chọn: ưu tiên bài đăng trong 14 ngày gần đây và/hoặc có nhiều lượt &quot;hữu ích&quot;.
+                    </span>
+                  </div>
+                )}
                 {pinPickerOpen && canAdd && (
                   <div className="bga-pinned-picker">
                     <input
@@ -2249,11 +2492,17 @@ export default function BlogAdminTool({
                     </div>
                   </div>
                 )}
-                {pinned.length === 0 ? (
-                  <div className="bga-pinned-empty">Chưa có bài nào được ghim. Bấm &quot;Chọn bài&quot; để thêm.</div>
+                {effectivePinned.length === 0 ? (
+                  <div className="bga-pinned-empty">
+                    {mode === "manual"
+                      ? 'Chưa có bài nào được ghim. Bấm "Chọn bài" để thêm.'
+                      : mode === "category"
+                      ? "Chưa có bài phát hành nào trong danh mục này."
+                      : "Chưa đủ dữ liệu để chọn tự động."}
+                  </div>
                 ) : (
                   <div className="bga-pinned-list">
-                    {pinned.map((p) => (
+                    {effectivePinned.map((p) => (
                       <div key={p.slug} className="bga-pinned-item">
                         <div className="bga-pinned-thumb">
                           {p.coverImage ? (
@@ -2276,15 +2525,26 @@ export default function BlogAdminTool({
                         <button className="bga-pinned-title" onClick={() => startEdit(p)} title="Sửa" type="button">
                           <span>{p.title}</span>
                         </button>
-                        <button
-                          className="fx-btn fx-btn-icon"
-                          onClick={() => togglePin(p)}
-                          title="Bỏ ghim"
-                          style={{ color: "var(--warn, #f59e0b)" }}
-                          type="button"
-                        >
-                          <IconPinFilled size={13} stroke={2} />
-                        </button>
+                        {mode === "manual" ? (
+                          <button
+                            className="fx-btn fx-btn-icon"
+                            onClick={() => togglePin(p)}
+                            title="Bỏ ghim"
+                            style={{ color: "var(--warn, #f59e0b)" }}
+                            type="button"
+                          >
+                            <IconPinFilled size={13} stroke={2} />
+                          </button>
+                        ) : (
+                          <span
+                            className="fx-btn fx-btn-icon"
+                            title={mode === "auto" ? "Hệ thống tự chọn" : "Theo danh mục"}
+                            aria-hidden="true"
+                            style={{ color: "var(--dim)", pointerEvents: "none" }}
+                          >
+                            <IconPinFilled size={13} stroke={2} />
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2654,9 +2914,18 @@ export default function BlogAdminTool({
                 Đóng
               </button>
               {autoRunning && (
-                <button className="fx-btn" style={{ color: "var(--err, #ef4444)" }} onClick={stopAutoMode}>
-                  <IconX size={14} stroke={2} /> Dừng tự động
-                </button>
+                <>
+                  <button
+                    className="fx-btn"
+                    onClick={() => fireAutoTick(true)}
+                    title="Chạy ngay 1 lượt sinh thay vì đợi cron (hữu ích khi dev local)"
+                  >
+                    <IconPlayerSkipForward size={14} stroke={2} /> Tick ngay
+                  </button>
+                  <button className="fx-btn" style={{ color: "var(--err, #ef4444)" }} onClick={stopAutoMode}>
+                    <IconX size={14} stroke={2} /> Dừng tự động
+                  </button>
+                </>
               )}
             </div>
           </div>

@@ -126,29 +126,157 @@ export async function POST(req: Request) {
         let category = body.category && validCats.includes(body.category) ? body.category : undefined;
         let topic = (body.topic || "").toString().trim();
 
+        // Shared across random-pick and the user-typed-topic guard: a cheap
+        // token-overlap similarity against existing titles to block duplicates.
+        const normalize = (s: string) =>
+          s
+            .normalize("NFD")
+            .replace(/[̀-ͯ]/g, "")
+            .replace(/đ/gi, "d")
+            .toLowerCase();
+        const STOP = new Set([
+          "cua","va","la","mot","nhung","nay","do","voi","cho","trong","tren","duoi","ve","de",
+          "khong","co","khi","nhu","tu","da","dang","se","hay","hoac","thi","cung","neu","nen",
+          "ma","boi","the","cac","nao","moi","nhat","them","giup","ban","the","nguoi","viet",
+          "the","gi","ra","len","xuong","o","di","vi","sao","toi","chung","ta","minh","the",
+          "bai","blog","huong","dan","cach",
+        ]);
+        const tokenize = (s: string): Set<string> =>
+          new Set(
+            normalize(s)
+              .split(/[^a-z0-9]+/)
+              .filter((w) => w.length >= 3 && !STOP.has(w)),
+          );
+        const similarity = (a: string, b: string): number => {
+          const A = tokenize(a);
+          const B = tokenize(b);
+          if (A.size < 2 || B.size < 2) return 0;
+          let inter = 0;
+          for (const x of A) if (B.has(x)) inter++;
+          return inter / Math.min(A.size, B.size);
+        };
+        // Match against every stored title (not just same category): user's rule
+        // is "liên quan bài viết trước đó" regardless of category.
+        const existingTitles = existing.map((p) => p.title);
+        const findClosest = (candidate: string, threshold: number) => {
+          let best: { title: string; score: number } | null = null;
+          for (const t of existingTitles) {
+            const s = similarity(candidate, t);
+            if (!best || s > best.score) best = { title: t, score: s };
+          }
+          return best && best.score >= threshold ? best : null;
+        };
+
         // 1) Random → let AI pick a fresh topic that the blog has not covered yet.
         if (body.mode === "random" || !topic) {
           send({ type: "step", step: "topic", status: "start" });
           category = category || validCats[Math.floor(Math.random() * validCats.length)] || "tech";
           const label = cats.find((c) => c.slug === category)?.label || category;
-          const r = await callLlm({
-            provider,
-            model,
-            json: true,
-            temperature: 1,
-            timeoutMs: 60_000,
-            system: "Bạn là biên tập viên blog công nghệ & ẩm thực Việt Nam. Trả JSON hợp lệ.",
-            user: `Đề xuất 1 chủ đề blog tiếng Việt hấp dẫn, có tính thời sự (hôm nay ${new Date()
-              .toISOString()
-              .slice(0, 10)}), thuộc danh mục "${label}". Không trùng các bài đã có:\n${existing
-              .slice(0, 40)
-              .map((p) => `- ${p.title}`)
-              .join("\n")}\n\nJSON: {"topic":"...","angle":"góc tiếp cận 1 câu"}`,
-          });
-          const j = parseJsonLoose<{ topic?: string; angle?: string }>(r.text);
-          topic = j?.topic?.trim() || `Xu hướng ${label} đáng chú ý`;
-          if (j?.angle) topic += ` — ${j.angle}`;
+          // Count how often each brand/entity appears in recent titles for this
+          // category. Without this the LLM keeps proposing the same trending
+          // brand (Apple, iPhone…) on every tick.
+          const sameCat = existing.filter((p) => p.category === category);
+          const recentTitles = sameCat.slice(0, 80).map((p) => p.title);
+          const BRAND_RE = /\b(Apple|iPhone|iPad|iOS|MacBook|Mac|AirPods|Vision Pro|Samsung|Galaxy|Google|Pixel|Android|Microsoft|Windows|Xbox|Meta|Facebook|Instagram|WhatsApp|OpenAI|ChatGPT|GPT|Claude|Anthropic|Gemini|DeepSeek|Grok|Nvidia|AMD|Intel|Qualcomm|Tesla|SpaceX|TikTok|ByteDance|Xiaomi|Huawei|Sony|Netflix|Amazon|AWS|Oracle|IBM|Spotify|Adobe|Figma|GitHub|Vercel|Next\.js|React|Vue|Angular|Node|Python|Rust|Go|Java|Swift|Kotlin|Linux|Ubuntu|Docker|Kubernetes|PostgreSQL|MongoDB|Redis|Supabase|Firebase|Cloudflare)\b/gi;
+          const brandCount = new Map<string, number>();
+          for (const t of recentTitles) {
+            const seen = new Set<string>();
+            for (const m of t.matchAll(BRAND_RE)) {
+              const key = m[0].toLowerCase();
+              if (seen.has(key)) continue;
+              seen.add(key);
+              brandCount.set(key, (brandCount.get(key) || 0) + 1);
+            }
+          }
+          const overused = [...brandCount.entries()]
+            .filter(([, n]) => n >= 2)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 12)
+            .map(([k]) => k);
+          const angles = [
+            "xu hướng mới nổi",
+            "so sánh đối thủ",
+            "mẹo/thủ thuật thực hành",
+            "câu chuyện doanh nghiệp/startup",
+            "nghiên cứu, báo cáo mới",
+            "góc nhìn phản biện",
+            "hướng dẫn cho người mới",
+            "sự kiện/thông báo trong tuần",
+          ];
+          const pickedAngle = angles[Math.floor(Math.random() * angles.length)];
+          // Retry up to 3 times if the proposed topic is too close to any
+          // existing title. Each retry adds the collided title to the ban list.
+          const dupBan: string[] = [];
+          let picked = "";
+          let pickedCandidate: { topic: string; angle?: string } | null = null;
+          let collision: { title: string; score: number } | null = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const r = await callLlm({
+              provider,
+              model,
+              json: true,
+              temperature: 1,
+              timeoutMs: 60_000,
+              system: "Bạn là biên tập viên blog công nghệ & ẩm thực Việt Nam. Trả JSON hợp lệ.",
+              user: [
+                `Đề xuất 1 chủ đề blog tiếng Việt hấp dẫn, có tính thời sự (hôm nay ${new Date().toISOString().slice(0, 10)}), thuộc danh mục "${label}".`,
+                `Yêu cầu đa dạng: hướng tiếp cận lần này là "${pickedAngle}".`,
+                overused.length
+                  ? `TUYỆT ĐỐI KHÔNG viết về các thương hiệu/chủ thể đã bị khai thác quá nhiều gần đây: ${overused.join(", ")}. Chọn thương hiệu/chủ thể KHÁC HẲN (ví dụ nếu bị cấm Apple thì chuyển sang Android, open-source, AI model mới, startup Việt, công nghệ phần cứng khác…).`
+                  : "",
+              "Không được lặp lại chủ thể chính của các bài đã có. Chủ đề mới phải khác hẳn về đối tượng, ngóc ngách, công nghệ — không chỉ khác tiêu đề.",
+                dupBan.length
+                  ? `Các gợi ý trước BỊ TỪ CHỐI vì quá giống bài đã có, TUYỆT ĐỐI không được chọn chủ thể tương tự: ${dupBan.join(" | ")}.`
+                  : "",
+                `Danh sách bài đã có (không được trùng tiêu đề hay chủ thể chính, kể cả khác câu chữ):\n${existingTitles
+                  .slice(0, 120)
+                  .map((t) => `- ${t}`)
+                  .join("\n")}`,
+                `JSON: {"topic":"...","angle":"góc tiếp cận 1 câu"}`,
+              ]
+                .filter(Boolean)
+                .join("\n\n"),
+            });
+            const j = parseJsonLoose<{ topic?: string; angle?: string }>(r.text);
+            const cand = j?.topic?.trim() || "";
+            if (!cand) continue;
+            const hit = findClosest(cand, 0.6);
+            if (hit) {
+              dupBan.push(`"${cand}" (giống "${hit.title}")`);
+              collision = hit;
+              send({
+                type: "step",
+                step: "topic",
+                status: "start",
+                detail: `Bỏ "${cand}" vì trùng "${hit.title}", chọn chủ đề khác…`,
+              });
+              continue;
+            }
+            picked = cand;
+            pickedCandidate = { topic: cand, angle: j?.angle };
+            collision = null;
+            break;
+          }
+          if (!picked) {
+            // All attempts collided — stop before wasting a long write pass on
+            // a duplicate.
+            const err = `Không tìm được chủ đề mới (trùng ${collision?.title ?? "bài cũ"}). Hãy nhập chủ đề hoặc đợi/thêm danh mục khác.`;
+            send({ type: "error", error: err });
+            send({ type: "step", step: "topic", status: "skip", detail: err });
+            return;
+          }
+          topic = picked;
+          if (pickedCandidate?.angle) topic += ` — ${pickedCandidate.angle}`;
           send({ type: "step", step: "topic", status: "done", detail: topic });
+        } else {
+          // User-typed topic: still refuse exact duplicates / near-duplicates
+          // so the config path can't accidentally regenerate an existing post.
+          const hit = findClosest(topic, 0.75);
+          if (hit) {
+            const err = `Chủ đề "${topic}" trùng bài đã có: "${hit.title}". Hãy sửa chủ đề hoặc xoá/ẩn bài cũ trước.`;
+            send({ type: "error", error: err });
+            return;
+          }
         }
 
         // 2) Optional web research for fresh, verifiable facts.

@@ -166,12 +166,17 @@ export function BlogList({
   didYouKnow,
   activeTag = null,
   popularity,
+  pinnedSlugs,
 }: {
   posts: BlogPost[];
   categories?: BlogCategoryMap;
   didYouKnow?: DidYouKnowItem[];
   activeTag?: string | null;
   popularity?: Record<string, number>;
+  // Resolved by the server from the pin config (manual/auto/category). When
+  // omitted, falls back to the per-post `pinned` flag so other callers (e.g.
+  // tag pages) still work.
+  pinnedSlugs?: string[];
 }) {
   const { t } = useI18n();
   const [active, setActive] = useState<string | null>(activeTag);
@@ -202,8 +207,12 @@ export function BlogList({
     });
   }, [all, active, q, catMap]);
 
-  // Featured split is independent of the topic filter.
-  const pinned = all.filter((p) => p.pinned).slice(0, MAX_PINNED);
+  // Featured split is independent of the topic filter. When the server resolved
+  // the pinned list (via pin config), use it as-is; otherwise fall back to the
+  // per-post `pinned` flag.
+  const pinned = pinnedSlugs
+    ? (pinnedSlugs.map((s) => all.find((p) => p.slug === s)).filter(Boolean) as BlogPost[]).slice(0, MAX_PINNED)
+    : all.filter((p) => p.pinned).slice(0, MAX_PINNED);
   const carousel = pinned.slice(0, PINNED_IN_CAROUSEL);
   const side = pinned.slice(PINNED_IN_CAROUSEL);
   // The grid skips featured posts on the default view; a topic view lists every post in it.

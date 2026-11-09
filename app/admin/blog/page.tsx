@@ -1,16 +1,18 @@
 import BlogAdminTool from "./BlogAdminTool";
 import { isSuperAdmin } from "@/lib/admin-auth";
-import { listAdminCategories, listAdminDidYouKnow, listAdminPosts } from "@/lib/blog";
+import { getPinConfig, listAdminCategories, listAdminDidYouKnow, listAdminPosts, listReactions } from "@/lib/blog";
 import { availableProviders } from "@/lib/blog-ai";
 
 export const dynamic = "force-dynamic";
 
 export default async function BlogAdminPage() {
-  const [posts, categories, didYouKnow, superadmin] = await Promise.all([
+  const [posts, categories, didYouKnow, superadmin, pinConfig, popularity] = await Promise.all([
     listAdminPosts(),
     listAdminCategories(),
     listAdminDidYouKnow(),
     isSuperAdmin(),
+    getPinConfig(),
+    listReactions(),
   ]);
   return (
     <BlogAdminTool
@@ -19,6 +21,8 @@ export default async function BlogAdminPage() {
       initialDidYouKnow={didYouKnow}
       providers={availableProviders()}
       isSuperAdmin={superadmin}
+      initialPinConfig={pinConfig}
+      popularity={popularity}
     />
   );
 }
