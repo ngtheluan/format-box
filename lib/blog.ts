@@ -186,6 +186,15 @@ export type DidYouKnowQuizQuestion = {
 type DbDyk = Omit<DidYouKnowItem, "images" | "quiz"> & { images: unknown; quiz?: unknown };
 
 export function normDykQuiz(x: unknown): DidYouKnowQuizQuestion[] {
+  // Supabase trả jsonb thành array, nhưng nếu cột bị tạo là text hoặc
+  // driver nào đó không parse, ta vẫn đọc được bằng cách tự parse chuỗi.
+  if (typeof x === "string") {
+    try {
+      x = JSON.parse(x);
+    } catch {
+      return [];
+    }
+  }
   if (!Array.isArray(x)) return [];
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const out: DidYouKnowQuizQuestion[] = [];

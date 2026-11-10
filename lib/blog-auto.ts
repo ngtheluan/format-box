@@ -378,5 +378,14 @@ export async function runAutoTick(baseUrl: string): Promise<TickResult> {
   if (!job) return "idle";
   const outcome = await generateOne(job, baseUrl);
   await finishTick(job, outcome);
+  if (outcome.kind === "generated") {
+    // Fire-and-forget: Web Push tới mọi subscription đã đăng ký, để admin
+    // nhận được notification kể cả khi tab đã đóng. Lỗi push không được
+    // phép fail tick.
+    try {
+      const { sendBlogNewPostPush } = await import("@/lib/push");
+      await sendBlogNewPostPush(outcome.post);
+    } catch {}
+  }
   return outcome.kind;
 }

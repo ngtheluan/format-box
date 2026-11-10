@@ -114,6 +114,17 @@ import RelatedToolsPicker from "./RelatedToolsPicker";
 
 marked.setOptions({ gfm: true, breaks: false });
 
+// VAPID key dạng base64url → ArrayBuffer cho PushManager.subscribe.
+function urlBase64ToArrayBuffer(base64: string): ArrayBuffer {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = typeof atob === "function" ? atob(b64) : Buffer.from(b64, "base64").toString("binary");
+  const buf = new ArrayBuffer(raw.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
+  return buf;
+}
+
 type Props = {
   initialPosts: BlogPost[];
   initialCategories: BlogCategoryRow[];
@@ -242,19 +253,30 @@ export default function BlogAdminTool({
 
   // One request per item: each is a full LLM call, too slow to batch in one route.
   async function backfillDykQuiz() {
+    const targets = dykMissingQuiz.slice();
     let failed = 0;
+    let ok = 0;
     let lastError = "";
-    for (let i = 0; i < dykMissingQuiz.length; i++) {
-      setDykQuizProgress(`${i + 1}/${dykMissingQuiz.length}`);
+    for (let i = 0; i < targets.length; i++) {
+      setDykQuizProgress(`${i + 1}/${targets.length}`);
       try {
         const r = await fetch("/api/blog/did-you-know/quiz", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: dykMissingQuiz[i].slug, provider: genProvider }),
+          body: JSON.stringify({ slug: targets[i].slug, provider: genProvider }),
         });
+        const j = await r.json().catch(() => null);
         if (!r.ok) {
           failed++;
-          lastError = (await r.json().catch(() => null))?.error || `Lỗi ${r.status}`;
+          lastError = j?.error || `Lỗi ${r.status}`;
+        } else if (Array.isArray(j?.quiz) && j.quiz.length) {
+          ok++;
+          // Update ngay để UI phản ánh quiz đã lưu, không chờ reload cuối.
+          const quiz = j.quiz;
+          setDyk((prev) => prev.map((x) => (x.slug === targets[i].slug ? { ...x, quiz } : x)));
+        } else {
+          failed++;
+          lastError = "API trả về không có quiz";
         }
       } catch (e: any) {
         failed++;
@@ -263,7 +285,8 @@ export default function BlogAdminTool({
     }
     setDykQuizProgress("");
     await reloadDyk();
-    toast(failed ? `Lỗi ${failed}/${dykMissingQuiz.length} mục: ${lastError}` : "Đã sinh quiz cho các mục còn thiếu");
+    if (failed) toast(`Lỗi ${failed}/${targets.length} mục: ${lastError}`);
+    else toast(`Đã sinh quiz cho ${ok}/${targets.length} mục`);
   }
 
   function openNewDyk() {
@@ -1171,6 +1194,11 @@ export default function BlogAdminTool({
         const existing = await navigator.serviceWorker.getRegistration("/sw.js");
         const reg = existing || (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
         if (!cancelled) swRegRef.current = reg;
+        // Nếu đã có quyền từ phiên trước, re-sync subscription để server
+        // có endpoint mới nhất (endpoint có thể đã bị xoá do 410/404).
+        if (!cancelled && typeof Notification !== "undefined" && Notification.permission === "granted") {
+          void ensurePushSubscription();
+        }
       } catch {}
     })();
     const onMsg = (e: MessageEvent) => {
@@ -1192,14 +1220,42 @@ export default function BlogAdminTool({
   // admin wants browser popups so they can approve/reject outside this tab.
   async function ensureNotifPermission(): Promise<boolean> {
     if (typeof Notification === "undefined") return false;
-    if (Notification.permission === "granted") return true;
-    if (Notification.permission === "denied") return false;
-    try {
-      const p = await Notification.requestPermission();
-      return p === "granted";
-    } catch {
-      return false;
+    let granted = Notification.permission === "granted";
+    if (!granted) {
+      if (Notification.permission === "denied") return false;
+      try {
+        granted = (await Notification.requestPermission()) === "granted";
+      } catch {
+        return false;
+      }
     }
+    if (granted) void ensurePushSubscription();
+    return granted;
+  }
+
+  // Register a Web Push subscription so the server can push notifications
+  // after the tab closes. No-op when VAPID isn't configured on the server.
+  async function ensurePushSubscription(): Promise<void> {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidKey) return;
+    try {
+      const reg = swRegRef.current || (await navigator.serviceWorker.ready);
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToArrayBuffer(vapidKey),
+        });
+      }
+      const json = sub.toJSON();
+      await fetch("/api/blog/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
+        credentials: "same-origin",
+      });
+    } catch {}
   }
 
   async function notifyNewPost(postTitle: string, slug: string) {

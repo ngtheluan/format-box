@@ -16,11 +16,21 @@ export async function POST(req: Request) {
   const provider: AiProvider = body.provider && body.provider in AI_MODELS ? body.provider : "groq";
 
   try {
-    const item = (await listAdminDidYouKnow()).find((it) => it.slug === slug);
+    const items = await listAdminDidYouKnow();
+    const item = items.find((it) => it.slug === slug);
     if (!item) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
     const quiz = await generateDykQuiz(item, provider);
     await updateDidYouKnow(slug, { quiz });
-    return NextResponse.json({ ok: true, count: quiz.length });
+    // Đọc lại để chắc chắn quiz đã nằm trong DB (cột `quiz` có thể chưa được
+    // migrate; lúc đó update không báo lỗi nhưng dữ liệu không nhận).
+    const saved = (await listAdminDidYouKnow()).find((it) => it.slug === slug);
+    if (!saved?.quiz?.length) {
+      return NextResponse.json(
+        { error: "Đã sinh nhưng không lưu được — kiểm tra cột `quiz` trong blog_did_you_know" },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json({ ok: true, count: saved.quiz.length, quiz: saved.quiz });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "AI lỗi" }, { status: 500 });
   }

@@ -7,7 +7,7 @@
  */
 
 // Bump version mỗi lần đổi format notification để ép Chrome lấy SW mới.
-const SW_VERSION = "fb-fuel-v4";
+const SW_VERSION = "fb-fuel-v5";
 const CACHE_NAME = SW_VERSION;
 const SIG_URL = "/__fb_fuel_sig__";
 const PERIODIC_TAG = "fuel-check";
@@ -146,6 +146,36 @@ self.addEventListener("message", (event) => {
     // fetch snapshot mới nhất và hiển thị nội dung thật (ép hiện dù signature
     // không đổi).
     event.waitUntil(checkAndNotify({ force: true, testPrefix: true }));
+  }
+});
+
+// Web Push từ server: khi auto job sinh xong một bài, server bắn payload
+// {type:"blog-new-post", slug, title}. Hiện notification y hệt client-side
+// để admin có nút Duyệt nhanh / Từ chối kể cả khi tab admin đã đóng.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+  if (data && data.type === "blog-new-post" && data.slug) {
+    const title = "Bài blog mới vừa sinh";
+    const body = data.title || data.slug;
+    event.waitUntil(
+      self.registration.showNotification(title, {
+        body,
+        icon: "/icon.svg",
+        badge: "/icon.svg",
+        tag: `fb-blog-new-${data.slug}`,
+        requireInteraction: true,
+        data: { slug: data.slug, title: body, url: "/admin/blog" },
+        actions: [
+          { action: "approve", title: "Duyệt nhanh" },
+          { action: "reject", title: "Từ chối" },
+        ],
+      }),
+    );
   }
 });
 

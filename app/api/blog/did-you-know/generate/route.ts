@@ -94,12 +94,14 @@ JSON: {"slug":"kebab-case","tag_vi":"...","tag_en":"...","title_vi":"...","title
     // Separate and guarded: a failed quiz (or a DB without the `quiz` column yet)
     // must not lose the exhibit that was just saved.
     let quizSaved = true;
+    let quizError = "";
     try {
       await updateDidYouKnow(slug, { quiz: await generateDykQuiz(item, provider) });
-    } catch {
+    } catch (e: any) {
       quizSaved = false;
+      quizError = e?.message || "Lỗi sinh quiz";
     }
-    return NextResponse.json({ ok: true, item, quizSaved });
+    return NextResponse.json({ ok: true, item, quizSaved, ...(quizError ? { quizError } : {}) });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "AI lỗi" }, { status: 500 });
   }
