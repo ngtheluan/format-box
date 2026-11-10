@@ -20,6 +20,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://formatbox.site").
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  manifest: "/manifest.webmanifest",
   title: "FormatBox — Bộ công cụ chuyển đổi & định dạng dữ liệu online",
   description:
     "FormatBox là bộ công cụ online miễn phí cho lập trình viên: định dạng JSON, mã hoá Base64, chuyển đổi hình ảnh, tra cứu tỷ giá, giá vàng, giá xăng...",
