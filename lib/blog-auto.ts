@@ -133,13 +133,7 @@ export type StartConfig = {
 };
 
 function jobOptions(job: JobRow): AutoGenOptions {
-  // Strip internal bookkeeping (e.g. the rolling random-category pick) so it
-  // never leaks into the /api/blog/generate request body.
-  const { _randomCat: _rc, _randomCatAt: _rat, ...rest } = (job.options || {}) as Partial<AutoGenOptions> & {
-    _randomCat?: string;
-    _randomCatAt?: number;
-  };
-  return { ...AUTO_GEN_DEFAULTS, ...rest };
+  return { ...AUTO_GEN_DEFAULTS, ...job.options };
 }
 
 export async function startAuto(cfg: StartConfig): Promise<AutoStatus> {
@@ -194,47 +188,12 @@ async function claimJob(): Promise<JobRow | null> {
   return data as JobRow | null;
 }
 
-// When the admin picks "Ngẫu nhiên", stay with one category for this long so
-// the feed doesn't jump around every minute. Rotates to a different category
-// after the window elapses.
-const RANDOM_CATEGORY_WINDOW_MS = 60 * 60_000;
-
-// Pick a different active slug than `prev` when possible; falls back to `prev`
-// when only one category is active.
-function pickDifferent(active: string[], prev?: string): string {
-  if (!active.length) return "tech";
-  const pool = active.filter((s) => s !== prev);
-  const source = pool.length ? pool : active;
-  return source[Math.floor(Math.random() * source.length)];
-}
-
-// Resolves the category to actually use this tick. For a specific slug: that
-// slug (or any active one if it was deactivated mid-run). For "random": sticks
-// with the previously chosen category for ~1 hour, then rotates. The rolling
-// choice lives in `options._randomCat` / `options._randomCatAt` so pg_cron
-// restarts see it.
-async function resolveCategory(job: JobRow): Promise<string> {
-  const wanted = job.category;
+// The job's category when it is still active; otherwise ("random", or the
+// category was disabled mid-run) any active one.
+async function resolveCategory(wanted: string): Promise<string> {
   const active = (await listAdminCategories()).filter((c) => c.active).map((c) => c.slug);
-  if (wanted !== "random" && active.includes(wanted)) return wanted;
-
-  const opts = (job.options || {}) as Partial<AutoGenOptions> & {
-    _randomCat?: string;
-    _randomCatAt?: number;
-  };
-  const prev = opts._randomCat;
-  const prevAt = Number(opts._randomCatAt) || 0;
-  const fresh = prev && active.includes(prev) && Date.now() - prevAt < RANDOM_CATEGORY_WINDOW_MS;
-  if (fresh) return prev!;
-
-  const picked = pickDifferent(active, prev);
-  // Persist the rolling choice; merge with the existing options so content
-  // settings (tone, length, …) are preserved.
-  await jobs()
-    .update({ options: { ...opts, _randomCat: picked, _randomCatAt: Date.now() } })
-    .eq("id", JOB_ID)
-    .eq("run_id", job.run_id);
-  return picked;
+  if (active.includes(wanted)) return wanted;
+  return active[Math.floor(Math.random() * active.length)] || "tech";
 }
 
 function availableProviders(): Record<AiProvider, boolean> {
@@ -341,7 +300,7 @@ async function generateOne(job: JobRow, baseUrl: string): Promise<TickOutcome> {
   };
 
   const { gapMinutes: _gap, ...contentOptions } = jobOptions(job);
-  const catSlug = await resolveCategory(job);
+  const catSlug = await resolveCategory(job.category);
   await heartbeat(`${catSlug} · đang khởi động…`);
 
   // Rotate on rate-limit so a single provider's 429 doesn't burn the tick:

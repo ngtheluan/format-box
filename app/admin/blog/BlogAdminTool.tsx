@@ -3033,13 +3033,9 @@ export default function BlogAdminTool({
                 onClose={() => setGenerateOpen(false)}
                 onEditConfig={() => setGenMode("config")}
                 running={autoRunning}
-                categoryLabel={genCategory === "random" ? "Ngẫu nhiên" : CAT_LABEL[genCategory] || genCategory}
+                categoryLabel={CAT_LABEL[genCategory] || genCategory}
                 inherited={[
-                  {
-                    label: "Danh mục",
-                    value:
-                      genCategory === "random" ? "Ngẫu nhiên (xoay ~1 giờ/lần)" : CAT_LABEL[genCategory] || genCategory,
-                  },
+                  { label: "Danh mục", value: CAT_LABEL[genCategory] || genCategory },
                   {
                     label: "Model",
                     value:
@@ -3274,7 +3270,7 @@ export default function BlogAdminTool({
                               if (!topic.trim() && selectedCount === 0) return;
                               generate();
                             }}
-                            placeholder={`Chủ đề bài viết… (để trống → AI tự chọn cho ${genCategory === "random" ? "danh mục bất kỳ" : CAT_LABEL[genCategory] || genCategory})`}
+                            placeholder={`Chủ đề bài viết… (để trống → AI tự chọn cho ${CAT_LABEL[genCategory] || genCategory})`}
                             leftIcon={
                               topic.trim() ? (
                                 <IconTarget size={16} stroke={1.9} />
@@ -3734,10 +3730,7 @@ export default function BlogAdminTool({
                                     <Select
                                       value={genCategory}
                                       onChange={(e) => setGenCategory(e.target.value as BlogCategory)}
-                                      options={[
-                                        { value: "random", label: "Ngẫu nhiên (xoay ~1 giờ/lần)" },
-                                        ...CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c })),
-                                      ]}
+                                      options={CAT_ORDER.map((c) => ({ value: c, label: CAT_LABEL[c] || c }))}
                                       selectSize="sm"
                                     />
                                   </Field>
