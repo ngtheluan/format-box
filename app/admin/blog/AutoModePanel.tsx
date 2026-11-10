@@ -85,7 +85,8 @@ export default function AutoModePanel({ onClose, onEditConfig, running, category
         <div className="bga-auto">
           <p className="bga-auto-note">
             <IconRotateClockwise size={13} stroke={2} />
-            Chạy nền trên server, đóng tab vẫn tiếp tục. Bài được lưu vào Nháp để bạn duyệt.
+            Chạy nền trên server, đóng tab vẫn tiếp tục. Mỗi bài tự chọn chủ đề ngẫu nhiên trong danh mục; nếu model bị
+            giới hạn sẽ tự đổi sang model khác. Bài được lưu vào Nháp để bạn duyệt.
           </p>
           <div className="bga-auto-grid">
             <section className="bga-auto-sec">

@@ -14,7 +14,7 @@ export const PINNED_IN_CAROUSEL = 3;
 // - "manual": admin tự tick từng bài (cột `pinned` trên blog_posts)
 // - "auto":   hệ thống chọn bài mới + bài có nhiều lượt "hữu ích"
 // - "category": 6 bài mới nhất thuộc 1 danh mục
-export type BlogPinMode = "manual" | "auto" | "category";
+export type BlogPinMode = "manual" | "auto" | "category" | "random";
 export type BlogPinConfig = { mode: BlogPinMode; category?: string };
 export const DEFAULT_PIN_CONFIG: BlogPinConfig = { mode: "manual" };
 
@@ -904,6 +904,15 @@ export function resolvePinnedPosts(
       .filter((p) => p.category === cat)
       .sort((a, b) => +new Date(b.date) - +new Date(a.date))
       .slice(0, MAX_PINNED);
+  }
+  if (config.mode === "random") {
+    // Fisher-Yates shuffle, lấy MAX_PINNED bài đầu.
+    const arr = [...published];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.slice(0, MAX_PINNED);
   }
   // auto: kết hợp "mới" + "hữu ích". Điểm = helpful + boost theo tuổi
   // (<=14 ngày), tie-break theo ngày đăng giảm dần.

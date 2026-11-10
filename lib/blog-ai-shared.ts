@@ -261,6 +261,37 @@ export const AUTO_GEN_DEFAULTS: AutoGenOptions = {
   relatedTools: [],
 };
 
+// Detects provider rate-limit / quota errors so the auto job can rotate to
+// another model instead of burning a tick on a provider that just told us no.
+export function isRateLimitError(err: string): boolean {
+  if (!err) return false;
+  return /\b429\b|\b503\b|rate[\s_-]?limit|too many requests|quota|over(?:_|-)?(?:loaded|capacity)|insufficient[_\s-]?quota/i.test(
+    err,
+  );
+}
+
+// Build a (provider, model) fallback chain starting from the requested combo,
+// then the requested provider's other models, then every other available
+// provider's models. Used by the auto job to rotate on rate-limit.
+export function buildAutoModelChain(
+  requested: { provider: AiProvider; model?: string | null },
+  available: Partial<Record<AiProvider, boolean>>,
+): { provider: AiProvider; model: string }[] {
+  const out: { provider: AiProvider; model: string }[] = [];
+  const push = (p: AiProvider, m: string) => {
+    if (!available[p]) return;
+    if (out.some((o) => o.provider === p && o.model === m)) return;
+    out.push({ provider: p, model: m });
+  };
+  if (requested.model) push(requested.provider, requested.model);
+  for (const m of AI_MODELS[requested.provider] || []) push(requested.provider, m.id);
+  for (const p of ["groq", "gemini", "pollinations"] as AiProvider[]) {
+    if (p === requested.provider) continue;
+    for (const m of AI_MODELS[p]) push(p, m.id);
+  }
+  return out;
+}
+
 // pg_cron fires every minute, so a job past its lease/gap with no activity for
 // 3 minutes means ticks aren't arriving (e.g. a 401 from a wrong Vault secret).
 export function isAutoStalled(

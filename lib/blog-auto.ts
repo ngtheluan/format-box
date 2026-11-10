@@ -5,7 +5,13 @@
 // generates exactly one post through the existing /api/blog/generate pipeline.
 import { randomUUID } from "crypto";
 import { listAdminCategories } from "./blog";
-import { AUTO_GEN_DEFAULTS, type AutoGenOptions } from "./blog-ai-shared";
+import {
+  AUTO_GEN_DEFAULTS,
+  type AiProvider,
+  type AutoGenOptions,
+  buildAutoModelChain,
+  isRateLimitError,
+} from "./blog-ai-shared";
 import { supabaseAdmin } from "./supabase";
 
 export type AutoRecent = { title: string; slug: string; at: number };
@@ -190,28 +196,27 @@ async function resolveCategory(wanted: string): Promise<string> {
   return active[Math.floor(Math.random() * active.length)] || "tech";
 }
 
-async function generateOne(job: JobRow, baseUrl: string): Promise<TickOutcome> {
-  const ac = new AbortController();
-
-  // Publishes progress and aborts the post when the admin stopped this run.
-  const heartbeat = async (currentTopic?: string) => {
-    const { data, error } = await jobs()
-      .update({
-        last_event_at: new Date().toISOString(),
-        ...(currentTopic ? { current_topic: currentTopic } : {}),
-      })
-      .eq("id", JOB_ID)
-      .eq("run_id", job.run_id)
-      .eq("running", true)
-      .select("id")
-      .maybeSingle();
-    if (!error && !data) ac.abort();
+function availableProviders(): Record<AiProvider, boolean> {
+  return {
+    groq: !!process.env.GROQ_API_KEY,
+    gemini: !!process.env.GEMINI_API_KEY,
+    pollinations: true,
   };
+}
 
+// One pass through the generate pipeline with a fixed (provider, model). Never
+// rotates — the caller `generateOne` does that on rate-limit.
+async function generateWithModel(
+  job: JobRow,
+  baseUrl: string,
+  provider: AiProvider,
+  model: string,
+  catSlug: string,
+  contentOptions: Omit<AutoGenOptions, "gapMinutes">,
+  ac: AbortController,
+  heartbeat: (topic?: string) => Promise<void>,
+): Promise<TickOutcome> {
   try {
-    const { gapMinutes: _gap, ...contentOptions } = jobOptions(job);
-    const catSlug = await resolveCategory(job.category);
-    await heartbeat(`${catSlug} · đang khởi động…`);
     const r = await fetch(`${baseUrl}/api/blog/generate`, {
       method: "POST",
       signal: ac.signal,
@@ -221,9 +226,12 @@ async function generateOne(job: JobRow, baseUrl: string): Promise<TickOutcome> {
       },
       body: JSON.stringify({
         ...contentOptions,
+        // Auto mode ALWAYS picks a fresh random topic in the category — never
+        // reuses a topic from the admin's config form.
         mode: "random",
-        provider: job.provider || "groq",
-        model: job.model ?? undefined,
+        topic: undefined,
+        provider,
+        model,
         category: catSlug,
       }),
     });
@@ -271,6 +279,63 @@ async function generateOne(job: JobRow, baseUrl: string): Promise<TickOutcome> {
     if (ac.signal.aborted) return { kind: "stopped" };
     return { kind: "failed", error: String((e as Error)?.message || e) };
   }
+}
+
+async function generateOne(job: JobRow, baseUrl: string): Promise<TickOutcome> {
+  const ac = new AbortController();
+
+  // Publishes progress and aborts the post when the admin stopped this run.
+  const heartbeat = async (currentTopic?: string) => {
+    const { data, error } = await jobs()
+      .update({
+        last_event_at: new Date().toISOString(),
+        ...(currentTopic ? { current_topic: currentTopic } : {}),
+      })
+      .eq("id", JOB_ID)
+      .eq("run_id", job.run_id)
+      .eq("running", true)
+      .select("id")
+      .maybeSingle();
+    if (!error && !data) ac.abort();
+  };
+
+  const { gapMinutes: _gap, ...contentOptions } = jobOptions(job);
+  const catSlug = await resolveCategory(job.category);
+  await heartbeat(`${catSlug} · đang khởi động…`);
+
+  // Rotate on rate-limit so a single provider's 429 doesn't burn the tick:
+  // chain starts with the job's configured model, then falls back through
+  // every other available (provider, model).
+  const chain = buildAutoModelChain(
+    { provider: (job.provider || "groq") as AiProvider, model: job.model },
+    availableProviders(),
+  );
+  if (!chain.length) return { kind: "failed", error: "Không có AI provider khả dụng" };
+
+  // Cap attempts per tick so one rate-limited round doesn't balloon latency;
+  // the next tick picks up with the model we last recorded.
+  const maxAttempts = Math.min(chain.length, 3);
+  let lastError = "";
+  for (let i = 0; i < maxAttempts; i++) {
+    const { provider, model } = chain[i];
+    if (i > 0) await heartbeat(`${catSlug} · đổi model (${provider}/${model})…`);
+    const outcome = await generateWithModel(job, baseUrl, provider, model, catSlug, contentOptions, ac, heartbeat);
+    if (outcome.kind !== "failed") {
+      // Persist the working model so the next tick starts from here instead of
+      // hammering the originally-selected one while it is still rate-limited.
+      if (i > 0 && !ac.signal.aborted) {
+        await jobs()
+          .update({ provider, model, last_event_at: new Date().toISOString() })
+          .eq("id", JOB_ID)
+          .eq("run_id", job.run_id);
+      }
+      return outcome;
+    }
+    lastError = outcome.error;
+    if (!isRateLimitError(outcome.error)) return outcome;
+    if (ac.signal.aborted) return { kind: "stopped" };
+  }
+  return { kind: "failed", error: lastError || "Tất cả model đều bị giới hạn" };
 }
 
 async function finishTick(job: JobRow, outcome: TickOutcome) {

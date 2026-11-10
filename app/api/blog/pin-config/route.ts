@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as { mode?: BlogPinMode; category?: string };
   const mode = body.mode;
-  if (mode !== "manual" && mode !== "auto" && mode !== "category") {
+  if (mode !== "manual" && mode !== "auto" && mode !== "category" && mode !== "random") {
     return NextResponse.json({ error: "Mode không hợp lệ" }, { status: 400 });
   }
   if (mode === "category" && !body.category) {
