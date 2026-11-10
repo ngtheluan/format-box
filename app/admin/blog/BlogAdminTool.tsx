@@ -1091,7 +1091,9 @@ export default function BlogAdminTool({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          category: genCategory,
+          // Auto mode ALWAYS chọn ngẫu nhiên trong tất cả danh mục đang bật,
+          // không gắn với danh mục được chọn ở mode Cấu hình.
+          category: "random",
           unlimited,
           count,
           provider: genProvider,
@@ -1856,7 +1858,6 @@ export default function BlogAdminTool({
       { id: "manual", label: "Thủ công", desc: "Admin tự chọn 6 bài để ghim" },
       { id: "auto", label: "Tự động", desc: "Bài mới và/hoặc có nhiều lượt đánh giá hữu ích" },
       { id: "category", label: "Theo danh mục", desc: "6 bài mới nhất thuộc 1 danh mục" },
-      { id: "random", label: "Ngẫu nhiên", desc: "Chọn ngẫu nhiên 6 bài đã phát hành" },
     ];
     return (
       <div className="bga-pinned-strip">
@@ -1927,13 +1928,6 @@ export default function BlogAdminTool({
             </span>
           </div>
         )}
-        {mode === "random" && (
-          <div className="bga-pinned-sub">
-            <span className="bga-pinned-sub-hint">
-              Chọn ngẫu nhiên {MAX_PINNED} bài trong tất cả bài đã phát hành; danh sách đổi mỗi lần render.
-            </span>
-          </div>
-        )}
         {pinPickerOpen && canAdd && (
           <div className="bga-pinned-picker">
             <input
@@ -1995,8 +1989,6 @@ export default function BlogAdminTool({
               ? 'Chưa có bài nào được ghim. Bấm "Chọn bài" để thêm.'
               : mode === "category"
               ? "Chưa có bài phát hành nào trong danh mục này."
-              : mode === "random"
-              ? "Chưa có bài phát hành nào để chọn ngẫu nhiên."
               : "Chưa đủ dữ liệu để chọn tự động."}
           </div>
         ) : (
@@ -2037,13 +2029,7 @@ export default function BlogAdminTool({
                 ) : (
                   <span
                     className="fx-btn fx-btn-icon"
-                    title={
-                      mode === "auto"
-                        ? "Hệ thống tự chọn"
-                        : mode === "random"
-                        ? "Ngẫu nhiên"
-                        : "Theo danh mục"
-                    }
+                    title={mode === "auto" ? "Hệ thống tự chọn" : "Theo danh mục"}
                     aria-hidden="true"
                     style={{ color: "var(--dim)", pointerEvents: "none" }}
                   >
@@ -3033,9 +3019,9 @@ export default function BlogAdminTool({
                 onClose={() => setGenerateOpen(false)}
                 onEditConfig={() => setGenMode("config")}
                 running={autoRunning}
-                categoryLabel={CAT_LABEL[genCategory] || genCategory}
+                categoryLabel="ngẫu nhiên các danh mục"
                 inherited={[
-                  { label: "Danh mục", value: CAT_LABEL[genCategory] || genCategory },
+                  { label: "Danh mục", value: "Ngẫu nhiên trong các danh mục đang bật" },
                   {
                     label: "Model",
                     value:
