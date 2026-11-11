@@ -7,7 +7,7 @@
  */
 
 // Bump version mỗi lần đổi format notification để ép Chrome lấy SW mới.
-const SW_VERSION = "fb-fuel-v6";
+const SW_VERSION = "fb-fuel-v7";
 const CACHE_NAME = SW_VERSION;
 const SIG_URL = "/__fb_fuel_sig__";
 const PERIODIC_TAG = "fuel-check";
@@ -185,8 +185,17 @@ function buildPushNotification(data) {
   }
   if (data && data.type === "blog-push-test") {
     return {
-      title: "FormatBox Admin",
-      options: { body: data.title || "Thông báo thử", tag: "fb-blog-test", data: { url: "/admin/blog" } },
+      title: "FormatBox Admin — Thông báo thử",
+      options: {
+        body: `${data.title || "Thông báo thử"}\nThử nút Duyệt / Từ chối bên dưới.`,
+        tag: "fb-blog-test",
+        requireInteraction: true,
+        data: { url: "/admin/blog", test: true },
+        actions: [
+          { action: "approve", title: "Duyệt nhanh" },
+          { action: "reject", title: "Từ chối" },
+        ],
+      },
     };
   }
   // Safari thu hồi subscription nếu một push không hiện notification — luôn
@@ -211,6 +220,18 @@ self.addEventListener("push", (event) => {
 // falling back to the generic "focus/open window" behavior used for fuel.
 async function handleBlogAction(event) {
   const data = event.notification.data || {};
+  // Thông báo thử không có bài thật: chỉ xác nhận click, không gọi approve/reject.
+  if (data.test) {
+    const label = event.action === "approve" ? "Đã bấm Duyệt (thử)" : "Đã bấm Từ chối (thử)";
+    await self.registration.showNotification(label, {
+      body: "Nút hoạt động. Thông báo thật sẽ gọi API duyệt/từ chối bài.",
+      icon: "/icon.svg",
+      badge: "/icon.svg",
+      tag: "fb-blog-test-ack",
+      data: { url: "/admin/blog" },
+    });
+    return;
+  }
   const slug = data.slug;
   if (!slug) return;
   const path = event.action === "approve" ? "/api/blog/approve" : "/api/blog/reject";

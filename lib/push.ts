@@ -4,22 +4,31 @@
 //
 // iOS/iPadOS (Safari 16.4+) chỉ nhận Web Push khi trang được "Thêm vào MH
 // chính" và mở từ icon đó — subscription tạo trong tab Safari thường không có.
-import webpush from "web-push";
+// web-push 4.x là ESM thuần, chỉ có named exports — `import webpush from ...`
+// sẽ trả undefined và ném "Cannot read properties of undefined (setVapidDetails)".
+import * as webpush from "web-push";
 import { supabaseAdmin } from "@/lib/supabase";
 
 let configured = false;
+let configError: string | null = null;
 
-function ensureConfigured(): boolean {
-  if (configured) return true;
+function ensureConfigured(): { ok: boolean; error?: string } {
+  if (configured) return { ok: true };
+  if (configError) return { ok: false, error: configError };
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   // Apple (web.push.apple.com) từ chối JWT với BadJwtToken nếu subject không
   // phải mailto:/https: hợp lệ — trim để tránh khoảng trắng lọt từ env.
   const subject = (process.env.VAPID_SUBJECT || "mailto:admin@formatbox.site").trim();
-  if (!publicKey || !privateKey) return false;
-  webpush.setVapidDetails(subject, publicKey.trim(), privateKey.trim());
-  configured = true;
-  return true;
+  if (!publicKey || !privateKey) return { ok: false, error: "VAPID chưa cấu hình trên server" };
+  try {
+    webpush.setVapidDetails(subject, publicKey.trim(), privateKey.trim());
+    configured = true;
+    return { ok: true };
+  } catch (e: any) {
+    configError = `VAPID cấu hình sai: ${e?.message || e}`;
+    return { ok: false, error: configError };
+  }
 }
 
 export function hasPushConfig(): boolean {
@@ -77,25 +86,35 @@ async function sendToRows(rows: SubRow[], payload: AdminPushPayload): Promise<Pu
 
 export async function sendAdminPush(payload: AdminPushPayload): Promise<PushSendResult> {
   const empty: PushSendResult = { sent: 0, failed: 0, errors: [] };
-  if (!ensureConfigured()) return { ...empty, errors: ["VAPID chưa cấu hình trên server"] };
-  const { data, error } = await supabaseAdmin().from("push_subscriptions").select("id,endpoint,p256dh,auth");
-  if (error) return { ...empty, errors: [error.message] };
-  if (!data || data.length === 0) return empty;
-  return sendToRows(data as SubRow[], payload);
+  const cfg = ensureConfigured();
+  if (!cfg.ok) return { ...empty, errors: [cfg.error || "VAPID chưa cấu hình"] };
+  try {
+    const { data, error } = await supabaseAdmin().from("push_subscriptions").select("id,endpoint,p256dh,auth");
+    if (error) return { ...empty, errors: [error.message] };
+    if (!data || data.length === 0) return empty;
+    return await sendToRows(data as SubRow[], payload);
+  } catch (e: any) {
+    return { ...empty, errors: [e?.message || "Push lỗi"] };
+  }
 }
 
 // Gửi tới đúng 1 endpoint (nút "Gửi thử" trên thiết bị đang mở).
 export async function sendPushToEndpoint(endpoint: string, payload: AdminPushPayload): Promise<PushSendResult> {
   const empty: PushSendResult = { sent: 0, failed: 0, errors: [] };
-  if (!ensureConfigured()) return { ...empty, errors: ["VAPID chưa cấu hình trên server"] };
-  const { data, error } = await supabaseAdmin()
-    .from("push_subscriptions")
-    .select("id,endpoint,p256dh,auth")
-    .eq("endpoint", endpoint)
-    .limit(1);
-  if (error) return { ...empty, errors: [error.message] };
-  if (!data || data.length === 0) return { ...empty, errors: ["Thiết bị này chưa đăng ký trên server"] };
-  return sendToRows(data as SubRow[], payload);
+  const cfg = ensureConfigured();
+  if (!cfg.ok) return { ...empty, errors: [cfg.error || "VAPID chưa cấu hình"] };
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("push_subscriptions")
+      .select("id,endpoint,p256dh,auth")
+      .eq("endpoint", endpoint)
+      .limit(1);
+    if (error) return { ...empty, errors: [error.message] };
+    if (!data || data.length === 0) return { ...empty, errors: ["Thiết bị này chưa đăng ký trên server"] };
+    return await sendToRows(data as SubRow[], payload);
+  } catch (e: any) {
+    return { ...empty, errors: [e?.message || "Push lỗi"] };
+  }
 }
 
 export async function sendBlogNewPostPush(post: { slug: string; title: string }, done = false) {

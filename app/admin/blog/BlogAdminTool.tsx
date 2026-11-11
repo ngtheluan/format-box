@@ -82,6 +82,7 @@ import {
   IconExternalLink,
   IconEye,
   IconEyeOff,
+  IconFilterSearch,
   IconGripVertical,
   IconLayoutGrid,
   IconLayoutList,
@@ -667,6 +668,17 @@ export default function BlogAdminTool({
   const [generateOpen, setGenerateOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [pinModalOpen, setPinModalOpen] = useState(false);
+
+  // AI duplicate filter — scans posts for near-duplicate title/excerpt/cover/tags
+  // and lets the admin bulk-delete the redundant ones. Keeps the oldest by default.
+  type AiDupGroup = { posts: BlogPost[]; reason: string; similarity: number };
+  const [aiFilterOpen, setAiFilterOpen] = useState(false);
+  const [aiFilterLoading, setAiFilterLoading] = useState(false);
+  const [aiFilterGroups, setAiFilterGroups] = useState<AiDupGroup[]>([]);
+  const [aiFilterSelected, setAiFilterSelected] = useState<Set<string>>(new Set());
+  const [aiFilterIncludeDrafts, setAiFilterIncludeDrafts] = useState(false);
+  const [aiFilterBulkBusy, setAiFilterBulkBusy] = useState(false);
+  const [aiFilterThreshold, setAiFilterThreshold] = useState(55); // Jaccard % cutoff
 
   // AdminTabBar dispatches these so the bottom bar can trigger the modals.
   const [skipTopicAutoFocus, setSkipTopicAutoFocus] = useState(false);
@@ -1330,6 +1342,123 @@ export default function BlogAdminTool({
       toast(e?.message || "Lỗi");
       return false;
     }
+  }
+
+  // Tokenize text: strip diacritics, lowercase, split on non-alphanumerics,
+  // drop short noise tokens. Shared stopwords (vi + en) to avoid false matches.
+  const DUP_STOP = new Set([
+    "cac","cho","cua","khi","mot","nhung","nay","nhu","con","voi","tren","duoi","khong","ma","hoac","hay","trong","the","ban","ban","toi","chung","minh","vao","ra","len","xuong","co","la","da","se","dang","roi","nua","rat","chi","the","nen","nao","day","do","bai","blog","huong","dan","tips","bi","quyet",
+    "the","and","for","with","from","that","this","what","how","why","are","you","your","have","has","was","were","not","but","all","any","can","our","their","there","here","about","into","will","would","could","should","when","where","which","who","whom","over","under","top","best","new","guide","tutorial",
+  ]);
+  function dupTokens(text: string): Set<string> {
+    const norm = text
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/đ/gi, "d")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]+/g, " ")
+      .split(/\s+/);
+    const out = new Set<string>();
+    for (const w of norm) if (w.length >= 3 && !DUP_STOP.has(w)) out.add(w);
+    return out;
+  }
+  function jaccardSim(a: Set<string>, b: Set<string>): number {
+    if (!a.size || !b.size) return 0;
+    let inter = 0;
+    for (const x of a) if (b.has(x)) inter++;
+    return inter / (a.size + b.size - inter);
+  }
+
+  function runAiDuplicateFilter() {
+    setAiFilterLoading(true);
+    setAiFilterGroups([]);
+    setAiFilterSelected(new Set());
+    // defer so the modal paints the loading state before the scan runs
+    setTimeout(() => {
+      const pool = posts.filter((p) => {
+        const s = p.status || "published";
+        return aiFilterIncludeDrafts ? s !== "rejected" : s === "published";
+      });
+      const toks = pool.map((p) =>
+        dupTokens(`${p.title} ${p.excerpt} ${(p.tags || []).join(" ")}`),
+      );
+      const foldedTitle = pool.map((p) => foldText(p.title).replace(/\s+/g, " ").trim());
+      const used = new Set<number>();
+      const groups: AiDupGroup[] = [];
+      const cutoff = aiFilterThreshold / 100;
+      for (let i = 0; i < pool.length; i++) {
+        if (used.has(i)) continue;
+        const matches: { idx: number; sim: number; reason: string }[] = [];
+        for (let j = i + 1; j < pool.length; j++) {
+          if (used.has(j)) continue;
+          const sim = jaccardSim(toks[i], toks[j]);
+          const sameCover = !!pool[i].coverImage && pool[i].coverImage === pool[j].coverImage;
+          const sameTitle = foldedTitle[i] && foldedTitle[i] === foldedTitle[j];
+          if (sim >= cutoff || sameCover || sameTitle) {
+            const reasons: string[] = [];
+            if (sameTitle) reasons.push("tiêu đề giống");
+            if (sameCover) reasons.push("ảnh bìa trùng");
+            if (sim >= cutoff && !sameTitle) reasons.push(`nội dung ${Math.round(sim * 100)}%`);
+            matches.push({
+              idx: j,
+              sim: sameTitle ? 1 : Math.max(sim, sameCover ? 0.75 : sim),
+              reason: reasons.join(" · "),
+            });
+          }
+        }
+        if (matches.length) {
+          used.add(i);
+          matches.forEach((m) => used.add(m.idx));
+          const grp = [pool[i], ...matches.map((m) => pool[m.idx])];
+          const bestSim = matches.reduce((acc, m) => Math.max(acc, m.sim), 0);
+          const reasonSet = new Set<string>();
+          matches.forEach((m) => m.reason.split(" · ").forEach((r) => r && reasonSet.add(r)));
+          groups.push({ posts: grp, reason: Array.from(reasonSet).join(" · "), similarity: bestSim });
+        }
+      }
+      groups.sort((a, b) => b.similarity - a.similarity);
+      const defaultSel = new Set<string>();
+      for (const g of groups) {
+        // Keep the oldest (first-published) by default; mark duplicates for deletion.
+        const sorted = [...g.posts].sort((a, b) => postTime(a) - postTime(b));
+        for (let i = 1; i < sorted.length; i++) defaultSel.add(sorted[i].slug);
+      }
+      setAiFilterGroups(groups);
+      setAiFilterSelected(defaultSel);
+      setAiFilterLoading(false);
+    }, 30);
+  }
+
+  async function bulkDeleteAiFilter() {
+    const slugs = Array.from(aiFilterSelected);
+    if (!slugs.length) return;
+    if (!confirm(`Xoá ${slugs.length} bài trùng lặp đã chọn? Hành động không thể hoàn tác.`)) return;
+    setAiFilterBulkBusy(true);
+    let ok = 0;
+    let failed = 0;
+    for (const slug of slugs) {
+      try {
+        const r = await fetch("/api/blog/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug }),
+        });
+        if (r.ok) ok++;
+        else failed++;
+      } catch {
+        failed++;
+      }
+    }
+    setPosts((prev) => prev.filter((p) => !aiFilterSelected.has(p.slug)));
+    setAiFilterGroups((prev) =>
+      prev
+        .map((g) => ({ ...g, posts: g.posts.filter((p) => !aiFilterSelected.has(p.slug)) }))
+        .filter((g) => g.posts.length >= 2),
+    );
+    setAiFilterSelected(new Set());
+    setAiFilterBulkBusy(false);
+    toast(`Đã xoá ${ok}/${slugs.length} bài${failed ? ` · ${failed} lỗi` : ""}`);
+    router.refresh();
   }
 
   async function stopAutoMode() {
@@ -2539,6 +2668,18 @@ export default function BlogAdminTool({
                 <IconWriting size={14} stroke={2.2} /> Soạn thủ công
               </button>
               {isSuperAdmin && (
+                <button
+                  onClick={() => {
+                    setAiFilterOpen(true);
+                    runAiDuplicateFilter();
+                  }}
+                  className="fx-btn"
+                  title="Quét và đề xuất xoá bài trùng tiêu đề, ảnh bìa hoặc nội dung"
+                >
+                  <IconFilterSearch size={14} stroke={2.2} /> Lọc bài AI
+                </button>
+              )}
+              {isSuperAdmin && (
                 <button onClick={() => setGenerateOpen(true)} className="fx-btn fx-btn-primary">
                   <IconSparkles size={14} stroke={2.2} /> Sinh bài AI
                 </button>
@@ -3363,6 +3504,210 @@ export default function BlogAdminTool({
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI DUPLICATE FILTER MODAL */}
+      {aiFilterOpen && (
+        <div
+          className="fx-modal-bg fx-modal-sheet"
+          onClick={(e) => e.target === e.currentTarget && !aiFilterBulkBusy && setAiFilterOpen(false)}
+        >
+          <div className="fx-modal bga-dup-modal">
+            <div className="fx-modal-head">
+              <h2>
+                <IconFilterSearch size={16} stroke={2} /> Lọc bài trùng lặp
+              </h2>
+              <button
+                className="fx-btn fx-btn-icon fx-btn-ghost"
+                onClick={() => !aiFilterBulkBusy && setAiFilterOpen(false)}
+                disabled={aiFilterBulkBusy}
+              >
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body bga-dup-body">
+              <div className="bga-dup-toolbar">
+                <span className="bga-dup-hint">
+                  Quét bài theo tiêu đề, ảnh bìa, tags và nội dung mô tả. Giữ bài cũ nhất, đề xuất xoá bài trùng.
+                </span>
+                <div className="bga-dup-controls">
+                  <label>
+                    <Switch
+                      checked={aiFilterIncludeDrafts}
+                      onChange={(e) => setAiFilterIncludeDrafts(e.target.checked)}
+                      disabled={aiFilterLoading || aiFilterBulkBusy}
+                    />
+                    Gồm cả nháp
+                  </label>
+                  <label className="bga-dup-threshold">
+                    Ngưỡng
+                    <input
+                      type="range"
+                      min={40}
+                      max={90}
+                      step={5}
+                      value={aiFilterThreshold}
+                      onChange={(e) => setAiFilterThreshold(Number(e.target.value))}
+                      disabled={aiFilterLoading || aiFilterBulkBusy}
+                    />
+                    <b>{aiFilterThreshold}%</b>
+                  </label>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={runAiDuplicateFilter}
+                    disabled={aiFilterLoading || aiFilterBulkBusy}
+                  >
+                    <IconRotateClockwise size={13} stroke={2} /> Quét lại
+                  </Button>
+                </div>
+              </div>
+
+              {aiFilterLoading ? (
+                <div className="bga-dup-loading">
+                  <IconLoader2 className="fx-spin" size={18} stroke={2} />
+                  Đang quét {posts.length} bài…
+                </div>
+              ) : aiFilterGroups.length === 0 ? (
+                <div className="fx-empty bga-dup-empty">
+                  <div className="fx-empty-ico">
+                    <IconShieldCheck size={22} stroke={1.7} />
+                  </div>
+                  Không phát hiện bài trùng lặp theo ngưỡng {aiFilterThreshold}%.
+                </div>
+              ) : (
+                <div className="bga-dup-list">
+                  {aiFilterGroups.map((g, gi) => {
+                    const sortedByTime = [...g.posts].sort((a, b) => postTime(a) - postTime(b));
+                    const keeperSlug = sortedByTime[0].slug;
+                    return (
+                      <div key={`dup-${gi}`} className="bga-dup-group">
+                        <div className="bga-dup-group-head">
+                          <IconAlertTriangle size={14} stroke={2} style={{ color: "var(--warn)" }} />
+                          <b>Nhóm {gi + 1}</b>
+                          <span className="bga-dup-reason">
+                            {g.posts.length} bài · {g.reason}
+                          </span>
+                          <div className="bga-dup-group-actions">
+                            <button
+                              className="fx-btn fx-btn-ghost"
+                              onClick={() => {
+                                setAiFilterSelected((prev) => {
+                                  const next = new Set(prev);
+                                  for (let i = 1; i < sortedByTime.length; i++) next.add(sortedByTime[i].slug);
+                                  next.delete(keeperSlug);
+                                  return next;
+                                });
+                              }}
+                            >
+                              Giữ bài cũ nhất
+                            </button>
+                            <button
+                              className="fx-btn fx-btn-ghost"
+                              onClick={() => {
+                                setAiFilterSelected((prev) => {
+                                  const next = new Set(prev);
+                                  for (const p of g.posts) next.delete(p.slug);
+                                  return next;
+                                });
+                              }}
+                            >
+                              Bỏ chọn nhóm
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          {g.posts.map((p) => {
+                            const checked = aiFilterSelected.has(p.slug);
+                            const isKeeper = p.slug === keeperSlug;
+                            return (
+                              <div key={p.slug} className="bga-dup-row" data-checked={checked ? "true" : "false"}>
+                                <Checkbox
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    const v = e.target.checked;
+                                    setAiFilterSelected((prev) => {
+                                      const next = new Set(prev);
+                                      if (v) next.add(p.slug);
+                                      else next.delete(p.slug);
+                                      return next;
+                                    });
+                                  }}
+                                />
+                                <div className="bga-dup-thumb">
+                                  {p.coverImage ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={rewriteImgUrl(p.coverImage)}
+                                      alt=""
+                                      loading="lazy"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  ) : (
+                                    <span
+                                      style={{
+                                        background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})`,
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                                <div className="bga-dup-info">
+                                  <div className="bga-dup-title">
+                                    <span className="title">{p.title}</span>
+                                    {isKeeper && <span className="bga-dup-keeper">Giữ lại</span>}
+                                  </div>
+                                  <div className="bga-dup-meta">
+                                    <span>{CAT_LABEL[p.category] || p.category}</span>
+                                    <span className="sep">·</span>
+                                    <span>{fmtPostTime(p)}</span>
+                                    <span className="sep">·</span>
+                                    <span>{STATUS_LABEL[(p.status || "published") as BlogStatus]}</span>
+                                  </div>
+                                </div>
+                                <Link
+                                  href={`/blog/${p.slug}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="fx-btn fx-btn-icon fx-btn-ghost"
+                                  title="Mở bài"
+                                >
+                                  <IconExternalLink size={13} stroke={2} />
+                                </Link>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="fx-modal-foot bga-dup-foot">
+              <span className="bga-dup-summary">
+                {aiFilterGroups.length > 0 && (
+                  <>
+                    {aiFilterGroups.length} nhóm · chọn xoá {aiFilterSelected.size}/
+                    {aiFilterGroups.reduce((a, g) => a + g.posts.length, 0)} bài
+                  </>
+                )}
+              </span>
+              <div className="bga-dup-foot-actions">
+                <Button variant="ghost" onClick={() => setAiFilterOpen(false)} disabled={aiFilterBulkBusy}>
+                  Đóng
+                </Button>
+                <Button
+                  onClick={bulkDeleteAiFilter}
+                  disabled={aiFilterBulkBusy || aiFilterSelected.size === 0}
+                  loading={aiFilterBulkBusy}
+                  className="bga-dup-btn-delete"
+                >
+                  <IconTrash size={13} stroke={2} /> Xoá {aiFilterSelected.size} bài đã chọn
+                </Button>
+              </div>
             </div>
           </div>
         </div>
