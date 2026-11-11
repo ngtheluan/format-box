@@ -64,7 +64,7 @@ export default function PushSetup() {
       const j = await r.json();
       const pair = j.pair === "match" ? "khớp" : `KHÔNG khớp (${j.pair})`;
       toast(
-        `VAPID: public/private ${pair}. Subject: ${j.subject} (${j.subjectValid ? "valid" : "INVALID"}). Public: ${j.publicKeyPreview || "trống"}. Server time: ${j.serverTime}`,
+        `VAPID: public/private ${pair}. Subject: ${j.subject} (${j.subjectValid ? "valid" : "INVALID"}). Public: ${j.publicKeyPreview || "trống"}. Subscriptions DB: ${j.subscriptions}${j.lastEndpointHost ? ` (last: ${j.lastEndpointHost})` : ""}. Server time: ${j.serverTime}`,
       );
     } catch (e) {
       toast(`Chẩn đoán lỗi: ${(e as Error)?.message || e}`);

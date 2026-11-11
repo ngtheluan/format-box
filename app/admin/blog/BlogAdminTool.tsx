@@ -1631,16 +1631,15 @@ export default function BlogAdminTool({
     const reg = swRegRef.current || (await navigator.serviceWorker?.ready.catch(() => null));
     if (!reg) return;
     try {
-      await reg.showNotification("Bài blog mới vừa sinh", {
-        body: postTitle,
+      // Body kèm hint "Chạm để Duyệt/Từ chối" vì iOS ẩn actions — tap vào thông
+      // báo mở /admin/blog?review=<slug>, review modal hiện ra có 2 nút.
+      await reg.showNotification("Bài blog mới chờ duyệt", {
+        body: `${postTitle}\nChạm để Duyệt hoặc Từ chối.`,
         icon: "/icon.svg",
         badge: "/icon.svg",
         tag: `fb-blog-new-${slug}`,
         requireInteraction: true,
         data: { slug, title: postTitle, url: `/admin/blog?review=${encodeURIComponent(slug)}` },
-        // Chrome/Edge render these as inline buttons on desktop + Android.
-        // Safari/iOS ignores them silently; clicking the notification body
-        // still focuses /admin/blog.
         actions: [
           { action: "approve", title: "Duyệt nhanh" },
           { action: "reject", title: "Từ chối" },
