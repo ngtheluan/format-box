@@ -14,7 +14,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setMsg(m);
     setShow(true);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setShow(false), 2000);
+    // Message dài cần đọc lâu hơn — khoảng 60ms/ký tự, tối thiểu 2s, tối đa 8s.
+    const ms = Math.min(8000, Math.max(2000, m.length * 60));
+    timer.current = setTimeout(() => setShow(false), ms);
   }, []);
 
   return (

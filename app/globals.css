@@ -1219,16 +1219,23 @@ label {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(60px);
-  padding: 10px 20px;
-  border-radius: 100px;
+  padding: 12px 20px;
+  border-radius: 14px;
   font-size: 0.84rem;
   font-weight: 500;
+  line-height: 1.45;
   background: var(--ok);
   color: #fff;
   opacity: 0;
   transition: all 0.3s;
   pointer-events: none;
   z-index: 200;
+  max-width: min(560px, calc(100vw - 32px));
+  width: max-content;
+  text-align: center;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 .toast.show {
   opacity: 1;

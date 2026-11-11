@@ -2,7 +2,15 @@
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui";
 import { enablePush, getPushState, resetPushSubscription, sendTestPush, type PushState } from "@/lib/admin-push-client";
-import { IconBell, IconBellOff, IconBellRinging, IconDeviceMobileShare, IconRefresh, IconSend } from "@tabler/icons-react";
+import {
+  IconBell,
+  IconBellOff,
+  IconBellRinging,
+  IconDeviceMobileShare,
+  IconRefresh,
+  IconSend,
+  IconStethoscope,
+} from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 
 const TEXT: Record<Exclude<PushState, "checking">, string> = {
@@ -49,6 +57,21 @@ export default function PushSetup() {
     toast(r.ok ? "Đã tạo đăng ký mới trên thiết bị này" : `Đăng ký lại lỗi: ${r.error}`);
   }
 
+  async function diagnose() {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/blog/push/diagnose", { credentials: "same-origin" });
+      const j = await r.json();
+      const pair = j.pair === "match" ? "khớp" : `KHÔNG khớp (${j.pair})`;
+      toast(
+        `VAPID: public/private ${pair}. Subject: ${j.subject} (${j.subjectValid ? "valid" : "INVALID"}). Public: ${j.publicKeyPreview || "trống"}. Server time: ${j.serverTime}`,
+      );
+    } catch (e) {
+      toast(`Chẩn đoán lỗi: ${(e as Error)?.message || e}`);
+    }
+    setBusy(false);
+  }
+
   const icon =
     state === "granted" ? (
       <IconBellRinging size={14} stroke={2} />
@@ -83,6 +106,16 @@ export default function PushSetup() {
             title="Dùng khi báo BadJwtToken: xoá subscription cũ và tạo mới khớp VAPID key hiện tại"
           >
             Đăng ký lại
+          </Button>
+          <Button
+            size="sm"
+            variant="subtle"
+            loading={busy}
+            leftIcon={<IconStethoscope size={14} />}
+            onClick={diagnose}
+            title="Kiểm tra VAPID keys server (public/private có cùng cặp không, subject hợp lệ, giờ server)"
+          >
+            Chẩn đoán
           </Button>
         </>
       )}

@@ -7,22 +7,53 @@
 // web-push 4.x là ESM thuần, chỉ có named exports — `import webpush from ...`
 // sẽ trả undefined và ném "Cannot read properties of undefined (setVapidDetails)".
 import * as webpush from "web-push";
+import crypto from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 
 let configured = false;
 let configError: string | null = null;
 
+// Suy ra public key (65-byte uncompressed P-256) từ private key và so với
+// public key env. Apple trả 403 BadJwtToken nếu signature JWT không verify
+// được bằng applicationServerKey subscription đã dùng — nghĩa là server đang
+// ký bằng private key không thuộc cùng cặp với NEXT_PUBLIC_VAPID_PUBLIC_KEY.
+function keysArePair(publicB64u: string, privateB64u: string): { ok: true } | { ok: false; detail: string } {
+  try {
+    const priv = Buffer.from(privateB64u, "base64url");
+    if (priv.length !== 32) return { ok: false, detail: `private key dài ${priv.length} byte (yêu cầu 32)` };
+    const ec = crypto.createECDH("prime256v1");
+    ec.setPrivateKey(priv);
+    const derived = ec.getPublicKey(null, "uncompressed");
+    const stored = Buffer.from(publicB64u, "base64url");
+    if (stored.length !== 65) return { ok: false, detail: `public key dài ${stored.length} byte (yêu cầu 65)` };
+    if (!derived.equals(stored)) {
+      return {
+        ok: false,
+        detail: `public key env không khớp public key suy ra từ private key (env: ${publicB64u.slice(0, 10)}…, derived: ${derived.toString("base64url").slice(0, 10)}…)`,
+      };
+    }
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, detail: `không suy ra được public từ private: ${e?.message || e}` };
+  }
+}
+
 function ensureConfigured(): { ok: boolean; error?: string } {
   if (configured) return { ok: true };
   if (configError) return { ok: false, error: configError };
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
   // Apple (web.push.apple.com) từ chối JWT với BadJwtToken nếu subject không
   // phải mailto:/https: hợp lệ — trim để tránh khoảng trắng lọt từ env.
   const subject = (process.env.VAPID_SUBJECT || "mailto:admin@formatbox.site").trim();
   if (!publicKey || !privateKey) return { ok: false, error: "VAPID chưa cấu hình trên server" };
+  const pair = keysArePair(publicKey, privateKey);
+  if (!pair.ok) {
+    configError = `VAPID public/private không phải một cặp — ${pair.detail}. Chạy \`npx web-push generate-vapid-keys\`, set cả hai biến NEXT_PUBLIC_VAPID_PUBLIC_KEY và VAPID_PRIVATE_KEY cùng lúc, redeploy.`;
+    return { ok: false, error: configError };
+  }
   try {
-    webpush.setVapidDetails(subject, publicKey.trim(), privateKey.trim());
+    webpush.setVapidDetails(subject, publicKey, privateKey);
     configured = true;
     return { ok: true };
   } catch (e: any) {
@@ -33,6 +64,29 @@ function ensureConfigured(): { ok: boolean; error?: string } {
 
 export function hasPushConfig(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+}
+
+// Endpoint chẩn đoán gọi hàm này để biết cấu hình đang thế nào mà không lộ secret.
+export function diagnoseVapid() {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() || "";
+  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim() || "";
+  const subject = (process.env.VAPID_SUBJECT || "mailto:admin@formatbox.site").trim();
+  const info: Record<string, unknown> = {
+    serverTime: new Date().toISOString(),
+    subject,
+    subjectValid:
+      /^mailto:[^@]+@[^@]+$/.test(subject) || /^https:\/\/[^\s]+$/.test(subject),
+    hasPublicKey: !!publicKey,
+    hasPrivateKey: !!privateKey,
+    publicKeyPreview: publicKey ? `${publicKey.slice(0, 10)}…${publicKey.slice(-6)}` : null,
+  };
+  if (!publicKey || !privateKey) {
+    info.pair = "missing";
+    return info;
+  }
+  const pair = keysArePair(publicKey, privateKey);
+  info.pair = pair.ok ? "match" : `mismatch — ${pair.detail}`;
+  return info;
 }
 
 type SubRow = { id: string; endpoint: string; p256dh: string; auth: string };

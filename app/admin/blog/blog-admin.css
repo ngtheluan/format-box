@@ -2876,6 +2876,7 @@
 /* Web Push setup row (auto mode) */
 .bga-push {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
