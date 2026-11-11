@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
+  IconArticle,
   IconCornerDownLeft,
   IconSearch,
   IconX,
@@ -11,7 +12,10 @@ import {
 import { CATEGORY_ORDER, isToolVisible, toolSearchable, type Role, type Tool, type ToolCategory } from "@/lib/tools-shared";
 import { useTools } from "@/components/ToolsProvider";
 import { ToolIcon } from "@/lib/tool-icons";
+import { useBlogNav, type BlogNavPost } from "@/lib/blog-client";
 import { useI18n } from "@/lib/i18n";
+
+type I18nT = ReturnType<typeof useI18n>["t"];
 
 const catKey = (c: ToolCategory) => c;
 
@@ -30,9 +34,32 @@ function score(tool: Tool, q: string): number {
   return s;
 }
 
+function scorePost(post: BlogNavPost, q: string): number {
+  if (!q) return 1;
+  const needle = q.toLowerCase();
+  const title = post.title.toLowerCase();
+  const hay = [
+    title,
+    post.excerpt.toLowerCase(),
+    post.categoryLabel.toLowerCase(),
+    post.tags.join(" ").toLowerCase(),
+    post.slug.toLowerCase(),
+  ].join(" ");
+  if (!hay.includes(needle)) return 0;
+  let s = 1;
+  if (title.startsWith(needle)) s += 8;
+  else if (title.includes(needle)) s += 5;
+  if (post.tags.some((x) => x.toLowerCase() === needle)) s += 4;
+  if (post.excerpt.toLowerCase().includes(needle)) s += 2;
+  return s;
+}
+
 export default function SearchPalette() {
   const { t, lang } = useI18n();
+  const pathname = usePathname();
+  const isBlog = pathname === "/blog" || pathname?.startsWith("/blog/") || false;
   const TOOLS = useTools();
+  const nav = useBlogNav(isBlog);
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -90,23 +117,36 @@ export default function SearchPalette() {
     };
   }, [open]);
 
-  const results = useMemo(() => {
+  const toolResults = useMemo(() => {
+    if (isBlog) return [];
     const query = q.trim();
     return TOOLS.filter((tool) => isToolVisible(tool, role))
       .map((tool) => ({ tool, s: score(tool, query) }))
       .filter((r) => r.s > 0)
       .sort((a, b) => b.s - a.s)
       .map((r) => r.tool);
-  }, [q, TOOLS, role]);
+  }, [q, TOOLS, role, isBlog]);
 
-  useEffect(() => setActive(0), [q]);
+  const postResults = useMemo(() => {
+    if (!isBlog) return [];
+    const query = q.trim();
+    return nav.posts
+      .map((post) => ({ post, s: scorePost(post, query) }))
+      .filter((r) => r.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .map((r) => r.post);
+  }, [q, nav.posts, isBlog]);
+
+  const total = isBlog ? postResults.length : toolResults.length;
+
+  useEffect(() => setActive(0), [q, isBlog]);
 
   // Warm the highlighted result so Enter / click lands instantly.
   useEffect(() => {
     if (!open) return;
-    const tool = results[active];
-    if (tool) router.prefetch(tool.href);
-  }, [active, open, results, router]);
+    const href = isBlog ? postResults[active] && `/blog/${postResults[active].slug}` : toolResults[active]?.href;
+    if (href) router.prefetch(href);
+  }, [active, open, isBlog, postResults, toolResults, router]);
 
   useEffect(() => {
     if (!open) return;
@@ -114,19 +154,19 @@ export default function SearchPalette() {
     el?.scrollIntoView({ block: "nearest" });
   }, [active, open]);
 
-  const go = (tool: Tool) => {
+  const goHref = (href: string) => {
     setOpen(false);
-    router.push(tool.href);
+    router.push(href);
   };
 
-  const renderItem = (tool: Tool, i: number) => (
+  const renderTool = (tool: Tool, i: number) => (
     <button
       key={tool.href}
       data-idx={i}
       type="button"
       className={`sp-item sp-item-${tool.category}${i === active ? " active" : ""}`}
       onMouseEnter={() => setActive(i)}
-      onClick={() => go(tool)}
+      onClick={() => goHref(tool.href)}
     >
       <div className="sp-item-icon">
         <ToolIcon name={tool.iconName} size={18} stroke={1.7} />
@@ -139,19 +179,53 @@ export default function SearchPalette() {
     </button>
   );
 
+  const renderPost = (post: BlogNavPost, i: number) => {
+    const href = `/blog/${post.slug}`;
+    return (
+      <button
+        key={post.slug}
+        data-idx={i}
+        type="button"
+        className={`sp-item sp-item-blog${i === active ? " active" : ""}`}
+        onMouseEnter={() => setActive(i)}
+        onClick={() => goHref(href)}
+      >
+        <div className="sp-item-icon">
+          <IconArticle size={18} stroke={1.7} />
+        </div>
+        <div className="sp-item-body">
+          <b>{post.title}</b>
+          <span>{post.excerpt || post.categoryLabel}</span>
+        </div>
+        <span className="sp-item-path">{post.categoryLabel}</span>
+      </button>
+    );
+  };
+
   const onInputKey = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((i) => (results.length ? (i + 1) % results.length : 0));
+      setActive((i) => (total ? (i + 1) % total : 0));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActive((i) => (results.length ? (i - 1 + results.length) % results.length : 0));
+      setActive((i) => (total ? (i - 1 + total) % total : 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const tool = results[active];
-      if (tool) go(tool);
+      if (isBlog) {
+        const p = postResults[active];
+        if (p) goHref(`/blog/${p.slug}`);
+      } else {
+        const t = toolResults[active];
+        if (t) goHref(t.href);
+      }
     }
   };
+
+  const placeholder = isBlog
+    ? lang === "en"
+      ? "Search posts…"
+      : "Tìm bài viết…"
+    : t("nav_search_placeholder");
 
   return (
     <>
@@ -162,11 +236,11 @@ export default function SearchPalette() {
           e.stopPropagation();
           setOpen(true);
         }}
-        aria-label={t("nav_search_placeholder")}
-        title={t("nav_search_placeholder")}
+        aria-label={placeholder}
+        title={placeholder}
       >
         <IconSearch size={15} stroke={1.9} />
-        <span>{t("nav_search_placeholder")}</span>
+        <span>{placeholder}</span>
         <kbd className="sp-kbd">{isMac ? "⌘" : "Ctrl"} K</kbd>
       </button>
 
@@ -186,7 +260,7 @@ export default function SearchPalette() {
                 ref={inputRef}
                 className="sp-input"
                 type="text"
-                placeholder={t("nav_search_placeholder")}
+                placeholder={placeholder}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={onInputKey}
@@ -204,32 +278,9 @@ export default function SearchPalette() {
             </div>
 
             <div className="sp-list" ref={listRef}>
-              {results.length === 0 ? (
-                <div className="sp-empty">
-                  {t("nav_no_result")} &quot;{q}&quot;
-                </div>
-              ) : q ? (
-                <>
-                  <div className="sp-section">
-                    {results.length} {t("nav_results")}
-                  </div>
-                  {results.map((tool, i) => renderItem(tool, i))}
-                </>
-              ) : (
-                CATEGORY_ORDER.map((cat) => {
-                  const items = results.filter((tt) => tt.category === cat);
-                  if (items.length === 0) return null;
-                  return (
-                    <div key={cat} className={`sp-group sp-group-${cat}`}>
-                      <div className="sp-section sp-group-head">
-                        <span>{t(catKey(cat))}</span>
-                        <span className="sp-group-count">{items.length}</span>
-                      </div>
-                      {items.map((tool) => renderItem(tool, results.indexOf(tool)))}
-                    </div>
-                  );
-                })
-              )}
+              {isBlog
+                ? renderBlogList({ q, t, postResults, renderPost })
+                : renderToolList({ q, t, toolResults, renderTool })}
             </div>
 
             <div className="sp-footer">
@@ -253,6 +304,103 @@ export default function SearchPalette() {
         </div>,
         document.body
       )}
+    </>
+  );
+}
+
+function renderToolList({
+  q,
+  t,
+  toolResults,
+  renderTool,
+}: {
+  q: string;
+  t: I18nT;
+  toolResults: Tool[];
+  renderTool: (tool: Tool, i: number) => ReactElement;
+}) {
+  if (toolResults.length === 0) {
+    return (
+      <div className="sp-empty">
+        {t("nav_no_result")} &quot;{q}&quot;
+      </div>
+    );
+  }
+  if (q) {
+    return (
+      <>
+        <div className="sp-section">
+          {toolResults.length} {t("nav_results")}
+        </div>
+        {toolResults.map((tool, i) => renderTool(tool, i))}
+      </>
+    );
+  }
+  return (
+    <>
+      {CATEGORY_ORDER.map((cat) => {
+        const items = toolResults.filter((tt) => tt.category === cat);
+        if (items.length === 0) return null;
+        return (
+          <div key={cat} className={`sp-group sp-group-${cat}`}>
+            <div className="sp-section sp-group-head">
+              <span>{t(catKey(cat))}</span>
+              <span className="sp-group-count">{items.length}</span>
+            </div>
+            {items.map((tool) => renderTool(tool, toolResults.indexOf(tool)))}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function renderBlogList({
+  q,
+  t,
+  postResults,
+  renderPost,
+}: {
+  q: string;
+  t: I18nT;
+  postResults: BlogNavPost[];
+  renderPost: (post: BlogNavPost, i: number) => ReactElement;
+}) {
+  if (postResults.length === 0) {
+    return (
+      <div className="sp-empty">
+        {t("nav_no_result")} &quot;{q}&quot;
+      </div>
+    );
+  }
+  if (q) {
+    return (
+      <>
+        <div className="sp-section">
+          {postResults.length} {t("nav_results")}
+        </div>
+        {postResults.map((p, i) => renderPost(p, i))}
+      </>
+    );
+  }
+  // Grouped by category when no query
+  const groups = new Map<string, BlogNavPost[]>();
+  for (const p of postResults) {
+    const key = p.categoryLabel || p.category;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(p);
+  }
+  return (
+    <>
+      {Array.from(groups.entries()).map(([label, items]) => (
+        <div key={label} className="sp-group">
+          <div className="sp-section sp-group-head">
+            <span>{label}</span>
+            <span className="sp-group-count">{items.length}</span>
+          </div>
+          {items.map((p) => renderPost(p, postResults.indexOf(p)))}
+        </div>
+      ))}
     </>
   );
 }
