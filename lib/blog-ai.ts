@@ -1,6 +1,13 @@
 // Server-only helpers for the blog AI pipeline: free LLM providers (Groq, Gemini,
 // Pollinations) with automatic fallback, web research, and relevance-checked images.
-import { AI_MODELS, type AiProvider, type ImageCandidate } from "./blog-ai-shared";
+import {
+  AI_MODELS,
+  ALL_LIMITED_MARK,
+  type AiProvider,
+  type ImageCandidate,
+  isRateLimitError,
+  parseRetryDelayMs,
+} from "./blog-ai-shared";
 
 // ================= LLM =================
 
@@ -41,15 +48,44 @@ function cleanText(s: string) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Parse Retry-After header (seconds or HTTP date). Returns ms, clamped to [0, 10s].
+// Parse Retry-After header (seconds or HTTP date). Returns ms (0 when absent).
 function parseRetryAfter(h: string | null): number {
   if (!h) return 0;
   const sec = Number(h);
-  if (Number.isFinite(sec)) return Math.min(10_000, Math.max(0, sec * 1000));
+  if (Number.isFinite(sec)) return Math.max(0, sec * 1000);
   const date = Date.parse(h);
-  if (!Number.isNaN(date)) return Math.min(10_000, Math.max(0, date - Date.now()));
+  if (!Number.isNaN(date)) return Math.max(0, date - Date.now());
   return 0;
 }
+
+// Only sleep-and-retry the same model for short waits; longer limits (daily
+// quota, a minute of TPM) are better spent on the next model in the chain.
+const MAX_INLINE_WAIT_MS = 10_000;
+
+class RateLimitError extends Error {
+  constructor(
+    message: string,
+    readonly waitMs: number,
+  ) {
+    super(message);
+  }
+}
+
+// How long a model is unusable after a 429/503: the provider's own hint when
+// it gives one, else a guess from the kind of limit.
+function cooldownMs(status: number, headerWait: number, body: string): number {
+  const hint = headerWait || parseRetryDelayMs(body) || 0;
+  if (hint) return hint;
+  if (status === 503) return 30_000;
+  if (/per day|\bTPD\b|\bRPD\b|daily|current quota/i.test(body)) return 15 * 60_000;
+  return 60_000;
+}
+
+// provider/model → epoch ms until which it is known to be rate-limited. Module
+// scope, so later steps of the same generate request (topic → research → write…)
+// and warm reuses of this instance skip a model that just 429'd.
+const cooldowns = new Map<string, number>();
+const cdKey = (p: AiProvider, m: string) => `${p}/${m}`;
 
 async function callGroq(o: LlmOpts, model: string, search: boolean): Promise<string> {
   const build = (useSearch: boolean) => {
@@ -80,12 +116,16 @@ async function callGroq(o: LlmOpts, model: string, search: boolean): Promise<str
         if (o.long && j?.choices?.[0]?.finish_reason === "length") throw new Error(`Groq bị cắt (max_tokens)`);
         return j?.choices?.[0]?.message?.content ?? "";
       }
-      const txt = (await r.text()).slice(0, 400);
+      const full = await r.text();
+      const txt = full.slice(0, 400);
       if (useSearch && /tool_use_failed|Failed to parse tool call/i.test(txt)) return null;
-      if ((r.status === 429 || r.status === 503) && attempt < 2) {
-        const wait = parseRetryAfter(r.headers.get("retry-after")) || 500 * Math.pow(2, attempt);
-        await sleep(wait);
-        continue;
+      if (r.status === 429 || r.status === 503) {
+        const cd = cooldownMs(r.status, parseRetryAfter(r.headers.get("retry-after")), full);
+        if (attempt < 2 && cd <= MAX_INLINE_WAIT_MS) {
+          await sleep(Math.max(cd, 500 * Math.pow(2, attempt)));
+          continue;
+        }
+        throw new RateLimitError(`Groq ${r.status}: ${txt.slice(0, 240)}`, cd);
       }
       throw new Error(`Groq ${r.status}: ${txt.slice(0, 240)}`);
     }
@@ -122,11 +162,15 @@ async function callGemini(o: LlmOpts, model: string, search: boolean): Promise<s
       const parts = j?.candidates?.[0]?.content?.parts;
       return Array.isArray(parts) ? parts.map((p: any) => p?.text || "").join("") : "";
     }
-    const txt = (await r.text()).slice(0, 240);
-    if ((r.status === 429 || r.status === 503) && attempt < 2) {
-      const wait = parseRetryAfter(r.headers.get("retry-after")) || 800 * Math.pow(2, attempt);
-      await sleep(wait);
-      continue;
+    const full = await r.text();
+    const txt = full.slice(0, 240);
+    if (r.status === 429 || r.status === 503) {
+      const cd = cooldownMs(r.status, parseRetryAfter(r.headers.get("retry-after")), full);
+      if (attempt < 2 && cd <= MAX_INLINE_WAIT_MS) {
+        await sleep(Math.max(cd, 800 * Math.pow(2, attempt)));
+        continue;
+      }
+      throw new RateLimitError(`Gemini ${r.status}: ${txt}`, cd);
     }
     throw new Error(`Gemini ${r.status}: ${txt}`);
   }
@@ -148,7 +192,14 @@ async function callPollinations(o: LlmOpts, model: string): Promise<string> {
     }),
     signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
   });
-  if (!r.ok) throw new Error(`Pollinations ${r.status}: ${(await r.text()).slice(0, 240)}`);
+  if (!r.ok) {
+    const full = await r.text();
+    const msg = `Pollinations ${r.status}: ${full.slice(0, 240)}`;
+    if (r.status === 429 || r.status === 503) {
+      throw new RateLimitError(msg, cooldownMs(r.status, parseRetryAfter(r.headers.get("retry-after")), full));
+    }
+    throw new Error(msg);
+  }
   const j: any = await r.json();
   if (o.long && j?.choices?.[0]?.finish_reason === "length") {
     throw new Error("Pollinations giới hạn độ dài — bài bị cắt, hãy dùng Groq/Gemini");
@@ -191,14 +242,63 @@ export async function callLlm(o: LlmOpts): Promise<LlmResult> {
   // shouldn't be allowed to run 90s through the fallback chain.
   const perCall = o.timeoutMs ?? 150_000;
   const budget = Math.min(perCall * 2.5, 150_000);
+  const left = () => budget - (Date.now() - started);
+  const until = (p: AiProvider, m: string) => cooldowns.get(cdKey(p, m)) ?? 0;
+
+  // Models still cooling down from an earlier 429 go last, soonest-free first,
+  // so the chain spends its time on models that can actually answer.
+  const now = Date.now();
+  const ordered = [
+    ...chain.filter(([p, m]) => until(p, m) <= now),
+    ...chain.filter(([p, m]) => until(p, m) > now).sort((a, b) => until(...a) - until(...b)),
+  ];
+
   const errors: string[] = [];
-  for (const [p, m] of chain) {
-    if (Date.now() - started > budget) break;
+  let allLimited = true;
+  const attempt = async (p: AiProvider, m: string): Promise<LlmResult | null> => {
     try {
-      return await callOnce(o, p, m);
+      const r = await callOnce(o, p, m);
+      cooldowns.delete(cdKey(p, m));
+      return r;
     } catch (e: any) {
-      errors.push(`${m}: ${(e?.message || String(e)).slice(0, 160)}`);
+      const msg = e?.message || String(e);
+      if (e instanceof RateLimitError || isRateLimitError(msg)) {
+        const wait = e instanceof RateLimitError ? e.waitMs : cooldownMs(429, 0, msg);
+        cooldowns.set(cdKey(p, m), Date.now() + wait);
+      } else {
+        allLimited = false;
+      }
+      errors.push(`${m}: ${msg.slice(0, 160)}`);
+      return null;
     }
+  };
+
+  for (const [p, m] of ordered) {
+    if (left() <= 0) break;
+    const wait = until(p, m) - Date.now();
+    if (wait > 0) {
+      errors.push(`${m}: đang bị giới hạn, còn ~${Math.ceil(wait / 1000)}s`);
+      continue;
+    }
+    const r = await attempt(p, m);
+    if (r) return r;
+  }
+
+  // Everything is rate-limited. Per-minute limits clear quickly, so if one model
+  // frees up within the remaining budget, wait for it rather than fail the post.
+  if (allLimited && chain.length) {
+    const [p, m] = [...chain].sort((a, b) => until(...a) - until(...b))[0];
+    const wait = until(p, m) - Date.now();
+    if (wait <= 45_000 && wait < left() - 5_000) {
+      await sleep(Math.max(0, wait));
+      const r = await attempt(p, m);
+      if (r) return r;
+    }
+  }
+
+  if (allLimited && chain.length) {
+    const soonest = Math.min(...chain.map(([p, m]) => until(p, m))) - Date.now();
+    errors.push(`${ALL_LIMITED_MARK} ~${Math.max(60, Math.ceil(soonest / 1000))}s`);
   }
   throw new Error(errors.join(" · ") || "Không có AI provider khả dụng");
 }

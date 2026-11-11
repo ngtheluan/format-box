@@ -6,11 +6,13 @@
 import { randomUUID } from "crypto";
 import { listAdminCategories } from "./blog";
 import {
+  ALL_LIMITED_MARK,
   AUTO_GEN_DEFAULTS,
   type AiProvider,
   type AutoGenOptions,
   buildAutoModelChain,
   isRateLimitError,
+  parseRetryDelayMs,
 } from "./blog-ai-shared";
 import { supabaseAdmin } from "./supabase";
 
@@ -68,6 +70,11 @@ const RECENT_LIMIT = 10;
 const LEASE_MS = 310_000;
 // The loop runs unattended, so a bad API key must not burn calls forever.
 const MAX_CONSECUTIVE_FAILURES = 5;
+// When every model is rate-limited the job pauses instead of failing; bounds
+// for that pause (the provider's hint is used when it gives one).
+const RATE_LIMIT_PAUSE_MIN_MS = 60_000;
+const RATE_LIMIT_PAUSE_MAX_MS = 30 * 60_000;
+const RATE_LIMIT_PAUSE_DEFAULT_MS = 3 * 60_000;
 
 function jobs() {
   return supabaseAdmin().from(TABLE);
@@ -334,6 +341,9 @@ async function generateOne(job: JobRow, baseUrl: string): Promise<TickOutcome> {
     lastError = outcome.error;
     if (!isRateLimitError(outcome.error)) return outcome;
     if (ac.signal.aborted) return { kind: "stopped" };
+    // The pipeline already walked every model and all of them are limited —
+    // starting it again from another model would only hit the same 429s.
+    if (outcome.error.includes(ALL_LIMITED_MARK)) break;
   }
   return { kind: "failed", error: lastError || "Tất cả model đều bị giới hạn" };
 }
@@ -357,6 +367,17 @@ async function finishTick(job: JobRow, outcome: TickOutcome) {
       patch.running = false;
       patch.current_topic = "";
     }
+  } else if (outcome.kind === "failed" && isRateLimitError(outcome.error)) {
+    // Quota exhaustion is temporary: keep the job running, don't count it
+    // toward the auto-stop, and push the next tick past the cooldown.
+    const pauseMs = Math.min(
+      RATE_LIMIT_PAUSE_MAX_MS,
+      Math.max(RATE_LIMIT_PAUSE_MIN_MS, parseRetryDelayMs(outcome.error) ?? RATE_LIMIT_PAUSE_DEFAULT_MS),
+    );
+    const notBefore = Math.max(Date.now() + pauseMs, Date.parse(String(patch.locked_until || 0)) || 0);
+    patch.locked_until = new Date(notBefore).toISOString();
+    patch.last_error = outcome.error;
+    patch.current_topic = `Các model đang bị giới hạn — tự thử lại sau ~${Math.ceil((notBefore - Date.now()) / 60_000)} phút`;
   } else if (outcome.kind === "failed") {
     const consecutive = job.consecutive_failures + 1;
     patch.failed = job.failed + 1;

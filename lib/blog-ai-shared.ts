@@ -270,6 +270,26 @@ export function isRateLimitError(err: string): boolean {
   );
 }
 
+// Appended by callLlm when every model in the chain is rate-limited, followed
+// by "~<n>s" so the auto job knows how long to back off.
+export const ALL_LIMITED_MARK = "Tất cả model đang bị giới hạn, thử lại sau";
+
+// Wait hint in a provider error, in ms. Understands Groq ("try again in 1m23.5s",
+// "in 450ms"), Gemini ("retryDelay": "34s", "retry in 34.5s") and ALL_LIMITED_MARK.
+export function parseRetryDelayMs(text: string): number | null {
+  if (!text) return null;
+  const anchor = /(?:try again in|retry in|retryDelay\\?"?\s*:\s*\\?"|thử lại sau)\s*~?\s*/i.exec(text);
+  if (!anchor) return null;
+  const rest = text.slice(anchor.index + anchor[0].length);
+  const m = /^(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m(?!s))?(?:(\d+(?:\.\d+)?)(ms|s))?/i.exec(rest);
+  if (!m || !m[0]) return null;
+  const ms =
+    Number(m[1] || 0) * 3_600_000 +
+    Number(m[2] || 0) * 60_000 +
+    Number(m[3] || 0) * (m[4]?.toLowerCase() === "ms" ? 1 : 1000);
+  return Number.isFinite(ms) && ms > 0 ? Math.ceil(ms) : null;
+}
+
 // Build a (provider, model) fallback chain starting from the requested combo,
 // then the requested provider's other models, then every other available
 // provider's models. Used by the auto job to rotate on rate-limit.
