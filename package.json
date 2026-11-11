@@ -37,6 +37,7 @@
     "react-dom": "^18.3.1",
     "reactflow": "^11.11.4",
     "sql-formatter": "^15.9.0",
+    "tesseract.js": "^7.0.0",
     "three": "^0.185.1",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2",
