@@ -7,7 +7,6 @@ import type { Lang } from "@/lib/i18n";
 import { ToolIcon } from "@/lib/tool-icons";
 import { CATEGORY_ORDER, type ToolCategory } from "@/lib/tools-shared";
 import {
-  IconBulb,
   IconCategory,
   IconChevronDown,
   IconListNumbers,
@@ -23,18 +22,16 @@ const CAT_SHORT_LABEL: Record<ToolCategory, Record<Lang, string>> = {
   cat_life: { vi: "Tiện ích", en: "Utilities" },
 };
 
-type BlogMenuKey = "cats" | "series" | "dyk";
+type BlogMenuKey = "cats" | "series";
 
 const BLOG_MENU_LABEL: Record<BlogMenuKey, Record<Lang, string>> = {
   cats: { vi: "Danh mục", en: "Categories" },
   series: { vi: "Series", en: "Series" },
-  dyk: { vi: "Tri thức", en: "Did you know" },
 };
 
 const BlogMenuIcon = {
   cats: IconCategory,
   series: IconListNumbers,
-  dyk: IconBulb,
 };
 
 export default function ToolsMenu() {
@@ -163,7 +160,6 @@ function BlogMenu({ lang, pathname }: { lang: Lang; pathname: string }) {
     return [
       { key: "cats", count: nav.categories.length },
       { key: "series", count: nav.series.length },
-      { key: "dyk", count: nav.didYouKnow.length },
     ];
   }, [nav]);
 
@@ -249,29 +245,6 @@ function BlogMenu({ lang, pathname }: { lang: Lang; pathname: string }) {
                             <span>
                               {s.count} {lang === "en" ? "parts" : "phần"}
                             </span>
-                          </div>
-                        </Link>
-                      );
-                    })}
-
-                  {key === "dyk" &&
-                    nav.didYouKnow.map((d) => {
-                      const href = `/blog#dyk-${encodeURIComponent(d.slug)}`;
-                      const title = lang === "en" ? d.title_en || d.title_vi : d.title_vi;
-                      const tag = lang === "en" ? d.tag_en || d.tag_vi : d.tag_vi;
-                      return (
-                        <Link
-                          key={d.slug}
-                          href={href}
-                          className="nav-cat-item"
-                          role="menuitem"
-                        >
-                          <div className="nav-cat-item-icon">
-                            <IconBulb size={18} stroke={1.7} />
-                          </div>
-                          <div className="nav-cat-item-text">
-                            <b>{title}</b>
-                            {tag && <span>{tag}</span>}
                           </div>
                         </Link>
                       );
