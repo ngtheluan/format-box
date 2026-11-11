@@ -1,8 +1,8 @@
 "use client";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui";
-import { enablePush, getPushState, sendTestPush, type PushState } from "@/lib/admin-push-client";
-import { IconBell, IconBellOff, IconBellRinging, IconDeviceMobileShare, IconSend } from "@tabler/icons-react";
+import { enablePush, getPushState, resetPushSubscription, sendTestPush, type PushState } from "@/lib/admin-push-client";
+import { IconBell, IconBellOff, IconBellRinging, IconDeviceMobileShare, IconRefresh, IconSend } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 
 const TEXT: Record<Exclude<PushState, "checking">, string> = {
@@ -42,6 +42,13 @@ export default function PushSetup() {
     toast(r.ok ? "Đã gửi thử — thông báo sẽ hiện sau vài giây" : `Gửi thử lỗi: ${r.error}`);
   }
 
+  async function reset() {
+    setBusy(true);
+    const r = await resetPushSubscription();
+    setBusy(false);
+    toast(r.ok ? "Đã tạo đăng ký mới trên thiết bị này" : `Đăng ký lại lỗi: ${r.error}`);
+  }
+
   const icon =
     state === "granted" ? (
       <IconBellRinging size={14} stroke={2} />
@@ -63,9 +70,21 @@ export default function PushSetup() {
         </Button>
       )}
       {state === "granted" && (
-        <Button size="sm" variant="subtle" loading={busy} leftIcon={<IconSend size={14} />} onClick={test}>
-          Gửi thử
-        </Button>
+        <>
+          <Button size="sm" variant="subtle" loading={busy} leftIcon={<IconSend size={14} />} onClick={test}>
+            Gửi thử
+          </Button>
+          <Button
+            size="sm"
+            variant="subtle"
+            loading={busy}
+            leftIcon={<IconRefresh size={14} />}
+            onClick={reset}
+            title="Dùng khi báo BadJwtToken: xoá subscription cũ và tạo mới khớp VAPID key hiện tại"
+          >
+            Đăng ký lại
+          </Button>
+        </>
       )}
     </div>
   );

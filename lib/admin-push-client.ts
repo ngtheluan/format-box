@@ -93,6 +93,33 @@ export async function enablePush(): Promise<{ ok: boolean; error?: string }> {
   }
 }
 
+// Xoá subscription hiện tại (cả ở browser và server) rồi tạo mới — dùng khi
+// VAPID key đổi phía server và subscription cũ vĩnh viễn bị Apple từ chối.
+export async function resetPushSubscription(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const reg = (await getSwRegistration()) || (await navigator.serviceWorker.ready);
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      const endpoint = existing.endpoint;
+      try {
+        await existing.unsubscribe();
+      } catch {}
+      try {
+        await fetch("/api/blog/push/subscribe", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint }),
+          credentials: "same-origin",
+        });
+      } catch {}
+    }
+    await syncPushSubscription();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String((e as Error)?.message || e) };
+  }
+}
+
 export async function sendTestPush(): Promise<{ ok: boolean; error?: string }> {
   try {
     const endpoint = await syncPushSubscription();

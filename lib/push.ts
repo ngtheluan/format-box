@@ -64,7 +64,12 @@ async function sendToRows(rows: SubRow[], payload: AdminPushPayload): Promise<Pu
       } catch (e: any) {
         result.failed++;
         const status = Number(e?.statusCode);
-        if (status === 404 || status === 410) stale.push(row.id);
+        const rawBody = String(e?.body || e?.message || e);
+        // Apple (403 BadJwtToken) nghĩa là cặp VAPID public/private trên server
+        // không khớp public key dùng lúc subscribe. Subscription cũ không bao giờ
+        // dùng lại được — xoá đi để user bật lại là tạo subscription khớp key hiện tại.
+        const badJwt = status === 403 && /BadJwtToken/i.test(rawBody);
+        if (status === 404 || status === 410 || badJwt) stale.push(row.id);
         const host = (() => {
           try {
             return new URL(row.endpoint).host;
@@ -72,7 +77,9 @@ async function sendToRows(rows: SubRow[], payload: AdminPushPayload): Promise<Pu
             return "?";
           }
         })();
-        const msg = `${host}: ${status || ""} ${String(e?.body || e?.message || e).slice(0, 200)}`.trim();
+        const msg = badJwt
+          ? `${host}: 403 BadJwtToken — cặp VAPID public/private trên server không khớp subscription đã lưu. Đã xoá đăng ký cũ; tắt rồi bật lại thông báo trên thiết bị này.`
+          : `${host}: ${status || ""} ${rawBody.slice(0, 200)}`.trim();
         result.errors.push(msg);
         console.error("[push] send failed", msg);
       }
