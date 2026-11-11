@@ -2,7 +2,20 @@
 import "@/app/blog/blog.css";
 import { useToast } from "@/components/Toast";
 import type { SelectOption } from "@/components/ui";
-import { Button, Field, Input, Select, Switch, Tab, TabPanel, Tabs, TabsList, Textarea } from "@/components/ui";
+import {
+  Button,
+  Checkbox,
+  Field,
+  Input,
+  Pagination,
+  Select,
+  Switch,
+  Tab,
+  TabPanel,
+  Tabs,
+  TabsList,
+  Textarea,
+} from "@/components/ui";
 import {
   DEFAULT_PIN_CONFIG,
   MAX_PINNED,
@@ -49,6 +62,7 @@ import {
   IconAlertTriangle,
   IconArrowDown,
   IconArrowsLeftRight,
+  IconArrowsSort,
   IconArrowUp,
   IconArticle,
   IconBook,
@@ -105,25 +119,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminBody from "../AdminBody";
+import { getSwRegistration, syncPushSubscription } from "@/lib/admin-push-client";
 import AutoModePanel, { type AutoRunSettings } from "./AutoModePanel";
 import "./blog-admin.css";
 import ImagePicker from "./ImagePicker";
 import ImagesManager from "./ImagesManager";
 import ManualComposer from "./ManualComposer";
+import PushSetup from "./PushSetup";
 import RelatedToolsPicker from "./RelatedToolsPicker";
 
 marked.setOptions({ gfm: true, breaks: false });
-
-// VAPID key dạng base64url → ArrayBuffer cho PushManager.subscribe.
-function urlBase64ToArrayBuffer(base64: string): ArrayBuffer {
-  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = typeof atob === "function" ? atob(b64) : Buffer.from(b64, "base64").toString("binary");
-  const buf = new ArrayBuffer(raw.length);
-  const view = new Uint8Array(buf);
-  for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
-  return buf;
-}
 
 type Props = {
   initialPosts: BlogPost[];
@@ -171,10 +176,87 @@ function photoQuery(title: string, tags: string[]) {
 }
 type StatusFilter = "all" | BlogStatus;
 
+// Lists in the Posts / Series / Knowledge tabs paginate past this many items.
+const PAGE_SIZE = 20;
+const pageOf = <T,>(items: T[], page: number) => {
+  const count = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const cur = Math.min(Math.max(1, page), count); // clamp after deletes/filtering
+  return { cur, items: items.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE) };
+};
+
+// Search ignores case and Vietnamese diacritics ("tim" finds "Tìm").
+const foldText = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase();
+const matchesQuery = (needle: string, fields: (string | undefined | null)[]) =>
+  !needle || fields.some((f) => !!f && foldText(f).includes(needle));
+
+const postTime = (p: BlogPost) => Date.parse(p.createdAt || p.date) || 0;
+
+// dd/mm/yy hh:mm in a fixed timezone, so the server render and the browser agree.
+const POST_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Ho_Chi_Minh",
+  day: "2-digit",
+  month: "2-digit",
+  year: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+function fmtPostTime(p: BlogPost): string {
+  const t = postTime(p);
+  if (!t) return p.date;
+  const v = Object.fromEntries(POST_TIME_FMT.formatToParts(t).map((x) => [x.type, x.value]));
+  const day = `${v.day}/${v.month}/${v.year}`;
+  return p.createdAt ? `${day} ${v.hour}:${v.minute}` : day;
+}
+
 const STATUS_LABEL: Record<BlogStatus, string> = {
   draft: "Nháp",
   rejected: "Từ chối",
   published: "Phát hành",
+};
+
+// Bulk actions on selected posts — same endpoints as the per-row Actions column.
+type BulkAction = "approve" | "reject" | "unpublish" | "delete";
+const BULK_ACTIONS: Record<
+  BulkAction,
+  { label: string; doneLabel: string; endpoint: string; next?: BlogStatus; color: string; icon: typeof IconCheck }
+> = {
+  approve: {
+    label: "Duyệt",
+    doneLabel: "Đã duyệt",
+    endpoint: "/api/blog/approve",
+    next: "published",
+    color: "var(--ok, #10b981)",
+    icon: IconCheck,
+  },
+  reject: {
+    label: "Từ chối",
+    doneLabel: "Đã từ chối",
+    endpoint: "/api/blog/reject",
+    next: "rejected",
+    color: "var(--warn, #f59e0b)",
+    icon: IconX,
+  },
+  unpublish: {
+    label: "Về nháp",
+    doneLabel: "Đã chuyển về nháp",
+    endpoint: "/api/blog/unpublish",
+    next: "draft",
+    color: "var(--info, #3b82f6)",
+    icon: IconRotateClockwise,
+  },
+  delete: {
+    label: "Xoá",
+    doneLabel: "Đã xoá",
+    endpoint: "/api/blog/delete",
+    color: "var(--err, #ef4444)",
+    icon: IconTrash,
+  },
 };
 
 export default function BlogAdminTool({
@@ -744,11 +826,12 @@ export default function BlogAdminTool({
   const autoFailed = autoStatus.failed;
   const autoCurrentTopic = autoStatus.currentTopic;
   // Re-evaluated on each status poll.
-  const autoStalled = isAutoStalled(autoStatus, Date.now());
+  const [autoStalled, setAutoStalled] = useState(false);
 
-  // Bulk draft selection (checkbox) for batch-approve from the list view.
-  const [selectedDraftSlugs, setSelectedDraftSlugs] = useState<Set<string>>(new Set());
-  const [bulkApproving, setBulkApproving] = useState(false);
+  // Bulk selection (checkbox) in the posts list; any status, actions mirror the
+  // per-row Actions column and only apply to the posts they fit.
+  const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState<BulkAction | null>(null);
 
   useEffect(() => {
     if (!genLoading) return;
@@ -816,19 +899,126 @@ export default function BlogAdminTool({
     return c;
   }, [posts]);
 
+  type SortKey = "date" | "category";
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "date", dir: "desc" });
+  // Clicking the active column flips direction; another column starts at its
+  // natural order (newest first for dates, A→Z for categories).
+  const toggleSort = (key: SortKey) =>
+    setSort((s) =>
+      s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "date" ? "desc" : "asc" },
+    );
+
   const visible = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return posts.filter((p) => {
-      const s = p.status || "published";
-      if (statusFilter !== "all" && s !== statusFilter) return false;
-      if (!needle) return true;
-      return (
-        p.title.toLowerCase().includes(needle) ||
-        p.slug.toLowerCase().includes(needle) ||
-        p.tags.some((t) => t.toLowerCase().includes(needle))
+    const needle = foldText(q.trim());
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const catOf = (p: BlogPost) => CAT_LABEL[p.category] || p.category;
+    return posts
+      .filter((p) => {
+        const s = p.status || "published";
+        if (statusFilter !== "all" && s !== statusFilter) return false;
+        return matchesQuery(needle, [p.title, p.slug, ...p.tags]);
+      })
+      .sort((a, b) =>
+        sort.key === "category"
+          ? dir * catOf(a).localeCompare(catOf(b), "vi") || postTime(b) - postTime(a)
+          : dir * (postTime(a) - postTime(b)),
       );
-    });
-  }, [posts, q, statusFilter]);
+  }, [posts, q, statusFilter, sort, CAT_LABEL]);
+
+  const [postsPage, setPostsPage] = useState(1);
+  const [seriesPage, setSeriesPage] = useState(1);
+  const [dykPage, setDykPage] = useState(1);
+  // The header search applies to every paginated tab, and must filter BEFORE
+  // slicing pages — otherwise only page 1 was ever searchable.
+  const seriesShown = useMemo(() => {
+    const needle = foldText(q.trim());
+    return seriesGroups.filter((g) => matchesQuery(needle, [g.label, g.slug, ...g.parts.map((p) => p.title)]));
+  }, [seriesGroups, q]);
+  const dykShown = useMemo(() => {
+    const needle = foldText(q.trim());
+    return dyk.filter((it) =>
+      matchesQuery(needle, [it.title_vi, it.title_en, it.slug, it.tag_vi, it.tag_en, it.intro_vi]),
+    );
+  }, [dyk, q]);
+  // A new filter / search / sort shows its first page.
+  useEffect(() => {
+    setPostsPage(1);
+  }, [statusFilter, q, sort]);
+  useEffect(() => {
+    setSeriesPage(1);
+    setDykPage(1);
+  }, [q]);
+  const postsPaged = pageOf(visible, postsPage);
+  const seriesPaged = pageOf(seriesShown, seriesPage);
+  const dykPaged = pageOf(dykShown, dykPage);
+
+  // Anchor above the active list; page changes scroll back to it.
+  const listTopRef = useRef<HTMLDivElement>(null);
+  const goPage = (set: (n: number) => void) => (n: number) => {
+    set(n);
+    listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+  const pager = (total: number, page: number, set: (n: number) => void) =>
+    total > PAGE_SIZE ? (
+      <Pagination
+        page={page}
+        total={total}
+        pageSize={PAGE_SIZE}
+        onChange={goPage(set)}
+        prevLabel="Trang trước"
+        nextLabel="Trang sau"
+      />
+    ) : null;
+
+  const sortHead = (key: SortKey, label: string) => {
+    const on = sort.key === key;
+    const hint =
+      key === "date" ? (sort.dir === "desc" ? "mới nhất trước" : "cũ nhất trước") : sort.dir === "asc" ? "A→Z" : "Z→A";
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        className="bga-sort-head"
+        data-active={on}
+        onClick={() => toggleSort(key)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleSort(key);
+          }
+        }}
+        title={on ? `Đang sắp xếp ${hint} — bấm để đảo` : `Sắp xếp theo ${label.toLowerCase()}`}
+      >
+        {label}
+        {on ? (
+          sort.dir === "desc" ? (
+            <IconArrowDown size={12} stroke={2.2} />
+          ) : (
+            <IconArrowUp size={12} stroke={2.2} />
+          )
+        ) : (
+          <IconArrowsSort size={12} stroke={2} />
+        )}
+      </div>
+    );
+  };
+
+  // Switching stat filter starts a fresh selection so hidden posts never get acted on.
+  useEffect(() => {
+    setSelectedSlugs(new Set());
+  }, [statusFilter]);
+
+  const selectedVisible = useMemo(() => visible.filter((p) => selectedSlugs.has(p.slug)), [visible, selectedSlugs]);
+  const bulkTargets = useMemo(() => {
+    const by = (pred: (s: BlogStatus) => boolean) =>
+      selectedVisible.filter((p) => pred((p.status || "published") as BlogStatus));
+    return {
+      approve: by((s) => s === "draft" || s === "rejected"),
+      reject: by((s) => s === "draft"),
+      unpublish: by((s) => s === "published"),
+      delete: by((s) => s === "rejected"),
+    } satisfies Record<BulkAction, BlogPost[]>;
+  }, [selectedVisible]);
 
   const statActiveStyle = { border: "1.5px solid #f97316", boxShadow: "0 0 0 2px rgba(249,115,22,0.15)" } as const;
 
@@ -976,7 +1166,10 @@ export default function BlogAdminTool({
       if (buf.trim()) handle(JSON.parse(buf));
       const post = created as BlogPost | null;
       if (post) {
-        setPosts((prev) => [{ ...post, status: "draft" }, ...prev.filter((p) => p.slug !== post.slug)]);
+        setPosts((prev) => [
+          { ...post, status: "draft", createdAt: post.createdAt ?? new Date().toISOString() },
+          ...prev.filter((p) => p.slug !== post.slug),
+        ]);
         // Đồng bộ danh sách từ server để tab Nháp hiện bài mới mà không cần reload.
         router.refresh();
         if (!override) {
@@ -1186,13 +1379,70 @@ export default function BlogAdminTool({
   // Register the shared /sw.js so the browser can show rich notifications
   // (with Duyệt / Từ chối actions) when a new auto-generated post lands.
   const swRegRef = useRef<ServiceWorkerRegistration | null>(null);
+
+  // Hộp Duyệt / Từ chối mở từ thông báo. iOS không có nút action trên
+  // notification nên chạm vào nó mở /admin/blog?review=<slug>.
+  const [reviewSlug, setReviewSlug] = useState<string | null>(null);
+  const [reviewFetched, setReviewFetched] = useState<BlogPost | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const reviewPost = reviewSlug
+    ? posts.find((p) => p.slug === reviewSlug) || (reviewFetched?.slug === reviewSlug ? reviewFetched : null)
+    : null;
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get("review");
+    if (!slug) return;
+    setReviewSlug(slug);
+    // Bỏ query để reload trang không mở lại hộp duyệt.
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+  useEffect(() => {
+    if (!reviewSlug || posts.some((p) => p.slug === reviewSlug)) return;
+    let cancelled = false;
+    fetch(`/api/blog/update?slug=${encodeURIComponent(reviewSlug)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j?.post) setReviewFetched({ ...j.post, slug: reviewSlug });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [reviewSlug, posts]);
+
+  async function reviewAct(kind: "approve" | "reject") {
+    if (!reviewPost) return;
+    const p = reviewPost;
+    const status: BlogStatus = kind === "approve" ? "published" : "rejected";
+    setReviewBusy(true);
+    try {
+      const r = await fetch(`/api/blog/${kind}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: p.slug }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) {
+        toast(j?.error || (kind === "approve" ? "Duyệt thất bại" : "Từ chối thất bại"));
+        return;
+      }
+      setPosts((prev) => prev.map((x) => (x.slug === p.slug ? { ...x, status } : x)));
+      setReviewFetched(null);
+      setReviewSlug(null);
+      toast(`${kind === "approve" ? "Đã duyệt" : "Đã từ chối"}: ${p.title}`);
+      router.refresh();
+    } catch (e: any) {
+      toast(e?.message || "Lỗi");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
     let cancelled = false;
     (async () => {
       try {
-        const existing = await navigator.serviceWorker.getRegistration("/sw.js");
-        const reg = existing || (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
+        const reg = await getSwRegistration();
         if (!cancelled) swRegRef.current = reg;
         // Nếu đã có quyền từ phiên trước, re-sync subscription để server
         // có endpoint mới nhất (endpoint có thể đã bị xoá do 410/404).
@@ -1203,6 +1453,11 @@ export default function BlogAdminTool({
     })();
     const onMsg = (e: MessageEvent) => {
       const d = (e.data || {}) as { type?: string; slug?: string; action?: string; ok?: boolean };
+      // Chạm vào thông báo khi tab admin đang mở: SW focus tab và gửi slug.
+      if (d.type === "blog-open-review" && d.slug) {
+        setReviewSlug(d.slug);
+        return;
+      }
       if (d.type !== "blog-post-acted" || !d.slug) return;
       const newStatus: BlogStatus = d.action === "approve" ? "published" : "rejected";
       setPosts((prev) => prev.map((p) => (p.slug === d.slug ? { ...p, status: newStatus } : p)));
@@ -1237,24 +1492,8 @@ export default function BlogAdminTool({
   // after the tab closes. No-op when VAPID isn't configured on the server.
   async function ensurePushSubscription(): Promise<void> {
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    if (!vapidKey) return;
     try {
-      const reg = swRegRef.current || (await navigator.serviceWorker.ready);
-      let sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToArrayBuffer(vapidKey),
-        });
-      }
-      const json = sub.toJSON();
-      await fetch("/api/blog/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
-        credentials: "same-origin",
-      });
+      await syncPushSubscription();
     } catch {}
   }
 
@@ -1269,7 +1508,7 @@ export default function BlogAdminTool({
         badge: "/icon.svg",
         tag: `fb-blog-new-${slug}`,
         requireInteraction: true,
-        data: { slug, title: postTitle, url: "/admin/blog" },
+        data: { slug, title: postTitle, url: `/admin/blog?review=${encodeURIComponent(slug)}` },
         // Chrome/Edge render these as inline buttons on desktop + Android.
         // Safari/iOS ignores them silently; clicking the notification body
         // still focuses /admin/blog.
@@ -1298,7 +1537,10 @@ export default function BlogAdminTool({
         if (!r.ok) return;
         const j = (await r.json()) as AutoStatusApi;
         if (cancelled) return;
-        setAutoStatus(j);
+        // Skip identical payloads: a new object every 3.5s re-rendered the whole
+        // page (and every post row), which made scrolling the list stutter.
+        setAutoStatus((old) => (JSON.stringify(old) === JSON.stringify(j) ? old : j));
+        setAutoStalled(isAutoStalled(j, Date.now()));
         // First poll just records the baseline.
         if (prev.gen === -1) {
           prev.gen = j.generated;
@@ -1356,31 +1598,41 @@ export default function BlogAdminTool({
     };
   }, [router, toast]);
 
-  async function bulkApprove() {
-    const slugs = Array.from(selectedDraftSlugs);
-    if (!slugs.length) return;
-    if (!confirm(`Duyệt ${slugs.length} bài đã chọn?`)) return;
-    setBulkApproving(true);
-    let ok = 0;
-    for (const slug of slugs) {
+  async function runBulk(action: BulkAction) {
+    const targets = bulkTargets[action];
+    if (!targets.length || bulkBusy) return;
+    const cfg = BULK_ACTIONS[action];
+    const warn = action === "delete" ? " Không undo được." : "";
+    if (!confirm(`${cfg.label} ${targets.length} bài đã chọn?${warn}`)) return;
+    setBulkBusy(action);
+    const done: string[] = [];
+    for (const p of targets) {
       try {
-        const r = await fetch("/api/blog/approve", {
+        const r = await fetch(cfg.endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug }),
+          body: JSON.stringify({ slug: p.slug }),
         });
-        if (r.ok) ok++;
+        if (r.ok) done.push(p.slug);
       } catch {}
     }
-    setPosts((prev) => prev.map((x) => (slugs.includes(x.slug) ? { ...x, status: "published" } : x)));
-    setSelectedDraftSlugs(new Set());
-    setBulkApproving(false);
-    toast(`Đã duyệt ${ok}/${slugs.length} bài`);
+    setPosts((prev) =>
+      action === "delete"
+        ? prev.filter((x) => !done.includes(x.slug))
+        : prev.map((x) => (done.includes(x.slug) ? { ...x, status: cfg.next ?? x.status } : x)),
+    );
+    setSelectedSlugs((prev) => {
+      const next = new Set(prev);
+      done.forEach((s) => next.delete(s));
+      return next;
+    });
+    setBulkBusy(null);
+    toast(`${cfg.doneLabel} ${done.length}/${targets.length} bài`);
     router.refresh();
   }
 
-  function toggleDraftSelected(slug: string) {
-    setSelectedDraftSlugs((prev) => {
+  function toggleSelected(slug: string) {
+    setSelectedSlugs((prev) => {
       const next = new Set(prev);
       if (next.has(slug)) next.delete(slug);
       else next.add(slug);
@@ -1912,7 +2164,7 @@ export default function BlogAdminTool({
     const activeCats = cats.filter((c) => c.active);
     const MODE_OPTIONS: { id: BlogPinMode; label: string; desc: string }[] = [
       { id: "manual", label: "Thủ công", desc: "Admin tự chọn 6 bài để ghim" },
-      { id: "auto", label: "Tự động", desc: "Bài mới và/hoặc có nhiều lượt đánh giá hữu ích" },
+      { id: "auto", label: "Tự động", desc: "Bài phát hành mới nhất hoặc có nhiều lượt hữu ích" },
       { id: "category", label: "Theo danh mục", desc: "6 bài mới nhất thuộc 1 danh mục" },
     ];
     return (
@@ -1980,7 +2232,8 @@ export default function BlogAdminTool({
         {mode === "auto" && (
           <div className="bga-pinned-sub">
             <span className="bga-pinned-sub-hint">
-              Hệ thống tự chọn: ưu tiên bài đăng trong 14 ngày gần đây và/hoặc có nhiều lượt &quot;hữu ích&quot;.
+              Hệ thống tự chọn: ưu tiên bài phát hành mới nhất hoặc có nhiều lượt &quot;hữu ích&quot; (tối đa{" "}
+              {Math.floor(MAX_PINNED / 2)} bài nhiều &quot;hữu ích&quot; nhất, còn lại là bài mới nhất).
             </span>
           </div>
         )}
@@ -2381,74 +2634,80 @@ export default function BlogAdminTool({
           <ImagesManager />
         ) : null
       ) : tab === "knowledge" && isSuperAdmin ? (
-        dyk.length === 0 ? (
+        dykShown.length === 0 ? (
           <div className="fx-empty">
             <div className="fx-empty-ico">
               <IconBulb size={22} stroke={1.7} />
             </div>
-            Chưa có kiến thức nào. Bấm &quot;Thêm kiến thức&quot; để tạo mới.
+            {dyk.length === 0
+              ? 'Chưa có kiến thức nào. Bấm "Thêm kiến thức" để tạo mới.'
+              : "Không có kết quả phù hợp."}
           </div>
         ) : (
-          <div className="fx-table">
-            <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "56px 1fr 140px 80px 80px 140px" }}>
-              <div />
-              <div>Tiêu đề</div>
-              <div>Tag</div>
-              <div style={{ textAlign: "center" }}>Ảnh</div>
-              <div style={{ textAlign: "center" }}>Thứ tự</div>
-              <div style={{ textAlign: "right" }}>Actions</div>
-            </div>
-            {dyk.map((it) => (
-              <div
-                key={it.slug}
-                className="fx-row"
-                style={{ gridTemplateColumns: "56px 1fr 140px 80px 80px 140px", opacity: it.active ? 1 : 0.55 }}
-              >
-                <div className="bga-thumb">
-                  {it.images[0]?.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={rewriteImgUrl(it.images[0].url)} alt="" loading="lazy" referrerPolicy="no-referrer" />
-                  ) : (
-                    <span style={{ background: "linear-gradient(135deg,#64748b,#334155)" }} />
-                  )}
-                </div>
-                <div className="fx-title-cell">
-                  <div className="fx-t-row">
-                    <b>{it.title_vi}</b>
-                    {!it.active && (
-                      <span className="fx-badge" data-tone="mute">
-                        Tắt
-                      </span>
-                    )}
-                    {!it.quiz?.length && (
-                      <span className="fx-badge" data-tone="mute">
-                        Chưa có quiz
-                      </span>
+          <>
+            <div ref={listTopRef} />
+            <div className="fx-table">
+              <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "56px 1fr 140px 80px 80px 140px" }}>
+                <div />
+                <div>Tiêu đề</div>
+                <div>Tag</div>
+                <div style={{ textAlign: "center" }}>Ảnh</div>
+                <div style={{ textAlign: "center" }}>Thứ tự</div>
+                <div style={{ textAlign: "right" }}>Actions</div>
+              </div>
+              {dykPaged.items.map((it) => (
+                <div
+                  key={it.slug}
+                  className="fx-row"
+                  style={{ gridTemplateColumns: "56px 1fr 140px 80px 80px 140px", opacity: it.active ? 1 : 0.55 }}
+                >
+                  <div className="bga-thumb">
+                    {it.images[0]?.url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={rewriteImgUrl(it.images[0].url)} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : (
+                      <span style={{ background: "linear-gradient(135deg,#64748b,#334155)" }} />
                     )}
                   </div>
-                  <span className="fx-t-sub">{it.intro_vi}</span>
+                  <div className="fx-title-cell">
+                    <div className="fx-t-row">
+                      <b>{it.title_vi}</b>
+                      {!it.active && (
+                        <span className="fx-badge" data-tone="mute">
+                          Tắt
+                        </span>
+                      )}
+                      {!it.quiz?.length && (
+                        <span className="fx-badge" data-tone="mute">
+                          Chưa có quiz
+                        </span>
+                      )}
+                    </div>
+                    <span className="fx-t-sub">{it.intro_vi}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--dim)" }}>{it.tag_vi}</div>
+                  <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{it.images.length}</div>
+                  <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{it.sort}</div>
+                  <div className="fx-row-actions">
+                    <button
+                      className="fx-btn fx-btn-icon"
+                      onClick={() => toggleDykActive(it)}
+                      title={it.active ? "Tắt" : "Bật"}
+                    >
+                      {it.active ? <IconEye size={14} stroke={1.9} /> : <IconEyeOff size={14} stroke={1.9} />}
+                    </button>
+                    <button className="fx-btn fx-btn-icon" onClick={() => openEditDyk(it)} title="Sửa">
+                      <IconEdit size={14} stroke={1.9} />
+                    </button>
+                    <button className="fx-btn fx-btn-icon fx-btn-danger" onClick={() => removeDyk(it)} title="Xoá">
+                      <IconTrash size={14} stroke={1.9} />
+                    </button>
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--dim)" }}>{it.tag_vi}</div>
-                <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{it.images.length}</div>
-                <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{it.sort}</div>
-                <div className="fx-row-actions">
-                  <button
-                    className="fx-btn fx-btn-icon"
-                    onClick={() => toggleDykActive(it)}
-                    title={it.active ? "Tắt" : "Bật"}
-                  >
-                    {it.active ? <IconEye size={14} stroke={1.9} /> : <IconEyeOff size={14} stroke={1.9} />}
-                  </button>
-                  <button className="fx-btn fx-btn-icon" onClick={() => openEditDyk(it)} title="Sửa">
-                    <IconEdit size={14} stroke={1.9} />
-                  </button>
-                  <button className="fx-btn fx-btn-icon fx-btn-danger" onClick={() => removeDyk(it)} title="Xoá">
-                    <IconTrash size={14} stroke={1.9} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {pager(dykShown.length, dykPaged.cur, setDykPage)}
+          </>
         )
       ) : tab === "categories" ? (
         cats.length === 0 ? (
@@ -2545,70 +2804,80 @@ export default function BlogAdminTool({
             </div>
             Đang tải series…
           </div>
-        ) : seriesGroups.length === 0 ? (
+        ) : seriesShown.length === 0 ? (
           <div className="fx-empty">
             <div className="fx-empty-ico">
               <IconListNumbers size={22} stroke={1.7} />
             </div>
-            Chưa có series nào. Bấm &quot;Thêm series&quot; để tạo mới.
+            {seriesGroups.length === 0
+              ? 'Chưa có series nào. Bấm "Thêm series" để tạo mới.'
+              : "Không có kết quả phù hợp."}
           </div>
         ) : (
-          <div className="fx-table">
-            <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "1fr 180px 80px 140px" }}>
-              <div>Series</div>
-              <div>Slug</div>
-              <div style={{ textAlign: "center" }}>Phần</div>
-              <div style={{ textAlign: "right" }}>Actions</div>
-            </div>
-            {seriesGroups.map((g) => {
-              const publishedCount = g.parts.filter((p) => p.status === "published").length;
-              const allPublic = publishedCount === g.parts.length;
-              return (
-                <div key={g.slug} className="fx-row" style={{ gridTemplateColumns: "1fr 180px 80px 140px" }}>
-                  <div className="fx-title-cell">
-                    <div className="fx-t-row">
-                      <b>{g.label}</b>
-                      {!allPublic && (
-                        <span className="fx-badge" data-tone="mute" title="Public /blog chỉ hiện các phần đã Phát hành">
-                          {publishedCount}/{g.parts.length} phát hành
-                        </span>
-                      )}
+          <>
+            <div ref={listTopRef} />
+            <div className="fx-table">
+              <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "1fr 180px 80px 140px" }}>
+                <div>Series</div>
+                <div>Slug</div>
+                <div style={{ textAlign: "center" }}>Phần</div>
+                <div style={{ textAlign: "right" }}>Actions</div>
+              </div>
+              {seriesPaged.items.map((g) => {
+                const publishedCount = g.parts.filter((p) => p.status === "published").length;
+                const allPublic = publishedCount === g.parts.length;
+                return (
+                  <div key={g.slug} className="fx-row" style={{ gridTemplateColumns: "1fr 180px 80px 140px" }}>
+                    <div className="fx-title-cell">
+                      <div className="fx-t-row">
+                        <b>{g.label}</b>
+                        {!allPublic && (
+                          <span
+                            className="fx-badge"
+                            data-tone="mute"
+                            title="Public /blog chỉ hiện các phần đã Phát hành"
+                          >
+                            {publishedCount}/{g.parts.length} phát hành
+                          </span>
+                        )}
+                      </div>
+                      <span className="fx-t-sub">
+                        {g.parts
+                          .slice(0, 3)
+                          .map((p) => p.title)
+                          .join(" · ")}
+                        {g.parts.length > 3 ? ` · +${g.parts.length - 3} khác` : ""}
+                      </span>
                     </div>
-                    <span className="fx-t-sub">
-                      {g.parts
-                        .slice(0, 3)
-                        .map((p) => p.title)
-                        .join(" · ")}
-                      {g.parts.length > 3 ? ` · +${g.parts.length - 3} khác` : ""}
-                    </span>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--dim)" }}>series/{g.slug}</div>
+                    <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{g.parts.length}</div>
+                    <div className="fx-row-actions">
+                      <a
+                        className="fx-btn fx-btn-icon"
+                        href={`/blog/series/${encodeURIComponent(g.slug)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Xem trang series"
+                      >
+                        <IconExternalLink size={14} stroke={1.9} />
+                      </a>
+                      <button className="fx-btn fx-btn-icon" onClick={() => openSeriesEditor(g)} title="Sửa">
+                        <IconEdit size={14} stroke={1.9} />
+                      </button>
+                      <button
+                        className="fx-btn fx-btn-icon fx-btn-danger"
+                        onClick={() => deleteSeries(g)}
+                        title="Gỡ series"
+                      >
+                        <IconTrash size={14} stroke={1.9} />
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--dim)" }}>series/{g.slug}</div>
-                  <div style={{ textAlign: "center", fontSize: 12, color: "var(--dim)" }}>{g.parts.length}</div>
-                  <div className="fx-row-actions">
-                    <a
-                      className="fx-btn fx-btn-icon"
-                      href={`/blog/series/${encodeURIComponent(g.slug)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Xem trang series"
-                    >
-                      <IconExternalLink size={14} stroke={1.9} />
-                    </a>
-                    <button className="fx-btn fx-btn-icon" onClick={() => openSeriesEditor(g)} title="Sửa">
-                      <IconEdit size={14} stroke={1.9} />
-                    </button>
-                    <button
-                      className="fx-btn fx-btn-icon fx-btn-danger"
-                      onClick={() => deleteSeries(g)}
-                      title="Gỡ series"
-                    >
-                      <IconTrash size={14} stroke={1.9} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+            {pager(seriesShown.length, seriesPaged.cur, setSeriesPage)}
+          </>
         )
       ) : (
         <>
@@ -2659,30 +2928,41 @@ export default function BlogAdminTool({
               </div>
             </div>
           )}
-          {isSuperAdmin && selectedDraftSlugs.size > 0 && (
-            <div className="bga-failed-banner" role="status" style={{ borderColor: "var(--ok, #10b981)" }}>
+          {isSuperAdmin && selectedVisible.length > 0 && (
+            <div className="bga-failed-banner" role="status" style={{ borderColor: "var(--accent, #6366f1)" }}>
               <div className="bga-failed-banner-head">
-                <span className="bga-failed-banner-ic" style={{ color: "var(--ok, #10b981)" }}>
+                <span className="bga-failed-banner-ic" style={{ color: "var(--accent, #6366f1)" }}>
                   <IconCircleCheckFilled size={16} stroke={2} />
                 </span>
                 <div className="bga-failed-banner-text">
-                  <b>Đã chọn {selectedDraftSlugs.size} bài nháp</b>
-                  <span>Duyệt hàng loạt hoặc bỏ chọn.</span>
+                  <b>Đã chọn {selectedVisible.length} bài</b>
+                  <span>Mỗi thao tác chỉ áp dụng cho bài có trạng thái phù hợp.</span>
                 </div>
-                <div className="bga-failed-banner-actions">
-                  <button
-                    type="button"
-                    className="fx-btn fx-btn-primary"
-                    onClick={bulkApprove}
-                    disabled={bulkApproving}
-                    style={{ color: "#fff", background: "var(--ok, #10b981)" }}
-                  >
-                    <IconCheck size={13} /> {bulkApproving ? "Đang duyệt…" : `Duyệt ${selectedDraftSlugs.size} bài`}
-                  </button>
+                <div className="bga-failed-banner-actions" style={{ flexWrap: "wrap" }}>
+                  {(Object.keys(BULK_ACTIONS) as BulkAction[]).map((a) => {
+                    const n = bulkTargets[a].length;
+                    if (!n) return null;
+                    const cfg = BULK_ACTIONS[a];
+                    const Ico = cfg.icon;
+                    return (
+                      <button
+                        key={a}
+                        type="button"
+                        className={`fx-btn${a === "delete" ? " fx-btn-danger" : ""}`}
+                        onClick={() => runBulk(a)}
+                        disabled={!!bulkBusy}
+                        style={{ color: cfg.color }}
+                      >
+                        {bulkBusy === a ? <IconLoader2 size={13} className="bga-spin" /> : <Ico size={13} stroke={2} />}{" "}
+                        {cfg.label} {n}
+                      </button>
+                    );
+                  })}
                   <button
                     type="button"
                     className="fx-btn fx-btn-ghost"
-                    onClick={() => setSelectedDraftSlugs(new Set())}
+                    onClick={() => setSelectedSlugs(new Set())}
+                    disabled={!!bulkBusy}
                   >
                     Bỏ chọn
                   </button>
@@ -2698,151 +2978,245 @@ export default function BlogAdminTool({
               {posts.length === 0 ? 'Chưa có bài. Bấm "Sinh bài" để tạo bài AI đầu tiên.' : "Không có kết quả phù hợp."}
             </div>
           ) : (
-            <div className="fx-table">
-              <div
-                className="fx-row fx-row-head"
-                style={{ gridTemplateColumns: "32px 56px 1fr 100px 110px 100px 190px" }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {isSuperAdmin &&
-                    (() => {
-                      const draftSlugs = visible
-                        .filter((p) => (p.status || "published") === "draft")
-                        .map((p) => p.slug);
-                      const allChecked = draftSlugs.length > 0 && draftSlugs.every((s) => selectedDraftSlugs.has(s));
-                      const someChecked = draftSlugs.some((s) => selectedDraftSlugs.has(s));
-                      return (
-                        <input
-                          type="checkbox"
-                          aria-label="Chọn tất cả bài nháp"
-                          disabled={draftSlugs.length === 0}
-                          checked={allChecked}
-                          ref={(el) => {
-                            if (el) el.indeterminate = !allChecked && someChecked;
-                          }}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedDraftSlugs(new Set(draftSlugs));
-                            else setSelectedDraftSlugs(new Set());
-                          }}
-                        />
-                      );
-                    })()}
-                </div>
-                <div>Ảnh</div>
-                <div>Bài viết</div>
-                <div>Danh mục</div>
-                <div>Trạng thái</div>
-                <div>Ngày</div>
-                <div style={{ textAlign: "right" }}>Actions</div>
-              </div>
-              {visible.map((p) => {
-                const status = (p.status || "published") as BlogStatus;
-                return (
-                  <div
-                    key={p.slug}
-                    className="fx-row blog-row"
-                    style={{ gridTemplateColumns: "32px 56px 1fr 100px 110px 100px 190px" }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {isSuperAdmin && status === "draft" && (
-                        <input
-                          type="checkbox"
-                          aria-label={`Chọn ${p.title}`}
-                          checked={selectedDraftSlugs.has(p.slug)}
-                          onChange={() => toggleDraftSelected(p.slug)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      )}
-                    </div>
-                    <div className="bga-thumb">
-                      {p.coverImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={rewriteImgUrl(
-                            p.coverImage
-                              .split("#")[0]
-                              .replace(/([?&])w=\d+/, "$1w=160")
-                              .replace(/([?&])h=\d+/, "$1h=100"),
-                          )}
-                          alt=""
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
-                      )}
-                    </div>
-                    <div
-                      className="fx-title-cell blog-title-click"
-                      onClick={() => startEdit(p)}
-                      style={{ cursor: "pointer" }}
-                      title="Sửa"
-                    >
-                      <div className="fx-t-row">
-                        <b>{p.title}</b>
-                        <span className="fx-t-href">/blog/{p.slug}</span>
-                      </div>
-                      <span className="fx-t-sub">{p.excerpt}</span>
-                    </div>
-                    <div>
-                      <span className="fx-cat-cell" data-cat={p.category}>
-                        {CAT_LABEL[p.category] || p.category}
-                      </span>
-                    </div>
-                    <div>
-                      <span
-                        className="fx-badge"
-                        data-tone={status === "published" ? "ok" : status === "rejected" ? "err" : "mute"}
-                      >
-                        {STATUS_LABEL[status]}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--fg-muted, #888)" }}>{p.date}</div>
-                    <div className="fx-row-actions">
-                      {isSuperAdmin && (status === "draft" || status === "rejected") && (
-                        <button
-                          className="fx-btn fx-btn-icon"
-                          onClick={() => approve(p)}
-                          title="Duyệt → DB"
-                          style={{ color: "var(--ok, #10b981)" }}
-                        >
-                          <IconCheck size={14} stroke={2} />
-                        </button>
-                      )}
-                      {isSuperAdmin && status === "draft" && (
-                        <button
-                          className="fx-btn fx-btn-icon"
-                          onClick={() => reject(p)}
-                          title="Từ chối"
-                          style={{ color: "var(--warn, #f59e0b)" }}
-                        >
-                          <IconX size={14} stroke={2} />
-                        </button>
-                      )}
-                      {status === "published" ? (
-                        <>
-                          <Link href={`/blog/${p.slug}`} target="_blank" className="fx-btn fx-btn-icon" title="Xem">
-                            <IconEye size={14} stroke={1.9} />
-                          </Link>
-                          {isSuperAdmin && (
-                            <button
-                              className="fx-btn fx-btn-icon"
-                              onClick={() => unpublish(p)}
-                              title="Về nháp để sửa"
-                              style={{ color: "var(--info, #3b82f6)" }}
-                            >
-                              <IconRotateClockwise size={14} stroke={1.9} />
-                            </button>
-                          )}
-                        </>
-                      ) : null}
-                    </div>
+            <>
+              <div ref={listTopRef} />
+              <div className="fx-table">
+                <div
+                  className="fx-row fx-row-head"
+                  style={{ gridTemplateColumns: "32px 56px 1fr 100px 110px 120px 190px" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {isSuperAdmin &&
+                      (() => {
+                        // Acts on the current page; selections on other pages are kept.
+                        const pageSlugs = postsPaged.items.map((p) => p.slug);
+                        const nOn = pageSlugs.filter((s) => selectedSlugs.has(s)).length;
+                        const allChecked = nOn > 0 && nOn === pageSlugs.length;
+                        return (
+                          <Checkbox
+                            aria-label="Chọn tất cả bài ở trang này"
+                            checked={allChecked}
+                            ref={(el) => {
+                              if (el) el.indeterminate = !allChecked && nOn > 0;
+                            }}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setSelectedSlugs((prev) => {
+                                const next = new Set(prev);
+                                pageSlugs.forEach((s) => (on ? next.add(s) : next.delete(s)));
+                                return next;
+                              });
+                            }}
+                          />
+                        );
+                      })()}
                   </div>
-                );
-              })}
-            </div>
+                  <div>Ảnh</div>
+                  <div>Bài viết</div>
+                  {sortHead("category", "Danh mục")}
+                  <div>Trạng thái</div>
+                  {sortHead("date", "Ngày")}
+                  <div style={{ textAlign: "right" }}>Actions</div>
+                </div>
+                {postsPaged.items.map((p) => {
+                  const status = (p.status || "published") as BlogStatus;
+                  return (
+                    <div
+                      key={p.slug}
+                      className="fx-row blog-row"
+                      style={{ gridTemplateColumns: "32px 56px 1fr 100px 110px 120px 190px" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {isSuperAdmin && (
+                          <Checkbox
+                            aria-label={`Chọn ${p.title}`}
+                            checked={selectedSlugs.has(p.slug)}
+                            onChange={() => toggleSelected(p.slug)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                      <div className="bga-thumb">
+                        {p.coverImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={rewriteImgUrl(
+                              p.coverImage
+                                .split("#")[0]
+                                .replace(/([?&])w=\d+/, "$1w=160")
+                                .replace(/([?&])h=\d+/, "$1h=100"),
+                            )}
+                            alt=""
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
+                        )}
+                      </div>
+                      <div
+                        className="fx-title-cell blog-title-click"
+                        onClick={() => startEdit(p)}
+                        style={{ cursor: "pointer" }}
+                        title="Sửa"
+                      >
+                        <div className="fx-t-row">
+                          <b>{p.title}</b>
+                          <span className="fx-t-href">/blog/{p.slug}</span>
+                        </div>
+                        <span className="fx-t-sub">{p.excerpt}</span>
+                      </div>
+                      <div>
+                        <span className="fx-cat-cell" data-cat={p.category}>
+                          {CAT_LABEL[p.category] || p.category}
+                        </span>
+                      </div>
+                      <div>
+                        <span
+                          className="fx-badge"
+                          data-tone={status === "published" ? "ok" : status === "rejected" ? "err" : "mute"}
+                        >
+                          {STATUS_LABEL[status]}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--fg-muted, #888)", fontVariantNumeric: "tabular-nums" }}>
+                        {fmtPostTime(p)}
+                      </div>
+                      <div className="fx-row-actions">
+                        {isSuperAdmin && (status === "draft" || status === "rejected") && (
+                          <button
+                            className="fx-btn fx-btn-icon"
+                            onClick={() => approve(p)}
+                            title="Duyệt → DB"
+                            style={{ color: "var(--ok, #10b981)" }}
+                          >
+                            <IconCheck size={14} stroke={2} />
+                          </button>
+                        )}
+                        {isSuperAdmin && status === "rejected" && (
+                          <button
+                            className="fx-btn fx-btn-icon fx-btn-danger"
+                            onClick={() => remove(p)}
+                            title="Xoá hẳn"
+                          >
+                            <IconTrash size={14} stroke={1.9} />
+                          </button>
+                        )}
+                        {isSuperAdmin && status === "draft" && (
+                          <button
+                            className="fx-btn fx-btn-icon"
+                            onClick={() => reject(p)}
+                            title="Từ chối"
+                            style={{ color: "var(--warn, #f59e0b)" }}
+                          >
+                            <IconX size={14} stroke={2} />
+                          </button>
+                        )}
+                        {status === "published" ? (
+                          <>
+                            <Link href={`/blog/${p.slug}`} target="_blank" className="fx-btn fx-btn-icon" title="Xem">
+                              <IconEye size={14} stroke={1.9} />
+                            </Link>
+                            {isSuperAdmin && (
+                              <button
+                                className="fx-btn fx-btn-icon"
+                                onClick={() => unpublish(p)}
+                                title="Về nháp để sửa"
+                                style={{ color: "var(--info, #3b82f6)" }}
+                              >
+                                <IconRotateClockwise size={14} stroke={1.9} />
+                              </button>
+                            )}
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {pager(visible.length, postsPaged.cur, setPostsPage)}
+            </>
           )}
         </>
+      )}
+
+      {/* REVIEW MODAL — mở từ thông báo push (?review=<slug>) */}
+      {isSuperAdmin && reviewSlug && (
+        <div
+          className="fx-modal-bg fx-modal-sheet"
+          style={{ zIndex: 210 }}
+          onClick={(e) => e.target === e.currentTarget && setReviewSlug(null)}
+        >
+          <div className="fx-modal bga-review" style={{ maxWidth: 480, width: "94vw" }}>
+            <div className="fx-modal-head">
+              <h2>
+                <IconWriting size={16} stroke={2} /> Duyệt bài vừa sinh
+                {reviewPost && (
+                  <span
+                    className="fx-badge"
+                    data-tone={
+                      reviewPost.status === "published" ? "ok" : reviewPost.status === "rejected" ? "err" : "mute"
+                    }
+                  >
+                    {STATUS_LABEL[reviewPost.status]}
+                  </span>
+                )}
+              </h2>
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setReviewSlug(null)}>
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body">
+              {!reviewPost ? (
+                <div className="bga-review-loading">
+                  <IconLoader2 size={14} className="bga-spin" /> Đang tải bài…
+                </div>
+              ) : (
+                <div className="bga-review-body">
+                  {reviewPost.coverImage && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="bga-review-cover" src={reviewPost.coverImage.split("#")[0]} alt="" />
+                  )}
+                  <b className="bga-review-title">{reviewPost.title}</b>
+                  {reviewPost.excerpt && <p className="bga-review-excerpt">{reviewPost.excerpt}</p>}
+                  <span className="bga-review-meta">
+                    {reviewPost.category} · {reviewPost.readMin} phút đọc
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="fx-modal-foot">
+              <button
+                className="fx-btn"
+                disabled={!reviewPost}
+                onClick={() => {
+                  if (!reviewPost) return;
+                  const p = reviewPost;
+                  setReviewSlug(null);
+                  void startEdit(p);
+                }}
+              >
+                <IconEdit size={14} stroke={2} /> Xem / sửa
+              </button>
+              <button
+                className="fx-btn"
+                style={{ color: "var(--err, #ef4444)" }}
+                disabled={!reviewPost || reviewBusy || reviewPost.status === "rejected"}
+                onClick={() => reviewAct("reject")}
+              >
+                <IconX size={14} stroke={2} /> Từ chối
+              </button>
+              <button
+                className="fx-btn fx-btn-primary"
+                disabled={!reviewPost || reviewBusy || reviewPost.status === "published"}
+                onClick={() => reviewAct("approve")}
+              >
+                {reviewBusy ? <IconLoader2 size={14} className="bga-spin" /> : <IconCheck size={14} stroke={2} />}
+                Duyệt
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* AUTO PROGRESS MODAL */}
@@ -2965,6 +3339,7 @@ export default function BlogAdminTool({
                   </ul>
                 )}
               </div>
+              <PushSetup />
               <div style={{ fontSize: 11, color: "var(--dim)", lineHeight: 1.5 }}>
                 Vòng lặp chạy trên server — bạn có thể đóng tab/trình duyệt, bài vẫn tiếp tục sinh. Mở lại trang này để
                 xem tiếp. Nếu server khởi động lại thì phải bấm chạy lại.

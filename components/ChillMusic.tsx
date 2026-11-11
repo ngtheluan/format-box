@@ -1,26 +1,33 @@
 "use client";
 
-import { Slider } from "@/components/ui";
 import { useI18n } from "@/lib/i18n";
-import { IconMusic, IconMusicOff, IconVolume } from "@tabler/icons-react";
+import { IconMinus, IconMusic, IconMusicOff, IconPlus } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 
-// Royalty-free instrumental tracks from Pixabay (Pixabay Content License — free,
-// no attribution required).
+// Royalty-free instrumental tracks từ Pixabay (Pixabay Content License —
+// free, không cần ghi tác giả). URL đã kiểm nên không 404; nếu thêm bài
+// mới bạn phải tự xác nhận URL hoạt động (Pixabay 403 theo request thô).
+// Thứ tự = mood đi từ nhẹ (đọc blog) → chậm sâu hơn (bảo tàng).
 const CHILL_TRACKS = [
   {
-    key: "lofi",
-    label: "Lofi Chill",
+    key: "lofi-study",
+    label: "Lofi học bài",
     url: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3",
   },
   {
-    key: "forest",
-    label: "Forest Lullaby",
+    key: "ambient-room",
+    label: "Phòng tranh",
+    url: "https://cdn.pixabay.com/download/audio/2022/08/04/audio_2dde668d05.mp3",
+  },
+  {
+    key: "forest-lullaby",
+    label: "Rừng mưa",
     url: "https://cdn.pixabay.com/download/audio/2021/11/23/audio_64b2dd1bce.mp3",
   },
 ];
 
 const DEFAULT_VOL = 0.1;
+const VOL_STEP = 0.1;
 
 // Background music for the article reader and the exhibit rooms. Default: on, 10%
 // volume. Toggle, track and volume are shared between both through localStorage.
@@ -29,7 +36,6 @@ export function ChillMusic({ onFlash }: { onFlash?: (msg: string) => void }) {
   const [trackIdx, setTrackIdx] = useState(0);
   const [on, setOn] = useState(true);
   const [vol, setVol] = useState(DEFAULT_VOL);
-  const [showVol, setShowVol] = useState(false);
   const [ready, setReady] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -94,15 +100,6 @@ export function ChillMusic({ onFlash }: { onFlash?: (msg: string) => void }) {
     return () => el?.pause();
   }, []);
 
-  useEffect(() => {
-    if (!showVol) return;
-    const onDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setShowVol(false);
-    };
-    document.addEventListener("pointerdown", onDown);
-    return () => document.removeEventListener("pointerdown", onDown);
-  }, [showVol]);
-
   const track = CHILL_TRACKS[trackIdx];
   const volPct = Math.round(vol * 100);
 
@@ -118,11 +115,23 @@ export function ChillMusic({ onFlash }: { onFlash?: (msg: string) => void }) {
     onFlash?.(`${t("blog_music")}: ${CHILL_TRACKS[next].label}`);
   }
 
-  function changeVolume(pct: number) {
-    setVol(pct / 100);
-    // Dragging the volume up while muted means the listener wants to hear it.
-    if (pct > 0 && !on) setOn(true);
+  // Clamp 0..1, nudge in VOL_STEP increments. Khi tăng âm lúc đang mute thì
+  // bật lại luôn, khi giảm về 0 thì tự tắt để icon không nói "đang bật".
+  function changeVolumeBy(delta: number) {
+    const next = Math.max(0, Math.min(1, +(vol + delta).toFixed(2)));
+    setVol(next);
+    if (next > 0 && !on) setOn(true);
+    if (next === 0 && on) setOn(false);
   }
+
+  function onVolWheel(e: React.WheelEvent) {
+    // Scroll up = tăng, scroll down = giảm; 1 nấc mỗi tick.
+    e.preventDefault();
+    changeVolumeBy(e.deltaY < 0 ? VOL_STEP : -VOL_STEP);
+  }
+
+  const canDec = vol > 0;
+  const canInc = vol < 1;
 
   return (
     <div ref={rootRef} className="bd-tools-group bd-tools-music" aria-label={t("blog_music")}>
@@ -146,28 +155,33 @@ export function ChillMusic({ onFlash }: { onFlash?: (msg: string) => void }) {
       </button>
       <button
         type="button"
-        onClick={() => setShowVol((v) => !v)}
-        aria-label={t("blog_music_volume")}
-        aria-expanded={showVol}
-        title={`${t("blog_music_volume")}: ${volPct}%`}
-        className={showVol ? "is-on" : ""}
+        onClick={() => changeVolumeBy(-VOL_STEP)}
+        disabled={!canDec}
+        aria-label={`${t("blog_music_volume")} −10%`}
+        title={`${t("blog_music_volume")} −10%`}
+        className="bd-tools-music-step"
+      >
+        <IconMinus size={12} stroke={2.4} />
+      </button>
+      <span
+        role="status"
+        aria-label={`${t("blog_music_volume")}: ${volPct}%`}
+        title={`${t("blog_music_volume")}: ${volPct}% · cuộn chuột để chỉnh`}
+        className="bd-tools-music-val-inline"
+        onWheel={onVolWheel}
       >
         {volPct}%
+      </span>
+      <button
+        type="button"
+        onClick={() => changeVolumeBy(VOL_STEP)}
+        disabled={!canInc}
+        aria-label={`${t("blog_music_volume")} +10%`}
+        title={`${t("blog_music_volume")} +10%`}
+        className="bd-tools-music-step"
+      >
+        <IconPlus size={12} stroke={2.4} />
       </button>
-      {showVol && (
-        <div className="bd-tools-music-vol" role="group" aria-label={t("blog_music_volume")}>
-          <IconVolume size={16} stroke={1.9} aria-hidden="true" />
-          <Slider
-            value={volPct}
-            min={0}
-            max={100}
-            step={5}
-            onChange={(e) => changeVolume(Number(e.target.value))}
-            aria-label={t("blog_music_volume")}
-          />
-          <span className="bd-tools-music-val">{volPct}%</span>
-        </div>
-      )}
       <audio ref={audioRef} src={track.url} loop preload="auto" style={{ display: "none" }} />
     </div>
   );

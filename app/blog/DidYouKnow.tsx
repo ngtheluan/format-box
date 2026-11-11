@@ -5,8 +5,9 @@ import { Button, IconButton, Modal } from "@/components/ui";
 import type { DidYouKnowItem as DbDidYouKnowItem } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
 import { IconArrowRight, IconPhoto, IconX } from "@tabler/icons-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DykExhibit, exhibitNumber, imageCredit, type DykExhibitView } from "./DykExhibit";
+import { StampCollection } from "./StampCollection";
 
 function fromDb(items: DbDidYouKnowItem[]): DykExhibitView[] {
   return items.map((it) => ({
@@ -37,6 +38,23 @@ export function DidYouKnow({ items }: { items?: DbDidYouKnowItem[] } = {}) {
   const [limit, setLimit] = useState(DYK_PAGE);
   const close = useCallback(() => setActive(null), []);
 
+  // Hash "#dyk-<slug>" từ nút Bộ sưu tập ở các trang khác → mở đúng hiện vật
+  // ngay khi vào /blog. Bỏ hash khỏi URL để không giữ trạng thái stale.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const open = () => {
+      const h = window.location.hash;
+      if (!h.startsWith("#dyk-")) return;
+      const slug = decodeURIComponent(h.slice(5));
+      const idx = list.findIndex((it) => it.slug === slug);
+      if (idx >= 0) setActive(idx);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, [list]);
+
   if (list.length === 0) return null;
 
   const shown = list.slice(0, limit);
@@ -46,12 +64,12 @@ export function DidYouKnow({ items }: { items?: DbDidYouKnowItem[] } = {}) {
     <section className="bz-sec dyk-sec" aria-labelledby="dyk-h2">
       <header className="bz-sec-head">
         <div>
-          <span className="bz-eyebrow">{t("blog_dyk_museum")}</span>
           <h2 id="dyk-h2">
             {t("blog_dyk_title")} ({list.length})
           </h2>
           <p className="bz-series-sub">{t("blog_dyk_tagline")}</p>
         </div>
+        <StampCollection />
       </header>
 
       <div className="dyk-grid">

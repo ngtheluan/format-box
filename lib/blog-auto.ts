@@ -348,7 +348,8 @@ async function generateOne(job: JobRow, baseUrl: string): Promise<TickOutcome> {
   return { kind: "failed", error: lastError || "Tất cả model đều bị giới hạn" };
 }
 
-async function finishTick(job: JobRow, outcome: TickOutcome) {
+// `stopped` = this tick ended the job (target reached or too many failures).
+async function finishTick(job: JobRow, outcome: TickOutcome): Promise<{ stopped: boolean; reason?: string }> {
   // locked_until doubles as "not before": pg_cron skips the job until it passes.
   const gapMinutes = Math.max(0, Number(jobOptions(job).gapMinutes) || 0);
   const patch: Record<string, unknown> = {
@@ -391,6 +392,7 @@ async function finishTick(job: JobRow, outcome: TickOutcome) {
   }
   const { error } = await jobs().update(patch).eq("id", JOB_ID).eq("run_id", job.run_id);
   if (error) throw new Error(error.message);
+  return patch.running === false ? { stopped: true, reason: patch.last_error as string | undefined } : { stopped: false };
 }
 
 // Runs one generation for the active job. Called once per pg_cron request.
@@ -398,15 +400,18 @@ export async function runAutoTick(baseUrl: string): Promise<TickResult> {
   const job = await claimJob();
   if (!job) return "idle";
   const outcome = await generateOne(job, baseUrl);
-  await finishTick(job, outcome);
-  if (outcome.kind === "generated") {
-    // Fire-and-forget: Web Push tới mọi subscription đã đăng ký, để admin
-    // nhận được notification kể cả khi tab đã đóng. Lỗi push không được
-    // phép fail tick.
-    try {
-      const { sendBlogNewPostPush } = await import("@/lib/push");
-      await sendBlogNewPostPush(outcome.post);
-    } catch {}
+  const finished = await finishTick(job, outcome);
+  // Web Push tới mọi thiết bị đã đăng ký, để admin nhận được thông báo kể cả
+  // khi tab đã đóng / điện thoại khoá màn hình. Lỗi push không được phép fail tick.
+  try {
+    const { sendAdminPush, sendBlogNewPostPush } = await import("@/lib/push");
+    if (outcome.kind === "generated") {
+      await sendBlogNewPostPush(outcome.post, finished.stopped);
+    } else if (finished.stopped && finished.reason) {
+      await sendAdminPush({ type: "blog-auto-stopped", reason: finished.reason });
+    }
+  } catch (e) {
+    console.error("[push] auto tick notify failed", e);
   }
   return outcome.kind;
 }

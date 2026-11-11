@@ -61,6 +61,8 @@ export type { KbdProps } from "./Kbd";
 // Navigation
 export { default as Tabs, TabsList, Tab, TabPanel } from "./Tabs";
 export type { TabsProps } from "./Tabs";
+export { default as Pagination } from "./Pagination";
+export type { PaginationProps } from "./Pagination";
 export { default as Accordion, AccordionItem } from "./Accordion";
 export type { AccordionProps } from "./Accordion";
 

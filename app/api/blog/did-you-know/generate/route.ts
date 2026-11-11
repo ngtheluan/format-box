@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       timeoutMs: 45_000,
       maxTokens: 1200,
       system:
-        "Bạn là biên tập viên cho khối 'Có thể bạn chưa biết' trên blog tiếng Việt. Mỗi mục là một sự thật thú vị, bất ngờ nhưng chính xác. Chỉ trả JSON hợp lệ, không giải thích.",
+        "Bạn là giám tuyển một bảo tàng số 'Có thể bạn chưa biết'. Mỗi mục là một sự thật thú vị, bất ngờ, chính xác — ảnh minh họa và chú thích PHẢI bám sát chủ đề mục đó, không được rời đề. Chỉ trả JSON hợp lệ, không giải thích.",
       user: `${
         topic ? `Chủ đề: "${topic}".` : "Tự chọn một chủ đề thú vị bất kỳ (thiên nhiên, vũ trụ, lịch sử, khoa học, ẩm thực, động vật…)."
       } Soạn 1 mục 'Có thể bạn chưa biết' song ngữ VI/EN.
@@ -48,7 +48,9 @@ Yêu cầu:
 - title: ngắn, gợi tò mò (40-70 ký tự).
 - intro: 1-2 câu súc tích giải thích sự thật đó.
 - tag: 1 từ phân loại chủ đề (VD: Thiên nhiên, Vũ trụ, Lịch sử).
-- images: ${count} ảnh minh họa — mỗi ảnh có "query" tiếng Anh 2-4 từ cụ thể, chụp được bằng máy ảnh; "caption_vi" và "caption_en" ngắn (<= 50 ký tự).
+- images: ${count} ảnh minh họa — MỖI ảnh phải khắc hoạ MỘT khía cạnh cụ thể của chính sự thật ở trên (không ảnh tổng quát, không ảnh chỉ về chủ đề rộng).
+  + "query": tiếng Anh 3-5 từ CỤ THỂ, nêu rõ đối tượng/hiện tượng xuất hiện trong ảnh (VD: "purple aurora iceland sky", không chỉ "aurora").
+  + "caption_vi" / "caption_en": <= 50 ký tự, gắn trực tiếp với điều ảnh đó minh họa, không dùng chung chung.
 
 JSON: {"slug":"kebab-case","tag_vi":"...","tag_en":"...","title_vi":"...","title_en":"...","intro_vi":"...","intro_en":"...","images":[{"query":"...","caption_vi":"...","caption_en":"..."}]}`,
     });

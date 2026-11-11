@@ -7,7 +7,7 @@
  */
 
 // Bump version mỗi lần đổi format notification để ép Chrome lấy SW mới.
-const SW_VERSION = "fb-fuel-v5";
+const SW_VERSION = "fb-fuel-v6";
 const CACHE_NAME = SW_VERSION;
 const SIG_URL = "/__fb_fuel_sig__";
 const PERIODIC_TAG = "fuel-check";
@@ -149,9 +149,51 @@ self.addEventListener("message", (event) => {
   }
 });
 
-// Web Push từ server: khi auto job sinh xong một bài, server bắn payload
-// {type:"blog-new-post", slug, title}. Hiện notification y hệt client-side
-// để admin có nút Duyệt nhanh / Từ chối kể cả khi tab admin đã đóng.
+// Web Push từ server (auto job sinh bài). iOS/Safari không hiện nút action,
+// nên chạm vào thông báo sẽ mở /admin/blog?review=<slug> — trang admin bật
+// sẵn hộp Duyệt / Từ chối cho đúng bài đó.
+function reviewUrl(slug) {
+  return `/admin/blog?review=${encodeURIComponent(slug)}`;
+}
+
+function buildPushNotification(data) {
+  if (data && data.type === "blog-new-post" && data.slug) {
+    const body = data.title || data.slug;
+    return {
+      title: data.done ? "Đã sinh xong — bài cuối chờ duyệt" : "Bài blog mới chờ duyệt",
+      options: {
+        body: `${body}\nChạm để Duyệt hoặc Từ chối.`,
+        tag: `fb-blog-new-${data.slug}`,
+        requireInteraction: true,
+        data: { slug: data.slug, title: body, url: reviewUrl(data.slug) },
+        actions: [
+          { action: "approve", title: "Duyệt nhanh" },
+          { action: "reject", title: "Từ chối" },
+        ],
+      },
+    };
+  }
+  if (data && data.type === "blog-auto-stopped") {
+    return {
+      title: "Sinh bài tự động đã dừng",
+      options: {
+        body: String(data.reason || "Job đã dừng.").slice(0, 180),
+        tag: "fb-blog-auto-stopped",
+        data: { url: "/admin/blog" },
+      },
+    };
+  }
+  if (data && data.type === "blog-push-test") {
+    return {
+      title: "FormatBox Admin",
+      options: { body: data.title || "Thông báo thử", tag: "fb-blog-test", data: { url: "/admin/blog" } },
+    };
+  }
+  // Safari thu hồi subscription nếu một push không hiện notification — luôn
+  // hiện gì đó, kể cả với payload lạ.
+  return { title: "FormatBox", options: { body: "Có cập nhật mới.", tag: "fb-generic", data: { url: "/admin/blog" } } };
+}
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -159,24 +201,10 @@ self.addEventListener("push", (event) => {
   } catch {
     data = {};
   }
-  if (data && data.type === "blog-new-post" && data.slug) {
-    const title = "Bài blog mới vừa sinh";
-    const body = data.title || data.slug;
-    event.waitUntil(
-      self.registration.showNotification(title, {
-        body,
-        icon: "/icon.svg",
-        badge: "/icon.svg",
-        tag: `fb-blog-new-${data.slug}`,
-        requireInteraction: true,
-        data: { slug: data.slug, title: body, url: "/admin/blog" },
-        actions: [
-          { action: "approve", title: "Duyệt nhanh" },
-          { action: "reject", title: "Từ chối" },
-        ],
-      }),
-    );
-  }
+  const { title, options } = buildPushNotification(data);
+  event.waitUntil(
+    self.registration.showNotification(title, { icon: "/icon.svg", badge: "/icon.svg", ...options }),
+  );
 });
 
 // Blog new-post notifications include an admin action id — handle those before
@@ -233,17 +261,22 @@ self.addEventListener("notificationclick", (event) => {
   const url = data.url || "/fuel";
   event.waitUntil(
     (async () => {
+      const target = new URL(url, self.location.origin);
       const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of all) {
         try {
           const u = new URL(client.url);
-          if (u.pathname === url || (url.startsWith("/admin/blog") && u.pathname.startsWith("/admin/blog"))) {
+          const sameTool = target.pathname.startsWith("/admin/blog")
+            ? u.pathname.startsWith("/admin/blog")
+            : u.pathname === target.pathname;
+          if (sameTool) {
             await client.focus();
+            if (data.slug) client.postMessage({ type: "blog-open-review", slug: data.slug });
             return;
           }
         } catch {}
       }
-      await self.clients.openWindow(url);
+      await self.clients.openWindow(target.href);
     })(),
   );
 });

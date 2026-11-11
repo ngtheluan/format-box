@@ -28,6 +28,8 @@ export type BlogPost = {
   date: string;
   // Only set when the row was read with `updated_at` (detail queries, not LIST_COLS).
   updatedAt?: string;
+  // created_at (timestamptz) — exact publish-order time; `date` has no time of day.
+  createdAt?: string;
   readMin: number;
   cover: { from: string; to: string; emoji?: string; label: string };
   coverImage?: string;
@@ -498,6 +500,7 @@ type DbRow = {
   author: string;
   date: string;
   updated_at?: string;
+  created_at?: string;
   read_min: number;
   cover_from: string;
   cover_to: string;
@@ -523,6 +526,7 @@ function fromRow(r: DbRow): BlogPost {
     author: r.author,
     date: r.date,
     updatedAt: r.updated_at,
+    createdAt: r.created_at,
     readMin: r.read_min,
     cover: { from: r.cover_from, to: r.cover_to, label: r.cover_label },
     coverImage: r.cover_image || undefined,
@@ -574,7 +578,7 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 3, delayMs = 150): Pro
 // Columns needed by the list views (everything except the heavy `markdown` body).
 // Pulling the whole table was blowing up Supabase egress on every blog list render.
 const LIST_COLS =
-  "slug,title,excerpt,category,tags,author,date,read_min,cover_from,cover_to,cover_label,cover_image,status,pinned,related_tools";
+  "slug,title,excerpt,category,tags,author,date,created_at,read_min,cover_from,cover_to,cover_label,cover_image,status,pinned,related_tools";
 
 async function fetchPublicPostsList(): Promise<BlogPost[]> {
   const sb = supabase();
@@ -648,7 +652,11 @@ export async function getPublicPostCached(slug: string): Promise<(BlogPost & { m
 // /api/blog/generate). LIST_COLS keeps the payload small.
 export async function listAdminPosts(): Promise<BlogPost[]> {
   const sb = supabaseAdmin();
-  const { data } = await sb.from("blog_posts").select(LIST_COLS).order("date", { ascending: false });
+  const { data } = await sb
+    .from("blog_posts")
+    .select(LIST_COLS)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
   return (data as unknown as DbRow[] | null)?.map(fromRow) ?? [];
 }
 
@@ -914,17 +922,20 @@ export function resolvePinnedPosts(
       .sort((a, b) => +new Date(b.date) - +new Date(a.date))
       .slice(0, MAX_PINNED);
   }
-  // auto: kết hợp "mới" + "hữu ích". Điểm = helpful + boost theo tuổi
-  // (<=14 ngày), tie-break theo ngày đăng giảm dần.
-  const now = Date.now();
-  const scored = published.map((p) => {
-    const ageDays = Math.max(0, (now - +new Date(p.date)) / 86400000);
-    const newBoost = ageDays <= 14 ? (14 - ageDays) * 0.6 : 0;
-    const helpful = popularity?.[p.slug] ?? 0;
-    return { p, score: helpful + newBoost, date: +new Date(p.date) };
-  });
-  scored.sort((a, b) => b.score - a.score || b.date - a.date);
-  return scored.slice(0, MAX_PINNED).map((x) => x.p);
+  // auto: bài phát hành mới nhất HOẶC có nhiều lượt "hữu ích". Tối đa một nửa
+  // số slot cho bài nhiều "hữu ích" nhất (cần ≥1 lượt), phần còn lại lấy bài
+  // mới nhất. Chưa có lượt "hữu ích" nào → cả 6 là bài mới nhất.
+  const time = (p: BlogPost) => Date.parse(p.createdAt || p.date) || 0;
+  const newest = [...published].sort((a, b) => time(b) - time(a));
+  const helpful = (p: BlogPost) => popularity?.[p.slug] ?? 0;
+  const mostHelpful = newest
+    .filter((p) => helpful(p) > 0)
+    .sort((a, b) => helpful(b) - helpful(a) || time(b) - time(a))
+    .slice(0, Math.floor(MAX_PINNED / 2));
+  const picked = new Set(mostHelpful.map((p) => p.slug));
+  const fill = newest.filter((p) => !picked.has(p.slug)).slice(0, MAX_PINNED - mostHelpful.length);
+  // Hiển thị mới nhất trước.
+  return [...mostHelpful, ...fill].sort((a, b) => time(b) - time(a));
 }
 
 // Blog votes — "bài viết có hữu ích không". One vote per reader (user id or IP),

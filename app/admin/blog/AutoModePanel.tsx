@@ -10,6 +10,7 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import PushSetup from "./PushSetup";
 
 export type AutoRunSettings = {
   unlimited: boolean;
@@ -88,6 +89,7 @@ export default function AutoModePanel({ onClose, onEditConfig, running, category
             Chạy nền trên server, đóng tab vẫn tiếp tục. Mỗi bài tự chọn ngẫu nhiên một danh mục đang bật và một chủ
             đề mới trong đó; nếu model bị giới hạn sẽ tự đổi sang model khác. Bài được lưu vào Nháp để bạn duyệt.
           </p>
+          <PushSetup />
           <div className="bga-auto-grid">
             <section className="bga-auto-sec">
               <h3>

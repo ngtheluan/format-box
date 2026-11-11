@@ -2,6 +2,7 @@
 
 import { Corners } from "@/components/BlogCard";
 import { Button, IconButton } from "@/components/ui";
+import { awardStamp, type DykStamp } from "@/lib/dyk-stamps";
 import { useI18n } from "@/lib/i18n";
 import {
   IconArrowLeft,
@@ -9,10 +10,10 @@ import {
   IconCheck,
   IconPuzzle,
   IconRefresh,
-  IconRosette,
+  IconTicket,
   IconX,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Text = { vi: string; en: string };
 
@@ -126,25 +127,27 @@ export function DykExhibit({
               // eslint-disable-next-line @next/next/no-img-element
               <img className="mu-gate-bg" src={item.images[0].url} alt="" referrerPolicy="no-referrer" />
             )}
-            <div className="mu-gate-text">
+            <div className="mu-gate-ticket">
+              <span className="mu-gate-tag">{tr(item.tag) || t("blog_dyk_museum")}</span>
               <span className="mu-kicker">{t("blog_dyk_title")}</span>
               <h2>{tr(item.title)}</h2>
-              <p>{t("blog_dyk_gate_hook")}</p>
+              <p className="mu-gate-hook">{t("blog_dyk_gate_hook")}</p>
               <span className="mu-gate-meta">
                 {artCount > 0 && (
                   <span>
-                    {artCount} {t("blog_dyk_gate_views")}
+                    <b>{artCount}</b> {t("blog_dyk_gate_views")}
                   </span>
                 )}
                 {hasQuiz && (
                   <span>
-                    {item.quiz.length} {t("blog_dyk_gate_puzzles")}
+                    <b>{item.quiz.length}</b> {t("blog_dyk_gate_puzzles")}
                   </span>
                 )}
               </span>
               <Button rightIcon={<IconArrowRight size={16} stroke={2} />} onClick={advance}>
                 {lastRoom === 0 ? leaveLabel : t("blog_dyk_enter")}
               </Button>
+              {hasQuiz && <span className="mu-gate-note">{t("blog_dyk_gate_enter_note")}</span>}
             </div>
           </div>
         )}
@@ -186,7 +189,17 @@ export function DykExhibit({
         {/* Stays mounted so stepping back to an image doesn't reset the attempt. */}
         {hasQuiz && (
           <div className="mu-quiz-wrap" hidden={!isQuiz}>
-            <DykQuiz quiz={item.quiz} nextLabel={leaveLabel} onNext={leave} />
+            <DykQuiz
+              quiz={item.quiz}
+              nextLabel={leaveLabel}
+              onNext={leave}
+              stampSource={{
+                slug: item.slug,
+                title: tr(item.title),
+                tag: tr(item.tag),
+                image: item.images[0]?.url || "",
+              }}
+            />
           </div>
         )}
       </div>
@@ -247,14 +260,23 @@ export function DykExhibit({
   );
 }
 
+type StampSource = {
+  slug: string;
+  title: string;
+  tag: string;
+  image: string;
+};
+
 function DykQuiz({
   quiz,
   nextLabel,
   onNext,
+  stampSource,
 }: {
   quiz: QuizQuestion[];
   nextLabel: string;
   onNext: () => void;
+  stampSource: StampSource;
 }) {
   const { t, lang } = useI18n();
   const tr = (v: Text) => (lang === "en" ? v.en : v.vi);
@@ -263,6 +285,7 @@ function DykQuiz({
   const [pick, setPick] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
+  const [award, setAward] = useState<{ stamp: DykStamp; status: "new" | "updated" | "kept" } | null>(null);
 
   const q = quiz[at];
   const answered = pick != null;
@@ -288,19 +311,61 @@ function DykQuiz({
     setPick(null);
     setScore(0);
     setDone(false);
+    setAward(null);
   }
 
+  // Trao tem khi vào màn kết quả. Chỉ ghi nếu điểm tối thiểu > 0 để khỏi
+  // lạm phát bộ sưu tập; nhưng vẫn báo rank để khách biết tiến độ.
+  useEffect(() => {
+    if (!done || award) return;
+    if (score <= 0) return;
+    const now = Date.now();
+    const next: DykStamp = {
+      slug: stampSource.slug,
+      title: stampSource.title,
+      tag: stampSource.tag,
+      image: stampSource.image,
+      score,
+      total: quiz.length,
+      earnedAt: now,
+    };
+    const r = awardStamp(next);
+    setAward({
+      stamp: r.best,
+      status: r.isNew ? "new" : r.saved ? "updated" : "kept",
+    });
+  }, [done, award, score, quiz.length, stampSource]);
+
+  const ratio = useMemo(() => (quiz.length ? score / quiz.length : 0), [quiz.length, score]);
+
   if (done) {
-    const ratio = score / quiz.length;
     const rank = ratio === 1 ? "blog_dyk_rank_high" : ratio >= 0.5 ? "blog_dyk_rank_mid" : "blog_dyk_rank_low";
+    const awardKey = award
+      ? award.status === "new"
+        ? "blog_dyk_stamp_new"
+        : award.status === "updated"
+          ? "blog_dyk_stamp_updated"
+          : "blog_dyk_stamp_kept"
+      : null;
     return (
       <div className="mu-result" role="status">
-        <IconRosette size={44} stroke={1.3} />
+        <StampCard
+          image={stampSource.image}
+          title={stampSource.title}
+          tag={stampSource.tag}
+          score={award?.stamp.score ?? score}
+          total={quiz.length}
+          earnedAt={award?.stamp.earnedAt ?? Date.now()}
+          lang={lang}
+          perfectLabel={t("blog_dyk_stamp_perfect")}
+          stampLabel={t("blog_dyk_stamp")}
+        />
         <strong className="mu-score">
           {score}
           <small> / {quiz.length}</small>
         </strong>
         <span className="mu-rank">{t(rank)}</span>
+        {awardKey && <span className="mu-award">{t(awardKey)}</span>}
         <p className="mu-end">{t("blog_dyk_end")}</p>
         <div className="mu-result-acts">
           <Button
@@ -369,5 +434,68 @@ function DykQuiz({
         )}
       </div>
     </div>
+  );
+}
+
+// Visual "postage stamp": perforated frame + artwork + score label.
+// Dùng ở màn kết quả quiz và ở modal Bộ sưu tập.
+export function StampCard({
+  image,
+  title,
+  tag,
+  score,
+  total,
+  earnedAt,
+  lang,
+  perfectLabel,
+  stampLabel,
+  size = "lg",
+}: {
+  image: string;
+  title: string;
+  tag: string;
+  score: number;
+  total: number;
+  earnedAt: number;
+  lang: "vi" | "en";
+  perfectLabel: string;
+  stampLabel: string;
+  size?: "sm" | "lg";
+}) {
+  const perfect = total > 0 && score === total;
+  const date = new Date(earnedAt).toLocaleDateString(lang === "en" ? "en-GB" : "vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  return (
+    <figure className={`mu-stamp mu-stamp--${size}${perfect ? " is-perfect" : ""}`} aria-label={stampLabel}>
+      <span className="mu-stamp-paper">
+        <span className="mu-stamp-art">
+          {image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={image} alt="" loading="lazy" referrerPolicy="no-referrer" />
+          ) : (
+            <IconTicket size={28} stroke={1.4} />
+          )}
+        </span>
+        <span className="mu-stamp-head">
+          <span className="mu-stamp-brand">
+            <IconTicket size={11} stroke={2} /> {stampLabel}
+          </span>
+          {perfect && <span className="mu-stamp-perfect">{perfectLabel}</span>}
+        </span>
+        <figcaption className="mu-stamp-foot">
+          <span className="mu-stamp-title">{title}</span>
+          <span className="mu-stamp-meta">
+            {tag && <span>{tag}</span>}
+            <span>
+              {score} / {total}
+            </span>
+            <span>{date}</span>
+          </span>
+        </figcaption>
+      </span>
+    </figure>
   );
 }

@@ -126,7 +126,7 @@ export const DICT = {
     en: "No cron run has happened for over 3 minutes.",
   },
   blog_auto_stalled_link: { vi: "Mở trang quản lý", en: "Open admin" },
-  blog_dyk_title: { vi: "Có thể bạn chưa biết", en: "You might not know" },
+  blog_dyk_title: { vi: "Bảo tàng tri thức", en: "Museum of Knowledge" },
   blog_dyk_tagline: {
     vi: "Nơi lưu giữ những điều con người đã và đang đi tìm",
     en: "A home for the things humanity has sought, and still seeks",
@@ -168,6 +168,22 @@ export const DICT = {
   blog_dyk_end: {
     vi: "Tri thức ở lại chừng nào còn có người tò mò.",
     en: "Knowledge stays for as long as someone stays curious.",
+  },
+  blog_dyk_stamp: { vi: "Tem kỉ niệm", en: "Keepsake stamp" },
+  blog_dyk_stamp_new: { vi: "Tem mới vừa thêm vào bộ sưu tập", en: "A new stamp joins your collection" },
+  blog_dyk_stamp_updated: { vi: "Đã cập nhật điểm cao hơn cho tem này", en: "New high score saved on this stamp" },
+  blog_dyk_stamp_kept: { vi: "Đã có trong bộ sưu tập — giữ bản điểm cao hơn", en: "Already in your collection — kept the higher score" },
+  blog_dyk_collection: { vi: "Bộ sưu tập", en: "Collection" },
+  blog_dyk_collection_empty: {
+    vi: "Chưa có tem nào — hoàn thành phòng thử thách để nhận tem đầu tiên.",
+    en: "No stamps yet — finish a trial room to earn your first one.",
+  },
+  blog_dyk_collection_count: { vi: "tem", en: "stamps" },
+  blog_dyk_collection_view: { vi: "Xem hiện vật", en: "Open exhibit" },
+  blog_dyk_stamp_perfect: { vi: "Trọn vẹn", en: "Perfect" },
+  blog_dyk_gate_enter_note: {
+    vi: "Mỗi phòng tặng 1 tem khi bạn hoàn thành thử thách.",
+    en: "Finish the trial to add this exhibit's stamp to your collection.",
   },
   blog_toc: { vi: "Mục lục", en: "On this page" },
   blog_share: { vi: "Chia sẻ", en: "Share" },

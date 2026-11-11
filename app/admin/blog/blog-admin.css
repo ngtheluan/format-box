@@ -2839,3 +2839,108 @@
 @keyframes bga-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Sortable "Ngày" header in the posts list. */
+.bga-sort-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.bga-sort-head[data-active="true"] {
+  color: var(--fx-accent, var(--accent));
+}
+.bga-sort-head:focus-visible {
+  outline: 2px solid var(--fx-accent, var(--accent));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Scroll performance for long post lists:
+   - glass buttons use backdrop-filter; hundreds of them (3–4 per row) forced the
+     browser to re-blur on every scroll frame. Rows sit on an opaque card, so the
+     blur was invisible anyway.
+   - content-visibility lets the browser skip layout/paint of off-screen rows. */
+.blog-row .fx-btn,
+.blog-row .fx-btn:hover:not(:disabled),
+.blog-row .fx-btn-ghost:hover:not(:disabled) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.blog-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 68px;
+}
+
+/* Web Push setup row (auto mode) */
+.bga-push {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg2);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dim);
+}
+.bga-push-ic {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.bga-push[data-state="granted"] .bga-push-ic {
+  color: var(--ok);
+}
+.bga-push[data-state="denied"] .bga-push-ic,
+.bga-push[data-state="no-vapid"] .bga-push-ic {
+  color: var(--err);
+}
+.bga-push[data-state="ios-install"] .bga-push-ic {
+  color: var(--warn);
+}
+.bga-push-text {
+  flex: 1;
+  min-width: 0;
+}
+.bga-push .ui-btn {
+  flex-shrink: 0;
+}
+
+/* Review modal opened from a push notification */
+.bga-review-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--dim);
+}
+.bga-review-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.bga-review-cover {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.bga-review-title {
+  font-size: 15px;
+  line-height: 1.35;
+}
+.bga-review-excerpt {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+.bga-review-meta {
+  font-size: 11px;
+  color: var(--dim);
+}
