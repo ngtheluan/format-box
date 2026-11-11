@@ -53,16 +53,38 @@ export async function getSwRegistration(): Promise<ServiceWorkerRegistration | n
   }
 }
 
+function buffersEqual(a: ArrayBuffer, b: ArrayBuffer): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  const va = new Uint8Array(a);
+  const vb = new Uint8Array(b);
+  for (let i = 0; i < va.length; i++) if (va[i] !== vb[i]) return false;
+  return true;
+}
+
 // Tạo (hoặc lấy lại) subscription và đồng bộ lên server. Trả về endpoint.
+// Safari/iOS đôi khi giữ subscription cũ ở tầng OS ngay cả khi đã xoá site data;
+// khi VAPID key env đổi, subscription cũ đó vẫn tồn tại nhưng bind key cũ →
+// mọi push đều BadJwtToken. So applicationServerKey của sub với vapidKey env,
+// không khớp thì unsubscribe + resubscribe bằng key mới.
 export async function syncPushSubscription(): Promise<string> {
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!vapidKey) throw new Error("Server chưa cấu hình VAPID key");
   const reg = (await getSwRegistration()) || (await navigator.serviceWorker.ready);
+  const wantedKey = urlBase64ToArrayBuffer(vapidKey);
   let sub = await reg.pushManager.getSubscription();
+  if (sub) {
+    const current = sub.options?.applicationServerKey as ArrayBuffer | null | undefined;
+    if (!current || !buffersEqual(current, wantedKey)) {
+      try {
+        await sub.unsubscribe();
+      } catch {}
+      sub = null;
+    }
+  }
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToArrayBuffer(vapidKey),
+      applicationServerKey: wantedKey,
     });
   }
   const json = sub.toJSON();
