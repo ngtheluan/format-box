@@ -158,3 +158,30 @@ export async function sendTestPush(): Promise<{ ok: boolean; error?: string }> {
     return { ok: false, error: String((e as Error)?.message || e) };
   }
 }
+
+// ---- Mở hộp Duyệt / Từ chối từ thông báo ----
+// /sw.js ghi slug bài vừa được chạm vào Cache Storage (xem rememberPendingReview
+// trong public/sw.js — tên cache + key phải khớp). Trang admin đọc lại khi hiện
+// lên, phòng khi openWindow / postMessage của service worker không tới nơi.
+const INBOX_CACHE = "fb-admin-inbox";
+const PENDING_REVIEW_URL = "/__fb_pending_review__";
+const PENDING_REVIEW_TTL_MS = 5 * 60_000;
+
+// PushReviewBridge phát event này trên window; BlogAdminTool nghe để mở hộp duyệt.
+export const REVIEW_EVENT = "fb:blog-open-review";
+
+// Lấy slug đang chờ (nếu còn mới) và xoá luôn để không mở lại lần sau.
+export async function takePendingReview(): Promise<string | null> {
+  if (typeof caches === "undefined") return null;
+  try {
+    const cache = await caches.open(INBOX_CACHE);
+    const res = await cache.match(PENDING_REVIEW_URL);
+    if (!res) return null;
+    await cache.delete(PENDING_REVIEW_URL);
+    const j = (await res.json()) as { slug?: string; at?: number };
+    if (!j?.slug || Date.now() - Number(j.at || 0) > PENDING_REVIEW_TTL_MS) return null;
+    return j.slug;
+  } catch {
+    return null;
+  }
+}

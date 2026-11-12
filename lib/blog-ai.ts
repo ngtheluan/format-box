@@ -1,7 +1,9 @@
 // Server-only helpers for the blog AI pipeline: free LLM providers (Groq, Gemini,
-// Pollinations) with automatic fallback, web research, and relevance-checked images.
+// OpenRouter, Pollinations) with automatic fallback, web research, and
+// relevance-checked images.
 import {
   AI_MODELS,
+  AI_PROVIDER_ORDER,
   ALL_LIMITED_MARK,
   type AiProvider,
   type ImageCandidate,
@@ -31,6 +33,7 @@ export function availableProviders(): Record<AiProvider, boolean> {
   return {
     groq: !!process.env.GROQ_API_KEY,
     gemini: !!process.env.GEMINI_API_KEY,
+    openrouter: !!process.env.OPENROUTER_API_KEY,
     pollinations: true,
   };
 }
@@ -84,8 +87,17 @@ function cooldownMs(status: number, headerWait: number, body: string): number {
 // provider/model → epoch ms until which it is known to be rate-limited. Module
 // scope, so later steps of the same generate request (topic → research → write…)
 // and warm reuses of this instance skip a model that just 429'd.
+//
+// Web-search calls get their own key: search/grounding has a separate (on free
+// Gemini, often zero) quota, and its 429 must not bench the model for plain
+// generation — that used to lock a perfectly usable model out for 15 minutes.
 const cooldowns = new Map<string, number>();
-const cdKey = (p: AiProvider, m: string) => `${p}/${m}`;
+const cdKey = (p: AiProvider, m: string, search: boolean) => `${p}/${m}${search ? "+search" : ""}`;
+
+// A model that hangs until our own timeout is likely overloaded; skip it for a
+// while so the next pipeline step doesn't burn another full timeout on it.
+const TIMEOUT_COOLDOWN_MS = 90_000;
+const isTimeoutError = (e: any, msg: string) => e?.name === "TimeoutError" || /aborted due to timeout/i.test(msg);
 
 async function callGroq(o: LlmOpts, model: string, search: boolean): Promise<string> {
   const build = (useSearch: boolean) => {
@@ -160,7 +172,8 @@ async function callGemini(o: LlmOpts, model: string, search: boolean): Promise<s
     if (r.ok) {
       const j: any = await r.json();
       const parts = j?.candidates?.[0]?.content?.parts;
-      return Array.isArray(parts) ? parts.map((p: any) => p?.text || "").join("") : "";
+      // Gemma trả cả phần suy luận (`thought: true`) — chỉ lấy câu trả lời.
+      return Array.isArray(parts) ? parts.map((p: any) => (p?.thought ? "" : p?.text || "")).join("") : "";
     }
     const full = await r.text();
     const txt = full.slice(0, 240);
@@ -207,11 +220,49 @@ async function callPollinations(o: LlmOpts, model: string): Promise<string> {
   return j?.choices?.[0]?.message?.content ?? "";
 }
 
+// OpenRouter `:free` models (OpenAI-compatible). No `response_format`: not every
+// free model accepts it, and callers already parse JSON loosely.
+async function callOpenRouter(o: LlmOpts, model: string): Promise<string> {
+  const body: Record<string, unknown> = {
+    model,
+    temperature: o.temperature ?? 0.7,
+    messages: [
+      { role: "system", content: o.system },
+      { role: "user", content: o.user },
+    ],
+  };
+  const maxTok = o.maxTokens ?? (o.long ? 8000 : undefined);
+  if (maxTok) body.max_tokens = maxTok;
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(o.timeoutMs ?? 150_000),
+  });
+  const full = await r.text();
+  // Upstream failures can also arrive as HTTP 200 with an `error` object.
+  let j: any = null;
+  try {
+    j = JSON.parse(full);
+  } catch {}
+  const errCode = Number(j?.error?.code) || (r.ok ? 0 : r.status);
+  if (errCode) {
+    const msg = `OpenRouter ${errCode}: ${String(j?.error?.message || full).slice(0, 240)}`;
+    if (errCode === 429 || errCode === 503) {
+      throw new RateLimitError(msg, cooldownMs(errCode, parseRetryAfter(r.headers.get("retry-after")), full));
+    }
+    throw new Error(msg);
+  }
+  if (o.long && j?.choices?.[0]?.finish_reason === "length") throw new Error("OpenRouter bị cắt (max_tokens)");
+  return j?.choices?.[0]?.message?.content ?? "";
+}
+
 async function callOnce(o: LlmOpts, provider: AiProvider, model: string): Promise<LlmResult> {
   const search = !!o.webSearch && supportsSearch(provider, model);
   let raw: string;
   if (provider === "groq") raw = await callGroq(o, model, search);
   else if (provider === "gemini") raw = await callGemini(o, model, search);
+  else if (provider === "openrouter") raw = await callOpenRouter(o, model);
   else raw = await callPollinations(o, model);
   const text = cleanText(raw);
   if (!text) throw new Error(`${provider} trả về rỗng`);
@@ -231,7 +282,7 @@ export async function callLlm(o: LlmOpts): Promise<LlmResult> {
   push(o.provider, o.model || models(o.provider)[0].id);
   for (const m of models(o.provider)) push(o.provider, m.id);
   // Try providers in order of generation quality / cost efficiency.
-  for (const p of ["groq", "gemini", "pollinations"] as AiProvider[]) {
+  for (const p of AI_PROVIDER_ORDER) {
     if (p === o.provider || (o.long && p === "pollinations")) continue;
     for (const m of models(p)) push(p, m.id);
   }
@@ -243,7 +294,8 @@ export async function callLlm(o: LlmOpts): Promise<LlmResult> {
   const perCall = o.timeoutMs ?? 150_000;
   const budget = Math.min(perCall * 2.5, 150_000);
   const left = () => budget - (Date.now() - started);
-  const until = (p: AiProvider, m: string) => cooldowns.get(cdKey(p, m)) ?? 0;
+  const key = (p: AiProvider, m: string) => cdKey(p, m, !!o.webSearch && supportsSearch(p, m));
+  const until = (p: AiProvider, m: string) => cooldowns.get(key(p, m)) ?? 0;
 
   // Models still cooling down from an earlier 429 go last, soonest-free first,
   // so the chain spends its time on models that can actually answer.
@@ -258,15 +310,16 @@ export async function callLlm(o: LlmOpts): Promise<LlmResult> {
   const attempt = async (p: AiProvider, m: string): Promise<LlmResult | null> => {
     try {
       const r = await callOnce(o, p, m);
-      cooldowns.delete(cdKey(p, m));
+      cooldowns.delete(key(p, m));
       return r;
     } catch (e: any) {
       const msg = e?.message || String(e);
       if (e instanceof RateLimitError || isRateLimitError(msg)) {
         const wait = e instanceof RateLimitError ? e.waitMs : cooldownMs(429, 0, msg);
-        cooldowns.set(cdKey(p, m), Date.now() + wait);
+        cooldowns.set(key(p, m), Date.now() + wait);
       } else {
         allLimited = false;
+        if (isTimeoutError(e, msg)) cooldowns.set(key(p, m), Date.now() + TIMEOUT_COOLDOWN_MS);
       }
       errors.push(`${m}: ${msg.slice(0, 160)}`);
       return null;

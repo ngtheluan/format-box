@@ -207,6 +207,7 @@ function availableProviders(): Record<AiProvider, boolean> {
   return {
     groq: !!process.env.GROQ_API_KEY,
     gemini: !!process.env.GEMINI_API_KEY,
+    openrouter: !!process.env.OPENROUTER_API_KEY,
     pollinations: true,
   };
 }

@@ -1,6 +1,10 @@
 // Plain data shared by the admin UI and the blog AI routes (no server imports).
 
-export type AiProvider = "groq" | "gemini" | "pollinations";
+export type AiProvider = "groq" | "gemini" | "openrouter" | "pollinations";
+
+// Thứ tự thử provider khi fallback: chất lượng/hạn mức tốt trước, Pollinations
+// (ẩn danh, cắt ngắn) luôn cuối.
+export const AI_PROVIDER_ORDER: AiProvider[] = ["groq", "gemini", "openrouter", "pollinations"];
 
 export type AiSpecialty =
   | "tech"       // deep-dive kỹ thuật, code, kiến trúc
@@ -40,6 +44,8 @@ export const AI_MODELS: Record<AiProvider, AiModel[]> = {
       specialties: ["tech", "review", "tutorial", "analysis", "general"],
     },
   ],
+  // Mỗi model Gemini có hạn mức free riêng, nên xếp nhiều model để khi một
+  // model hết quota / quá tải (503) chuỗi fallback còn chỗ chạy ngay.
   gemini: [
     {
       id: "gemini-3.8-flash",
@@ -47,6 +53,48 @@ export const AI_MODELS: Record<AiProvider, AiModel[]> = {
       search: true,
       specialties: ["news", "explainer", "general", "fast"],
     },
+    {
+      id: "gemini-3.6-flash",
+      label: "Gemini 3.6 Flash",
+      specialties: ["tech", "review", "tutorial", "analysis", "story", "general"],
+    },
+    {
+      id: "gemini-3.5-flash",
+      label: "Gemini 3.5 Flash",
+      specialties: ["review", "tutorial", "explainer", "story", "general"],
+    },
+    {
+      id: "gemini-3-flash-preview",
+      label: "Gemini 3 Flash",
+      specialties: ["explainer", "general"],
+    },
+    {
+      id: "gemini-3.5-flash-lite",
+      label: "Gemini 3.5 Flash-Lite (nhanh)",
+      specialties: ["explainer", "fast"],
+    },
+    {
+      id: "gemini-3.1-flash-lite",
+      label: "Gemini 3.1 Flash-Lite (nhanh)",
+      specialties: ["fast"],
+    },
+    // Có suy luận nên chậm (~20–40s) — để cuối, chỉ dùng khi các model trên hết lượt.
+    { id: "gemma-4-26b-a4b-it", label: "Gemma 4 26B (chậm, dự phòng)", specialties: ["general"] },
+  ],
+  // Model `:free` của OpenRouter — cần OPENROUTER_API_KEY (tạo miễn phí, không
+  // cần thẻ). Hạn mức free tính theo ngày cho cả tài khoản nên chỉ làm dự phòng.
+  openrouter: [
+    {
+      id: "nvidia/nemotron-3-ultra-550b-a55b:free",
+      label: "Nemotron 3 Ultra 550B (free)",
+      specialties: ["tech", "analysis", "review", "general"],
+    },
+    {
+      id: "google/gemma-4-31b-it:free",
+      label: "Gemma 4 31B (free)",
+      specialties: ["explainer", "story", "general"],
+    },
+    { id: "openrouter/free", label: "Tự chọn model free", specialties: ["general"] },
   ],
   pollinations: [
     { id: "openai", label: "Pollinations (không key, tác vụ ngắn)", specialties: ["fast"] },
@@ -121,6 +169,7 @@ export function pickModelForStructure(
 export const AI_PROVIDER_LABEL: Record<AiProvider, string> = {
   groq: "Groq",
   gemini: "Google Gemini",
+  openrouter: "OpenRouter",
   pollinations: "Pollinations",
 };
 
@@ -305,7 +354,7 @@ export function buildAutoModelChain(
   };
   if (requested.model) push(requested.provider, requested.model);
   for (const m of AI_MODELS[requested.provider] || []) push(requested.provider, m.id);
-  for (const p of ["groq", "gemini", "pollinations"] as AiProvider[]) {
+  for (const p of AI_PROVIDER_ORDER) {
     if (p === requested.provider) continue;
     for (const m of AI_MODELS[p]) push(p, m.id);
   }

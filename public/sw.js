@@ -152,11 +152,31 @@ self.addEventListener("message", (event) => {
 // Web Push từ server (auto job sinh bài). iOS/Safari không hiện nút action,
 // nên chạm vào thông báo sẽ mở /admin/blog?review=<slug> — trang admin bật
 // sẵn hộp Duyệt / Từ chối cho đúng bài đó.
+//
+// Server gửi theo định dạng Declarative Web Push ({ web_push: 8030,
+// notification: {...} }). Safari/iOS 18.4+ tự hiện và tự mở link, không gọi
+// tới file này; các trình duyệt khác vẫn vào handler "push" bên dưới, lấy field
+// gốc (type, slug…) trong notification.data.
 function reviewUrl(slug) {
   return `/admin/blog?review=${encodeURIComponent(slug)}`;
 }
 
-function buildPushNotification(data) {
+// Ghi lại bài vừa được chạm từ thông báo. Trang admin đọc (và xoá) mục này khi
+// hiện lên — lưới an toàn cho lúc openWindow / postMessage không tới nơi (PWA
+// iOS mở ở trang bắt đầu, hoặc tab đang tải lại nên chưa kịp nghe message).
+// Tên cache + key phải khớp lib/admin-push-client.ts.
+const INBOX_CACHE = "fb-admin-inbox";
+const PENDING_REVIEW_URL = "/__fb_pending_review__";
+
+async function rememberPendingReview(slug) {
+  try {
+    const cache = await caches.open(INBOX_CACHE);
+    await cache.put(PENDING_REVIEW_URL, new Response(JSON.stringify({ slug, at: Date.now() })));
+  } catch {}
+}
+
+function buildPushNotification(raw) {
+  const data = (raw && raw.notification && raw.notification.data) || raw;
   if (data && data.type === "blog-new-post" && data.slug) {
     const body = data.title || data.slug;
     return {
@@ -283,21 +303,39 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     (async () => {
       const target = new URL(url, self.location.origin);
+      if (isBlog && data.slug) await rememberPendingReview(data.slug);
       const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of all) {
+        let sameTool = false;
         try {
           const u = new URL(client.url);
-          const sameTool = target.pathname.startsWith("/admin/blog")
+          sameTool = target.pathname.startsWith("/admin/blog")
             ? u.pathname.startsWith("/admin/blog")
             : u.pathname === target.pathname;
-          if (sameTool) {
-            await client.focus();
-            if (data.slug) client.postMessage({ type: "blog-open-review", slug: data.slug });
-            return;
-          }
+        } catch {}
+        if (!sameTool) continue;
+        // Gửi slug trước: focus() có thể reject (iOS) và không được phép chặn message.
+        if (data.slug) client.postMessage({ type: "blog-open-review", slug: data.slug });
+        try {
+          await client.focus();
+        } catch {}
+        return;
+      }
+      let opened = null;
+      try {
+        opened = await self.clients.openWindow(target.href);
+      } catch {}
+      if (opened || !target.pathname.startsWith("/admin")) return;
+      // openWindow không mở được (PWA iOS đang đứng ở trang khác): điều hướng
+      // luôn cửa sổ admin đang có.
+      for (const client of all) {
+        try {
+          if (!new URL(client.url).pathname.startsWith("/admin")) continue;
+          await client.navigate(target.href);
+          await client.focus();
+          return;
         } catch {}
       }
-      await self.clients.openWindow(target.href);
     })(),
   );
 });

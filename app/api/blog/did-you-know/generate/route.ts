@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { isSuperAdmin } from "@/lib/admin-auth";
-import { dykImageCredit, slugify, updateDidYouKnow, upsertDidYouKnow, type DidYouKnowImage, type DidYouKnowItem } from "@/lib/blog";
+import {
+  dykImageCredit,
+  getDykConfig,
+  slugify,
+  updateDidYouKnow,
+  upsertDidYouKnow,
+  type DidYouKnowImage,
+  type DidYouKnowItem,
+} from "@/lib/blog";
 import { callLlm, parseJsonLoose, searchImages } from "@/lib/blog-ai";
 import { AI_MODELS, type AiProvider } from "@/lib/blog-ai-shared";
 import { generateDykQuiz } from "@/lib/dyk-quiz";
@@ -98,7 +106,13 @@ JSON: {"slug":"kebab-case","tag_vi":"...","tag_en":"...","title_vi":"...","title
     let quizSaved = true;
     let quizError = "";
     try {
-      await updateDidYouKnow(slug, { quiz: await generateDykQuiz(item, provider) });
+      const cfg = await getDykConfig(true);
+      const gen = await generateDykQuiz(item, provider, {
+        count: cfg.quiz_count,
+        scope: cfg.quiz_scope,
+        verify: cfg.quiz_verify,
+      });
+      await updateDidYouKnow(slug, { quiz: gen.quiz });
     } catch (e: any) {
       quizSaved = false;
       quizError = e?.message || "Lỗi sinh quiz";

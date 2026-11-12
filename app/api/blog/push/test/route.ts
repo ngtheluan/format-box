@@ -13,10 +13,14 @@ export async function POST(req: Request) {
     if (!(await isSuperAdmin())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     const { endpoint } = (await req.json().catch(() => ({}))) as { endpoint?: string };
     if (!endpoint?.trim()) return NextResponse.json({ error: "Thiếu endpoint" }, { status: 400 });
-    const result = await sendPushToEndpoint(endpoint.trim(), {
-      type: "blog-push-test",
-      title: "Thông báo đã hoạt động trên thiết bị này",
-    });
+    // Origin trình duyệt đang mở (header Origin của fetch same-origin); thiếu
+    // thì để lib/push tự lấy origin production.
+    const origin = req.headers.get("origin") || undefined;
+    const result = await sendPushToEndpoint(
+      endpoint.trim(),
+      { type: "blog-push-test", title: "Thông báo đã hoạt động trên thiết bị này" },
+      origin && /^https?:\/\/[^/]+$/.test(origin) ? origin : undefined,
+    );
     if (!result.sent) {
       return NextResponse.json({ error: result.errors[0] || "Không gửi được" }, { status: 502 });
     }

@@ -1,7 +1,14 @@
 "use client";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui";
-import { enablePush, getPushState, resetPushSubscription, sendTestPush, type PushState } from "@/lib/admin-push-client";
+import {
+  enablePush,
+  getPushState,
+  isIOS,
+  resetPushSubscription,
+  sendTestPush,
+  type PushState,
+} from "@/lib/admin-push-client";
 import {
   IconBell,
   IconBellOff,
@@ -22,6 +29,10 @@ const TEXT: Record<Exclude<PushState, "checking">, string> = {
   default: "Bật để nhận thông báo Duyệt / Từ chối khi auto sinh xong bài, kể cả khi đã khoá màn hình.",
   granted: "Thiết bị này sẽ nhận thông báo khi có bài mới chờ duyệt.",
 };
+
+// iOS không hiển thị nút hành động trên thông báo web — phải chạm để mở hộp duyệt.
+const IOS_GRANTED_TEXT =
+  "Thiết bị này sẽ nhận thông báo khi có bài mới chờ duyệt. iPhone/iPad không hiện nút trên thông báo — chạm vào thông báo để mở hộp Duyệt / Từ chối.";
 
 // Trạng thái + nút bật Web Push cho đúng thiết bị đang mở trang admin.
 export default function PushSetup() {
@@ -86,7 +97,7 @@ export default function PushSetup() {
   return (
     <div className="bga-push" data-state={state}>
       <span className="bga-push-ic">{icon}</span>
-      <span className="bga-push-text">{TEXT[state]}</span>
+      <span className="bga-push-text">{state === "granted" && isIOS() ? IOS_GRANTED_TEXT : TEXT[state]}</span>
       {state === "default" && (
         <Button size="sm" loading={busy} leftIcon={<IconBell size={14} />} onClick={enable}>
           Bật thông báo

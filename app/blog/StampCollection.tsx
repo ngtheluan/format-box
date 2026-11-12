@@ -1,34 +1,39 @@
 "use client";
 
-import { Button, Modal } from "@/components/ui";
-import { getStamps, type DykStamp } from "@/lib/dyk-stamps";
+import { Button, Modal, Progress } from "@/components/ui";
+import { useDykStamps } from "@/lib/dyk-stamps";
 import { useI18n } from "@/lib/i18n";
 import { IconTicket } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
-import { StampCard } from "./DykExhibit";
+import { useMemo, useState } from "react";
+import { faceFromSaved, Stamp, type StampFace } from "./DykStamp";
 
-// Nút + modal bộ sưu tập tem. Dùng ở header DYK trong /blog và ở toolbar
-// bài viết /blog/[slug]. Lắng nghe event "fb-dyk-stamps-changed" để luôn
-// khớp localStorage, nhiều tab cũng sync qua "storage".
+// Nút + album tem. Dùng ở header Bảo tàng trong /blog (có `catalog` → hiện cả ô
+// tem chưa sưu tầm) và ở toolbar bài viết /blog/[slug] (chỉ tem đã có).
 export function StampCollection({
   variant = "section",
+  catalog,
 }: {
   variant?: "section" | "toolbar";
+  // Mọi con tem đang phát hành, theo thứ tự hiện vật.
+  catalog?: StampFace[];
 }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [stamps, setStamps] = useState<DykStamp[]>([]);
+  const stamps = useDykStamps();
 
-  useEffect(() => {
-    const sync = () => setStamps(getStamps());
-    sync();
-    window.addEventListener("fb-dyk-stamps-changed", sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener("fb-dyk-stamps-changed", sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
+  // Album: tem đang phát hành trước (theo thứ tự hiện vật), rồi tới tem của
+  // hiện vật đã gỡ — người xem vẫn giữ thứ họ đã sưu tầm.
+  const slots = useMemo(() => {
+    const bySlug = new Map(stamps.map((s) => [s.slug, s]));
+    const live = (catalog ?? []).map((face) => ({ face, saved: bySlug.get(face.slug) ?? null }));
+    const known = new Set(live.map((s) => s.face.slug));
+    const retired = stamps.filter((s) => !known.has(s.slug)).map((s) => ({ face: faceFromSaved(s), saved: s }));
+    return [...live, ...retired];
+  }, [catalog, stamps]);
+
+  const total = slots.length;
+  const have = slots.filter((s) => s.saved).length;
+  const perfect = slots.filter((s) => s.saved && s.saved.total > 0 && s.saved.score >= s.saved.total).length;
 
   const button =
     variant === "toolbar" ? (
@@ -63,43 +68,45 @@ export function StampCollection({
         onClose={() => setOpen(false)}
         ariaLabel={t("blog_dyk_collection")}
         className="dyk-collection-modal"
+        size="xl"
       >
-        <header className="dyk-collection-head">
+        <header className="dyk-album-head">
           <div>
-            <h3>
-              {t("blog_dyk_collection")}
-              {stamps.length > 0 && (
-                <small>
-                  {" "}
-                  — {stamps.length} {t("blog_dyk_collection_count")}
-                </small>
-              )}
-            </h3>
+            <h3>{t("blog_dyk_collection")}</h3>
+            <p>{t("blog_dyk_collection_hint")}</p>
           </div>
+          {total > 0 && (
+            <div className="dyk-album-stat">
+              <span>
+                <b>{have}</b> / {total} {t("blog_dyk_collection_progress")}
+                {perfect > 0 && (
+                  <>
+                    {" "}
+                    · <b>{perfect}</b> {t("blog_dyk_collection_perfect")}
+                  </>
+                )}
+              </span>
+              <Progress value={have} max={total} aria-label={t("blog_dyk_collection_progress")} />
+            </div>
+          )}
         </header>
-        {stamps.length === 0 ? (
+        {total === 0 ? (
           <p className="dyk-collection-empty">{t("blog_dyk_collection_empty")}</p>
         ) : (
-          <ul className="dyk-collection-grid">
-            {stamps.map((s) => (
-              <li key={s.slug}>
+          <ul className="dyk-album">
+            {slots.map(({ face, saved }) => (
+              <li key={face.slug}>
                 <a
-                  className="dyk-collection-item"
-                  href={`/blog#dyk-${s.slug}`}
+                  className={`dyk-album-item${saved ? "" : " is-empty"}`}
+                  href={`/blog#dyk-${face.slug}`}
                   onClick={() => setOpen(false)}
-                  aria-label={t("blog_dyk_collection_view")}
+                  title={t("blog_dyk_collection_view")}
                 >
-                  <StampCard
-                    image={s.image}
-                    title={s.title}
-                    tag={s.tag}
-                    score={s.score}
-                    total={s.total}
-                    earnedAt={s.earnedAt}
-                    lang={lang}
-                    perfectLabel={t("blog_dyk_stamp_perfect")}
-                    stampLabel={t("blog_dyk_stamp")}
+                  <Stamp
+                    face={face}
                     size="sm"
+                    locked={!saved}
+                    earned={saved ? { score: saved.score, total: saved.total, at: saved.earnedAt } : null}
                   />
                 </a>
               </li>

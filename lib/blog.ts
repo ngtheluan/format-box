@@ -1,6 +1,14 @@
 import { marked } from "marked";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { supabase, supabaseAdmin } from "./supabase";
+import {
+  DEFAULT_DYK_CONFIG,
+  normDykConfig,
+  normStamp,
+  stampFromConfig,
+  type DykConfig,
+  type DykStampDesign,
+} from "./dyk-shared";
 
 export type BlogCategory = string;
 export type BlogStatus = "draft" | "rejected" | "published";
@@ -173,6 +181,10 @@ export type DidYouKnowItem = {
   sort: number;
   active: boolean;
   quiz?: DidYouKnowQuizQuestion[];
+  // Luôn có khi đọc từ DB: tem riêng của hiện vật, hoặc mặc định chung.
+  stamp?: DykStampDesign;
+  // true khi `stamp` là thiết kế riêng đã lưu (không phải mặc định chung).
+  stamp_custom?: boolean;
 };
 
 export type DidYouKnowQuizQuestion = {
@@ -183,9 +195,15 @@ export type DidYouKnowQuizQuestion = {
   answer: number;
   explain_vi: string;
   explain_en: string;
+  // "topic" = kiến thức mở rộng, không nằm trong mô tả hiện vật.
+  scope?: "exhibit" | "topic";
 };
 
-type DbDyk = Omit<DidYouKnowItem, "images" | "quiz"> & { images: unknown; quiz?: unknown };
+type DbDyk = Omit<DidYouKnowItem, "images" | "quiz" | "stamp" | "stamp_custom"> & {
+  images: unknown;
+  quiz?: unknown;
+  stamp?: unknown;
+};
 
 export function normDykQuiz(x: unknown): DidYouKnowQuizQuestion[] {
   // Supabase trả jsonb thành array, nhưng nếu cột bị tạo là text hoặc
@@ -217,6 +235,7 @@ export function normDykQuiz(x: unknown): DidYouKnowQuizQuestion[] {
       answer,
       explain_vi: str(o.explain_vi),
       explain_en: str(o.explain_en),
+      ...(o.scope === "topic" || o.scope === "exhibit" ? { scope: o.scope } : {}),
     });
   }
   return out;
@@ -248,8 +267,49 @@ function normDykImages(x: unknown): DidYouKnowImage[] {
     .filter(Boolean) as DidYouKnowImage[];
 }
 
-function normDyk(r: DbDyk): DidYouKnowItem {
-  return { ...r, images: normDykImages(r.images), quiz: normDykQuiz(r.quiz) };
+function normDyk(r: DbDyk, cfg: DykConfig): DidYouKnowItem {
+  const own = normStamp(r.stamp);
+  return {
+    ...r,
+    images: normDykImages(r.images),
+    quiz: normDykQuiz(r.quiz),
+    stamp: own ?? stampFromConfig(cfg),
+    stamp_custom: !!own,
+  };
+}
+
+// ---------- Cấu hình chung cho quiz + tem (app_settings) ----------
+const DYK_CONFIG_KEY = "blog_dyk_config";
+
+async function fetchDykConfig(): Promise<DykConfig> {
+  try {
+    const sb = supabaseAdmin();
+    const { data } = await sb.from("app_settings").select("value").eq("key", DYK_CONFIG_KEY).maybeSingle();
+    return normDykConfig(data?.value);
+  } catch {
+    return { ...DEFAULT_DYK_CONFIG };
+  }
+}
+
+const getDykConfigCached = unstable_cache(fetchDykConfig, ["blog:dyk-config"], {
+  revalidate: 3600,
+  tags: ["blog-dyk"],
+});
+
+export async function getDykConfig(fresh = false): Promise<DykConfig> {
+  return fresh ? fetchDykConfig() : getDykConfigCached();
+}
+
+export async function setDykConfig(next: DykConfig): Promise<DykConfig> {
+  const clean = normDykConfig(next);
+  const sb = supabaseAdmin();
+  await sb
+    .from("app_settings")
+    .upsert({ key: DYK_CONFIG_KEY, value: clean, updated_at: new Date().toISOString() })
+    .throwOnError();
+  // Hiện vật chưa có tem riêng lấy tem từ đây, nên danh sách công khai cũng phải làm mới.
+  revalidateTag("blog-dyk");
+  return clean;
 }
 
 async function fetchPublicDidYouKnow(): Promise<DidYouKnowItem[]> {
@@ -265,7 +325,8 @@ async function fetchPublicDidYouKnow(): Promise<DidYouKnowItem[]> {
     if (error) throw error;
     return data as DbDyk[] | null;
   });
-  return (data ?? []).map(normDyk);
+  const cfg = await fetchDykConfig();
+  return (data ?? []).map((r) => normDyk(r, cfg));
 }
 
 const listPublicDidYouKnowCached = unstable_cache(fetchPublicDidYouKnow, ["blog:public-dyk"], {
@@ -283,7 +344,8 @@ export async function listAdminDidYouKnow(): Promise<DidYouKnowItem[]> {
     .from("blog_did_you_know")
     .select("*")
     .order("sort", { ascending: true });
-  return ((data as DbDyk[] | null) ?? []).map(normDyk);
+  const cfg = await fetchDykConfig();
+  return ((data as DbDyk[] | null) ?? []).map((r) => normDyk(r, cfg));
 }
 
 export async function upsertDidYouKnow(item: DidYouKnowItem): Promise<void> {
@@ -302,6 +364,9 @@ export async function upsertDidYouKnow(item: DidYouKnowItem): Promise<void> {
         images: item.images,
         sort: item.sort,
         active: item.active,
+        // Chỉ gửi khi có, để DB chưa migrate cột `stamp` vẫn tạo được hiện vật.
+        ...(item.quiz ? { quiz: item.quiz } : {}),
+        ...(item.stamp ? { stamp: item.stamp } : {}),
       },
       { onConflict: "slug" },
     )
@@ -309,7 +374,12 @@ export async function upsertDidYouKnow(item: DidYouKnowItem): Promise<void> {
   revalidateTag("blog-dyk");
 }
 
-export async function updateDidYouKnow(slug: string, patch: Partial<Omit<DidYouKnowItem, "slug">>): Promise<void> {
+export type DidYouKnowPatch = Partial<Omit<DidYouKnowItem, "slug" | "stamp" | "stamp_custom">> & {
+  // null = bỏ tem riêng, quay về mặc định chung.
+  stamp?: DykStampDesign | null;
+};
+
+export async function updateDidYouKnow(slug: string, patch: DidYouKnowPatch): Promise<void> {
   const sb = supabaseAdmin();
   await sb.from("blog_did_you_know").update(patch).eq("slug", slug).throwOnError();
   revalidateTag("blog-dyk");

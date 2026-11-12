@@ -98,12 +98,68 @@ export type AdminPushPayload =
 
 export type PushSendResult = { sent: number; failed: number; errors: string[] };
 
+// Origin dùng cho link trong thông báo. Job cron không có request của admin
+// nên lấy từ env; route "Gửi thử" truyền origin của chính request.
+function siteOrigin(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://formatbox.site").replace(/\/$/, "");
+}
+
+// Nội dung hiển thị + đường dẫn mở khi chạm, cho từng loại thông báo.
+function describePush(p: AdminPushPayload): { title: string; body: string; path: string; tag: string } {
+  if (p.type === "blog-new-post") {
+    return {
+      title: p.done ? "Đã sinh xong — bài cuối chờ duyệt" : "Bài blog mới chờ duyệt",
+      body: `${p.title || p.slug}\nChạm để Duyệt hoặc Từ chối.`,
+      path: `/admin/blog?review=${encodeURIComponent(p.slug)}`,
+      tag: `fb-blog-new-${p.slug}`,
+    };
+  }
+  if (p.type === "blog-auto-stopped") {
+    return {
+      title: "Sinh bài tự động đã dừng",
+      body: String(p.reason || "Job đã dừng.").slice(0, 180),
+      path: "/admin/blog",
+      tag: "fb-blog-auto-stopped",
+    };
+  }
+  return {
+    title: "FormatBox Admin — Thông báo thử",
+    body: `${p.title || "Thông báo thử"}\nChạm để mở trang quản trị.`,
+    path: "/admin/blog",
+    tag: "fb-blog-test",
+  };
+}
+
+// Declarative Web Push (Safari/iOS 18.4+): hệ điều hành tự hiện thông báo và tự
+// mở `navigate` khi chạm, không cần service worker — đường notificationclick →
+// openWindow trên PWA iOS hay chỉ mở trang bắt đầu của app. Trình duyệt chưa hỗ
+// trợ coi đây là payload JSON thường: /sw.js đọc các field gốc (type, slug…)
+// được giữ nguyên ở top-level và trong notification.data.
+function toWire(p: AdminPushPayload, origin: string): string {
+  const d = describePush(p);
+  // Lý do dừng có thể rất dài (lỗi của cả chuỗi model) — cắt để payload không
+  // vượt giới hạn ~4KB của push service.
+  const data = p.type === "blog-auto-stopped" ? { ...p, reason: d.body } : p;
+  return JSON.stringify({
+    ...data,
+    web_push: 8030,
+    notification: {
+      title: d.title,
+      body: d.body,
+      navigate: `${origin}${d.path}`,
+      tag: d.tag,
+      lang: "vi",
+      data,
+    },
+  });
+}
+
 // Giữ 1 ngày: điện thoại tắt màn hình / mất mạng vẫn nhận được khi online lại.
 // urgency "high" để APNs/FCM đẩy ngay thay vì gom lại khi máy đang ngủ.
 const SEND_OPTIONS = { TTL: 60 * 60 * 24, urgency: "high" as const };
 
-async function sendToRows(rows: SubRow[], payload: AdminPushPayload): Promise<PushSendResult> {
-  const body = JSON.stringify(payload);
+async function sendToRows(rows: SubRow[], payload: AdminPushPayload, origin = siteOrigin()): Promise<PushSendResult> {
+  const body = toWire(payload, origin);
   const stale: string[] = [];
   const result: PushSendResult = { sent: 0, failed: 0, errors: [] };
   await Promise.all(
@@ -159,8 +215,13 @@ export async function sendAdminPush(payload: AdminPushPayload): Promise<PushSend
   }
 }
 
-// Gửi tới đúng 1 endpoint (nút "Gửi thử" trên thiết bị đang mở).
-export async function sendPushToEndpoint(endpoint: string, payload: AdminPushPayload): Promise<PushSendResult> {
+// Gửi tới đúng 1 endpoint (nút "Gửi thử" trên thiết bị đang mở). `origin` là
+// origin thiết bị đó đang dùng, để chạm vào thông báo mở đúng site (preview/local).
+export async function sendPushToEndpoint(
+  endpoint: string,
+  payload: AdminPushPayload,
+  origin?: string,
+): Promise<PushSendResult> {
   const empty: PushSendResult = { sent: 0, failed: 0, errors: [] };
   const cfg = ensureConfigured();
   if (!cfg.ok) return { ...empty, errors: [cfg.error || "VAPID chưa cấu hình"] };
@@ -172,7 +233,7 @@ export async function sendPushToEndpoint(endpoint: string, payload: AdminPushPay
       .limit(1);
     if (error) return { ...empty, errors: [error.message] };
     if (!data || data.length === 0) return { ...empty, errors: ["Thiết bị này chưa đăng ký trên server"] };
-    return await sendToRows(data as SubRow[], payload);
+    return await sendToRows(data as SubRow[], payload, origin);
   } catch (e: any) {
     return { ...empty, errors: [e?.message || "Push lỗi"] };
   }

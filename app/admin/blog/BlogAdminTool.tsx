@@ -30,7 +30,9 @@ import {
   type BlogStatus,
   type DidYouKnowImage,
   type DidYouKnowItem,
+  type DidYouKnowQuizQuestion,
 } from "@/lib/blog";
+import { DEFAULT_DYK_CONFIG, stampFromConfig, type DykConfig, type DykStampDesign } from "@/lib/dyk-shared";
 import {
   AI_MODELS,
   AI_PROVIDER_LABEL,
@@ -102,6 +104,7 @@ import {
   IconRotateClockwise,
   IconRuler,
   IconSearch,
+  IconSettings,
   IconShieldCheck,
   IconSparkles,
   IconTarget,
@@ -120,9 +123,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminBody from "../AdminBody";
-import { getSwRegistration, syncPushSubscription } from "@/lib/admin-push-client";
+import { REVIEW_EVENT, getSwRegistration, syncPushSubscription } from "@/lib/admin-push-client";
 import AutoModePanel, { type AutoRunSettings } from "./AutoModePanel";
 import "./blog-admin.css";
+import { DykConfigModal, DykQuizEditor, DykStampEditor, quizIssue } from "./DykEditors";
 import ImagePicker from "./ImagePicker";
 import ImagesManager from "./ImagesManager";
 import ManualComposer from "./ManualComposer";
@@ -295,8 +299,25 @@ export default function BlogAdminTool({
     sort: number;
     active: boolean;
     isNew: boolean;
+    quiz: DidYouKnowQuizQuestion[];
+    stamp: DykStampDesign;
+    stamp_custom: boolean;
+    // Tem riêng đã lưu trong DB lúc mở form — để biết khi nào cần gửi `stamp: null`.
+    hadCustomStamp: boolean;
+    // Số thứ tự hiện vật, chỉ để xem trước tem.
+    no: string;
   };
   const [dykEditing, setDykEditing] = useState<DykDraft | null>(null);
+  const [dykTab, setDykTab] = useState<"content" | "quiz" | "stamp">("content");
+  const [dykConfig, setDykConfig] = useState<DykConfig>(DEFAULT_DYK_CONFIG);
+  const [dykConfigOpen, setDykConfigOpen] = useState(false);
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    fetch("/api/blog/did-you-know/config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => j?.config && setDykConfig(j.config))
+      .catch(() => {});
+  }, [isSuperAdmin]);
   const [dykSaving, setDykSaving] = useState(false);
   const [dykErr, setDykErr] = useState("");
   const [dykChooserOpen, setDykChooserOpen] = useState(false);
@@ -372,7 +393,32 @@ export default function BlogAdminTool({
     else toast(`Đã sinh quiz cho ${ok}/${targets.length} mục`);
   }
 
+  // Sinh quiz từ nội dung đang sửa trong form; chỉ vào bản nháp, bấm Lưu mới ghi DB.
+  async function generateDykDraftQuiz(opts: { count: number; scope: string; verify: boolean }): Promise<string> {
+    const cur = dykEditing;
+    if (!cur?.title_vi.trim()) throw new Error("Nhập tiêu đề (VI) ở tab Nội dung trước khi sinh câu hỏi");
+    const r = await fetch("/api/blog/did-you-know/quiz", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        draft: { tag_vi: cur.tag_vi, title_vi: cur.title_vi, intro_vi: cur.intro_vi, images: cur.images },
+        provider: genProvider,
+        ...opts,
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !Array.isArray(j?.quiz)) throw new Error(j?.error || `Lỗi ${r.status}`);
+    setDykEditing((d) => (d ? { ...d, quiz: j.quiz } : d));
+    const parts = [`Đã sinh ${j.quiz.length}/${opts.count} câu`];
+    if (!opts.verify) parts.push("chưa kiểm chứng");
+    else if (!j.verified) parts.push("lượt kiểm chứng không chạy được — hãy tự rà lại");
+    else parts.push(j.searched ? "đã kiểm chứng có tra cứu web" : "đã kiểm chứng bằng AI (không tra cứu web)");
+    if (j.dropped) parts.push(`loại ${j.dropped} câu không đạt`);
+    return `${parts.join(" · ")}. Bấm Lưu để áp dụng.`;
+  }
+
   function openNewDyk() {
+    setDykTab("content");
     setDykEditing({
       slug: "",
       tag_vi: "",
@@ -383,13 +429,39 @@ export default function BlogAdminTool({
       intro_en: "",
       images: [],
       sort: (dyk.at(-1)?.sort ?? 0) + 10,
+      quiz: [],
+      stamp: stampFromConfig(dykConfig),
+      stamp_custom: false,
+      hadCustomStamp: false,
+      no: String(dyk.filter((x) => x.active).length + 1).padStart(3, "0"),
       active: true,
       isNew: true,
     });
     setDykErr("");
   }
   function openEditDyk(it: DidYouKnowItem) {
-    setDykEditing({ original: it.slug, ...it, isNew: false });
+    const active = dyk.filter((x) => x.active);
+    const idx = active.findIndex((x) => x.slug === it.slug);
+    setDykEditing({
+      original: it.slug,
+      slug: it.slug,
+      tag_vi: it.tag_vi,
+      tag_en: it.tag_en,
+      title_vi: it.title_vi,
+      title_en: it.title_en,
+      intro_vi: it.intro_vi,
+      intro_en: it.intro_en,
+      images: it.images,
+      sort: it.sort,
+      active: it.active,
+      isNew: false,
+      quiz: it.quiz ?? [],
+      stamp: it.stamp_custom && it.stamp ? it.stamp : stampFromConfig(dykConfig),
+      stamp_custom: !!it.stamp_custom,
+      hadCustomStamp: !!it.stamp_custom,
+      no: String((idx >= 0 ? idx : active.length) + 1).padStart(3, "0"),
+    });
+    setDykTab("content");
     setDykErr("");
   }
   async function reloadDyk() {
@@ -406,6 +478,20 @@ export default function BlogAdminTool({
       setDykErr("Thiếu tiêu đề VI");
       return;
     }
+    const badQuiz = dykEditing.quiz.findIndex((q) => quizIssue(q));
+    if (badQuiz >= 0) {
+      setDykTab("quiz");
+      setDykErr(`Câu hỏi ${badQuiz + 1}: ${quizIssue(dykEditing.quiz[badQuiz])}`);
+      return;
+    }
+    const { original: _o, isNew: _n, hadCustomStamp, stamp_custom, stamp, no: _no, ...fields } = dykEditing;
+    const payload = {
+      ...fields,
+      title_vi,
+      // Tem riêng: gửi thiết kế; vừa tắt tem riêng: gửi null để về mặc định chung;
+      // còn lại không gửi gì, nên DB chưa có cột `stamp` vẫn lưu được.
+      ...(stamp_custom ? { stamp } : hadCustomStamp ? { stamp: null } : {}),
+    };
     setDykSaving(true);
     setDykErr("");
     try {
@@ -413,7 +499,7 @@ export default function BlogAdminTool({
         const r = await fetch("/api/blog/did-you-know", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...dykEditing, title_vi }),
+          body: JSON.stringify({ ...payload, slug: dykEditing.slug }),
         });
         const j = await r.json();
         if (!r.ok) {
@@ -424,7 +510,7 @@ export default function BlogAdminTool({
         const r = await fetch("/api/blog/did-you-know", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...dykEditing, slug: dykEditing.original, title_vi }),
+          body: JSON.stringify({ ...payload, slug: dykEditing.original }),
         });
         const j = await r.json();
         if (!r.ok) {
@@ -1600,6 +1686,17 @@ export default function BlogAdminTool({
     };
   }, [router, toast]);
 
+  // PushReviewBridge (admin layout) báo có bài vừa được chạm từ thông báo mà
+  // service worker không tự đưa tới được — mở hộp duyệt cho bài đó.
+  useEffect(() => {
+    const onReview = (e: Event) => {
+      const slug = (e as CustomEvent<{ slug?: string }>).detail?.slug;
+      if (slug) setReviewSlug(slug);
+    };
+    window.addEventListener(REVIEW_EVENT, onReview);
+    return () => window.removeEventListener(REVIEW_EVENT, onReview);
+  }, []);
+
   // Ask for Notification permission the first time an auto run starts — the
   // admin wants browser popups so they can approve/reject outside this tab.
   async function ensureNotifPermission(): Promise<boolean> {
@@ -2699,6 +2796,16 @@ export default function BlogAdminTool({
                   {dykQuizProgress ? `Đang sinh quiz ${dykQuizProgress}` : `Sinh quiz còn thiếu (${dykMissingQuiz.length})`}
                 </Button>
               )}
+              {isSuperAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<IconSettings size={14} stroke={1.9} />}
+                  onClick={() => setDykConfigOpen(true)}
+                >
+                  Câu hỏi &amp; tem
+                </Button>
+              )}
               <button onClick={() => setDykChooserOpen(true)} className="fx-btn fx-btn-primary">
                 <IconPlus size={14} stroke={2.2} /> Thêm kiến thức
               </button>
@@ -2817,9 +2924,12 @@ export default function BlogAdminTool({
                           Tắt
                         </span>
                       )}
-                      {!it.quiz?.length && (
+                      <span className="fx-badge" data-tone="mute">
+                        {it.quiz?.length ? `${it.quiz.length} câu hỏi` : "Chưa có quiz"}
+                      </span>
+                      {it.stamp_custom && (
                         <span className="fx-badge" data-tone="mute">
-                          Chưa có quiz
+                          Tem riêng
                         </span>
                       )}
                     </div>
@@ -5963,6 +6073,19 @@ export default function BlogAdminTool({
         </div>
       )}
 
+      {isSuperAdmin && dykConfigOpen && (
+        <DykConfigModal
+          config={dykConfig}
+          onClose={() => setDykConfigOpen(false)}
+          onSaved={(next) => {
+            setDykConfig(next);
+            setDykConfigOpen(false);
+            toast("Đã lưu cấu hình câu hỏi & tem");
+            reloadDyk();
+          }}
+        />
+      )}
+
       {/* DID-YOU-KNOW EDIT MODAL */}
       {dykEditing && (
         <div className="fx-modal-bg" style={{ zIndex: 200 }}>
@@ -5976,6 +6099,56 @@ export default function BlogAdminTool({
               </button>
             </div>
             <div className="fx-modal-body">
+              <div className="bga-seg dyk-ed-tabs" role="tablist">
+                {(
+                  [
+                    ["content", "Nội dung"],
+                    ["quiz", `Câu hỏi (${dykEditing.quiz.length})`],
+                    ["stamp", "Tem"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={dykTab === key}
+                    className={dykTab === key ? "is-on" : ""}
+                    onClick={() => setDykTab(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {dykTab === "quiz" && (
+                <DykQuizEditor
+                  quiz={dykEditing.quiz}
+                  disabled={dykSaving}
+                  defaults={dykConfig}
+                  canGenerate={isSuperAdmin}
+                  onChange={(quiz) => setDykEditing((cur) => (cur ? { ...cur, quiz } : cur))}
+                  onGenerate={generateDykDraftQuiz}
+                />
+              )}
+              {dykTab === "stamp" && (
+                <DykStampEditor
+                  stamp={dykEditing.stamp}
+                  custom={dykEditing.stamp_custom}
+                  fallback={stampFromConfig(dykConfig)}
+                  disabled={dykSaving}
+                  images={dykEditing.images}
+                  quizCount={dykEditing.quiz.length}
+                  face={{
+                    slug: dykEditing.original || dykEditing.slug || "tem-moi",
+                    title: dykEditing.title_vi || "Tiêu đề hiện vật",
+                    label: dykEditing.tag_vi,
+                    no: dykEditing.no,
+                  }}
+                  onChange={(stamp) => setDykEditing((cur) => (cur ? { ...cur, stamp } : cur))}
+                  onCustomChange={(stamp_custom) => setDykEditing((cur) => (cur ? { ...cur, stamp_custom } : cur))}
+                />
+              )}
+              {dykTab === "content" && (
+              <>
               <div className="bga-grid2">
                 <Field label="Tag (VI)">
                   <Input
@@ -6162,6 +6335,8 @@ export default function BlogAdminTool({
                   </button>
                 </div>
               </Field>
+              </>
+              )}
 
               {dykErr && <div className="fx-err">{dykErr}</div>}
             </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { isAdmin } from "@/lib/admin-auth";
 import AdminLogin from "./AdminLogin";
 import AdminTabBar from "./AdminTabBar";
+import PushReviewBridge from "./PushReviewBridge";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <>
       {children}
       <AdminTabBar />
+      <PushReviewBridge />
     </>
   );
 }
