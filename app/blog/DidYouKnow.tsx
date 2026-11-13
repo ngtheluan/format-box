@@ -5,7 +5,7 @@ import { Button, IconButton, Modal } from "@/components/ui";
 import type { DidYouKnowItem as DbDidYouKnowItem } from "@/lib/blog";
 import { useI18n } from "@/lib/i18n";
 import { DEFAULT_DYK_CONFIG, stampFromConfig } from "@/lib/dyk-shared";
-import { useDykStamps } from "@/lib/dyk-stamps";
+import { pruneStamps, useDykStamps } from "@/lib/dyk-stamps";
 import { IconArrowRight, IconPhoto, IconRosette, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DykExhibit, exhibitNumber, exhibitStampFace, imageCredit, type DykExhibitView } from "./DykExhibit";
@@ -63,6 +63,12 @@ export function DidYouKnow({ items }: { items?: DbDidYouKnowItem[] } = {}) {
     () => list.filter((it) => it.quiz.length > 0).map((it) => exhibitStampFace(it, lang)),
     [list, lang],
   );
+
+  // Hiện vật nào bị gỡ thì dọn luôn tem của nó khỏi bảo tàng của người xem.
+  useEffect(() => {
+    if (!items) return;
+    pruneStamps(list.map((it) => it.slug));
+  }, [items, list]);
 
   // Hash "#dyk-<slug>" từ nút Bộ sưu tập ở các trang khác → mở đúng hiện vật
   // ngay khi vào /blog. Bỏ hash khỏi URL để không giữ trạng thái stale.

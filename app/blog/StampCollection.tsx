@@ -5,7 +5,7 @@ import { useDykStamps } from "@/lib/dyk-stamps";
 import { useI18n } from "@/lib/i18n";
 import { IconTicket } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
-import { faceFromSaved, Stamp, type StampFace } from "./DykStamp";
+import { Stamp, type StampFace } from "./DykStamp";
 
 // Nút + album tem. Dùng ở header Bảo tàng trong /blog (có `catalog` → hiện cả ô
 // tem chưa sưu tầm) và ở toolbar bài viết /blog/[slug] (chỉ tem đã có).
@@ -21,14 +21,11 @@ export function StampCollection({
   const [open, setOpen] = useState(false);
   const stamps = useDykStamps();
 
-  // Album: tem đang phát hành trước (theo thứ tự hiện vật), rồi tới tem của
-  // hiện vật đã gỡ — người xem vẫn giữ thứ họ đã sưu tầm.
+  // Album chỉ gồm hiện vật đang phát hành — hiện vật admin đã gỡ thì tem cũng
+  // biến mất khỏi bảo tàng (dọn ở DidYouKnow bằng pruneStamps).
   const slots = useMemo(() => {
     const bySlug = new Map(stamps.map((s) => [s.slug, s]));
-    const live = (catalog ?? []).map((face) => ({ face, saved: bySlug.get(face.slug) ?? null }));
-    const known = new Set(live.map((s) => s.face.slug));
-    const retired = stamps.filter((s) => !known.has(s.slug)).map((s) => ({ face: faceFromSaved(s), saved: s }));
-    return [...live, ...retired];
+    return (catalog ?? []).map((face) => ({ face, saved: bySlug.get(face.slug) ?? null }));
   }, [catalog, stamps]);
 
   const total = slots.length;

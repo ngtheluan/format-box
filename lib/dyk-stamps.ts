@@ -52,6 +52,15 @@ export function getStamp(slug: string): DykStamp | null {
   return safeRead().find((s) => s.slug === slug) ?? null;
 }
 
+// Dọn tem của hiện vật đã bị gỡ: chỉ giữ lại slug còn trong `validSlugs`.
+// Gọi khi /blog có danh sách mới để tem trong bảo tàng không "mồ côi".
+export function pruneStamps(validSlugs: Iterable<string>): void {
+  const keep = new Set(validSlugs);
+  const list = safeRead();
+  const next = list.filter((s) => keep.has(s.slug));
+  if (next.length !== list.length) safeWrite(next);
+}
+
 // Giữ lần chơi tốt nhất; chỉ cập nhật khi tỉ lệ đúng mới cao hơn (số câu của
 // một hiện vật có thể thay đổi khi admin sửa quiz, nên so theo tỉ lệ).
 export function awardStamp(next: DykStamp): { saved: boolean; isNew: boolean; best: DykStamp } {
