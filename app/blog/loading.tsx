@@ -25,7 +25,7 @@ export default function Loading() {
             </span>
           </article>
           <div className="bz-side">
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: 3 }).map((_, i) => (
               <article key={i} className="bz-tile bz-side-item">
                 <span style={{ display: "flex", alignItems: "center", gap: 12, height: "100%" }}>
                   <span

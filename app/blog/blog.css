@@ -3716,64 +3716,301 @@
   font-size: 0.72rem;
   font-weight: 700;
 }
+
+/* Album header: intro on the left, progress ring + cells + bar on the right */
 .dyk-album-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px 28px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(60% 120% at 0% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 60%),
+    radial-gradient(60% 120% at 100% 100%, color-mix(in srgb, var(--accent2) 8%, transparent), transparent 60%),
+    var(--bg2);
+}
+.dyk-album-intro {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px 20px;
-  margin-bottom: 14px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.dyk-album-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 .dyk-album-head h3 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.28rem;
   font-weight: 700;
+  letter-spacing: -0.018em;
   color: var(--bright);
 }
 .dyk-album-head p {
-  max-width: 46ch;
-  margin: 4px 0 0;
-  font-size: 0.82rem;
-  line-height: 1.5;
+  max-width: 54ch;
+  margin: 2px 0 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
   color: var(--dim);
 }
 .dyk-album-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 210px;
-  font-size: 0.8rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 8px 14px;
+  align-items: center;
+  min-width: 260px;
+  font-size: 0.84rem;
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
-.dyk-album-stat b {
+.dyk-album-stat .ui-progress {
+  grid-column: 1 / -1;
+}
+.dyk-album-stat-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dyk-album-stat-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--text);
+}
+.dyk-album-stat-cell svg {
+  transform: translateY(2px);
+  color: var(--accent);
+}
+.dyk-album-stat-cell:nth-child(2) svg {
+  color: #d9a52b;
+}
+.dyk-album-stat-cell b {
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--bright);
 }
-.dyk-collection-empty {
-  margin: 24px 0;
-  text-align: center;
+.dyk-album-stat-cell i {
+  font-style: normal;
   color: var(--dim);
-  font-size: 0.92rem;
 }
+.dyk-album-stat-cell em {
+  font-style: normal;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* Progress ring — SVG tròn hiển thị % tem đã sưu tầm */
+.dyk-ring {
+  width: 68px;
+  height: 68px;
+  flex: none;
+}
+.dyk-ring-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 6;
+}
+.dyk-ring-fg {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dyk-ring-text {
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  fill: var(--bright);
+}
+
+/* Filter tabs for the album */
+.dyk-album-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+}
+.dyk-album-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition:
+    background 0.18s,
+    color 0.18s;
+}
+.dyk-album-tab:hover {
+  color: var(--bright);
+  background: var(--bg3);
+}
+.dyk-album-tab.is-on {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg3));
+  color: var(--accent);
+}
+.dyk-album-tab span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dyk-album-tab.is-on span {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.dyk-album-tab-pct {
+  margin-left: auto;
+  padding: 0 10px;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+/* Empty state: friendly icon + sentence */
+.dyk-collection-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 28px 0 12px;
+  padding: 36px 20px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  background: color-mix(in srgb, var(--bg3) 55%, transparent);
+}
+.dyk-collection-empty p {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--dim);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.dyk-collection-empty-ic {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg2));
+  color: var(--accent);
+}
+
+/* The album — a parchment sheet of stamp slots, generous breathing room */
 .dyk-album {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(186px, 1fr));
   justify-items: center;
-  gap: 26px 14px;
+  gap: 28px 14px;
   margin: 0;
-  padding: 24px 16px;
+  padding: 26px 16px;
   list-style: none;
   border: 1px solid var(--border);
-  background: var(--bg2);
+  background:
+    radial-gradient(1px 1px at 20% 30%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+    radial-gradient(1px 1px at 80% 70%, color-mix(in srgb, var(--accent2) 8%, transparent), transparent 60%),
+    linear-gradient(135deg, color-mix(in srgb, var(--bg3) 70%, transparent), var(--bg2));
+}
+.dyk-album-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  transition: transform 0.25s ease;
+}
+.dyk-album-slot.is-perfect::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  z-index: 0;
+  border-radius: 10px;
+  background: radial-gradient(60% 60% at 50% 50%, color-mix(in srgb, #d9a52b 24%, transparent), transparent 70%);
+  pointer-events: none;
+  opacity: 0.8;
+  animation: dykGlow 2.8s ease-in-out infinite alternate;
 }
 .dyk-album-item {
+  position: relative;
+  z-index: 1;
   display: block;
-  transition: transform 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    filter 0.25s ease;
 }
 .dyk-album-item:hover,
 .dyk-album-item:focus-visible {
   outline: none;
-  transform: translateY(-3px) rotate(-1.5deg);
+  transform: translateY(-4px) rotate(-1.5deg);
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.18));
+}
+.dyk-album-item.is-empty:hover,
+.dyk-album-item.is-empty:focus-visible {
+  transform: translateY(-2px);
+}
+@keyframes dykGlow {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .dyk-album-head {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 14px 14px 16px;
+  }
+  .dyk-album-stat {
+    min-width: 0;
+  }
+  .dyk-album-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .dyk-album-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .dyk-album-tab {
+    flex: none;
+  }
+  .dyk-album-tab-pct {
+    display: none;
+  }
 }
 
 @keyframes muStampIn {
@@ -5551,4 +5788,331 @@
   .bz-series-cover::before {
     display: none;
   }
+}
+
+/* ============================================================
+   KNOWLEDGE — hero + stats strip for the /blog/knowledge page
+   Editorial header: icon plate on the left, title on the right,
+   a soft radial glow in the background, and a stats strip below.
+   ============================================================ */
+.bz-hero.bz-knowledge {
+  position: relative;
+  padding: 22px 24px 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 100% at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+    radial-gradient(60% 100% at 0% 100%, color-mix(in srgb, var(--accent2) 9%, transparent), transparent 60%),
+    var(--bg2);
+}
+.bz-knowledge-glow {
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 60%;
+  height: 160%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 210deg at 50% 50%,
+    transparent,
+    color-mix(in srgb, var(--accent) 28%, transparent) 25%,
+    transparent 55%
+  );
+  filter: blur(60px);
+  opacity: 0.4;
+  animation: bzKnowledgeDrift 18s ease-in-out infinite alternate;
+}
+[data-theme="light"] .bz-knowledge-glow {
+  opacity: 0.25;
+}
+.bz-knowledge-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px 20px;
+  align-items: center;
+}
+.bz-knowledge-badge {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  background:
+    radial-gradient(70% 70% at 30% 20%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%),
+    color-mix(in srgb, var(--accent) 10%, var(--bg3));
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.bz-knowledge-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.bz-knowledge-title .bz-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.bz-knowledge-title .bz-title {
+  margin-top: 2px;
+}
+.bz-knowledge-title .bz-dek {
+  margin-top: 4px;
+  max-width: 68ch;
+}
+
+/* Stats strip under the title */
+.bz-knowledge-stats {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(180px, 1.4fr);
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.bz-knowledge-stat {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 6px 10px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--bg2) 60%, transparent);
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+.bz-knowledge-stat:hover {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg2));
+}
+.bz-knowledge-stat-ic {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  grid-row: span 2;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  align-self: center;
+}
+.bz-knowledge-stat-ic.is-ok {
+  border-color: color-mix(in srgb, var(--ok, #22c55e) 42%, var(--border));
+  background: color-mix(in srgb, var(--ok, #22c55e) 12%, transparent);
+  color: var(--ok, #22c55e);
+}
+.bz-knowledge-stat-ic.is-gold {
+  border-color: color-mix(in srgb, #d9a52b 42%, var(--border));
+  background: color-mix(in srgb, #d9a52b 14%, transparent);
+  color: #d9a52b;
+}
+.bz-knowledge-stat-num {
+  font-family: var(--font);
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--bright);
+}
+.bz-knowledge-stat-label {
+  grid-column: 2 / -1;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.bz-knowledge-bar {
+  position: relative;
+  display: grid;
+  align-items: center;
+  padding: 10px 14px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  background: var(--bg2);
+}
+.bz-knowledge-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 22%, transparent),
+    color-mix(in srgb, var(--accent2) 22%, transparent)
+  );
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.bz-knowledge-bar span {
+  position: relative;
+  z-index: 1;
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--bright);
+  text-align: right;
+  letter-spacing: 0.04em;
+}
+@keyframes bzKnowledgeDrift {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(-6%, 8%);
+  }
+}
+@media (max-width: 960px) {
+  .bz-knowledge-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .bz-knowledge-bar {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 640px) {
+  .bz-hero.bz-knowledge {
+    padding: 16px 14px 18px;
+    gap: 12px;
+  }
+  .bz-knowledge-glow {
+    opacity: 0.25;
+  }
+  /* Head stacks vertically with centered badge for a calm mobile intro. */
+  .bz-knowledge-head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    text-align: left;
+  }
+  .bz-knowledge-badge {
+    width: 42px;
+    height: 42px;
+  }
+  .bz-knowledge-badge svg {
+    width: 18px;
+    height: 18px;
+  }
+  .bz-knowledge-title .bz-title {
+    font-size: clamp(1.3rem, 6vw, 1.6rem);
+  }
+  .bz-knowledge-title .bz-dek {
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
+  /* Stats row: three slim pills + a progress bar beneath them. */
+  .bz-knowledge-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px;
+  }
+  .bz-knowledge-stat {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    padding: 8px 10px;
+    gap: 2px 8px;
+  }
+  .bz-knowledge-stat-ic {
+    width: 26px;
+    height: 26px;
+    grid-row: 1 / 3;
+  }
+  .bz-knowledge-stat-ic svg {
+    width: 14px;
+    height: 14px;
+  }
+  .bz-knowledge-stat-num {
+    font-size: 1.05rem;
+  }
+  .bz-knowledge-stat-label {
+    grid-column: 2 / -1;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bz-knowledge-bar {
+    padding: 8px 12px;
+    font-size: 0.78rem;
+  }
+  .bz-knowledge-bar span {
+    font-size: 0.78rem;
+  }
+  /* Breadcrumb: keep on one line with the last crumb truncating. */
+  .bz-hero.bz-knowledge .bz-crumb {
+    flex-wrap: nowrap;
+    overflow: hidden;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 0.74rem;
+  }
+  .bz-hero.bz-knowledge .bz-crumb > a,
+  .bz-hero.bz-knowledge .bz-crumb > i {
+    flex: none;
+  }
+  .bz-hero.bz-knowledge .bz-crumb > span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+@media (max-width: 420px) {
+  /* Very narrow phones: compact numbers so three stats still breathe. */
+  .bz-knowledge-stat {
+    padding: 6px 8px;
+    gap: 1px 6px;
+  }
+  .bz-knowledge-stat-ic {
+    width: 22px;
+    height: 22px;
+  }
+  .bz-knowledge-stat-ic svg {
+    width: 12px;
+    height: 12px;
+  }
+  .bz-knowledge-stat-num {
+    font-size: 0.95rem;
+  }
+  .bz-knowledge-stat-label {
+    font-size: 0.56rem;
+    letter-spacing: 0.06em;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bz-knowledge-glow,
+  .dyk-album-slot.is-perfect::before {
+    animation: none;
+  }
+  .bz-knowledge-bar i,
+  .dyk-ring-fg {
+    transition: none;
+  }
+}
+
+/* ============================================================
+   DYK card polish — perfect badge, subtle shimmer for the frame
+   ============================================================ */
+.dyk-card.is-owned .dyk-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, transparent 40%, color-mix(in srgb, var(--accent) 22%, transparent) 50%, transparent 60%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.dyk-card.is-owned:hover .dyk-frame::after,
+.dyk-card.is-owned:focus-visible .dyk-frame::after {
+  opacity: 0.8;
+}
+.dyk-owned {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent);
 }
