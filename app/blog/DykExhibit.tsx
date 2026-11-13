@@ -33,7 +33,7 @@ export type DykExhibitView = {
   title: Text;
   intro: Text;
   tag: Text;
-  images: { url: string; caption: Text; credit: ImageCredit | null }[];
+  images: { url: string; caption: Text; note: Text | null; credit: ImageCredit | null }[];
   quiz: QuizQuestion[];
   stamp: { style: DykStampStyle; color: string; label: Text; image: string; pass: DykStampPass };
 };
@@ -97,16 +97,17 @@ export function DykExhibit({
   const tr = (v: Text) => (lang === "en" ? v.en : v.vi);
 
   const artCount = item.images.length;
+  const face = useMemo(() => exhibitStampFace(item, lang), [item, lang]);
+  const owned = useDykStamps().find((s) => s.slug === item.slug) ?? null;
   const hasQuiz = item.quiz.length > 0;
-  const lastRoom = artCount + (hasQuiz ? 1 : 0);
-  const quizRoom = hasQuiz ? lastRoom : -1;
+  // Có tem rồi thì khỏi làm lại quiz — phòng quiz được bỏ khỏi lượt đi.
+  const needsQuiz = hasQuiz && !owned;
+  const lastRoom = artCount + (needsQuiz ? 1 : 0);
+  const quizRoom = needsQuiz ? lastRoom : -1;
   const needed = stampNeeded(item.stamp.pass, item.quiz.length);
 
   const [room, setRoom] = useState(0);
   const [seen, setSeen] = useState<Set<number>>(() => new Set());
-
-  const face = useMemo(() => exhibitStampFace(item, lang), [item, lang]);
-  const owned = useDykStamps().find((s) => s.slug === item.slug) ?? null;
 
   const go = useCallback(
     (to: number) => {
@@ -141,7 +142,7 @@ export function DykExhibit({
   const leave = onNext ?? onClose;
   const atEnd = room >= lastRoom;
   const advance = () => (atEnd ? leave() : go(room + 1));
-  const advanceLabel = atEnd ? leaveLabel : room === artCount ? t("blog_dyk_to_quiz") : t("blog_dyk_continue");
+  const advanceLabel = atEnd ? leaveLabel : needsQuiz && room === artCount ? t("blog_dyk_to_quiz") : t("blog_dyk_continue");
 
   const art = room >= 1 && room <= artCount ? item.images[room - 1] : null;
   const isQuiz = room === quizRoom;
@@ -249,13 +250,13 @@ export function DykExhibit({
               <p className="mu-caption">{tr(art.caption) || tr(item.title)}</p>
               <span className="mu-rule" aria-hidden="true" />
               <span className="mu-kicker">{t("blog_dyk_curator")}</span>
-              <p className="mu-note">{tr(item.intro)}</p>
+              <p className="mu-note">{(art.note && tr(art.note)) || tr(item.intro)}</p>
             </aside>
           </div>
         )}
 
         {/* Stays mounted so stepping back to an image doesn't reset the attempt. */}
-        {hasQuiz && (
+        {needsQuiz && (
           <div className="mu-quiz-wrap" hidden={!isQuiz}>
             <DykQuiz
               quiz={item.quiz}
@@ -298,7 +299,7 @@ export function DykExhibit({
                 </Button>
               );
             })}
-            {hasQuiz && (
+            {needsQuiz && (
               <Button
                 variant="ghost"
                 className={`mu-thumb mu-thumb--quiz${isQuiz ? " is-active" : ""}`}
@@ -355,10 +356,35 @@ function DykQuiz({
   const [done, setDone] = useState(false);
   // undefined = chưa chấm; null = không đủ điểm và chưa từng có tem.
   const [award, setAward] = useState<Award | null | undefined>(undefined);
+  // Mỗi lần thử lại tăng 1 để trộn lại thứ tự câu và vị trí đáp án.
+  const [attempt, setAttempt] = useState(0);
 
-  const q = quiz[at];
+  // Trộn câu + đáp án mỗi lượt. Lượt đầu cũng trộn để lượt sau không trùng y hệt.
+  const view = useMemo(() => {
+    const qOrder = quiz.map((_, i) => i);
+    for (let i = qOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [qOrder[i], qOrder[j]] = [qOrder[j], qOrder[i]];
+    }
+    return qOrder.map((qi) => {
+      const src = quiz[qi];
+      const oOrder = src.options.map((_, i) => i);
+      for (let i = oOrder.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [oOrder[i], oOrder[j]] = [oOrder[j], oOrder[i]];
+      }
+      return {
+        ...src,
+        options: oOrder.map((i) => src.options[i]),
+        answer: oOrder.indexOf(src.answer),
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quiz, attempt]);
+
+  const q = view[at];
   const answered = pick != null;
-  const isLast = at === quiz.length - 1;
+  const isLast = at === view.length - 1;
   const score = marks.filter(Boolean).length;
   const passed = score >= needed;
 
@@ -383,6 +409,7 @@ function DykQuiz({
     setMarks([]);
     setDone(false);
     setAward(undefined);
+    setAttempt((n) => n + 1);
   }
 
   // Trao tem khi vào màn kết quả, nếu đạt ngưỡng admin đặt cho hiện vật này.

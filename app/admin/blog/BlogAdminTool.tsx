@@ -353,11 +353,60 @@ export default function BlogAdminTool({
   }
 
   const [dykQuizProgress, setDykQuizProgress] = useState("");
+  const [dykNotesProgress, setDykNotesProgress] = useState("");
   const dykMissingQuiz = dyk.filter((it) => !it.quiz?.length);
+  const dykMissingNotes = dyk.filter((it) => (it.images || []).some((im) => !im.note_vi));
+
+  async function backfillDykNotes(mode: "missing" | "all" = "missing") {
+    const targets = mode === "all" ? dyk.filter((it) => it.images?.length) : dykMissingNotes.slice();
+    if (!targets.length) return;
+    if (mode === "all") {
+      const ok = confirm(`Sinh lại ghi chú giám tuyển cho TẤT CẢ ${targets.length} mục? Ghi chú cũ sẽ bị ghi đè.`);
+      if (!ok) return;
+    }
+    let failed = 0;
+    let ok = 0;
+    let lastError = "";
+    for (let i = 0; i < targets.length; i++) {
+      setDykNotesProgress(`${i + 1}/${targets.length}`);
+      try {
+        const r = await fetch("/api/blog/did-you-know/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: targets[i].slug, provider: genProvider }),
+        });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) {
+          failed++;
+          lastError = j?.error || `Lỗi ${r.status}`;
+        } else if (Array.isArray(j?.images)) {
+          ok++;
+          const images = j.images;
+          setDyk((prev) => prev.map((x) => (x.slug === targets[i].slug ? { ...x, images } : x)));
+        } else {
+          failed++;
+          lastError = "API trả về không có images";
+        }
+      } catch (e: any) {
+        failed++;
+        lastError = e?.message || "Lỗi";
+      }
+    }
+    setDykNotesProgress("");
+    await reloadDyk();
+    if (failed) toast(`Lỗi ${failed}/${targets.length} mục: ${lastError}`);
+    else toast(`Đã sinh ghi chú cho ${ok}/${targets.length} mục`);
+  }
 
   // One request per item: each is a full LLM call, too slow to batch in one route.
-  async function backfillDykQuiz() {
-    const targets = dykMissingQuiz.slice();
+  async function backfillDykQuiz(mode: "missing" | "all" = "missing") {
+    const targets = mode === "all" ? dyk.slice() : dykMissingQuiz.slice();
+    if (mode === "all") {
+      const ok = confirm(
+        `Sinh lại quiz cho TẤT CẢ ${targets.length} mục? Quiz cũ sẽ bị ghi đè bằng bộ câu hỏi mới (có tra cứu web nếu provider hỗ trợ).`,
+      );
+      if (!ok) return;
+    }
     let failed = 0;
     let ok = 0;
     let lastError = "";
@@ -2874,10 +2923,52 @@ export default function BlogAdminTool({
           ) : tab === "knowledge" ? (
             <>
               {isSuperAdmin && dykMissingQuiz.length > 0 && (
-                <Button variant="ghost" size="sm" loading={!!dykQuizProgress} onClick={backfillDykQuiz}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={!!dykQuizProgress}
+                  onClick={() => backfillDykQuiz("missing")}
+                >
                   {dykQuizProgress
                     ? `Đang sinh quiz ${dykQuizProgress}`
                     : `Sinh quiz còn thiếu (${dykMissingQuiz.length})`}
+                </Button>
+              )}
+              {isSuperAdmin && dyk.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={!!dykQuizProgress}
+                  onClick={() => backfillDykQuiz("all")}
+                  title="Ghi đè quiz hiện có bằng bộ mới dưới pipeline chính xác hơn"
+                >
+                  {dykQuizProgress ? `Đang sinh quiz ${dykQuizProgress}` : `Sinh lại quiz tất cả (${dyk.length})`}
+                </Button>
+              )}
+              {isSuperAdmin && dykMissingNotes.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={!!dykNotesProgress}
+                  onClick={() => backfillDykNotes("missing")}
+                  title="Sinh ghi chú giám tuyển cho các ảnh chưa có"
+                >
+                  {dykNotesProgress
+                    ? `Đang sinh ghi chú ${dykNotesProgress}`
+                    : `Sinh ghi chú còn thiếu (${dykMissingNotes.length})`}
+                </Button>
+              )}
+              {isSuperAdmin && dyk.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={!!dykNotesProgress}
+                  onClick={() => backfillDykNotes("all")}
+                  title="Ghi đè ghi chú giám tuyển cho mọi ảnh"
+                >
+                  {dykNotesProgress
+                    ? `Đang sinh ghi chú ${dykNotesProgress}`
+                    : `Sinh lại ghi chú tất cả (${dyk.length})`}
                 </Button>
               )}
               {isSuperAdmin && (
@@ -3315,7 +3406,7 @@ export default function BlogAdminTool({
               <div className="fx-table">
                 <div
                   className="fx-row fx-row-head"
-                  style={{ gridTemplateColumns: "32px 56px 1fr 100px 110px 120px 190px" }}
+                  style={{ gridTemplateColumns: "32px 1fr 100px 110px 120px 190px" }}
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {isSuperAdmin &&
@@ -3343,7 +3434,6 @@ export default function BlogAdminTool({
                         );
                       })()}
                   </div>
-                  <div>Ảnh</div>
                   <div>Bài viết</div>
                   {sortHead("category", "Danh mục")}
                   <div>Trạng thái</div>
@@ -3356,7 +3446,7 @@ export default function BlogAdminTool({
                     <div
                       key={p.slug}
                       className="fx-row blog-row"
-                      style={{ gridTemplateColumns: "32px 56px 1fr 100px 110px 120px 190px" }}
+                      style={{ gridTemplateColumns: "32px 1fr 100px 110px 120px 190px" }}
                     >
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                         {isSuperAdmin && (
@@ -3366,24 +3456,6 @@ export default function BlogAdminTool({
                             onChange={() => toggleSelected(p.slug)}
                             onClick={(e) => e.stopPropagation()}
                           />
-                        )}
-                      </div>
-                      <div className="bga-thumb">
-                        {p.coverImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={rewriteImgUrl(
-                              p.coverImage
-                                .split("#")[0]
-                                .replace(/([?&])w=\d+/, "$1w=160")
-                                .replace(/([?&])h=\d+/, "$1h=100"),
-                            )}
-                            alt=""
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
                         )}
                       </div>
                       <div

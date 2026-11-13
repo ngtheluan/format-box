@@ -20,14 +20,19 @@ function fromDb(items: DbDidYouKnowItem[]): DykExhibitView[] {
       tag: { vi: it.tag_vi || "", en: it.tag_en || it.tag_vi || "" },
       title: { vi: it.title_vi, en: it.title_en || it.title_vi },
       intro: { vi: it.intro_vi || "", en: it.intro_en || it.intro_vi || "" },
-      images: (it.images || []).map((im) => ({
-        url: im.url,
-        caption: {
-          vi: im.caption_vi || "",
-          en: im.caption_en || im.caption_vi || "",
-        },
-        credit: imageCredit(im),
-      })),
+      images: (it.images || []).map((im) => {
+        const note_vi = im.note_vi || "";
+        const note_en = im.note_en || im.note_vi || "";
+        return {
+          url: im.url,
+          caption: {
+            vi: im.caption_vi || "",
+            en: im.caption_en || im.caption_vi || "",
+          },
+          note: note_vi || note_en ? { vi: note_vi, en: note_en } : null,
+          credit: imageCredit(im),
+        };
+      }),
       quiz: (it.quiz || []).map((q) => ({
         question: { vi: q.q_vi, en: q.q_en || q.q_vi },
         options: q.options_vi.map((vi, i) => ({

@@ -44,13 +44,15 @@ const SCOPE_RULES: Record<DykQuizScope, string> = {
 - Số còn lại hỏi kiến thức MỞ RỘNG về chính chủ đề đó: nguyên lý, lịch sử, con người, địa danh, con số liên quan (ghi "scope":"topic"). Không lạc sang chủ đề khác.`,
 };
 
-const ACCURACY_RULES = `Độ chính xác là bắt buộc:
-- Chỉ dùng dữ kiện ổn định, được thừa nhận rộng rãi (mức sách giáo khoa, bách khoa toàn thư). Không chắc chắn thì KHÔNG hỏi.
-- Không hỏi số liệu thay đổi theo thời gian (dân số, kỷ lục, giá cả, xếp hạng, "mới nhất") và điều còn tranh cãi.
+const ACCURACY_RULES = `Độ chính xác là BẮT BUỘC TUYỆT ĐỐI — ưu tiên hơn cả độ thú vị:
+- Nếu có công cụ tìm kiếm web, PHẢI tra cứu để đối chiếu mọi dữ kiện trước khi soạn: con số, năm tháng, tên riêng, địa danh, công thức.
+- Chỉ dùng dữ kiện ổn định, được thừa nhận rộng rãi (sách giáo khoa, bách khoa toàn thư, nguồn học thuật). Không tra ra được hoặc còn mơ hồ → BỎ QUA câu đó, soạn câu khác.
+- Không hỏi số liệu thay đổi theo thời gian (dân số, kỷ lục, giá cả, xếp hạng, "mới nhất", "hiện nay") và điều còn tranh cãi giữa các nguồn.
 - Con số phải đúng và kèm đơn vị. Nếu là giá trị xấp xỉ thì ghi "khoảng", và các lựa chọn sai phải cách đủ xa để không ai cãi được.
-- Tránh "đầu tiên", "lớn nhất", "duy nhất" trừ khi đó là sự thật không thể tranh cãi.
-- Đúng 1 đáp án đúng; mỗi đáp án sai phải sai rõ ràng về dữ kiện, không được "đúng một phần".
-- Không bịa tên riêng, năm tháng, trích dẫn.`;
+- Tránh "đầu tiên", "lớn nhất", "duy nhất", "cổ nhất" trừ khi đó là sự thật không thể tranh cãi và có nguồn kiểm chứng.
+- Đúng 1 đáp án đúng; mỗi đáp án sai phải sai rõ ràng về dữ kiện, không được "đúng một phần" hay "cũng có thể đúng".
+- Lời giải PHẢI dẫn ra dữ kiện cụ thể làm căn cứ (tên nguồn, nguyên lý, mốc thời gian được xác nhận) — không nói chung chung.
+- Không bịa tên riêng, năm tháng, trích dẫn. Khi lưỡng lự về một chi tiết, thay bằng chi tiết khác chắc chắn hơn.`;
 
 function describe(item: QuizSource): string {
   const captions = item.images
@@ -146,11 +148,12 @@ export async function generateDykQuiz(
   const r = await callLlm({
     provider,
     json: true,
-    temperature: 0.5,
-    timeoutMs: 45_000,
+    webSearch: true,
+    temperature: 0.3,
+    timeoutMs: 60_000,
     maxTokens: 700 + ask * 420,
     system:
-      "Bạn là giám tuyển của một bảo tàng tri thức, soạn câu đố song ngữ VI/EN cho khách vừa xem xong một hiện vật. Mọi dữ kiện, con số, tên riêng và mốc thời gian trong câu hỏi, đáp án, lời giải PHẢI chính xác và kiểm chứng được. Chỉ trả JSON hợp lệ, không giải thích.",
+      "Bạn là giám tuyển của một bảo tàng tri thức, soạn câu đố song ngữ VI/EN cho khách vừa xem xong một hiện vật. Khi có công cụ tìm kiếm thì BẮT BUỘC tra cứu để đối chiếu từng dữ kiện, con số, tên riêng, mốc thời gian trước khi viết. Mọi chi tiết trong câu hỏi, đáp án và lời giải PHẢI chính xác tuyệt đối và kiểm chứng được từ nguồn uy tín; không chắc chắn thì không hỏi. Chỉ trả JSON hợp lệ, không giải thích.",
     user: `${describe(item)}
 
 Soạn đúng ${ask} câu hỏi trắc nghiệm, mỗi câu 4 lựa chọn, chỉ 1 đáp án đúng.

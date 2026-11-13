@@ -152,7 +152,7 @@ export const DICT = {
   blog_dyk_gate_views: { vi: "góc nhìn", en: "views" },
   blog_dyk_gate_puzzles: { vi: "câu đố đang chờ", en: "riddles await" },
   blog_dyk_view: { vi: "Góc nhìn", en: "View" },
-  blog_dyk_curator: { vi: "Ghi chú của giám tuyển", en: "Curator's note" },
+  blog_dyk_curator: { vi: "Ghi chú", en: "Curator's note" },
   blog_dyk_continue: { vi: "Đi tiếp", en: "Walk on" },
   blog_dyk_to_quiz: { vi: "Vào phòng thử thách", en: "Enter the trial room" },
   blog_dyk_next_exhibit: { vi: "Hiện vật tiếp theo", en: "Next exhibit" },
@@ -172,7 +172,10 @@ export const DICT = {
   blog_dyk_stamp: { vi: "Tem kỉ niệm", en: "Keepsake stamp" },
   blog_dyk_stamp_new: { vi: "Tem mới vừa thêm vào bộ sưu tập", en: "A new stamp joins your collection" },
   blog_dyk_stamp_updated: { vi: "Đã cập nhật điểm cao hơn cho tem này", en: "New high score saved on this stamp" },
-  blog_dyk_stamp_kept: { vi: "Đã có trong bộ sưu tập — giữ bản điểm cao hơn", en: "Already in your collection — kept the higher score" },
+  blog_dyk_stamp_kept: {
+    vi: "Đã có trong bộ sưu tập — giữ bản điểm cao hơn",
+    en: "Already in your collection — kept the higher score",
+  },
   blog_dyk_collection: { vi: "Bộ sưu tập", en: "Collection" },
   blog_dyk_collection_empty: {
     vi: "Chưa có tem nào — hoàn thành phòng thử thách để nhận tem đầu tiên.",
@@ -746,8 +749,8 @@ export const DICT = {
   },
   fp_notify_install_pwa: { vi: "Cài FormatBox làm app", en: "Install FormatBox as app" },
   fp_notify_install_hint: {
-    vi: "Trình duyệt chưa đề xuất cài. Mở menu Chrome (⋮) → \"Cài FormatBox\" / \"Add to Home screen\".",
-    en: "Install prompt not available. Open the Chrome menu (⋮) → \"Install FormatBox\" / \"Add to Home screen\".",
+    vi: 'Trình duyệt chưa đề xuất cài. Mở menu Chrome (⋮) → "Cài FormatBox" / "Add to Home screen".',
+    en: 'Install prompt not available. Open the Chrome menu (⋮) → "Install FormatBox" / "Add to Home screen".',
   },
   fp_notify_pwa_ok: {
     vi: "Đang chạy ở chế độ app — periodic sync sẽ được trình duyệt kích hoạt khi đủ điều kiện.",
@@ -1496,7 +1499,10 @@ export const DICT = {
   },
   wft_choose_file: { vi: "Chọn file JSON", en: "Choose JSON file" },
   wft_or_paste: { vi: "Hoặc paste JSON", en: "Or paste JSON" },
-  wft_paste_ph: { vi: 'Dán JSON ở đây, bắt đầu bằng { "data": [...] }', en: 'Paste JSON here, starting with { "data": [...] }' },
+  wft_paste_ph: {
+    vi: 'Dán JSON ở đây, bắt đầu bằng { "data": [...] }',
+    en: 'Paste JSON here, starting with { "data": [...] }',
+  },
   wft_load_paste: { vi: "Load JSON", en: "Load JSON" },
   wft_load_sample: { vi: "Dùng dữ liệu mẫu", en: "Try sample" },
   wft_reset: { vi: "Dùng JSON khác", en: "Load another JSON" },
@@ -1570,7 +1576,10 @@ export const DICT = {
   wft_no_results: { vi: "Không có workflow phù hợp bộ lọc", en: "No workflow matches filters" },
   wft_actions: { vi: "số hành động", en: "actions" },
   wft_total: { vi: "Tổng", en: "Total" },
-  wft_gantt_tip: { vi: "Mỗi thanh là một node, chiều dài tỉ lệ với thời gian xử lý.", en: "Each bar is a node; length is proportional to processing time." },
+  wft_gantt_tip: {
+    vi: "Mỗi thanh là một node, chiều dài tỉ lệ với thời gian xử lý.",
+    en: "Each bar is a node; length is proportional to processing time.",
+  },
   wft_flow_tip: { vi: "Dòng chảy sự kiện theo thứ tự thời gian.", en: "Event flow in chronological order." },
   wft_pick_workflow: { vi: "Chọn workflow", en: "Pick workflow" },
   wft_change_data: { vi: "Dữ liệu khác", en: "Change data" },
@@ -1594,7 +1603,10 @@ export const DICT = {
 
   // BMI Check
   bmi_title: { vi: "Tính chỉ số BMI", en: "BMI calculator" },
-  bmi_subtitle: { vi: "Đánh giá cân nặng theo chuẩn WHO và WPRO (châu Á).", en: "Weight classification by WHO and WPRO (Asian) standards." },
+  bmi_subtitle: {
+    vi: "Đánh giá cân nặng theo chuẩn WHO và WPRO (châu Á).",
+    en: "Weight classification by WHO and WPRO (Asian) standards.",
+  },
   bmi_unit: { vi: "Đơn vị", en: "Unit" },
   bmi_metric: { vi: "Metric (kg, cm)", en: "Metric (kg, cm)" },
   bmi_imperial: { vi: "Imperial (lb, ft/in)", en: "Imperial (lb, ft/in)" },
@@ -1609,7 +1621,10 @@ export const DICT = {
   bmi_classify_who: { vi: "Theo WHO (quốc tế)", en: "WHO (international)" },
   bmi_classify_wpro: { vi: "Theo WPRO (châu Á)", en: "WPRO (Asian)" },
   bmi_ideal_range: { vi: "Cân nặng lý tưởng", en: "Healthy weight range" },
-  bmi_enter_values: { vi: "Nhập chiều cao và cân nặng để xem kết quả.", en: "Enter height and weight to see the result." },
+  bmi_enter_values: {
+    vi: "Nhập chiều cao và cân nặng để xem kết quả.",
+    en: "Enter height and weight to see the result.",
+  },
   bmi_cat_underweight: { vi: "Thiếu cân", en: "Underweight" },
   bmi_cat_normal: { vi: "Bình thường", en: "Normal" },
   bmi_cat_overweight: { vi: "Thừa cân", en: "Overweight" },
@@ -1617,8 +1632,20 @@ export const DICT = {
   bmi_cat_obese1: { vi: "Béo phì độ I", en: "Obese class I" },
   bmi_cat_obese2: { vi: "Béo phì độ II", en: "Obese class II" },
   bmi_cat_obese3: { vi: "Béo phì độ III", en: "Obese class III" },
-  bmi_advice_underweight: { vi: "Bạn nhẹ cân — nên tăng khẩu phần dinh dưỡng và tập luyện tăng cơ.", en: "You are underweight — consider a higher-nutrition diet and strength training." },
-  bmi_advice_normal: { vi: "Cân nặng của bạn ở mức khoẻ mạnh. Hãy duy trì chế độ ăn uống và vận động hiện tại.", en: "You are at a healthy weight. Keep up your current habits." },
-  bmi_advice_overweight: { vi: "Bạn hơi thừa cân — cân nhắc giảm tinh bột và tăng hoạt động thể chất.", en: "You are slightly overweight — consider reducing refined carbs and moving more." },
-  bmi_advice_obese: { vi: "Mức béo phì — nên tham khảo ý kiến bác sĩ hoặc chuyên gia dinh dưỡng.", en: "Obese range — consider consulting a doctor or dietitian." },
+  bmi_advice_underweight: {
+    vi: "Bạn nhẹ cân — nên tăng khẩu phần dinh dưỡng và tập luyện tăng cơ.",
+    en: "You are underweight — consider a higher-nutrition diet and strength training.",
+  },
+  bmi_advice_normal: {
+    vi: "Cân nặng của bạn ở mức khoẻ mạnh. Hãy duy trì chế độ ăn uống và vận động hiện tại.",
+    en: "You are at a healthy weight. Keep up your current habits.",
+  },
+  bmi_advice_overweight: {
+    vi: "Bạn hơi thừa cân — cân nhắc giảm tinh bột và tăng hoạt động thể chất.",
+    en: "You are slightly overweight — consider reducing refined carbs and moving more.",
+  },
+  bmi_advice_obese: {
+    vi: "Mức béo phì — nên tham khảo ý kiến bác sĩ hoặc chuyên gia dinh dưỡng.",
+    en: "Obese range — consider consulting a doctor or dietitian.",
+  },
 } as const;

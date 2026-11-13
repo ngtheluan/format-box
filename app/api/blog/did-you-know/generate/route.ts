@@ -25,7 +25,13 @@ type GenShape = {
   title_en?: string;
   intro_vi?: string;
   intro_en?: string;
-  images?: { query?: string; caption_vi?: string; caption_en?: string }[];
+  images?: {
+    query?: string;
+    caption_vi?: string;
+    caption_en?: string;
+    note_vi?: string;
+    note_en?: string;
+  }[];
 };
 
 export async function POST(req: Request) {
@@ -59,8 +65,12 @@ Yêu cầu:
 - images: ${count} ảnh minh họa — MỖI ảnh phải khắc hoạ MỘT khía cạnh cụ thể của chính sự thật ở trên (không ảnh tổng quát, không ảnh chỉ về chủ đề rộng).
   + "query": tiếng Anh 3-5 từ CỤ THỂ, nêu rõ đối tượng/hiện tượng xuất hiện trong ảnh (VD: "purple aurora iceland sky", không chỉ "aurora").
   + "caption_vi" / "caption_en": <= 50 ký tự, gắn trực tiếp với điều ảnh đó minh họa, không dùng chung chung.
+  + "note_vi" / "note_en": GHI CHÚ GIÁM TUYỂN cho RIÊNG ảnh này, 1-2 câu (<= 180 ký tự). Phải:
+      · nói về điều ảnh này cho thấy (chi tiết trong ảnh + liên hệ chủ đề), KHÔNG lặp lại intro.
+      · mở đầu bằng cụm từ KHÁC các ảnh khác trong cùng mục (vd: "Trong khung hình này…", "Đáng chú ý…", "Ít ai để ý…", "Nhìn kỹ hơn…") — mỗi ảnh một giọng khác, không trùng.
+      · chỉ dùng dữ kiện chắc chắn, không bịa tên riêng/năm tháng.
 
-JSON: {"slug":"kebab-case","tag_vi":"...","tag_en":"...","title_vi":"...","title_en":"...","intro_vi":"...","intro_en":"...","images":[{"query":"...","caption_vi":"...","caption_en":"..."}]}`,
+JSON: {"slug":"kebab-case","tag_vi":"...","tag_en":"...","title_vi":"...","title_en":"...","intro_vi":"...","intro_en":"...","images":[{"query":"...","caption_vi":"...","caption_en":"...","note_vi":"...","note_en":"..."}]}`,
     });
     const j = parseJsonLoose<GenShape>(r.text);
     if (!j?.title_vi) return NextResponse.json({ error: "AI trả về dữ liệu không hợp lệ" }, { status: 502 });
@@ -77,10 +87,14 @@ JSON: {"slug":"kebab-case","tag_vi":"...","tag_en":"...","title_vi":"...","title
         const list = await searchImages(q, 4);
         const pick = list[0];
         if (!pick) return null;
+        const note_vi = (im.note_vi || "").trim();
+        const note_en = (im.note_en || im.note_vi || "").trim();
         return {
           url: pick.url,
           caption_vi: (im.caption_vi || "").trim(),
           caption_en: (im.caption_en || im.caption_vi || "").trim(),
+          ...(note_vi ? { note_vi } : {}),
+          ...(note_en ? { note_en } : {}),
           ...dykImageCredit({ credit: pick.credit, credit_url: pick.creditUrl }),
         } as DidYouKnowImage;
       }),

@@ -165,6 +165,9 @@ export type DidYouKnowImage = {
   url: string;
   caption_vi: string;
   caption_en: string;
+  // Ghi chú giám tuyển riêng cho ảnh này — gắn với điều ảnh minh họa, khác intro.
+  note_vi?: string;
+  note_en?: string;
   credit?: string;
   credit_url?: string;
 };
@@ -257,10 +260,14 @@ function normDykImages(x: unknown): DidYouKnowImage[] {
       const o = it as any;
       const url = typeof o.url === "string" ? o.url : "";
       if (!url) return null;
+      const note_vi = typeof o.note_vi === "string" ? o.note_vi : "";
+      const note_en = typeof o.note_en === "string" ? o.note_en : "";
       return {
         url,
         caption_vi: typeof o.caption_vi === "string" ? o.caption_vi : "",
         caption_en: typeof o.caption_en === "string" ? o.caption_en : "",
+        ...(note_vi ? { note_vi } : {}),
+        ...(note_en ? { note_en } : {}),
         ...dykImageCredit(o),
       };
     })
@@ -992,20 +999,9 @@ export function resolvePinnedPosts(
       .sort((a, b) => +new Date(b.date) - +new Date(a.date))
       .slice(0, MAX_PINNED);
   }
-  // auto: bài phát hành mới nhất HOẶC có nhiều lượt "hữu ích". Tối đa một nửa
-  // số slot cho bài nhiều "hữu ích" nhất (cần ≥1 lượt), phần còn lại lấy bài
-  // mới nhất. Chưa có lượt "hữu ích" nào → cả 6 là bài mới nhất.
+  // auto: chỉ lấy bài phát hành mới nhất, không xét lượt "hữu ích".
   const time = (p: BlogPost) => Date.parse(p.createdAt || p.date) || 0;
-  const newest = [...published].sort((a, b) => time(b) - time(a));
-  const helpful = (p: BlogPost) => popularity?.[p.slug] ?? 0;
-  const mostHelpful = newest
-    .filter((p) => helpful(p) > 0)
-    .sort((a, b) => helpful(b) - helpful(a) || time(b) - time(a))
-    .slice(0, Math.floor(MAX_PINNED / 2));
-  const picked = new Set(mostHelpful.map((p) => p.slug));
-  const fill = newest.filter((p) => !picked.has(p.slug)).slice(0, MAX_PINNED - mostHelpful.length);
-  // Hiển thị mới nhất trước.
-  return [...mostHelpful, ...fill].sort((a, b) => time(b) - time(a));
+  return [...published].sort((a, b) => time(b) - time(a)).slice(0, MAX_PINNED);
 }
 
 // Blog votes — "bài viết có hữu ích không". One vote per reader (user id or IP),
