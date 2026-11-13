@@ -42,7 +42,7 @@ export default async function KnowledgePage() {
             Mỗi hiện vật một sự thật thú vị — xem ảnh, đọc ghi chú giám tuyển và trả lời câu đố để sưu tầm tem kỷ niệm.
           </p>
         </header>
-        <DidYouKnow items={dyk} />
+        <DidYouKnow items={dyk} fullList />
       </Stack>
     </div>
   );

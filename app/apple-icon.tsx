@@ -10,7 +10,7 @@ const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="
       <stop offset="100%" stop-color="#1d4ed8"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" fill="url(#tile)"/>
+  <rect width="32" height="32" rx="7" fill="url(#tile)"/>
   <path fill="#fff" d="M9 9.5A1.5 1.5 0 0 1 10.5 8H23v4.5h-9.5v3H20V20h-6.5v4H9V9.5Z"/>
   <rect x="18.5" y="19" width="5" height="5" rx="1.2" fill="#7dd3fc"/>
 </svg>`;

@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { DEFAULT_DYK_CONFIG, stampFromConfig } from "@/lib/dyk-shared";
 import { pruneStamps, useDykStamps } from "@/lib/dyk-stamps";
 import { IconArrowRight, IconPhoto, IconRosette, IconX } from "@tabler/icons-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DykExhibit, exhibitNumber, exhibitStampFace, imageCredit, type DykExhibitView } from "./DykExhibit";
 import { StampCollection } from "./StampCollection";
@@ -56,11 +57,14 @@ function fromDb(items: DbDidYouKnowItem[]): DykExhibitView[] {
 
 const DYK_PAGE = 8;
 
-export function DidYouKnow({ items }: { items?: DbDidYouKnowItem[] } = {}) {
+export function DidYouKnow({
+  items,
+  fullList = false,
+}: { items?: DbDidYouKnowItem[]; fullList?: boolean } = {}) {
   const { t, lang } = useI18n();
   const list = useMemo(() => (items && items.length ? fromDb(items) : []), [items]);
   const [active, setActive] = useState<number | null>(null);
-  const [limit, setLimit] = useState(DYK_PAGE);
+  const [limit] = useState(DYK_PAGE);
   const close = useCallback(() => setActive(null), []);
   const stamps = useDykStamps();
   const ownedSlugs = useMemo(() => new Set(stamps.map((s) => s.slug)), [stamps]);
@@ -94,7 +98,7 @@ export function DidYouKnow({ items }: { items?: DbDidYouKnowItem[] } = {}) {
 
   if (list.length === 0) return null;
 
-  const shown = list.slice(0, limit);
+  const shown = fullList ? list : list.slice(0, limit);
   const current = active != null ? list[active] : null;
 
   return (
@@ -156,16 +160,13 @@ export function DidYouKnow({ items }: { items?: DbDidYouKnowItem[] } = {}) {
         })}
       </div>
 
-      {list.length > shown.length && (
+      {!fullList && list.length > shown.length && (
         <div className="bz-more">
-          <Button
-            variant="ghost"
-            size="sm"
-            rightIcon={<IconArrowRight size={14} stroke={2} />}
-            onClick={() => setLimit((n) => n + DYK_PAGE)}
-          >
-            {t("blog_load_more")}
-          </Button>
+          <Link href="/blog/knowledge" prefetch={false} style={{ textDecoration: "none" }}>
+            <Button variant="ghost" size="sm" rightIcon={<IconArrowRight size={14} stroke={2} />}>
+              {t("blog_load_more")}
+            </Button>
+          </Link>
         </div>
       )}
 
