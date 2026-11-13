@@ -16,6 +16,7 @@ import {
   TabsList,
   Textarea,
 } from "@/components/ui";
+import { getSwRegistration, REVIEW_EVENT, syncPushSubscription } from "@/lib/admin-push-client";
 import {
   DEFAULT_PIN_CONFIG,
   MAX_PINNED,
@@ -32,7 +33,6 @@ import {
   type DidYouKnowItem,
   type DidYouKnowQuizQuestion,
 } from "@/lib/blog";
-import { DEFAULT_DYK_CONFIG, stampFromConfig, type DykConfig, type DykStampDesign } from "@/lib/dyk-shared";
 import {
   AI_MODELS,
   AI_PROVIDER_LABEL,
@@ -43,9 +43,9 @@ import {
   GEN_REGIONS,
   GEN_STRUCTURES,
   GEN_TONES,
+  isAutoStalled,
   pickModelForStructure,
   type AiPreference,
-  isAutoStalled,
   type AiProvider,
   type GenAudience,
   type GenCta,
@@ -59,6 +59,7 @@ import {
   type GenTone,
   type ImageCandidate,
 } from "@/lib/blog-ai-shared";
+import { DEFAULT_DYK_CONFIG, stampFromConfig, type DykConfig, type DykStampDesign } from "@/lib/dyk-shared";
 import {
   IconAdjustmentsHorizontal,
   IconAlertTriangle,
@@ -123,7 +124,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminBody from "../AdminBody";
-import { REVIEW_EVENT, getSwRegistration, syncPushSubscription } from "@/lib/admin-push-client";
 import AutoModePanel, { type AutoRunSettings } from "./AutoModePanel";
 import "./blog-admin.css";
 import { DykConfigModal, DykQuizEditor, DykStampEditor, quizIssue } from "./DykEditors";
@@ -1433,8 +1433,98 @@ export default function BlogAdminTool({
   // Tokenize text: strip diacritics, lowercase, split on non-alphanumerics,
   // drop short noise tokens. Shared stopwords (vi + en) to avoid false matches.
   const DUP_STOP = new Set([
-    "cac","cho","cua","khi","mot","nhung","nay","nhu","con","voi","tren","duoi","khong","ma","hoac","hay","trong","the","ban","ban","toi","chung","minh","vao","ra","len","xuong","co","la","da","se","dang","roi","nua","rat","chi","the","nen","nao","day","do","bai","blog","huong","dan","tips","bi","quyet",
-    "the","and","for","with","from","that","this","what","how","why","are","you","your","have","has","was","were","not","but","all","any","can","our","their","there","here","about","into","will","would","could","should","when","where","which","who","whom","over","under","top","best","new","guide","tutorial",
+    "cac",
+    "cho",
+    "cua",
+    "khi",
+    "mot",
+    "nhung",
+    "nay",
+    "nhu",
+    "con",
+    "voi",
+    "tren",
+    "duoi",
+    "khong",
+    "ma",
+    "hoac",
+    "hay",
+    "trong",
+    "the",
+    "ban",
+    "ban",
+    "toi",
+    "chung",
+    "minh",
+    "vao",
+    "ra",
+    "len",
+    "xuong",
+    "co",
+    "la",
+    "da",
+    "se",
+    "dang",
+    "roi",
+    "nua",
+    "rat",
+    "chi",
+    "the",
+    "nen",
+    "nao",
+    "day",
+    "do",
+    "bai",
+    "blog",
+    "huong",
+    "dan",
+    "tips",
+    "bi",
+    "quyet",
+    "the",
+    "and",
+    "for",
+    "with",
+    "from",
+    "that",
+    "this",
+    "what",
+    "how",
+    "why",
+    "are",
+    "you",
+    "your",
+    "have",
+    "has",
+    "was",
+    "were",
+    "not",
+    "but",
+    "all",
+    "any",
+    "can",
+    "our",
+    "their",
+    "there",
+    "here",
+    "about",
+    "into",
+    "will",
+    "would",
+    "could",
+    "should",
+    "when",
+    "where",
+    "which",
+    "who",
+    "whom",
+    "over",
+    "under",
+    "top",
+    "best",
+    "new",
+    "guide",
+    "tutorial",
   ]);
   function dupTokens(text: string): Set<string> {
     const norm = text
@@ -1465,9 +1555,7 @@ export default function BlogAdminTool({
         const s = p.status || "published";
         return aiFilterIncludeDrafts ? s !== "rejected" : s === "published";
       });
-      const toks = pool.map((p) =>
-        dupTokens(`${p.title} ${p.excerpt} ${(p.tags || []).join(" ")}`),
-      );
+      const toks = pool.map((p) => dupTokens(`${p.title} ${p.excerpt} ${(p.tags || []).join(" ")}`));
       const foldedTitle = pool.map((p) => foldText(p.title).replace(/\s+/g, " ").trim());
       const used = new Set<number>();
       const groups: AiDupGroup[] = [];
@@ -1730,7 +1818,7 @@ export default function BlogAdminTool({
     try {
       // Body kèm hint "Chạm để Duyệt/Từ chối" vì iOS ẩn actions — tap vào thông
       // báo mở /admin/blog?review=<slug>, review modal hiện ra có 2 nút.
-      await reg.showNotification("Bài blog mới chờ duyệt", {
+      await reg.showNotification("Bài viết mới chờ duyệt", {
         body: `${postTitle}\nChạm để Duyệt hoặc Từ chối.`,
         icon: "/icon.svg",
         badge: "/icon.svg",
@@ -1796,9 +1884,7 @@ export default function BlogAdminTool({
         }
         // Job stopped on its own (ran out of retries, reached target, etc.).
         if (prev.running === true && !j.running) {
-          const why = j.lastError
-            ? `lỗi: ${j.lastError.slice(0, 120)}`
-            : `đã sinh ${j.generated} bài`;
+          const why = j.lastError ? `lỗi: ${j.lastError.slice(0, 120)}` : `đã sinh ${j.generated} bài`;
           toast(`Auto đã dừng · ${why}`);
         }
         prev.running = j.running;
@@ -1806,11 +1892,7 @@ export default function BlogAdminTool({
         // Keep the queue moving even when pg_cron can't reach this host
         // (local dev) or is lagging (gap minute boundary). Fires at most one
         // tick at a time — the ref guard inside fireAutoTick prevents overlap.
-        if (
-          j.running &&
-          !tickingRef.current &&
-          (j.lockedUntil == null || j.lockedUntil < Date.now() - 2_000)
-        ) {
+        if (j.running && !tickingRef.current && (j.lockedUntil == null || j.lockedUntil < Date.now() - 2_000)) {
           void fireAutoTick();
         }
       } catch {}
@@ -1934,7 +2016,11 @@ export default function BlogAdminTool({
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || `Lỗi ${r.status}`);
       const label =
-        next.mode === "manual" ? "Thủ công" : next.mode === "auto" ? "Tự động" : `Danh mục: ${CAT_LABEL[next.category!] || next.category}`;
+        next.mode === "manual"
+          ? "Thủ công"
+          : next.mode === "auto"
+            ? "Tự động"
+            : `Danh mục: ${CAT_LABEL[next.category!] || next.category}`;
       toast(`Đã chuyển chế độ ghim: ${label}`);
       router.refresh();
     } catch (e: any) {
@@ -2370,9 +2456,7 @@ export default function BlogAdminTool({
   function renderPinnedStrip() {
     const mode: BlogPinMode = pinConfig.mode;
     const effectivePinned =
-      mode === "manual"
-        ? posts.filter((x) => x.pinned)
-        : resolvePinnedPosts(posts, pinConfig, popularity);
+      mode === "manual" ? posts.filter((x) => x.pinned) : resolvePinnedPosts(posts, pinConfig, popularity);
     const canAdd = mode === "manual" && effectivePinned.length < MAX_PINNED;
     const candidates = posts
       .filter((x) => !x.pinned && (x.status || "published") === "published")
@@ -2501,9 +2585,7 @@ export default function BlogAdminTool({
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <span
-                          style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }}
-                        />
+                        <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
                       )}
                     </div>
                     <div className="bga-pinned-picker-text">
@@ -2522,8 +2604,8 @@ export default function BlogAdminTool({
             {mode === "manual"
               ? 'Chưa có bài nào được ghim. Bấm "Chọn bài" để thêm.'
               : mode === "category"
-              ? "Chưa có bài phát hành nào trong danh mục này."
-              : "Chưa đủ dữ liệu để chọn tự động."}
+                ? "Chưa có bài phát hành nào trong danh mục này."
+                : "Chưa đủ dữ liệu để chọn tự động."}
           </div>
         ) : (
           <div className="bga-pinned-list">
@@ -2793,7 +2875,9 @@ export default function BlogAdminTool({
             <>
               {isSuperAdmin && dykMissingQuiz.length > 0 && (
                 <Button variant="ghost" size="sm" loading={!!dykQuizProgress} onClick={backfillDykQuiz}>
-                  {dykQuizProgress ? `Đang sinh quiz ${dykQuizProgress}` : `Sinh quiz còn thiếu (${dykMissingQuiz.length})`}
+                  {dykQuizProgress
+                    ? `Đang sinh quiz ${dykQuizProgress}`
+                    : `Sinh quiz còn thiếu (${dykMissingQuiz.length})`}
                 </Button>
               )}
               {isSuperAdmin && (
@@ -2886,9 +2970,7 @@ export default function BlogAdminTool({
             <div className="fx-empty-ico">
               <IconBulb size={22} stroke={1.7} />
             </div>
-            {dyk.length === 0
-              ? 'Chưa có kiến thức nào. Bấm "Thêm kiến thức" để tạo mới.'
-              : "Không có kết quả phù hợp."}
+            {dyk.length === 0 ? 'Chưa có kiến thức nào. Bấm "Thêm kiến thức" để tạo mới.' : "Không có kết quả phù hợp."}
           </div>
         ) : (
           <>
@@ -3538,8 +3620,8 @@ export default function BlogAdminTool({
                 {autoStalled && (
                   <div style={{ marginTop: 6, color: "var(--warn, #f59e0b)", fontSize: 12 }}>
                     <IconAlertTriangle size={12} stroke={2} style={{ verticalAlign: "-2px" }} /> Hơn 3 phút chưa có lượt
-                    cron nào chạy. Kiểm tra lịch blog-auto-tick trên Supabase và secret blog_auto_cron_secret trong Vault
-                    có khớp CRON_SECRET trên Vercel không.
+                    cron nào chạy. Kiểm tra lịch blog-auto-tick trên Supabase và secret blog_auto_cron_secret trong
+                    Vault có khớp CRON_SECRET trên Vercel không.
                   </div>
                 )}
                 {autoStatus.lastError && (
@@ -6148,194 +6230,198 @@ export default function BlogAdminTool({
                 />
               )}
               {dykTab === "content" && (
-              <>
-              <div className="bga-grid2">
-                <Field label="Tag (VI)">
-                  <Input
-                    value={dykEditing.tag_vi}
-                    disabled={dykSaving}
-                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, tag_vi: e.target.value } : cur))}
-                    placeholder="VD: Thiên nhiên"
-                  />
-                </Field>
-                <Field label="Tag (EN)">
-                  <Input
-                    value={dykEditing.tag_en}
-                    disabled={dykSaving}
-                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, tag_en: e.target.value } : cur))}
-                    placeholder="VD: Nature"
-                  />
-                </Field>
-              </div>
-              <Field label="Tiêu đề (VI)" required>
-                <Input
-                  autoFocus
-                  value={dykEditing.title_vi}
-                  disabled={dykSaving}
-                  onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, title_vi: e.target.value } : cur))}
-                />
-              </Field>
-              <Field label="Tiêu đề (EN)">
-                <Input
-                  value={dykEditing.title_en}
-                  disabled={dykSaving}
-                  onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, title_en: e.target.value } : cur))}
-                />
-              </Field>
-              <Field label="Giới thiệu (VI)">
-                <Textarea
-                  rows={2}
-                  value={dykEditing.intro_vi}
-                  disabled={dykSaving}
-                  onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, intro_vi: e.target.value } : cur))}
-                />
-              </Field>
-              <Field label="Giới thiệu (EN)">
-                <Textarea
-                  rows={2}
-                  value={dykEditing.intro_en}
-                  disabled={dykSaving}
-                  onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, intro_en: e.target.value } : cur))}
-                />
-              </Field>
-              <div className="bga-grid2">
-                <Field label={`Slug ${dykEditing.isNew ? "(auto từ title)" : "(cố định)"}`}>
-                  <Input
-                    value={dykEditing.slug}
-                    disabled={dykSaving || !dykEditing.isNew}
-                    monospace
-                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, slug: e.target.value } : cur))}
-                  />
-                </Field>
-                <Field label="Thứ tự">
-                  <Input
-                    type="number"
-                    value={dykEditing.sort}
-                    disabled={dykSaving}
-                    onChange={(e) =>
-                      setDykEditing((cur) => (cur ? { ...cur, sort: Number(e.target.value) || 0 } : cur))
-                    }
-                  />
-                </Field>
-              </div>
-              <Field label="Hiển thị công khai">
-                <div className="bga-switch-row">
-                  <Switch
-                    checked={dykEditing.active}
-                    disabled={dykSaving}
-                    onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, active: e.target.checked } : cur))}
-                  />
-                  <span className="bga-switch-lbl">{dykEditing.active ? "Bật" : "Tắt"}</span>
-                </div>
-              </Field>
+                <>
+                  <div className="bga-grid2">
+                    <Field label="Tag (VI)">
+                      <Input
+                        value={dykEditing.tag_vi}
+                        disabled={dykSaving}
+                        onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, tag_vi: e.target.value } : cur))}
+                        placeholder="VD: Thiên nhiên"
+                      />
+                    </Field>
+                    <Field label="Tag (EN)">
+                      <Input
+                        value={dykEditing.tag_en}
+                        disabled={dykSaving}
+                        onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, tag_en: e.target.value } : cur))}
+                        placeholder="VD: Nature"
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Tiêu đề (VI)" required>
+                    <Input
+                      autoFocus
+                      value={dykEditing.title_vi}
+                      disabled={dykSaving}
+                      onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, title_vi: e.target.value } : cur))}
+                    />
+                  </Field>
+                  <Field label="Tiêu đề (EN)">
+                    <Input
+                      value={dykEditing.title_en}
+                      disabled={dykSaving}
+                      onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, title_en: e.target.value } : cur))}
+                    />
+                  </Field>
+                  <Field label="Giới thiệu (VI)">
+                    <Textarea
+                      rows={2}
+                      value={dykEditing.intro_vi}
+                      disabled={dykSaving}
+                      onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, intro_vi: e.target.value } : cur))}
+                    />
+                  </Field>
+                  <Field label="Giới thiệu (EN)">
+                    <Textarea
+                      rows={2}
+                      value={dykEditing.intro_en}
+                      disabled={dykSaving}
+                      onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, intro_en: e.target.value } : cur))}
+                    />
+                  </Field>
+                  <div className="bga-grid2">
+                    <Field label={`Slug ${dykEditing.isNew ? "(auto từ title)" : "(cố định)"}`}>
+                      <Input
+                        value={dykEditing.slug}
+                        disabled={dykSaving || !dykEditing.isNew}
+                        monospace
+                        onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, slug: e.target.value } : cur))}
+                      />
+                    </Field>
+                    <Field label="Thứ tự">
+                      <Input
+                        type="number"
+                        value={dykEditing.sort}
+                        disabled={dykSaving}
+                        onChange={(e) =>
+                          setDykEditing((cur) => (cur ? { ...cur, sort: Number(e.target.value) || 0 } : cur))
+                        }
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Hiển thị công khai">
+                    <div className="bga-switch-row">
+                      <Switch
+                        checked={dykEditing.active}
+                        disabled={dykSaving}
+                        onChange={(e) => setDykEditing((cur) => (cur ? { ...cur, active: e.target.checked } : cur))}
+                      />
+                      <span className="bga-switch-lbl">{dykEditing.active ? "Bật" : "Tắt"}</span>
+                    </div>
+                  </Field>
 
-              <Field label={`Ảnh (${dykEditing.images.length})`}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {dykEditing.images.map((im, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "56px 1fr 32px",
-                        gap: 8,
-                        alignItems: "start",
-                        padding: 8,
-                        border: "1px solid var(--border)",
-                        borderRadius: 8,
-                        background: "var(--bg2)",
-                      }}
-                    >
-                      <div className="bga-thumb" style={{ width: 56, height: 56 }}>
-                        {im.url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={rewriteImgUrl(im.url)} alt="" loading="lazy" referrerPolicy="no-referrer" />
-                        ) : (
-                          <span style={{ background: "linear-gradient(135deg,#64748b,#334155)" }} />
-                        )}
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <Input
-                          value={im.url}
-                          disabled={dykSaving}
-                          placeholder="URL ảnh"
-                          onChange={(e) =>
-                            setDykEditing((cur) =>
-                              cur
-                                ? {
-                                    ...cur,
-                                    images: cur.images.map((x, i) => (i === idx ? { ...x, url: e.target.value } : x)),
-                                  }
-                                : cur,
-                            )
-                          }
-                        />
-                        <div className="bga-grid2">
-                          <Input
-                            value={im.caption_vi}
-                            disabled={dykSaving}
-                            placeholder="Caption VI"
-                            onChange={(e) =>
+                  <Field label={`Ảnh (${dykEditing.images.length})`}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {dykEditing.images.map((im, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "56px 1fr 32px",
+                            gap: 8,
+                            alignItems: "start",
+                            padding: 8,
+                            border: "1px solid var(--border)",
+                            borderRadius: 8,
+                            background: "var(--bg2)",
+                          }}
+                        >
+                          <div className="bga-thumb" style={{ width: 56, height: 56 }}>
+                            {im.url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={rewriteImgUrl(im.url)} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                            ) : (
+                              <span style={{ background: "linear-gradient(135deg,#64748b,#334155)" }} />
+                            )}
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <Input
+                              value={im.url}
+                              disabled={dykSaving}
+                              placeholder="URL ảnh"
+                              onChange={(e) =>
+                                setDykEditing((cur) =>
+                                  cur
+                                    ? {
+                                        ...cur,
+                                        images: cur.images.map((x, i) =>
+                                          i === idx ? { ...x, url: e.target.value } : x,
+                                        ),
+                                      }
+                                    : cur,
+                                )
+                              }
+                            />
+                            <div className="bga-grid2">
+                              <Input
+                                value={im.caption_vi}
+                                disabled={dykSaving}
+                                placeholder="Caption VI"
+                                onChange={(e) =>
+                                  setDykEditing((cur) =>
+                                    cur
+                                      ? {
+                                          ...cur,
+                                          images: cur.images.map((x, i) =>
+                                            i === idx ? { ...x, caption_vi: e.target.value } : x,
+                                          ),
+                                        }
+                                      : cur,
+                                  )
+                                }
+                              />
+                              <Input
+                                value={im.caption_en}
+                                disabled={dykSaving}
+                                placeholder="Caption EN"
+                                onChange={(e) =>
+                                  setDykEditing((cur) =>
+                                    cur
+                                      ? {
+                                          ...cur,
+                                          images: cur.images.map((x, i) =>
+                                            i === idx ? { ...x, caption_en: e.target.value } : x,
+                                          ),
+                                        }
+                                      : cur,
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="fx-btn fx-btn-icon fx-btn-danger"
+                            onClick={() =>
                               setDykEditing((cur) =>
-                                cur
-                                  ? {
-                                      ...cur,
-                                      images: cur.images.map((x, i) =>
-                                        i === idx ? { ...x, caption_vi: e.target.value } : x,
-                                      ),
-                                    }
-                                  : cur,
+                                cur ? { ...cur, images: cur.images.filter((_, i) => i !== idx) } : cur,
                               )
                             }
-                          />
-                          <Input
-                            value={im.caption_en}
+                            title="Xoá ảnh"
                             disabled={dykSaving}
-                            placeholder="Caption EN"
-                            onChange={(e) =>
-                              setDykEditing((cur) =>
-                                cur
-                                  ? {
-                                      ...cur,
-                                      images: cur.images.map((x, i) =>
-                                        i === idx ? { ...x, caption_en: e.target.value } : x,
-                                      ),
-                                    }
-                                  : cur,
-                              )
-                            }
-                          />
+                          >
+                            <IconTrash size={14} stroke={1.9} />
+                          </button>
                         </div>
-                      </div>
+                      ))}
                       <button
                         type="button"
-                        className="fx-btn fx-btn-icon fx-btn-danger"
+                        className="fx-btn"
                         onClick={() =>
                           setDykEditing((cur) =>
-                            cur ? { ...cur, images: cur.images.filter((_, i) => i !== idx) } : cur,
+                            cur
+                              ? { ...cur, images: [...cur.images, { url: "", caption_vi: "", caption_en: "" }] }
+                              : cur,
                           )
                         }
-                        title="Xoá ảnh"
                         disabled={dykSaving}
                       >
-                        <IconTrash size={14} stroke={1.9} />
+                        <IconPlus size={13} stroke={1.9} /> Thêm ảnh
                       </button>
                     </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="fx-btn"
-                    onClick={() =>
-                      setDykEditing((cur) =>
-                        cur ? { ...cur, images: [...cur.images, { url: "", caption_vi: "", caption_en: "" }] } : cur,
-                      )
-                    }
-                    disabled={dykSaving}
-                  >
-                    <IconPlus size={13} stroke={1.9} /> Thêm ảnh
-                  </button>
-                </div>
-              </Field>
-              </>
+                  </Field>
+                </>
               )}
 
               {dykErr && <div className="fx-err">{dykErr}</div>}

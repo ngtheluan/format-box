@@ -6,9 +6,9 @@
 // chính" và mở từ icon đó — subscription tạo trong tab Safari thường không có.
 // web-push 4.x là ESM thuần, chỉ có named exports — `import webpush from ...`
 // sẽ trả undefined và ném "Cannot read properties of undefined (setVapidDetails)".
-import * as webpush from "web-push";
-import crypto from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase";
+import crypto from "node:crypto";
+import * as webpush from "web-push";
 
 let configured = false;
 let configError: string | null = null;
@@ -74,8 +74,7 @@ export function diagnoseVapid() {
   const info: Record<string, unknown> = {
     serverTime: new Date().toISOString(),
     subject,
-    subjectValid:
-      /^mailto:[^@]+@[^@]+$/.test(subject) || /^https:\/\/[^\s]+$/.test(subject),
+    subjectValid: /^mailto:[^@]+@[^@]+$/.test(subject) || /^https:\/\/[^\s]+$/.test(subject),
     hasPublicKey: !!publicKey,
     hasPrivateKey: !!privateKey,
     publicKeyPreview: publicKey ? `${publicKey.slice(0, 10)}…${publicKey.slice(-6)}` : null,
@@ -108,7 +107,7 @@ function siteOrigin(): string {
 function describePush(p: AdminPushPayload): { title: string; body: string; path: string; tag: string } {
   if (p.type === "blog-new-post") {
     return {
-      title: p.done ? "Đã sinh xong — bài cuối chờ duyệt" : "Bài blog mới chờ duyệt",
+      title: p.done ? "Đã sinh xong — bài cuối chờ duyệt" : "Bài viết mới chờ duyệt",
       body: `${p.title || p.slug}\nChạm để Duyệt hoặc Từ chối.`,
       path: `/admin/blog?review=${encodeURIComponent(p.slug)}`,
       tag: `fb-blog-new-${p.slug}`,

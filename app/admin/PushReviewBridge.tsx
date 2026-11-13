@@ -1,8 +1,8 @@
 "use client";
-import { useEffect } from "react";
 import { REVIEW_EVENT, takePendingReview } from "@/lib/admin-push-client";
+import { useEffect } from "react";
 
-// Lưới an toàn cho thông báo "Bài blog mới chờ duyệt": trên PWA iOS, chạm vào
+// Lưới an toàn cho thông báo "Bài viết mới chờ duyệt": trên PWA iOS, chạm vào
 // thông báo đôi khi chỉ mở app ở trang bắt đầu (/admin) thay vì link của bài.
 // Mỗi lần app hiện lên, component này hỏi service worker xem có bài nào vừa
 // được chạm không; có thì đưa admin tới hộp Duyệt / Từ chối của đúng bài đó.
