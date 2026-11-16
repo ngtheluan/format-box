@@ -19,6 +19,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { getSwRegistration, REVIEW_EVENT, syncPushSubscription } from "@/lib/admin-push-client";
+import { errMessage, errName } from "@/lib/errors";
 import {
   DEFAULT_PIN_CONFIG,
   MAX_PINNED,
@@ -347,8 +348,8 @@ export default function BlogAdminTool({
       toast(`Đã sinh: ${j.item?.title_vi || "mục mới"}`);
       setDykAiOpen(false);
       setDykAiTopic("");
-    } catch (e: any) {
-      setDykAiErr(e?.message || "Lỗi");
+    } catch (e) {
+      setDykAiErr(errMessage(e, "Lỗi"));
     } finally {
       setDykAiLoading(false);
     }
@@ -389,9 +390,9 @@ export default function BlogAdminTool({
           failed++;
           lastError = "API trả về không có images";
         }
-      } catch (e: any) {
+      } catch (e) {
         failed++;
-        lastError = e?.message || "Lỗi";
+        lastError = errMessage(e, "Lỗi");
       }
     }
     setDykNotesProgress("");
@@ -433,9 +434,9 @@ export default function BlogAdminTool({
           failed++;
           lastError = "API trả về không có quiz";
         }
-      } catch (e: any) {
+      } catch (e) {
         failed++;
-        lastError = e?.message || "Lỗi";
+        lastError = errMessage(e, "Lỗi");
       }
     }
     setDykQuizProgress("");
@@ -572,8 +573,8 @@ export default function BlogAdminTool({
       await reloadDyk();
       toast(`Đã lưu: ${title_vi}`);
       setDykEditing(null);
-    } catch (e: any) {
-      setDykErr(e?.message || "Lỗi");
+    } catch (e) {
+      setDykErr(errMessage(e, "Lỗi"));
     } finally {
       setDykSaving(false);
     }
@@ -643,8 +644,8 @@ export default function BlogAdminTool({
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || "Không lấy được gợi ý");
       setSeriesAiSuggestions(Array.isArray(j?.suggestions) ? j.suggestions : []);
-    } catch (e: any) {
-      setSeriesAiErr(e?.message || "Lỗi");
+    } catch (e) {
+      setSeriesAiErr(errMessage(e, "Lỗi"));
     } finally {
       setSeriesAiLoading(false);
     }
@@ -760,8 +761,8 @@ export default function BlogAdminTool({
         }),
       );
       await loadSeries();
-    } catch (e: any) {
-      setSeriesErr(e?.message || "Lỗi lưu series");
+    } catch (e) {
+      setSeriesErr(errMessage(e, "Lỗi lưu series"));
     } finally {
       setSeriesSaving(false);
     }
@@ -790,8 +791,8 @@ export default function BlogAdminTool({
         ),
       );
       await loadSeries();
-    } catch (e: any) {
-      toast(e?.message || "Lỗi xoá series");
+    } catch (e) {
+      toast(errMessage(e, "Lỗi xoá series"));
     }
   }
 
@@ -1375,7 +1376,7 @@ export default function BlogAdminTool({
         void notifyNewPost(post.title, post.slug);
         return post;
       }
-    } catch (e: any) {
+    } catch (e) {
       if (ac.signal.aborted) {
         // Người dùng chủ động huỷ: cancelGenerate() đã đưa về form, không hiện lỗi.
         if (userCancelRef.current) {
@@ -1385,7 +1386,7 @@ export default function BlogAdminTool({
         setGenErr("Đã huỷ sinh bài");
         lastGenErrRef.current = "Đã huỷ sinh bài";
       } else {
-        const msg = String(e?.message || e || "");
+        const msg = errMessage(e, "");
         const final = /fetch failed|network|aborted/i.test(msg)
           ? "Kết nối bị gián đoạn — có thể do mạng hoặc server quá tải. Hãy thử lại."
           : msg || "Lỗi không xác định";
@@ -1438,7 +1439,7 @@ export default function BlogAdminTool({
       let r: BlogPost | null = null;
       try {
         r = (await generate({ topic: current.title, notes: current.angle })) || null;
-      } catch (e: any) {
+      } catch (e) {
         r = null;
       }
       if (r) ok++;
@@ -1519,8 +1520,8 @@ export default function BlogAdminTool({
       setGenerateOpen(false);
       toast("Đã khởi động sinh tự động trên server");
       return true;
-    } catch (e: any) {
-      toast(e?.message || "Lỗi");
+    } catch (e) {
+      toast(errMessage(e, "Lỗi"));
       return false;
     }
   }
@@ -1749,8 +1750,8 @@ export default function BlogAdminTool({
       }
       if (j.status) setAutoStatus(j.status);
       toast("Đã yêu cầu dừng sinh tự động");
-    } catch (e: any) {
-      toast(e?.message || "Lỗi");
+    } catch (e) {
+      toast(errMessage(e, "Lỗi"));
     }
   }
 
@@ -1773,8 +1774,8 @@ export default function BlogAdminTool({
       }
       if (j.status) setAutoStatus(j.status);
       if (manual) toast(`Tick: ${j.result}`);
-    } catch (e: any) {
-      if (manual) toast(e?.message || "Lỗi");
+    } catch (e) {
+      if (manual) toast(errMessage(e, "Lỗi"));
     } finally {
       tickingRef.current = false;
     }
@@ -1837,8 +1838,8 @@ export default function BlogAdminTool({
       setReviewSlug(null);
       toast(`${kind === "approve" ? "Đã duyệt" : "Đã từ chối"}: ${p.title}`);
       router.refresh();
-    } catch (e: any) {
-      toast(e?.message || "Lỗi");
+    } catch (e) {
+      toast(errMessage(e, "Lỗi"));
     } finally {
       setReviewBusy(false);
     }
@@ -2096,9 +2097,9 @@ export default function BlogAdminTool({
       if (!r.ok) return setGenErr(j?.error || `Lỗi ${r.status}`);
       setIdeas(j.ideas || []);
       ideasPrevRef.current = null;
-    } catch (e: any) {
-      if (e?.name === "AbortError") return;
-      setGenErr(e?.message || "Lỗi");
+    } catch (e) {
+      if (errName(e) === "AbortError") return;
+      setGenErr(errMessage(e, "Lỗi"));
     } finally {
       if (ideasAbortRef.current === ac) {
         ideasAbortRef.current = null;
@@ -2127,9 +2128,9 @@ export default function BlogAdminTool({
             : `Danh mục: ${CAT_LABEL[next.category!] || next.category}`;
       toast(`Đã chuyển chế độ ghim: ${label}`);
       router.refresh();
-    } catch (e: any) {
+    } catch (e) {
       setPinConfig(prev);
-      toast(e?.message || "Lỗi");
+      toast(errMessage(e, "Lỗi"));
     } finally {
       setPinConfigSaving(false);
     }
@@ -2155,9 +2156,9 @@ export default function BlogAdminTool({
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || `Lỗi ${r.status}`);
       toast(next ? `Đã ghim: ${p.title}` : `Đã bỏ ghim: ${p.title}`);
-    } catch (e: any) {
+    } catch (e) {
       setPosts((prev) => prev.map((x) => (x.slug === p.slug ? { ...x, pinned: p.pinned } : x)));
-      toast(e?.message || "Lỗi");
+      toast(errMessage(e, "Lỗi"));
     }
   }
 
@@ -2216,8 +2217,8 @@ export default function BlogAdminTool({
         return;
       }
       setVideoResults(j.videos || []);
-    } catch (e: any) {
-      setVideoErr(e?.message || "Lỗi");
+    } catch (e) {
+      setVideoErr(errMessage(e, "Lỗi"));
     } finally {
       setVideoLoading(false);
     }
@@ -2239,8 +2240,8 @@ export default function BlogAdminTool({
         return;
       }
       setVideoResults(j.videos || []);
-    } catch (e: any) {
-      setVideoErr(e?.message || "Lỗi");
+    } catch (e) {
+      setVideoErr(errMessage(e, "Lỗi"));
     } finally {
       setVideoLoading(false);
     }
@@ -2324,8 +2325,8 @@ export default function BlogAdminTool({
           ta?.setSelectionRange(a, a + j.text.length);
         });
       }
-    } catch (e: any) {
-      toast(e?.message || "Lỗi");
+    } catch (e) {
+      toast(errMessage(e, "Lỗi"));
     } finally {
       setAssisting(null);
     }
@@ -2401,8 +2402,8 @@ export default function BlogAdminTool({
       setEditingOriginal(next);
       setEditView("write");
       setEditErr("");
-    } catch (e: any) {
-      toast(e?.message || "Lỗi");
+    } catch (e) {
+      toast(errMessage(e, "Lỗi"));
     }
   }
 
@@ -2454,8 +2455,8 @@ export default function BlogAdminTool({
       );
       toast(`Đã lưu: ${editing.title}`);
       setEditingOriginal(editing);
-    } catch (e: any) {
-      setEditErr(e?.message || "Lỗi");
+    } catch (e) {
+      setEditErr(errMessage(e, "Lỗi"));
     } finally {
       setSaving(false);
     }
@@ -2529,8 +2530,8 @@ export default function BlogAdminTool({
       await reloadCategories();
       toast(`Đã lưu danh mục: ${label}`);
       setCatEditing(null);
-    } catch (e: any) {
-      setCatErr(e?.message || "Lỗi");
+    } catch (e) {
+      setCatErr(errMessage(e, "Lỗi"));
     } finally {
       setCatSaving(false);
     }

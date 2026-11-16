@@ -1,6 +1,7 @@
 "use client";
 
 import { Stamp, type StampFace } from "@/app/blog/DykStamp";
+import { errMessage } from "@/lib/errors";
 import { Button, Field, IconButton, Input, Select, Switch, Textarea } from "@/components/ui";
 import type { DidYouKnowImage, DidYouKnowQuizQuestion } from "@/lib/blog";
 import {
@@ -79,8 +80,8 @@ export function DykConfigModal({
         return;
       }
       onSaved(j.config ?? draft);
-    } catch (e: any) {
-      setErr(e?.message || "Lỗi");
+    } catch (e) {
+      setErr(errMessage(e, "Lỗi"));
     } finally {
       setSaving(false);
     }
@@ -247,8 +248,8 @@ export function DykQuizEditor({
     try {
       setNote(await onGenerate({ count, scope, verify }));
       setOpen(null);
-    } catch (e: any) {
-      setErr(e?.message || "AI lỗi");
+    } catch (e) {
+      setErr(errMessage(e, "AI lỗi"));
     } finally {
       setBusy(false);
     }

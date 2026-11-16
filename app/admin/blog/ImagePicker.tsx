@@ -1,5 +1,6 @@
 "use client";
 import type { ImageCandidate } from "@/lib/blog-ai-shared";
+import { errMessage } from "@/lib/errors";
 import { IconLoader2, IconPhotoSearch, IconSearch, IconX } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -39,8 +40,8 @@ export default function ImagePicker({ title, initialQuery, onPick, onClose }: Pr
       if (!r.ok) throw new Error(j?.error || `Lỗi ${r.status}`);
       setItems((prev) => (p === 1 ? j.images : [...prev, ...j.images]));
       if (!j.images.length && p === 1) setErr("Không có ảnh — thử từ khoá tiếng Anh cụ thể hơn.");
-    } catch (e: any) {
-      setErr(e?.message || "Lỗi");
+    } catch (e) {
+      setErr(errMessage(e, "Lỗi"));
     } finally {
       if (id === reqId.current) setLoading(false);
     }
