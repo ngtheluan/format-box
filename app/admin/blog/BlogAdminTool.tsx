@@ -3,12 +3,14 @@ import "@/app/blog/blog.css";
 import { useToast } from "@/components/Toast";
 import type { SelectOption } from "@/components/ui";
 import {
+  Alert,
   Button,
   Checkbox,
   Field,
   Input,
   Pagination,
   Select,
+  Spinner,
   Switch,
   Tab,
   TabPanel,
@@ -622,6 +624,43 @@ export default function BlogAdminTool({
   const [seriesSaving, setSeriesSaving] = useState(false);
   const [seriesErr, setSeriesErr] = useState("");
 
+  type SeriesAiSuggestion = { title: string; slugs: string[]; reason?: string };
+  const [seriesAiOpen, setSeriesAiOpen] = useState(false);
+  const [seriesAiLoading, setSeriesAiLoading] = useState(false);
+  const [seriesAiErr, setSeriesAiErr] = useState("");
+  const [seriesAiSuggestions, setSeriesAiSuggestions] = useState<SeriesAiSuggestion[]>([]);
+
+  const runSeriesAi = useCallback(async () => {
+    setSeriesAiLoading(true);
+    setSeriesAiErr("");
+    setSeriesAiSuggestions([]);
+    try {
+      const r = await fetch("/api/blog/series/suggest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || "Không lấy được gợi ý");
+      setSeriesAiSuggestions(Array.isArray(j?.suggestions) ? j.suggestions : []);
+    } catch (e: any) {
+      setSeriesAiErr(e?.message || "Lỗi");
+    } finally {
+      setSeriesAiLoading(false);
+    }
+  }, []);
+
+  function applySeriesAiSuggestion(s: SeriesAiSuggestion) {
+    setSeriesAiOpen(false);
+    setSeriesErr("");
+    setSeriesEditor({
+      original: null,
+      slug: s.title,
+      slugs: s.slugs.slice(),
+      pickQ: "",
+    });
+  }
+
   const loadSeries = useCallback(async () => {
     setSeriesLoading(true);
     try {
@@ -814,6 +853,13 @@ export default function BlogAdminTool({
   const [aiFilterIncludeDrafts, setAiFilterIncludeDrafts] = useState(false);
   const [aiFilterBulkBusy, setAiFilterBulkBusy] = useState(false);
   const [aiFilterThreshold, setAiFilterThreshold] = useState(55); // Jaccard % cutoff
+  type DupSignal = "title" | "cover" | "content";
+  const [aiFilterSignals, setAiFilterSignals] = useState<Record<DupSignal, boolean>>({
+    title: true,
+    cover: true,
+    content: true,
+  });
+  const [aiFilterHasRun, setAiFilterHasRun] = useState(false);
 
   // AdminTabBar dispatches these so the bottom bar can trigger the modals.
   const [skipTopicAutoFocus, setSkipTopicAutoFocus] = useState(false);
@@ -1595,6 +1641,12 @@ export default function BlogAdminTool({
   }
 
   function runAiDuplicateFilter() {
+    const signals = aiFilterSignals;
+    if (!Object.values(signals).some(Boolean)) {
+      toast("Chọn ít nhất một tiêu chí để quét");
+      return;
+    }
+    setAiFilterHasRun(true);
     setAiFilterLoading(true);
     setAiFilterGroups([]);
     setAiFilterSelected(new Set());
@@ -1614,14 +1666,17 @@ export default function BlogAdminTool({
         const matches: { idx: number; sim: number; reason: string }[] = [];
         for (let j = i + 1; j < pool.length; j++) {
           if (used.has(j)) continue;
-          const sim = jaccardSim(toks[i], toks[j]);
-          const sameCover = !!pool[i].coverImage && pool[i].coverImage === pool[j].coverImage;
-          const sameTitle = foldedTitle[i] && foldedTitle[i] === foldedTitle[j];
-          if (sim >= cutoff || sameCover || sameTitle) {
+          const sim = signals.content ? jaccardSim(toks[i], toks[j]) : 0;
+          const sameCover =
+            signals.cover && !!pool[i].coverImage && pool[i].coverImage === pool[j].coverImage;
+          const sameTitle =
+            signals.title && !!foldedTitle[i] && foldedTitle[i] === foldedTitle[j];
+          if ((signals.content && sim >= cutoff) || sameCover || sameTitle) {
             const reasons: string[] = [];
             if (sameTitle) reasons.push("tiêu đề giống");
             if (sameCover) reasons.push("ảnh bìa trùng");
-            if (sim >= cutoff && !sameTitle) reasons.push(`nội dung ${Math.round(sim * 100)}%`);
+            if (signals.content && sim >= cutoff && !sameTitle)
+              reasons.push(`nội dung ${Math.round(sim * 100)}%`);
             matches.push({
               idx: j,
               sim: sameTitle ? 1 : Math.max(sim, sameCover ? 0.75 : sim),
@@ -2619,24 +2674,6 @@ export default function BlogAdminTool({
                       setPinPickerQ("");
                     }}
                   >
-                    <div className="bga-pinned-thumb">
-                      {p.coverImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={rewriteImgUrl(
-                            p.coverImage
-                              .split("#")[0]
-                              .replace(/([?&])w=\d+/, "$1w=120")
-                              .replace(/([?&])h=\d+/, "$1h=80"),
-                          )}
-                          alt=""
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
-                      )}
-                    </div>
                     <div className="bga-pinned-picker-text">
                       <b>{p.title}</b>
                       <span>/blog/{p.slug}</span>
@@ -2660,24 +2697,6 @@ export default function BlogAdminTool({
           <div className="bga-pinned-list">
             {effectivePinned.map((p) => (
               <div key={p.slug} className="bga-pinned-item">
-                <div className="bga-pinned-thumb">
-                  {p.coverImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={rewriteImgUrl(
-                        p.coverImage
-                          .split("#")[0]
-                          .replace(/([?&])w=\d+/, "$1w=120")
-                          .replace(/([?&])h=\d+/, "$1h=80"),
-                      )}
-                      alt=""
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <span style={{ background: `linear-gradient(135deg, ${p.cover.from}, ${p.cover.to})` }} />
-                  )}
-                </div>
                 <button className="bga-pinned-title" onClick={() => startEdit(p)} title="Sửa" type="button">
                   <span>{p.title}</span>
                 </button>
@@ -2897,11 +2916,13 @@ export default function BlogAdminTool({
               {isSuperAdmin && (
                 <button
                   onClick={() => {
+                    setAiFilterHasRun(false);
+                    setAiFilterGroups([]);
+                    setAiFilterSelected(new Set());
                     setAiFilterOpen(true);
-                    runAiDuplicateFilter();
                   }}
                   className="fx-btn"
-                  title="Quét và đề xuất xoá bài trùng tiêu đề, ảnh bìa hoặc nội dung"
+                  title="Chọn tiêu chí rồi quét bài trùng"
                 >
                   <IconFilterSearch size={14} stroke={2.2} /> Lọc bài AI
                 </button>
@@ -2917,9 +2938,23 @@ export default function BlogAdminTool({
               <IconPlus size={14} stroke={2.2} /> Thêm danh mục
             </button>
           ) : tab === "series" ? (
-            <button onClick={() => openSeriesEditor(null)} className="fx-btn fx-btn-primary">
-              <IconPlus size={14} stroke={2.2} /> Thêm series
-            </button>
+            <>
+              {isSuperAdmin && (
+                <button
+                  onClick={() => {
+                    setSeriesAiOpen(true);
+                    if (seriesAiSuggestions.length === 0) void runSeriesAi();
+                  }}
+                  className="fx-btn"
+                  title="AI đề xuất series từ các bài đã phát hành"
+                >
+                  <IconSparkles size={14} stroke={2.2} /> Series AI
+                </button>
+              )}
+              <button onClick={() => openSeriesEditor(null)} className="fx-btn fx-btn-primary">
+                <IconPlus size={14} stroke={2.2} /> Thêm series
+              </button>
+            </>
           ) : tab === "knowledge" ? (
             <>
               {isSuperAdmin && dykMissingQuiz.length > 0 && (
@@ -3067,8 +3102,7 @@ export default function BlogAdminTool({
           <>
             <div ref={listTopRef} />
             <div className="fx-table">
-              <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "56px 1fr 140px 80px 80px 140px" }}>
-                <div />
+              <div className="fx-row fx-row-head" style={{ gridTemplateColumns: "1fr 140px 80px 80px 140px" }}>
                 <div>Tiêu đề</div>
                 <div>Tag</div>
                 <div style={{ textAlign: "center" }}>Ảnh</div>
@@ -3079,16 +3113,8 @@ export default function BlogAdminTool({
                 <div
                   key={it.slug}
                   className="fx-row"
-                  style={{ gridTemplateColumns: "56px 1fr 140px 80px 80px 140px", opacity: it.active ? 1 : 0.55 }}
+                  style={{ gridTemplateColumns: "1fr 140px 80px 80px 140px", opacity: it.active ? 1 : 0.55 }}
                 >
-                  <div className="bga-thumb">
-                    {it.images[0]?.url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={rewriteImgUrl(it.images[0].url)} alt="" loading="lazy" referrerPolicy="no-referrer" />
-                    ) : (
-                      <span style={{ background: "linear-gradient(135deg,#64748b,#334155)" }} />
-                    )}
-                  </div>
                   <div className="fx-title-cell">
                     <div className="fx-t-row">
                       <b>{it.title_vi}</b>
@@ -3793,20 +3819,43 @@ export default function BlogAdminTool({
             </div>
             <div className="fx-modal-body bga-dup-body">
               <div className="bga-dup-toolbar">
-                <span className="bga-dup-hint">
-                  Quét bài theo tiêu đề, ảnh bìa, tags và nội dung mô tả. Giữ bài cũ nhất, đề xuất xoá bài trùng.
-                </span>
-                <div className="bga-dup-controls">
-                  <label>
+                <div className="bga-dup-chips">
+                  {(
+                    [
+                      { k: "title", label: "Tiêu đề" },
+                      { k: "cover", label: "Ảnh bìa" },
+                      { k: "content", label: "Nội dung" },
+                    ] as { k: DupSignal; label: string }[]
+                  ).map(({ k, label }) => {
+                    const on = aiFilterSignals[k];
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        className="bga-dup-chip"
+                        data-on={on ? "true" : "false"}
+                        onClick={() =>
+                          setAiFilterSignals((prev) => ({ ...prev, [k]: !prev[k] }))
+                        }
+                        disabled={aiFilterLoading || aiFilterBulkBusy}
+                      >
+                        <IconCheck size={12} stroke={2.6} className="bga-dup-chip-ic" />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="bga-dup-actions">
+                  <label className="bga-dup-switch">
                     <Switch
                       checked={aiFilterIncludeDrafts}
                       onChange={(e) => setAiFilterIncludeDrafts(e.target.checked)}
                       disabled={aiFilterLoading || aiFilterBulkBusy}
                     />
-                    Gồm cả nháp
+                    <span>Gồm cả nháp</span>
                   </label>
                   <label className="bga-dup-threshold">
-                    Ngưỡng
+                    <span>Ngưỡng</span>
                     <input
                       type="range"
                       min={40}
@@ -3820,11 +3869,18 @@ export default function BlogAdminTool({
                   </label>
                   <Button
                     size="sm"
-                    variant="ghost"
+                    variant="primary"
                     onClick={runAiDuplicateFilter}
                     disabled={aiFilterLoading || aiFilterBulkBusy}
+                    leftIcon={
+                      aiFilterHasRun ? (
+                        <IconRotateClockwise size={13} stroke={2} />
+                      ) : (
+                        <IconFilterSearch size={13} stroke={2} />
+                      )
+                    }
                   >
-                    <IconRotateClockwise size={13} stroke={2} /> Quét lại
+                    {aiFilterHasRun ? "Quét lại" : "Quét"}
                   </Button>
                 </div>
               </div>
@@ -3833,6 +3889,13 @@ export default function BlogAdminTool({
                 <div className="bga-dup-loading">
                   <IconLoader2 className="fx-spin" size={18} stroke={2} />
                   Đang quét {posts.length} bài…
+                </div>
+              ) : !aiFilterHasRun ? (
+                <div className="fx-empty bga-dup-empty">
+                  <div className="fx-empty-ico">
+                    <IconFilterSearch size={22} stroke={1.7} />
+                  </div>
+                  Chọn tiêu chí ở trên rồi bấm &quot;Quét&quot; để bắt đầu.
                 </div>
               ) : aiFilterGroups.length === 0 ? (
                 <div className="fx-empty bga-dup-empty">
@@ -5894,6 +5957,92 @@ export default function BlogAdminTool({
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SERIES AI MODAL — LLM-proposed groupings the admin can one-click apply */}
+      {seriesAiOpen && (
+        <div className="fx-modal-bg" style={{ zIndex: 200 }} onClick={() => setSeriesAiOpen(false)}>
+          <div
+            className="fx-modal"
+            style={{ maxWidth: 680, width: "94vw" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="fx-modal-head">
+              <h2>
+                <IconSparkles size={16} stroke={2} /> Series AI đề xuất
+              </h2>
+              <button className="fx-btn fx-btn-icon fx-btn-ghost" onClick={() => setSeriesAiOpen(false)}>
+                <IconX size={16} stroke={2} />
+              </button>
+            </div>
+            <div className="fx-modal-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {seriesAiLoading ? (
+                <div className="fx-empty" style={{ padding: 24 }}>
+                  <Spinner size={18} /> <span style={{ marginLeft: 8 }}>Đang phân tích bài viết…</span>
+                </div>
+              ) : seriesAiErr ? (
+                <Alert tone="danger">{seriesAiErr}</Alert>
+              ) : seriesAiSuggestions.length === 0 ? (
+                <div className="fx-empty" style={{ padding: 20 }}>Không có đề xuất phù hợp.</div>
+              ) : (
+                seriesAiSuggestions.map((s, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      border: "1px solid var(--border)",
+                      borderRadius: 10,
+                      padding: 12,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <b style={{ fontSize: 14 }}>{s.title}</b>
+                      <span className="fx-badge" data-tone="mute">{s.slugs.length} bài</span>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        style={{ marginLeft: "auto" }}
+                        leftIcon={<IconPlus size={13} stroke={2.2} />}
+                        onClick={() => applySeriesAiSuggestion(s)}
+                      >
+                        Tạo series
+                      </Button>
+                    </div>
+                    {s.reason && (
+                      <div style={{ fontSize: 12, color: "var(--dim)" }}>{s.reason}</div>
+                    )}
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "var(--text)" }}>
+                      {s.slugs.map((slug) => {
+                        const p = posts.find((x) => x.slug === slug);
+                        return (
+                          <li key={slug} style={{ marginBottom: 2 }}>
+                            {p ? p.title : slug}{" "}
+                            <span style={{ color: "var(--dim)", fontFamily: "var(--mono)" }}>/blog/{slug}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="fx-modal-foot">
+              <Button variant="ghost" onClick={() => setSeriesAiOpen(false)}>
+                Đóng
+              </Button>
+              <Button
+                variant="ghost"
+                leftIcon={<IconSparkles size={14} stroke={2} />}
+                onClick={() => void runSeriesAi()}
+                disabled={seriesAiLoading}
+              >
+                Đề xuất lại
+              </Button>
             </div>
           </div>
         </div>
