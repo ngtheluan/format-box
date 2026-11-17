@@ -5,14 +5,21 @@ import {
   IconActivity,
   IconArrowDown,
   IconArrowUp,
+  IconCheck,
+  IconCopy,
+  IconDatabase,
+  IconHistory,
   IconPlayerPlayFilled,
   IconPlayerStopFilled,
   IconServer,
+  IconTrash,
   IconWaveSine,
+  IconWifi,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Phase = "idle" | "ping" | "download" | "upload" | "done";
+type ProfileKey = "lite" | "balanced" | "full";
 
 type Result = {
   ping: number | null;
@@ -21,19 +28,69 @@ type Result = {
   upload: number | null;
 };
 
+type HistoryEntry = {
+  ts: number;
+  ping: number;
+  jitter: number;
+  download: number;
+  upload: number;
+  profile: ProfileKey;
+};
+
+const HISTORY_KEY = "fb-st-history";
+const HISTORY_MAX = 8;
+
+type Profile = {
+  pingCount: number;
+  downParallel: number;
+  downChunkBytes: number;
+  downDurationMs: number;
+  downWarmupMs: number;
+  upParallel: number;
+  upChunkBytes: number;
+  upDurationMs: number;
+  upWarmupMs: number;
+};
+
+const PROFILES: Record<ProfileKey, Profile> = {
+  lite: {
+    pingCount: 10,
+    downParallel: 2,
+    downChunkBytes: 5_000_000,
+    downDurationMs: 5_000,
+    downWarmupMs: 1_000,
+    upParallel: 2,
+    upChunkBytes: 1_500_000,
+    upDurationMs: 5_000,
+    upWarmupMs: 1_000,
+  },
+  balanced: {
+    pingCount: 15,
+    downParallel: 4,
+    downChunkBytes: 10_000_000,
+    downDurationMs: 8_000,
+    downWarmupMs: 1_500,
+    upParallel: 3,
+    upChunkBytes: 3_000_000,
+    upDurationMs: 8_000,
+    upWarmupMs: 1_500,
+  },
+  full: {
+    pingCount: 20,
+    downParallel: 6,
+    downChunkBytes: 25_000_000,
+    downDurationMs: 10_000,
+    downWarmupMs: 2_000,
+    upParallel: 4,
+    upChunkBytes: 5_000_000,
+    upDurationMs: 10_000,
+    upWarmupMs: 2_000,
+  },
+};
+
 const DOWN_URL = "https://speed.cloudflare.com/__down";
 const UP_URL = "https://speed.cloudflare.com/__up";
 const META_URL = "https://speed.cloudflare.com/meta";
-
-const PING_COUNT = 20;
-const DOWN_PARALLEL = 6;
-const DOWN_CHUNK_BYTES = 25_000_000;
-const DOWN_DURATION_MS = 10_000;
-const DOWN_WARMUP_MS = 2_000;
-const UP_PARALLEL = 4;
-const UP_CHUNK_BYTES = 8_000_000;
-const UP_DURATION_MS = 10_000;
-const UP_WARMUP_MS = 2_000;
 
 function fmtSpeed(bps: number | null): string {
   if (bps == null || !isFinite(bps) || bps <= 0) return "0";
@@ -43,6 +100,12 @@ function fmtSpeed(bps: number | null): string {
   return mbps.toFixed(2);
 }
 
+function fmtBytes(n: number): string {
+  if (n < 1_000_000) return `${(n / 1_000).toFixed(0)} KB`;
+  if (n < 1_000_000_000) return `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)} MB`;
+  return `${(n / 1_000_000_000).toFixed(2)} GB`;
+}
+
 function median(arr: number[]): number {
   const a = [...arr].sort((x, y) => x - y);
   const n = a.length;
@@ -50,18 +113,57 @@ function median(arr: number[]): number {
   return n % 2 ? a[(n - 1) >> 1] : (a[n / 2 - 1] + a[n / 2]) / 2;
 }
 
+type ConnInfo = { type?: string; effectiveType?: string; downlink?: number; saveData?: boolean };
+
+function readConnection(): ConnInfo | null {
+  if (typeof navigator === "undefined") return null;
+  const c = (navigator as unknown as { connection?: ConnInfo }).connection;
+  if (!c) return null;
+  return { type: c.type, effectiveType: c.effectiveType, downlink: c.downlink, saveData: c.saveData };
+}
+
+function detectProfile(): ProfileKey {
+  const conn = readConnection();
+  if (conn?.saveData) return "lite";
+  const t = conn?.effectiveType;
+  if (t === "slow-2g" || t === "2g" || t === "3g") return "lite";
+  if (t === "4g") return "balanced";
+  return "balanced";
+}
+
+function connLabel(c: ConnInfo | null): string {
+  if (!c) return "";
+  if (c.type === "wifi") return "Wi-Fi";
+  if (c.type === "ethernet") return "Ethernet";
+  if (c.type === "cellular") return (c.effectiveType || "cellular").toUpperCase();
+  return (c.effectiveType || c.type || "").toUpperCase();
+}
+
+function fmtRelTime(ts: number, justNow: string): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return justNow;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
+  return `${Math.floor(diff / 86_400_000)}d`;
+}
+
 async function measurePing(
+  P: Profile,
   signal: AbortSignal,
   onSample: (v: number) => void,
+  onBytes: (n: number) => void,
 ): Promise<{ ping: number; jitter: number }> {
   const samples: number[] = [];
-  for (let i = 0; i < PING_COUNT; i++) {
+  for (let i = 0; i < P.pingCount; i++) {
     if (signal.aborted) break;
     const t0 = performance.now();
     try {
-      await fetch(`${DOWN_URL}?bytes=0&r=${Math.random()}`, { cache: "no-store", signal });
-      samples.push(performance.now() - t0);
-      onSample(performance.now() - t0);
+      const res = await fetch(`${DOWN_URL}?bytes=0&r=${Math.random()}`, { cache: "no-store", signal });
+      await res.arrayBuffer();
+      const dt = performance.now() - t0;
+      samples.push(dt);
+      onSample(dt);
+      onBytes(200);
     } catch {}
   }
   if (samples.length === 0) return { ping: 0, jitter: 0 };
@@ -93,38 +195,52 @@ async function downloadStream(url: string, signal: AbortSignal, onBytes: (n: num
   }
 }
 
-async function measureDownload(signal: AbortSignal, onLiveMbps: (mbps: number) => void): Promise<number> {
+async function measureDownload(
+  P: Profile,
+  signal: AbortSignal,
+  onLiveMbps: (mbps: number) => void,
+  onBytes: (n: number) => void,
+): Promise<number> {
   let bytesInWindow = 0;
   let windowStart = 0;
   let started = false;
   const startAll = performance.now();
+  const stopAt = startAll + P.downDurationMs + P.downWarmupMs;
+
+  const localCtrl = new AbortController();
+  const onAbort = () => localCtrl.abort();
+  signal.addEventListener("abort", onAbort, { once: true });
+  const timeTimer = setTimeout(() => localCtrl.abort(), P.downDurationMs + P.downWarmupMs + 200);
 
   const runner = async () => {
-    while (!signal.aborted && performance.now() - startAll < DOWN_DURATION_MS + DOWN_WARMUP_MS) {
+    while (!localCtrl.signal.aborted && performance.now() < stopAt) {
       try {
-        await downloadStream(`${DOWN_URL}?bytes=${DOWN_CHUNK_BYTES}&r=${Math.random()}`, signal, (n) => {
+        await downloadStream(`${DOWN_URL}?bytes=${P.downChunkBytes}&r=${Math.random()}`, localCtrl.signal, (n) => {
+          onBytes(n);
           const now = performance.now();
           const elapsed = now - startAll;
-          if (elapsed >= DOWN_WARMUP_MS) {
+          if (elapsed >= P.downWarmupMs) {
             if (!started) {
               started = true;
               windowStart = now;
-              bytesInWindow = 0;
+              bytesInWindow = n;
+            } else {
+              bytesInWindow += n;
             }
-            bytesInWindow += n;
             const w = (now - windowStart) / 1000;
-            if (w > 0.2) onLiveMbps((bytesInWindow * 8) / w / 1_000_000);
+            if (w > 0.15) onLiveMbps((bytesInWindow * 8) / w / 1_000_000);
           }
         });
       } catch {}
     }
   };
 
-  const workers = Array.from({ length: DOWN_PARALLEL }, () => runner());
-  await Promise.race([
-    Promise.all(workers),
-    new Promise<void>((r) => setTimeout(r, DOWN_DURATION_MS + DOWN_WARMUP_MS + 500)),
-  ]);
+  const workers = Array.from({ length: P.downParallel }, () => runner());
+  try {
+    await Promise.all(workers);
+  } catch {}
+  clearTimeout(timeTimer);
+  signal.removeEventListener("abort", onAbort);
   const elapsedSec = (performance.now() - windowStart) / 1000;
   if (!started || elapsedSec <= 0) return 0;
   return (bytesInWindow * 8) / elapsedSec;
@@ -140,7 +256,7 @@ function uploadOnce(
     let lastLoaded = 0;
     const abort = () => xhr.abort();
     signal.addEventListener("abort", abort, { once: true });
-    xhr.open("POST", `${UP_URL}?bytes=${payload.size}&r=${Math.random()}`, true);
+    xhr.open("POST", `${UP_URL}?r=${Math.random()}`, true);
     xhr.upload.onprogress = (e) => {
       const delta = e.loaded - lastLoaded;
       lastLoaded = e.loaded;
@@ -151,27 +267,32 @@ function uploadOnce(
       resolve({ ok, status });
     };
     xhr.onload = () => finish(xhr.status >= 200 && xhr.status < 400, xhr.status);
-    xhr.onerror = () => {
-      if (typeof console !== "undefined") console.warn("[speed-test] upload error", xhr.status, xhr.responseURL);
-      finish(false, xhr.status || 0);
-    };
+    xhr.onerror = () => finish(false, xhr.status || 0);
     xhr.onabort = () => finish(false, 0);
     xhr.ontimeout = () => finish(false, 0);
     try {
       xhr.send(payload);
-    } catch (err) {
-      if (typeof console !== "undefined") console.warn("[speed-test] xhr.send threw", err);
+    } catch {
       finish(false, 0);
     }
   });
 }
 
 async function measureUpload(
+  P: Profile,
   signal: AbortSignal,
   onLiveMbps: (mbps: number) => void,
+  onBytes: (n: number) => void,
 ): Promise<{ bps: number; failed: boolean }> {
-  const rand = new Uint8Array(UP_CHUNK_BYTES);
-  for (let i = 0; i < rand.length; i += 4096) rand[i] = (Math.random() * 256) | 0;
+  const rand = new Uint8Array(P.upChunkBytes);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const step = 65536;
+    for (let i = 0; i < rand.length; i += step) {
+      crypto.getRandomValues(rand.subarray(i, Math.min(i + step, rand.length)));
+    }
+  } else {
+    for (let i = 0; i < rand.length; i += 4096) rand[i] = (Math.random() * 256) | 0;
+  }
   const payload = new Blob([rand]);
 
   let bytesInWindow = 0;
@@ -180,37 +301,45 @@ async function measureUpload(
   let anyOk = false;
   let anyProgress = false;
   const startAll = performance.now();
+  const stopAt = startAll + P.upDurationMs + P.upWarmupMs;
+
+  const localCtrl = new AbortController();
+  const onAbort = () => localCtrl.abort();
+  signal.addEventListener("abort", onAbort, { once: true });
+  const timeTimer = setTimeout(() => localCtrl.abort(), P.upDurationMs + P.upWarmupMs + 200);
 
   const runner = async () => {
-    while (!signal.aborted && performance.now() - startAll < UP_DURATION_MS + UP_WARMUP_MS) {
-      const res = await uploadOnce(payload, signal, (delta) => {
+    while (!localCtrl.signal.aborted && performance.now() < stopAt) {
+      const res = await uploadOnce(payload, localCtrl.signal, (delta) => {
         anyProgress = true;
+        onBytes(delta);
         const now = performance.now();
-        if (now - startAll < UP_WARMUP_MS) return;
+        if (now - startAll < P.upWarmupMs) return;
         if (!started) {
           started = true;
           windowStart = now;
-          bytesInWindow = 0;
-          return;
+          bytesInWindow = delta;
+        } else {
+          bytesInWindow += delta;
         }
-        bytesInWindow += delta;
         const w = (now - windowStart) / 1000;
-        if (w > 0.2) onLiveMbps((bytesInWindow * 8) / w / 1_000_000);
+        if (w > 0.15) onLiveMbps((bytesInWindow * 8) / w / 1_000_000);
       });
       if (res.ok) anyOk = true;
     }
   };
 
-  const workers = Array.from({ length: UP_PARALLEL }, () => runner());
-  await Promise.race([
-    Promise.all(workers),
-    new Promise<void>((r) => setTimeout(r, UP_DURATION_MS + UP_WARMUP_MS + 500)),
-  ]);
+  const workers = Array.from({ length: P.upParallel }, () => runner());
+  try {
+    await Promise.all(workers);
+  } catch {}
+  clearTimeout(timeTimer);
+  signal.removeEventListener("abort", onAbort);
   const elapsedSec = (performance.now() - windowStart) / 1000;
   if (!started || elapsedSec <= 0) {
-    return { bps: 0, failed: !anyOk && !anyProgress };
+    return { bps: 0, failed: !anyProgress };
   }
-  return { bps: (bytesInWindow * 8) / elapsedSec, failed: false };
+  return { bps: (bytesInWindow * 8) / elapsedSec, failed: !anyOk && !anyProgress };
 }
 
 function Gauge({
@@ -266,7 +395,7 @@ function Gauge({
           strokeWidth={8}
           strokeLinecap="round"
           style={{
-            transition: "d 300ms ease-out",
+            transition: "d 200ms ease-out",
             filter: active ? `drop-shadow(0 0 8px ${color})` : "none",
             opacity: value > 0 ? 1 : 0.25,
           }}
@@ -307,13 +436,48 @@ function Gauge({
 export default function SpeedTestTool() {
   const { t } = useI18n();
   const [phase, setPhase] = useState<Phase>("idle");
+  const [profile, setProfile] = useState<ProfileKey>("balanced");
   const [result, setResult] = useState<Result>({ ping: null, jitter: null, download: null, upload: null });
   const [liveDown, setLiveDown] = useState(0);
   const [liveUp, setLiveUp] = useState(0);
   const [livePing, setLivePing] = useState<number | null>(null);
+  const [bytesUsed, setBytesUsed] = useState(0);
   const [server, setServer] = useState<{ city?: string; country?: string; ip?: string; colo?: string } | null>(null);
   const [uploadFailed, setUploadFailed] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [conn, setConn] = useState<ConnInfo | null>(null);
+  const [copied, setCopied] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const bytesRef = useRef(0);
+
+  useEffect(() => {
+    setProfile(detectProfile());
+    setConn(readConnection());
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setHistory(parsed.slice(0, HISTORY_MAX));
+      }
+    } catch {}
+  }, []);
+
+  const saveHistory = useCallback((entry: HistoryEntry) => {
+    setHistory((prev) => {
+      const next = [entry, ...prev].slice(0, HISTORY_MAX);
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch {}
+  }, []);
 
   const pickStr = (v: unknown, ...keys: string[]): string | undefined => {
     if (v == null) return undefined;
@@ -351,38 +515,66 @@ export default function SpeedTestTool() {
     setPhase("idle");
   }, []);
 
+  const addBytes = useCallback((n: number) => {
+    bytesRef.current += n;
+    setBytesUsed(bytesRef.current);
+  }, []);
+
   const run = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    const P = PROFILES[profile];
     setResult({ ping: null, jitter: null, download: null, upload: null });
     setLiveDown(0);
     setLiveUp(0);
     setLivePing(null);
     setUploadFailed(false);
+    bytesRef.current = 0;
+    setBytesUsed(0);
 
     setPhase("ping");
-    const { ping, jitter } = await measurePing(ctrl.signal, (v) => setLivePing(v));
+    const { ping, jitter } = await measurePing(P, ctrl.signal, (v) => setLivePing(v), addBytes);
     if (ctrl.signal.aborted) return;
     setResult((r) => ({ ...r, ping, jitter }));
 
     setPhase("download");
     setLiveDown(0);
-    const down = await measureDownload(ctrl.signal, (mbps) => setLiveDown(mbps));
+    const down = await measureDownload(P, ctrl.signal, (mbps) => setLiveDown(mbps), addBytes);
     if (ctrl.signal.aborted) return;
     setResult((r) => ({ ...r, download: down }));
     setLiveDown(down / 1_000_000);
 
     setPhase("upload");
     setLiveUp(0);
-    const { bps: up, failed: upFailed } = await measureUpload(ctrl.signal, (mbps) => setLiveUp(mbps));
+    const { bps: up, failed: upFailed } = await measureUpload(P, ctrl.signal, (mbps) => setLiveUp(mbps), addBytes);
     if (ctrl.signal.aborted) return;
     setResult((r) => ({ ...r, upload: up }));
     setLiveUp(up / 1_000_000);
     setUploadFailed(upFailed);
 
     setPhase("done");
-  }, []);
+    if (!upFailed && down > 0) {
+      saveHistory({ ts: Date.now(), ping, jitter, download: down, upload: up, profile });
+    }
+  }, [profile, addBytes, saveHistory]);
+
+  const copyResult = useCallback(async () => {
+    if (result.download == null) return;
+    const line =
+      `⬇ ${fmtSpeed(result.download)} Mbps · ⬆ ${fmtSpeed(result.upload)} Mbps · ` +
+      `${(result.ping ?? 0).toFixed(0)}ms ping · ${(result.jitter ?? 0).toFixed(1)}ms jitter` +
+      (server?.colo ? ` · Cloudflare ${server.colo}` : "");
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: line });
+      } else {
+        await navigator.clipboard.writeText(line);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {}
+  }, [result, server]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
@@ -401,6 +593,15 @@ export default function SpeedTestTool() {
     upload: t("st_upload") + "…",
     done: t("st_done"),
   };
+
+  const profileOptions: { key: ProfileKey; label: string; hint: string }[] = useMemo(
+    () => [
+      { key: "lite", label: t("st_profile_lite"), hint: t("st_profile_lite_hint") },
+      { key: "balanced", label: t("st_profile_balanced"), hint: t("st_profile_balanced_hint") },
+      { key: "full", label: t("st_profile_full"), hint: t("st_profile_full_hint") },
+    ],
+    [t],
+  );
 
   return (
     <div className="st-tool">
@@ -422,6 +623,13 @@ export default function SpeedTestTool() {
             )}
           </span>
           {server?.ip && <code className="st-ip">{server.ip}</code>}
+          {conn && connLabel(conn) && (
+            <span className="st-conn" title={t("st_conn_type")}>
+              <IconWifi size={12} stroke={2} />
+              {connLabel(conn)}
+              {conn.downlink ? <em>{conn.downlink}Mb</em> : null}
+            </span>
+          )}
         </div>
         <div className="st-actions">
           <span className={`st-phase st-phase-${phase}`}>{phaseLabel[phase]}</span>
@@ -434,6 +642,29 @@ export default function SpeedTestTool() {
               {t("st_stop")}
             </Button>
           )}
+        </div>
+      </div>
+
+      <div className="st-profile-row">
+        <div className="st-profile-seg" role="radiogroup" aria-label={t("st_profile")}>
+          {profileOptions.map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              role="radio"
+              aria-checked={profile === opt.key}
+              disabled={running}
+              onClick={() => setProfile(opt.key)}
+              className={`st-profile-btn ${profile === opt.key ? "is-on" : ""}`}
+            >
+              <span className="st-profile-name">{opt.label}</span>
+              <span className="st-profile-hint">{opt.hint}</span>
+            </button>
+          ))}
+        </div>
+        <div className="st-bytes" title={t("st_data_used")}>
+          <IconDatabase size={13} stroke={1.9} />
+          <span>{fmtBytes(bytesUsed)}</span>
         </div>
       </div>
 
@@ -491,7 +722,51 @@ export default function SpeedTestTool() {
         </div>
       </div>
 
+      {phase === "done" && result.download != null && (
+        <div className="st-actions-row">
+          <button type="button" className="st-link-btn" onClick={copyResult}>
+            {copied ? <IconCheck size={13} stroke={2.2} /> : <IconCopy size={13} stroke={2} />}
+            <span>{copied ? t("st_copied") : typeof navigator !== "undefined" && navigator.share ? t("st_share") : t("st_copy")}</span>
+          </button>
+        </div>
+      )}
+
       {uploadFailed && <p className="st-warn">{t("st_upload_failed")}</p>}
+
+      {history.length > 0 && (
+        <div className="st-history">
+          <div className="st-history-head">
+            <span className="st-history-title">
+              <IconHistory size={13} stroke={2} />
+              {t("st_history")}
+            </span>
+            <button type="button" className="st-link-btn st-link-btn-sm" onClick={clearHistory}>
+              <IconTrash size={12} stroke={2} />
+              {t("st_clear_history")}
+            </button>
+          </div>
+          <ul className="st-history-list">
+            {history.map((h) => (
+              <li key={h.ts} className="st-history-item">
+                <span className="st-h-time">{fmtRelTime(h.ts, t("st_just_now"))}</span>
+                <span className="st-h-metric st-h-down">
+                  <IconArrowDown size={11} stroke={2.2} />
+                  {fmtSpeed(h.download)}
+                </span>
+                <span className="st-h-metric st-h-up">
+                  <IconArrowUp size={11} stroke={2.2} />
+                  {fmtSpeed(h.upload)}
+                </span>
+                <span className="st-h-metric st-h-ping">
+                  <IconActivity size={11} stroke={2.2} />
+                  {h.ping.toFixed(0)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <p className="st-note">{t("st_note")}</p>
     </div>
   );
