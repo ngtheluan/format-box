@@ -282,7 +282,7 @@ export default function WorkflowTimelineTool() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
-  const [layout, setLayout] = useState<LayoutMode>("flow");
+  const [layout, setLayout] = useState<LayoutMode>("compact");
   const [showPicker, setShowPicker] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
   const [filterUser, setFilterUser] = useState<string | null>(null);

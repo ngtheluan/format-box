@@ -7,10 +7,34 @@
  */
 
 // Bump version mỗi lần đổi format notification để ép Chrome lấy SW mới.
-const SW_VERSION = "fb-fuel-v7";
+const SW_VERSION = "fb-fuel-v8";
 const CACHE_NAME = SW_VERSION;
 const SIG_URL = "/__fb_fuel_sig__";
+const DAILY_URL = "/__fb_fuel_daily__";
 const PERIODIC_TAG = "fuel-check";
+const DAILY_HOUR = 8;
+
+function todayDateStr(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+async function readLastDaily() {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const res = await cache.match(DAILY_URL);
+    if (!res) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+async function writeLastDaily(v) {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(DAILY_URL, new Response(v));
+  } catch {}
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -98,6 +122,39 @@ async function showPriceNotification(snap, { testPrefix = false } = {}) {
   });
 }
 
+async function showDailyNotification(snap) {
+  const body = buildBody(snap.items) || "Xem chi tiết tại trang FormatBox.";
+  await self.registration.showNotification("Giá xăng hôm nay", {
+    body,
+    icon: "/icon.svg",
+    badge: "/icon.svg",
+    tag: "fb-fuel-daily",
+    renotify: false,
+    requireInteraction: false,
+    data: { url: "/fuel" },
+  });
+}
+
+async function maybeDaily({ force = false } = {}) {
+  const now = new Date();
+  if (!force && now.getHours() < DAILY_HOUR) return { ok: false, reason: "too_early" };
+  const today = todayDateStr(now);
+  const last = await readLastDaily();
+  if (!force && last === today) return { ok: false, reason: "already_sent" };
+  let snap;
+  try {
+    snap = await fetchSnapshot();
+  } catch {
+    return { ok: false, reason: "fetch_failed" };
+  }
+  if (!snap || !Array.isArray(snap.items) || snap.items.length === 0) {
+    return { ok: false, reason: "empty" };
+  }
+  await showDailyNotification(snap);
+  await writeLastDaily(today);
+  return { ok: true };
+}
+
 async function checkAndNotify({ force = false, testPrefix = false } = {}) {
   let snap;
   try {
@@ -124,14 +181,14 @@ async function checkAndNotify({ force = false, testPrefix = false } = {}) {
 
 self.addEventListener("periodicsync", (event) => {
   if (event.tag === PERIODIC_TAG) {
-    event.waitUntil(checkAndNotify());
+    event.waitUntil(Promise.all([checkAndNotify(), maybeDaily()]));
   }
 });
 
 // Fallback: Background Sync one-shot (dùng khi periodicSync không khả dụng).
 self.addEventListener("sync", (event) => {
   if (event.tag === PERIODIC_TAG) {
-    event.waitUntil(checkAndNotify());
+    event.waitUntil(Promise.all([checkAndNotify(), maybeDaily()]));
   }
 });
 
@@ -139,6 +196,8 @@ self.addEventListener("message", (event) => {
   const msg = event.data || {};
   if (msg.type === "fuel-check") {
     event.waitUntil(checkAndNotify({ force: !!msg.force }));
+  } else if (msg.type === "fuel-daily") {
+    event.waitUntil(maybeDaily({ force: !!msg.force }));
   } else if (msg.type === "fuel-reset-sig") {
     event.waitUntil(writeLastSig(""));
   } else if (msg.type === "fuel-test") {

@@ -815,6 +815,7 @@ export const DICT = {
     vi: "Có kỳ điều chỉnh giá xăng/dầu mới. Mở trang để xem chi tiết.",
     en: "A new fuel price adjustment is out. Open the page for details.",
   },
+  fp_notify_daily_title: { vi: "Giá xăng hôm nay", en: "Today's fuel prices" },
 
   // EXCHANGE CURRENCY
   xc_refresh: { vi: "Làm mới", en: "Refresh" },

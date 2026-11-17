@@ -469,8 +469,21 @@ function FuelHistoryChart({
 
 const SIG_KEY = "fb-fuel-sig";
 const NOTIF_KEY = "fb-fuel-notif";
+const DAILY_KEY = "fb-fuel-last-daily";
+const DAILY_HOUR = 8;
 const PERIODIC_TAG = "fuel-check";
 const PERIODIC_MIN_INTERVAL_MS = 60 * 60 * 1000; // 1h — ngưỡng của Chromium
+
+function todayDateStr(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function msUntilNextDaily(now: Date = new Date()): number {
+  const next = new Date(now);
+  next.setHours(DAILY_HOUR, 0, 0, 0);
+  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+  return next.getTime() - now.getTime();
+}
 
 function signatureOf(items: FuelItem[]) {
   return [...items]
@@ -612,6 +625,69 @@ export default function FuelTool() {
       if (reg) setBgSync(await ensureBackgroundSync(reg));
     })();
   }, [notifEnabled, permission]);
+
+  // Daily 8am notification scheduler — in-tab path. SW handles it when tab closed.
+  useEffect(() => {
+    if (!notifEnabled || permission !== "granted") return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const fireIfDue = async () => {
+      if (cancelled) return;
+      const now = new Date();
+      if (now.getHours() < DAILY_HOUR) return;
+      let last: string | null = null;
+      try {
+        last = localStorage.getItem(DAILY_KEY);
+      } catch {}
+      const today = todayDateStr(now);
+      if (last === today) return;
+      try {
+        const reg = await navigator.serviceWorker?.ready;
+        if (reg?.active) {
+          reg.active.postMessage({ type: "fuel-daily", force: true });
+        } else {
+          const res = await fetch("/api/fuel", { cache: "no-store" });
+          const snap: FuelSnapshot = await res.json();
+          if (snap?.items?.length) {
+            new Notification(t("fp_notify_daily_title"), {
+              body: snap.items
+                .slice(0, 3)
+                .map((it) => `${it.kind}: ${it.price.toLocaleString("vi-VN")}đ/${it.unit}`)
+                .join("\n"),
+              icon: "/icon.svg",
+            });
+          }
+        }
+        try {
+          localStorage.setItem(DAILY_KEY, today);
+        } catch {}
+      } catch {}
+    };
+
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const delay = Math.min(msUntilNextDaily(), 60 * 60 * 1000); // kiểm lại ít nhất mỗi giờ
+      timer = setTimeout(async () => {
+        await fireIfDue();
+        scheduleNext();
+      }, delay);
+    };
+
+    // Chạy ngay khi mount và mỗi lần tab visible trở lại
+    fireIfDue();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fireIfDue();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    scheduleNext();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [notifEnabled, permission, t]);
 
   // Detect price change vs last-seen in localStorage (in-tab path, bắn ngay
   // không chờ periodic sync). SW sẽ xử lý khi tab đóng.
