@@ -166,7 +166,7 @@ export function DykExhibit({
           <div className="mu-gate">
             {item.images[0] && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img className="mu-gate-bg" src={item.images[0].url} alt="" referrerPolicy="no-referrer" />
+              <img className="mu-gate-bg" src={item.images[0].url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
             )}
             <div className={`mu-ticket${hasQuiz ? "" : " mu-ticket--solo"}`}>
               <div className="mu-ticket-main">
@@ -220,7 +220,7 @@ export function DykExhibit({
               <figure className="mu-frame">
                 <span className="mu-canvas">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={art.url} alt={tr(art.caption)} referrerPolicy="no-referrer" />
+                  <img src={art.url} alt={tr(art.caption)} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
                   {art.credit && (
                     <span className="mu-credit">
                       {t("blog_photo")}:{" "}

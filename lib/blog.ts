@@ -563,7 +563,10 @@ export function renderMarkdown(md: string): { html: string; toc: TocItem[] } {
     return `<h2 id="${id}"${attrs ?? ""}>${inner}</h2>`;
   });
   const withImgPolicy = html.replace(/<img\b(?![^>]*\breferrerpolicy=)([^>]*)>/gi, '<img referrerpolicy="no-referrer"$1>');
-  return { html: withImgPolicy.replace(/<table>([\s\S]*?)<\/table>/g, '<div class="bd-table"><table>$1</table></div>'), toc };
+  const withImgLazy = withImgPolicy
+    .replace(/<img\b(?![^>]*\bloading=)([^>]*)>/gi, '<img loading="lazy"$1>')
+    .replace(/<img\b(?![^>]*\bdecoding=)([^>]*)>/gi, '<img decoding="async"$1>');
+  return { html: withImgLazy.replace(/<table>([\s\S]*?)<\/table>/g, '<div class="bd-table"><table>$1</table></div>'), toc };
 }
 
 // DB mapping
